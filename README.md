@@ -1,31 +1,20 @@
-# queelius.github.io
+# Queelius's GitHub Page 👋
 
-I’m Alex Towell and I can be reached at atowell@siue.edu.
+Hello! I'm Alex Towell, a Computer Science Master from SIUE, currently deepening my knowledge in Statistics. With a keen interest in everything from AI/ML/LLM and Encryption to Programming Language Design, I am consistently exploring new frontiers in technology.
 
-I have a masters in computer science from SIUE and statistics from SIUE.
+## My Interests
+- AI/ML/LLM
+- Encrypted Search & Homomorphic Encryption
+- Encryption and Cryptographic Hashing
+- Oblivious and Probabilistic Data Structures & Algorithms
+- Statistical Modeling and Probabilistic Programming
+- Reliability Engineering
+- Programming Language Design
 
-I’m interested in:
-- Encrypted search
-- Homomorphic encryption
-- Encryption and cryptographic hashing
-- Oblivious data structures and algorithms
-- Probabilistic data structures and algorithms
-- Statistical modeling and probabilistic programming
-- Reliability engineering
-- Programming language design
+## Projects
+I'm always working on projects to explore new ideas and technologies.
+You can find a comprehensive list and detailed information about my projects over at [metafunctor.com](https://metafunctor.com/#projects) or by looking at
+my GitHub [repo](https://github.com/queelius).
 
-# Projects
-  
-## R packages
-
-[algebraic.mle](https://queelius.github.io/algebraic.mle)
-
-[series.system.estimation.masked.data](https://queelius.github.io/series_system_estimation_masked_data)
-
-[md.tools](https://queelius.github.io/md.tools)
-
-## C++ libraries
-
-[homomorphic_computational_extensions](http://queelius.github.io/homomorphic_computational_extensions)
-
-[latent_series_systems](https://queelius.github.io/latent_series_systems)
+## Contact
+Interested in discussing a project, collaboration, or just want to chat? Feel free to reach me at lex@metafunctor.com or visit my website [metafunctor.com](https://www.metafunctor.com) to know more about me and my work.
