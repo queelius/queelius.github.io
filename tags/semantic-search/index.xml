@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Semantic-Search on metafunctor</title><link>https://queelius.github.io/tags/semantic-search/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/semantic-search/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>EBK: A Modern eBook Management System with AI-Powered Features</title><link>https://queelius.github.io/post/2025-10-ebk/</link><pubDate>Mon, 13 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-10-ebk/</guid><description>EBK is a comprehensive eBook metadata management tool that combines a robust SQLite backend with AI-powered features including knowledge graphs, semantic search, and MCP server integration for AI assistants.</description><content:encoded><![CDATA[<p>Managing a large eBook collection can quickly become overwhelming. Different formats, inconsistent metadata, duplicate files, and the challenge of actually <em>finding</em> what you need when you need it—these problems compound as your library grows.</p>
+<p><strong><a href="https://github.com/queelius/ebk">EBK</a></strong> addresses these challenges with a modern, Python-based solution that treats your eBook library as a queryable, searchable, AI-enhanced knowledge base.</p>
+<h2 id="the-core-value-proposition">The Core Value Proposition</h2>
+<p>EBK isn&rsquo;t just another file organizer. It&rsquo;s built on several key principles:</p>
+<h3 id="1-database-first-architecture">1. Database-First Architecture</h3>
+<p>At its heart, EBK uses <strong>SQLAlchemy + SQLite</strong> with a normalized schema and proper relationships. This means:</p>
+<ul>
+<li><strong>Fast queries</strong> through indexed fields and relationships</li>
+<li><strong>FTS5 full-text search</strong> across titles, descriptions, and extracted content</li>
+<li><strong>Transaction safety</strong> ensuring your metadata is never corrupted</li>
+<li><strong>SQL power</strong> when you need complex queries</li>
+</ul>
+<h3 id="2-automatic-intelligence">2. Automatic Intelligence</h3>
+<p>The system automatically extracts and processes information:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Simple import with auto-extraction</span>
+</span></span><span class="line"><span class="cl"><span class="n">ebk</span> <span class="n">db</span><span class="o">-</span><span class="kn">import</span> <span class="nn">my</span><span class="o">-</span><span class="n">book</span><span class="o">.</span><span class="n">pdf</span> <span class="o">~/</span><span class="n">my</span><span class="o">-</span><span class="n">library</span>
+</span></span></code></pre></div><p>Behind the scenes, EBK:</p>
+<ul>
+<li><strong>Extracts text</strong> from PDFs (PyMuPDF + pypdf fallback) and EPUBs (ebooklib)</li>
+<li><strong>Generates chunks</strong> (500-word overlapping segments) for semantic search</li>
+<li><strong>Computes SHA256 hashes</strong> for deduplication</li>
+<li><strong>Extracts covers</strong> (first page for PDFs, metadata for EPUBs)</li>
+<li><strong>Creates thumbnails</strong> for display</li>
+<li><strong>Indexes everything</strong> in FTS5 for instant search</li>
+</ul>
+<h3 id="3-hash-based-deduplication">3. Hash-Based Deduplication</h3>
+<p>EBK implements intelligent file handling:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Same file (same hash)          → Skip (already imported)
+</span></span><span class="line"><span class="cl">Same book, different format    → Add as additional format
+</span></span><span class="line"><span class="cl">Different book                 → Import as new entry
+</span></span></code></pre></div><p>Books are stored in hash-prefixed directories (<code>ab/cd/ef/abcdef123456...pdf</code>) for scalability—no more massive flat directories.</p>
+<h2 id="the-fluent-python-api">The Fluent Python API</h2>
+<p>EBK provides a powerful, chainable API for programmatic access:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">ebk</span> <span class="kn">import</span> <span class="n">Library</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Open library and build complex queries</span>
+</span></span><span class="line"><span class="cl"><span class="n">lib</span> <span class="o">=</span> <span class="n">Library</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&#34;~/ebooks&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;language&#34;</span><span class="p">,</span> <span class="s2">&#34;en&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="s2">&#34;2020&#34;</span><span class="p">,</span> <span class="s2">&#34;&gt;=&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;subjects&#34;</span><span class="p">,</span> <span class="s2">&#34;Python&#34;</span><span class="p">,</span> <span class="s2">&#34;contains&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s2">&#34;title&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">execute</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Method chaining for operations</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;rating&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">tag_all</span><span class="p">(</span><span class="s2">&#34;recommended&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">export_to_hugo</span><span class="p">(</span><span class="s2">&#34;/path/to/site&#34;</span><span class="p">,</span> <span class="n">organize_by</span><span class="o">=</span><span class="s2">&#34;subject&#34;</span><span class="p">))</span>
+</span></span></code></pre></div><p>This API makes it trivial to:</p>
+<ul>
+<li>Build complex queries without writing SQL</li>
+<li>Filter and transform collections</li>
+<li>Export subsets to different formats</li>
+<li>Analyze reading patterns and statistics</li>
+</ul>
+<h2 id="ai-powered-features">AI-Powered Features</h2>
+<p>EBK&rsquo;s optional AI features transform it from a management tool into a knowledge assistant:</p>
+<h3 id="knowledge-graphs">Knowledge Graphs</h3>
+<p>Using <strong>NetworkX</strong>, EBK can extract and visualize concept relationships:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Extract knowledge graph from library</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">build_knowledge_graph</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">extract_entities</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">min_connection_strength</span><span class="o">=</span><span class="mf">0.3</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Visualize relationships between topics</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&#34;library_knowledge.html&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>This reveals hidden connections: &ldquo;These books about functional programming also discuss category theory.&rdquo;</p>
+<h3 id="semantic-search">Semantic Search</h3>
+<p>Beyond keyword matching, EBK can find books by <em>meaning</em>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Find books semantically similar to a query</span>
+</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">semantic_search</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;explaining complex mathematical concepts simply&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>The system uses vector embeddings (with TF-IDF fallback for offline use) to understand intent, not just keywords.</p>
+<h3 id="reading-companion">Reading Companion</h3>
+<p>Track your reading journey with timestamps and context:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">session</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">start_reading_session</span><span class="p">(</span><span class="n">book_id</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">session</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="s2">&#34;Chapter 3: Key insight about...&#34;</span><span class="p">,</span> <span class="n">page</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">session</span><span class="o">.</span><span class="n">complete</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Later: &#34;What was I reading about X-rays last month?&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">search_reading_history</span><span class="p">(</span><span class="s2">&#34;X-rays&#34;</span><span class="p">,</span> <span class="n">date_range</span><span class="o">=</span><span class="s2">&#34;last_month&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="mcp-server-integration">MCP Server Integration</h2>
+<p>One of EBK&rsquo;s most powerful features is its <strong>Model Context Protocol (MCP) server</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install ebk<span class="o">[</span>mcp<span class="o">]</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Configure your AI assistant (Claude, etc.) to use the MCP server</span>
+</span></span></code></pre></div><p>This allows AI assistants to:</p>
+<ul>
+<li>Query your library directly</li>
+<li>Retrieve relevant passages during conversations</li>
+<li>Suggest books based on discussion context</li>
+<li>Answer questions using your personal knowledge base</li>
+</ul>
+<p>Imagine asking your AI: &ldquo;What books do I have about transformer architectures?&rdquo; and getting instant, accurate results from <em>your own library</em>.</p>
+<h2 id="rich-cli-experience">Rich CLI Experience</h2>
+<p>EBK uses <strong>Typer + Rich</strong> for a beautiful command-line experience:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Initialize new library</span>
+</span></span><span class="line"><span class="cl">ebk db-init ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Import from Calibre</span>
+</span></span><span class="line"><span class="cl">ebk db-import-calibre ~/Calibre/Library ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Full-text search with colorized output</span>
+</span></span><span class="line"><span class="cl">ebk db-search <span class="s2">&#34;quantum computing&#34;</span> ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Statistics with rich tables</span>
+</span></span><span class="line"><span class="cl">ebk db-stats ~/my-library
+</span></span></code></pre></div><p>The CLI features:</p>
+<ul>
+<li><strong>Progress bars</strong> for long operations</li>
+<li><strong>Colorized output</strong> for readability</li>
+<li><strong>Clickable file links</strong> (terminal permitting)</li>
+<li><strong>Rich tables</strong> for results</li>
+<li><strong>JSON output</strong> when scripting</li>
+</ul>
+<h2 id="flexible-export-options">Flexible Export Options</h2>
+<p>EBK can transform your library into various formats:</p>
+<h3 id="hugo-static-site">Hugo Static Site</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk <span class="nb">export</span> hugo ~/library ~/hugo-site <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --jinja <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --organize-by subject <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --include-covers <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>    --include-files
+</span></span></code></pre></div><p>Creates a browsable website with:</p>
+<ul>
+<li>Subject-based organization</li>
+<li>Cover image display</li>
+<li>Full-text content</li>
+<li>Download links</li>
+</ul>
+<h3 id="symlink-dag">Symlink DAG</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk export-dag ~/library ~/output
+</span></span></code></pre></div><p>Creates a navigable directory structure where:</p>
+<ul>
+<li>Tags become folders</li>
+<li>Books appear via symlinks</li>
+<li>Multiple paths lead to the same book</li>
+<li>File managers can browse it naturally</li>
+</ul>
+<h2 id="import-from-anywhere">Import from Anywhere</h2>
+<p>EBK handles multiple import sources:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># From Calibre library</span>
+</span></span><span class="line"><span class="cl">ebk db-import-calibre ~/Calibre/Library ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Individual files with auto-extraction</span>
+</span></span><span class="line"><span class="cl">ebk db-import book.pdf ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Batch import with progress tracking</span>
+</span></span><span class="line"><span class="cl">ebk db-import ~/Downloads/*.epub ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># From ZIP archives</span>
+</span></span><span class="line"><span class="cl">ebk import-zip library-backup.zip --output-dir ~/my-library
+</span></span></code></pre></div><p>Each import source is handled appropriately:</p>
+<ul>
+<li><strong>Calibre</strong>: Reads <code>metadata.opf</code> files</li>
+<li><strong>Raw files</strong>: Auto-extracts metadata from PDF/EPUB</li>
+<li><strong>ZIP archives</strong>: Preserves existing EBK structure</li>
+</ul>
+<h2 id="set-theoretic-operations">Set-Theoretic Operations</h2>
+<p>Merge multiple libraries with mathematical precision:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Union: All unique books from all libraries</span>
+</span></span><span class="line"><span class="cl">ebk merge union ~/merged ~/lib1 ~/lib2 ~/lib3
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Intersection: Only books present in ALL libraries</span>
+</span></span><span class="line"><span class="cl">ebk merge intersect ~/common ~/lib1 ~/lib2
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Difference: Books in lib1 NOT in lib2</span>
+</span></span><span class="line"><span class="cl">ebk merge diff ~/lib1-only ~/lib1 ~/lib2
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Symmetric difference: Books in exactly ONE library</span>
+</span></span><span class="line"><span class="cl">ebk merge symdiff ~/unique ~/lib1 ~/lib2
+</span></span></code></pre></div><p>Perfect for:</p>
+<ul>
+<li>Consolidating backups</li>
+<li>Finding duplicates across libraries</li>
+<li>Identifying unique collections</li>
+<li>Deduplicating merged sources</li>
+</ul>
+<h2 id="architecture-modular-and-extensible">Architecture: Modular and Extensible</h2>
+<p>EBK follows a clean, layered design:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">┌─────────────────────────────────────┐
+</span></span><span class="line"><span class="cl">│        Integrations Layer           │  ← Streamlit, MCP, Viz
+</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
+</span></span><span class="line"><span class="cl">│           CLI Layer                 │  ← Typer commands
+</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
+</span></span><span class="line"><span class="cl">│        Core Library Layer           │  ← Fluent API
+</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
+</span></span><span class="line"><span class="cl">│      Import/Export Layer            │  ← Format handlers
+</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
+</span></span><span class="line"><span class="cl">│        Database Layer               │  ← SQLAlchemy + SQLite
+</span></span><span class="line"><span class="cl">└─────────────────────────────────────┘
+</span></span></code></pre></div><p>This design ensures:</p>
+<ul>
+<li><strong>Core remains lightweight</strong> (minimal dependencies)</li>
+<li><strong>Extensions are optional</strong> (<code>pip install ebk[streamlit]</code>)</li>
+<li><strong>APIs are stable</strong> (database changes don&rsquo;t affect CLI)</li>
+<li><strong>Testing is isolated</strong> (each layer independently testable)</li>
+</ul>
+<h2 id="optional-integrations">Optional Integrations</h2>
+<h3 id="streamlit-dashboard">Streamlit Dashboard</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install ebk<span class="o">[</span>streamlit<span class="o">]</span>
+</span></span><span class="line"><span class="cl">streamlit run -m ebk.integrations.streamlit.app -- ~/library
+</span></span></code></pre></div><p>Provides a web interface for:</p>
+<ul>
+<li>Visual browsing with cover thumbnails</li>
+<li>Advanced search and filtering</li>
+<li>Statistics and visualizations</li>
+<li>Batch operations</li>
+<li>Export management</li>
+</ul>
+<h3 id="visualization-tools">Visualization Tools</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install ebk<span class="o">[</span>viz<span class="o">]</span>
+</span></span></code></pre></div><p>Enables:</p>
+<ul>
+<li><strong>Network graphs</strong> showing book relationships</li>
+<li><strong>Tag clouds</strong> for subject distribution</li>
+<li><strong>Timeline views</strong> of publication dates</li>
+<li><strong>Author collaboration networks</strong></li>
+</ul>
+<h2 id="real-world-use-cases">Real-World Use Cases</h2>
+<h3 id="academic-research">Academic Research</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">lib</span> <span class="o">=</span> <span class="n">Library</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&#34;~/research-library&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find papers on a specific topic with high citations</span>
+</span></span><span class="line"><span class="cl"><span class="n">papers</span> <span class="o">=</span> <span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;subjects&#34;</span><span class="p">,</span> <span class="s2">&#34;machine-learning&#34;</span><span class="p">,</span> <span class="s2">&#34;contains&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;custom.citations&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&#34;&gt;=&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">execute</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Export to Hugo for lab website</span>
+</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">export_to_hugo</span><span class="p">(</span><span class="s2">&#34;/lab-website/content/papers&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="personal-knowledge-base">Personal Knowledge Base</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Build knowledge graph of your interests</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">build_knowledge_graph</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find books that bridge two topics</span>
+</span></span><span class="line"><span class="cl"><span class="n">bridges</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">find_bridges</span><span class="p">(</span><span class="s2">&#34;programming&#34;</span><span class="p">,</span> <span class="s2">&#34;philosophy&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Get reading recommendations</span>
+</span></span><span class="line"><span class="cl"><span class="n">recommended</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">recommend</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">based_on</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;favorite_book_1&#34;</span><span class="p">,</span> <span class="s2">&#34;favorite_book_2&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">diversity</span><span class="o">=</span><span class="mf">0.6</span>  <span class="c1"># Balance similarity with variety</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><h3 id="curation-and-sharing">Curation and Sharing</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Create curated collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="s2">&#34;beginner-friendly&#34;</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;tags&#34;</span><span class="p">,</span> <span class="p">[]))</span>
+</span></span><span class="line"><span class="cl">   <span class="o">.</span><span class="n">tag_all</span><span class="p">(</span><span class="s2">&#34;recommended-for-beginners&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="o">.</span><span class="n">export_to_zip</span><span class="p">(</span><span class="s2">&#34;beginner-collection.zip&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Share with Calibre users</span>
+</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">export_to_calibre</span><span class="p">(</span><span class="s2">&#34;/shared/calibre-library&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="development-philosophy">Development Philosophy</h2>
+<p>EBK embraces modern Python best practices:</p>
+<ul>
+<li><strong>Type hints throughout</strong> for IDE support</li>
+<li><strong>Comprehensive testing</strong> with pytest</li>
+<li><strong>Documentation</strong> via docstrings and Markdown</li>
+<li><strong>Makefile automation</strong> for common tasks</li>
+<li><strong>Modular design</strong> for easy extension</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Development workflow</span>
+</span></span><span class="line"><span class="cl">make venv      <span class="c1"># Create virtual environment</span>
+</span></span><span class="line"><span class="cl">make setup     <span class="c1"># Install in development mode</span>
+</span></span><span class="line"><span class="cl">make <span class="nb">test</span>      <span class="c1"># Run test suite</span>
+</span></span><span class="line"><span class="cl">make coverage  <span class="c1"># Check coverage</span>
+</span></span></code></pre></div><h2 id="future-directions">Future Directions</h2>
+<p>EBK is actively developed with several exciting features planned:</p>
+<ul>
+<li><strong>Enhanced AI features</strong>: Question generation for active recall</li>
+<li><strong>Mobile app</strong>: React Native app using SQLite directly</li>
+<li><strong>Cloud sync</strong>: Optional encrypted cloud backup</li>
+<li><strong>Plugin system</strong>: Community-contributed importers/exporters</li>
+<li><strong>Advanced analytics</strong>: Reading time tracking, difficulty estimation</li>
+</ul>
+<h2 id="getting-started">Getting Started</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install with all features</span>
+</span></span><span class="line"><span class="cl">pip install ebk<span class="o">[</span>all<span class="o">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Initialize a library</span>
+</span></span><span class="line"><span class="cl">ebk db-init ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Import your first book</span>
+</span></span><span class="line"><span class="cl">ebk db-import ~/Documents/book.pdf ~/my-library
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Search and explore</span>
+</span></span><span class="line"><span class="cl">ebk db-search <span class="s2">&#34;topic&#34;</span> ~/my-library
+</span></span><span class="line"><span class="cl">ebk db-stats ~/my-library
+</span></span></code></pre></div><h2 id="why-ebk">Why EBK?</h2>
+<p>The eBook ecosystem is fragmented. Files are scattered, metadata is inconsistent, and powerful operations (like &ldquo;find all books about X published after Y that I haven&rsquo;t read&rdquo;) are impossible without custom scripts.</p>
+<p>EBK provides:</p>
+<ul>
+<li><strong>A single source of truth</strong> for your eBook metadata</li>
+<li><strong>Powerful querying</strong> without writing SQL</li>
+<li><strong>AI-enhanced discovery</strong> for better insights</li>
+<li><strong>Format independence</strong> (import/export to many formats)</li>
+<li><strong>Future-proof storage</strong> (open SQLite + documented schema)</li>
+</ul>
+<p>Your books represent significant investment—both financial and intellectual. They deserve better than a pile of files in a directory.</p>
+<p>EBK treats your library as what it truly is: a personal knowledge base worth curating, querying, and exploring.</p>
+<hr>
+<p><strong>Resources:</strong></p>
+<ul>
+<li><a href="https://github.com/queelius/ebk">GitHub Repository</a></li>
+<li><a href="/projects/ebk/">Project Page</a></li>
+<li><a href="https://metafunctor.com">Author&rsquo;s Website</a></li>
+</ul>
+<p><strong>Questions or feedback?</strong> Open an issue on GitHub or reach out at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a>.</p>
+<p>Happy reading! 📚✨</p>
+]]></content:encoded><category>Python</category><category>ebook-manager</category><category>SQLite</category><category>SQLAlchemy</category><category>full-text-search</category><category>knowledge-graphs</category><category>semantic-search</category><category>MCP</category><category>AI</category><category>cli</category><category>data-management</category></item></channel></rss>

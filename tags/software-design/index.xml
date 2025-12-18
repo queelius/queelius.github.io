@@ -1,0 +1,1321 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Software-Design on metafunctor</title><link>https://queelius.github.io/tags/software-design/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/software-design/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Everything is a File: Applying Unix Philosophy to Modern Data Management</title><link>https://queelius.github.io/post/2025-10-20-vfs-cli-tools/</link><pubDate>Mon, 20 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-10-20-vfs-cli-tools/</guid><description>How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems</description><content:encoded><![CDATA[<p><em>How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems</em></p>
+<h2 id="the-problem-clis-that-dont-scale-with-complexity">The Problem: CLIs That Don&rsquo;t Scale With Complexity</h2>
+<p>I had a bookmark manager. Then an ebook library manager. Then a chat history manager. Each started simple:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Traditional CRUD approach</span>
+</span></span><span class="line"><span class="cl">btk add https://example.com --tags python,tutorial
+</span></span><span class="line"><span class="cl">btk list --tag python
+</span></span><span class="line"><span class="cl">btk search <span class="s2">&#34;async&#34;</span>
+</span></span><span class="line"><span class="cl">btk delete <span class="m">1234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
+</span></span><span class="line"><span class="cl">ebk list --author Knuth
+</span></span><span class="line"><span class="cl">ebk search <span class="s2">&#34;algorithms&#34;</span>
+</span></span></code></pre></div><p>This works fine&hellip; until it doesn&rsquo;t.</p>
+<p><strong>The breaking point:</strong> I had 10,000+ bookmarks organized with hierarchical tags like <code>programming/python/async</code>, <code>research/ml/transformers</code>, <code>work/clients/acme</code>. My ebook library had similar structure. My exported chat conversations from Claude, ChatGPT, and Copilot were piling up.</p>
+<p>Traditional CRUD commands became unwieldy:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Getting specific without a VFS</span>
+</span></span><span class="line"><span class="cl">btk list --tag programming/python/async/io --format json <span class="p">|</span> jq <span class="s1">&#39;.[].title&#39;</span>
+</span></span><span class="line"><span class="cl">ebk list --category <span class="s2">&#34;Computer Science/Algorithms/Graph Theory&#34;</span> --limit <span class="m">50</span>
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;machine learning&#34;</span> --source ChatGPT --date-from 2024-01-01
+</span></span></code></pre></div><p>Each command required precise arguments. Each tool had different flag conventions. I couldn&rsquo;t <em>navigate</em> my data—I could only <em>query</em> it. And queries require knowing exactly what you&rsquo;re looking for.</p>
+<h2 id="the-unix-revelation-everything-is-a-file">The Unix Revelation: Everything is a File</h2>
+<p>The insight came from an unlikely place: managing files on my system.</p>
+<p>When I have thousands of source files organized in directories, I don&rsquo;t run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">list-files --path /src/components/auth --extension .tsx
+</span></span></code></pre></div><p>I run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> src/components/auth
+</span></span><span class="line"><span class="cl">ls *.tsx
+</span></span></code></pre></div><p><strong>The difference is profound:</strong> With a filesystem, I can:</p>
+<ul>
+<li><strong>Navigate incrementally</strong>: <code>cd</code> from general to specific</li>
+<li><strong>Explore</strong>: <code>ls</code> to see what&rsquo;s there</li>
+<li><strong>Compose</strong>: <code>cat file | grep pattern | wc -l</code></li>
+<li><strong>Use familiar tools</strong>: <code>find</code>, <code>grep</code>, <code>xargs</code>, pipes, redirection</li>
+</ul>
+<p>What if my bookmarks, ebooks, and chat histories were filesystems?</p>
+<h2 id="the-pattern-virtual-filesystems--posix-commands">The Pattern: Virtual Filesystems + POSIX Commands</h2>
+<p>Over the past year, I&rsquo;ve built six Python tools that all follow the same architectural pattern:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Domain</th>
+          <th>VFS Root Structure</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>btk</strong></td>
+          <td>Bookmarks</td>
+          <td><code>/bookmarks/</code>, <code>/tags/</code>, <code>/recent/</code>, <code>/domains/</code>, <code>/unread/</code>, <code>/popular/</code></td>
+      </tr>
+      <tr>
+          <td><strong>ebk</strong></td>
+          <td>Ebook library</td>
+          <td><code>/books/</code>, <code>/authors/</code>, <code>/series/</code>, <code>/subjects/</code>, <code>/recent/</code>, <code>/unread/</code></td>
+      </tr>
+      <tr>
+          <td><strong>ctk</strong></td>
+          <td>Chat conversations</td>
+          <td><code>/conversations/</code>, <code>/sources/</code>, <code>/topics/</code>, <code>/starred/</code>, <code>/recent/</code></td>
+      </tr>
+      <tr>
+          <td><strong>ghops</strong></td>
+          <td>Git repositories</td>
+          <td><code>/repos/</code>, <code>/languages/</code>, <code>/topics/</code>, <code>/stars/</code>, <code>/recent/</code></td>
+      </tr>
+      <tr>
+          <td><strong>infinigram</strong></td>
+          <td>N-gram models</td>
+          <td><code>/datasets/</code>, <code>/models/</code>, <code>/corpora/</code></td>
+      </tr>
+      <tr>
+          <td><strong>AlgoTree</strong></td>
+          <td>Tree structures</td>
+          <td><code>/nodes/</code>, <code>/paths/</code>, <code>/subtrees/</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>Each tool provides:</p>
+<ol>
+<li><strong>A stateless CLI</strong> for scriptability: <code>btk bookmark add URL</code>, <code>ebk import book.pdf</code></li>
+<li><strong>An interactive shell</strong> with a virtual filesystem: <code>btk shell</code>, <code>ebk shell</code>, <code>ctk chat</code></li>
+<li><strong>POSIX-like commands</strong>: <code>cd</code>, <code>ls</code>, <code>pwd</code>, <code>cat</code>, <code>mv</code>, <code>cp</code>, <code>rm</code>, <code>find</code>, <code>grep</code></li>
+<li><strong>Unix pipeline support</strong>: Most commands output JSONL by default for piping</li>
+</ol>
+<p>The magic is in the shell. Let me show you.</p>
+<h2 id="live-session-navigating-10000-bookmarks">Live Session: Navigating 10,000 Bookmarks</h2>
+<p><strong>Watch the shell in action:</strong></p>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.js"></script>
+<div id="btk-demo"></div>
+<script>
+AsciinemaPlayer.create('btk.cast', document.getElementById('btk-demo'), {
+  cols: 94,
+  rows: 49,
+  speed: 1,
+  idleTimeLimit: 2,
+  theme: 'monokai',
+  poster: 'npt:0:06'
+});
+</script>
+<p><em>This is a live recording captured with <a href="https://asciinema.org/">asciinema</a>. You can pause, copy text, and replay. The entire recording is just 78KB of text.</em></p>
+<h3 id="traditional-approach-crud-cli">Traditional Approach (CRUD CLI)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk search <span class="s2">&#34;python async&#34;</span> --tag programming --limit <span class="m">10</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Returns JSON blob... now what?</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ btk list --tag <span class="s2">&#34;programming/python/async&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Hope I remembered the exact tag path</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ btk bookmark get <span class="m">4095</span> --format json <span class="p">|</span> jq <span class="s1">&#39;.tags&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># One bookmark at a time, verbose</span>
+</span></span></code></pre></div><h3 id="vfs-approach-interactive-shell">VFS Approach (Interactive Shell)</h3>
+<p>The recording above shows the shell in action. Here&rsquo;s what&rsquo;s happening:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk shell
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">      __    __  __
+</span></span><span class="line"><span class="cl">     / /_  / /_/ /__
+</span></span><span class="line"><span class="cl">    / __ <span class="se">\/</span> __/ //_/
+</span></span><span class="line"><span class="cl">   / /_/ / /_/ ,&lt;
+</span></span><span class="line"><span class="cl">  /_.___/<span class="se">\_</span>_/_/<span class="p">|</span>_<span class="p">|</span>  v0.7.1
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  Bookmark Toolkit - Virtual Filesystem Shell
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ ls
+</span></span><span class="line"><span class="cl">bookmarks/    <span class="o">(</span>10,247<span class="o">)</span>    All bookmarks
+</span></span><span class="line"><span class="cl">tags/                    Tag hierarchy
+</span></span><span class="line"><span class="cl">recent/                  Time-based navigation
+</span></span><span class="line"><span class="cl">domains/                 Browse by domain
+</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    Never visited
+</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      Most visited
+</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       Dead links
+</span></span><span class="line"><span class="cl">starred/      <span class="o">(</span>156<span class="o">)</span>      Starred bookmarks
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming/python
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ ls
+</span></span><span class="line"><span class="cl">async/        <span class="o">(</span>87<span class="o">)</span>
+</span></span><span class="line"><span class="cl">web/          <span class="o">(</span>124<span class="o">)</span>
+</span></span><span class="line"><span class="cl">data/         <span class="o">(</span>156<span class="o">)</span>
+</span></span><span class="line"><span class="cl">ml/           <span class="o">(</span>89<span class="o">)</span>
+</span></span><span class="line"><span class="cl">testing/      <span class="o">(</span>45<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls <span class="p">|</span> head -5
+</span></span><span class="line"><span class="cl"><span class="m">4095</span>  <span class="m">5234</span>  <span class="m">6012</span>  <span class="m">6891</span>  <span class="m">7234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/title
+</span></span><span class="line"><span class="cl">Real Python - Async IO in Python: A Complete Walkthrough
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/url
+</span></span><span class="line"><span class="cl">https://realpython.com/async-io-python/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ star <span class="m">4095</span>
+</span></span><span class="line"><span class="cl">★ Starred bookmark <span class="c1">#4095</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ <span class="nb">cd</span> /recent/today/added
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ ls
+</span></span><span class="line"><span class="cl"><span class="m">8901</span>  <span class="m">8902</span>  <span class="m">8903</span>  <span class="m">8904</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag <span class="m">8901</span> <span class="m">8902</span> <span class="m">8903</span> todo
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">3</span> bookmarks
+</span></span></code></pre></div><p><strong>Notice what just happened:</strong></p>
+<ul>
+<li><strong>No flag memorization</strong>: Just <code>cd</code> and <code>ls</code></li>
+<li><strong>Incremental exploration</strong>: Narrow down step by step</li>
+<li><strong>Context-aware commands</strong>: <code>tag</code> and <code>star</code> work on IDs in current directory</li>
+<li><strong>Familiar mental model</strong>: It&rsquo;s just directories and files</li>
+</ul>
+<h2 id="the-same-pattern-different-data">The Same Pattern, Different Data</h2>
+<p>This pattern works beautifully across domains:</p>
+<h3 id="managing-ebooks-ebk">Managing Ebooks (ebk)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk:/$ <span class="nb">cd</span> subjects/Computer<span class="se">\ </span>Science/Algorithms
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ ls
+</span></span><span class="line"><span class="cl">Introduction to Algorithms.pdf
+</span></span><span class="line"><span class="cl">The Algorithm Design Manual.pdf
+</span></span><span class="line"><span class="cl">Algorithms <span class="o">(</span>Sedgewick<span class="o">)</span>.pdf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ cat <span class="s2">&#34;Introduction to Algorithms.pdf&#34;</span>/metadata
+</span></span><span class="line"><span class="cl">Title: Introduction to Algorithms
+</span></span><span class="line"><span class="cl">Authors: Cormen, Leiserson, Rivest, Stein
+</span></span><span class="line"><span class="cl">ISBN: 978-0262033848
+</span></span><span class="line"><span class="cl">Pages: <span class="m">1312</span>
+</span></span><span class="line"><span class="cl">Rating: 5/5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ rate * <span class="m">5</span>
+</span></span><span class="line"><span class="cl">✓ Rated <span class="m">3</span> books
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ <span class="nb">cd</span> /recent/this-week/added
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/recent/this-week/added$ ls
+</span></span><span class="line"><span class="cl">Advanced Programming in the Unix Environment.pdf
+</span></span><span class="line"><span class="cl">Designing Data-Intensive Applications.pdf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/recent/this-week/added$ tag * must-read
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">2</span> books
+</span></span></code></pre></div><h3 id="exploring-chat-history-ctk">Exploring Chat History (ctk)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk:/$ <span class="nb">cd</span> sources/ChatGPT
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">423</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ <span class="nb">cd</span> /topics/machine-learning
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ ls
+</span></span><span class="line"><span class="cl">conv_a1b2c3  conv_d4e5f6  conv_g7h8i9
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ show conv_a1b2c3
+</span></span><span class="line"><span class="cl"><span class="o">[</span>Shows conversation tree with messages<span class="o">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ star conv_a1b2c3
+</span></span><span class="line"><span class="cl">★ Starred conversation
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ <span class="nb">cd</span> /starred
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/starred$ <span class="nb">export</span> --format markdown &gt; starred_ml_convos.md
+</span></span><span class="line"><span class="cl">✓ Exported <span class="m">5</span> starred conversations to starred_ml_convos.md
+</span></span></code></pre></div><h3 id="managing-git-repositories-ghops">Managing Git Repositories (ghops)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ghops:/$ <span class="nb">cd</span> languages/Python
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python$ ls
+</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/  infinigram/  AlgoTree/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python$ <span class="nb">cd</span> btk
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ status
+</span></span><span class="line"><span class="cl">Branch: master
+</span></span><span class="line"><span class="cl">Commits ahead: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">Uncommitted changes: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">Last commit: Release v0.7.1 <span class="o">(</span><span class="m">2</span> days ago<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ <span class="nb">cd</span> /topics/cli-tools
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/topics/cli-tools$ ls
+</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/topics/cli-tools$ audit all --fix
+</span></span><span class="line"><span class="cl">✓ Added .gitignore to <span class="m">2</span> repositories
+</span></span><span class="line"><span class="cl">✓ Added LICENSE to <span class="m">1</span> repository
+</span></span><span class="line"><span class="cl">✓ Updated README badges in <span class="m">4</span> repositories
+</span></span></code></pre></div><h2 id="design-principles-what-makes-this-work">Design Principles: What Makes This Work</h2>
+<p>After building six of these tools, clear patterns emerged:</p>
+<h3 id="1-local-first-stateless-cli--stateful-shell">1. <strong>Local-First, Stateless CLI + Stateful Shell</strong></h3>
+<p>Every tool offers two interfaces:</p>
+<p><strong>CLI (stateless, scriptable):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk bookmark add https://example.com --tags python,tutorial
+</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> --format jsonl &gt; training.jsonl
+</span></span></code></pre></div><p><strong>Shell (stateful, exploratory):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk shell
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> tags/python
+</span></span><span class="line"><span class="cl">star *
+</span></span></code></pre></div><p>The CLI is for automation and scripting. The shell is for humans.</p>
+<h3 id="2-everything-is-a-file-even-dynamic-data">2. <strong>Everything is a File, Even Dynamic Data</strong></h3>
+<p>Traditional filesystems are static. Our VFS exposes dynamic, computed views:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ ls
+</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    <span class="c1"># SELECT * WHERE visit_count = 0</span>
+</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      <span class="c1"># SELECT * ORDER BY visit_count DESC LIMIT 100</span>
+</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       <span class="c1"># SELECT * WHERE reachable = false</span>
+</span></span><span class="line"><span class="cl">recent/today/added/      <span class="c1"># SELECT * WHERE added &gt;= TODAY</span>
+</span></span></code></pre></div><p>These &ldquo;directories&rdquo; don&rsquo;t exist on disk—they&rsquo;re computed queries. But they <em>feel</em> like directories.</p>
+<h3 id="3-context-aware-commands">3. <strong>Context-Aware Commands</strong></h3>
+<p>Commands understand where you are:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/bookmarks/4095$ cat title
+</span></span><span class="line"><span class="cl"><span class="c1"># Shows title of bookmark 4095</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/python$ star *
+</span></span><span class="line"><span class="cl"><span class="c1"># Stars all Python-tagged bookmarks</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag * review
+</span></span><span class="line"><span class="cl"><span class="c1"># Tags today&#39;s additions</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/broken$ rm *
+</span></span><span class="line"><span class="cl"><span class="c1"># Removes all broken bookmarks</span>
+</span></span></code></pre></div><p>The current path becomes implicit context. No need to repeat IDs or filters.</p>
+<h3 id="4-jsonl-by-default-pretty-on-demand">4. <strong>JSONL by Default, Pretty on Demand</strong></h3>
+<p>All commands output newline-delimited JSON (JSONL) by default:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Pipe to jq, grep, awk, any Unix tool</span>
+</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span>
+</span></span><span class="line"><span class="cl">ebk status <span class="p">|</span> grep <span class="s2">&#34;rating: 5&#34;</span>
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;python&#34;</span> <span class="p">|</span> jq <span class="s1">&#39;.id&#39;</span> <span class="p">|</span> xargs ctk <span class="nb">export</span> --ids
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pretty-print for humans</span>
+</span></span><span class="line"><span class="cl">btk list --pretty
+</span></span><span class="line"><span class="cl">ebk status --pretty
+</span></span></code></pre></div><p>This makes tools composable with the Unix ecosystem.</p>
+<h3 id="5-hierarchical-tags--navigable-directories">5. <strong>Hierarchical Tags = Navigable Directories</strong></h3>
+<p>The killer feature: hierarchical tags map directly to filesystem paths.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Tag with hierarchy</span>
+</span></span><span class="line"><span class="cl">btk tag <span class="m">4095</span> programming/python/async/io
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Navigate the hierarchy</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming
+</span></span><span class="line"><span class="cl">btk:/tags/programming$ ls
+</span></span><span class="line"><span class="cl">python/  javascript/  rust/  go/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming$ <span class="nb">cd</span> python/async
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls
+</span></span><span class="line"><span class="cl">io/  frameworks/  patterns/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Bulk operations on a hierarchy</span>
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ star */advanced/*
+</span></span><span class="line"><span class="cl"><span class="c1"># Stars all bookmarks under any advanced subtag</span>
+</span></span></code></pre></div><p><strong>Compare with flat tags:</strong></p>
+<ul>
+<li>Flat: <code>python</code>, <code>python-async</code>, <code>python-async-io</code>, <code>python-web</code>, <code>python-web-django</code></li>
+<li>Hierarchical: <code>python/async/io</code>, <code>python/web/django</code></li>
+</ul>
+<p>Hierarchical tags give you free navigation and organization.</p>
+<h3 id="6-smart-collections-dynamic-virtual-directories">6. <strong>Smart Collections: Dynamic Virtual Directories</strong></h3>
+<p>Beyond tags, we can expose any query as a &ldquo;directory&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> unread
+</span></span><span class="line"><span class="cl">btk:/unread$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">2431</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Visit one, it disappears from /unread</span>
+</span></span><span class="line"><span class="cl">btk:/unread$ visit <span class="m">5234</span>
+</span></span><span class="line"><span class="cl">✓ Opened bookmark <span class="m">5234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/unread$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">2430</span>
+</span></span></code></pre></div><p>Collections auto-update based on state changes. It&rsquo;s like smart playlists for data.</p>
+<h3 id="7-time-based-navigation">7. <strong>Time-Based Navigation</strong></h3>
+<p>Recency is a dimension worth navigating:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/today/visited
+</span></span><span class="line"><span class="cl">btk:/recent/today/visited$ ls
+</span></span><span class="line"><span class="cl"><span class="m">5001</span>  <span class="m">4987</span>  <span class="m">4923</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/this-week/added
+</span></span><span class="line"><span class="cl">btk:/recent/this-week/added$ tag * weekly-review
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">47</span> bookmarks
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/last-month/starred
+</span></span><span class="line"><span class="cl">btk:/recent/last-month/starred$ <span class="nb">export</span> &gt; highlights.md
+</span></span></code></pre></div><p>This beats remembering exact date ranges in queries.</p>
+<h2 id="implementation-how-its-built">Implementation: How It&rsquo;s Built</h2>
+<p>Each tool shares a similar architecture:</p>
+<h3 id="core-components">Core Components</h3>
+<ol>
+<li>
+<p><strong>Database Layer</strong> (SQLAlchemy + SQLite)</p>
+<ul>
+<li>Normalized schema for entities (bookmarks, books, conversations)</li>
+<li>Full-text search with FTS5</li>
+<li>Efficient indexing for common queries</li>
+</ul>
+</li>
+<li>
+<p><strong>VFS Layer</strong> (Python <code>cmd.Cmd</code>)</p>
+<ul>
+<li>Path parsing: <code>/tags/programming/python</code> → context</li>
+<li>Context detection: &ldquo;Where am I? What objects are here?&rdquo;</li>
+<li>Command routing: context + command → appropriate handler</li>
+</ul>
+</li>
+<li>
+<p><strong>Command Layer</strong></p>
+<ul>
+<li>Context-aware implementations: <code>do_ls()</code>, <code>do_cd()</code>, <code>do_cat()</code>, etc.</li>
+<li>Smart defaults based on current path</li>
+<li>Pretty printing vs. JSONL output</li>
+</ul>
+</li>
+<li>
+<p><strong>CLI Layer</strong> (Typer/argparse)</p>
+<ul>
+<li>Stateless commands for scripting</li>
+<li>Output as JSONL for Unix pipes</li>
+<li>Shares same database as shell</li>
+</ul>
+</li>
+</ol>
+<h3 id="example-context-detection-in-btk">Example: Context Detection in BTK</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">_get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Determine what &#39;directory&#39; we&#39;re in.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span> <span class="o">==</span> <span class="s2">&#34;/&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;root&#39;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /tags/programming/python</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tag_path</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter_by_tag_prefix</span><span class="p">(</span><span class="n">tag_path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tag&#39;</span><span class="p">,</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="n">tag_path</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /recent/today/added</span>
+</span></span><span class="line"><span class="cl">        <span class="n">period</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># &#39;today&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">activity</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;visited&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="n">filter_by_time_and_activity</span><span class="p">(</span><span class="n">period</span><span class="p">,</span> <span class="n">activity</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">,</span> <span class="s1">&#39;period&#39;</span><span class="p">:</span> <span class="n">period</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;activity&#39;</span><span class="p">:</span> <span class="n">activity</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;unread&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /unread - smart collection</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">visit_count</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;unread&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmarks&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /bookmarks/4095</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmark_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmark</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bookmark_id</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">,</span> <span class="s1">&#39;bookmark_id&#39;</span><span class="p">:</span> <span class="n">bookmark_id</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span> <span class="n">bookmark</span><span class="p">}</span>
+</span></span></code></pre></div><p>Once we know the context, commands adapt:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;List items in current directory.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_context</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;root&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_root</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_tag</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;tag&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmarks</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_collection</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmark</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmark&#39;</span><span class="p">])</span>
+</span></span></code></pre></div><p>This pattern—<strong>context detection + polymorphic commands</strong>—is the secret sauce.</p>
+<h2 id="beyond-these-six-the-pattern-scales">Beyond These Six: The Pattern Scales</h2>
+<p>The VFS + POSIX pattern isn&rsquo;t limited to these tools. I&rsquo;ve applied it to:</p>
+<ul>
+<li>
+<p><strong>json-algebra</strong>: Navigate and manipulate JSON structures as filesystems</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">json:/$ <span class="nb">cd</span> users/<span class="o">[</span>0<span class="o">]</span>/posts/<span class="o">[</span>2<span class="o">]</span>
+</span></span><span class="line"><span class="cl">json:/users/<span class="o">[</span>0<span class="o">]</span>/posts/<span class="o">[</span>2<span class="o">]</span>$ cat title
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;My First Post&#34;</span>
+</span></span></code></pre></div></li>
+<li>
+<p><strong>log-analyzer</strong>: Navigate structured logs as directories</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logs:/$ <span class="nb">cd</span> errors/2024-01/
+</span></span><span class="line"><span class="cl">logs:/errors/2024-01$ group-by level
+</span></span></code></pre></div></li>
+<li>
+<p><strong>api-explorer</strong>: Explore REST APIs as navigable resources</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">api:/$ <span class="nb">cd</span> users/123/posts
+</span></span><span class="line"><span class="cl">api:/users/123/posts$ ls
+</span></span><span class="line"><span class="cl">post_456  post_789  post_012
+</span></span></code></pre></div></li>
+</ul>
+<p>The pattern is <strong>universally applicable to hierarchical data</strong>.</p>
+<h2 id="why-this-matters-cognitive-fit">Why This Matters: Cognitive Fit</h2>
+<p>Traditional CLIs force you to:</p>
+<ol>
+<li><strong>Remember exact syntax</strong>: <code>--filter-by-tag</code>, <code>--limit</code>, <code>--format</code></li>
+<li><strong>Construct precise queries</strong>: Get it wrong, start over</li>
+<li><strong>Process JSON blobs</strong>: Pipe to <code>jq</code> for every operation</li>
+</ol>
+<p>VFS interfaces let you:</p>
+<ol>
+<li><strong>Explore incrementally</strong>: <code>cd</code> → <code>ls</code> → <code>cd</code> → <code>ls</code></li>
+<li><strong>Discover what exists</strong>: See tags/categories you forgot about</li>
+<li><strong>Operate on context</strong>: &ldquo;Star everything here&rdquo; not &ldquo;Star IDs 1,2,3,&hellip;&rdquo;</li>
+</ol>
+<p>It matches how humans think: <strong>spatial navigation</strong> over <strong>query construction</strong>.</p>
+<p>We already know filesystems. We already know <code>cd</code>, <code>ls</code>, <code>grep</code>, <code>find</code>. Why not leverage that knowledge?</p>
+<h2 id="the-unix-philosophy-lives">The Unix Philosophy Lives</h2>
+<p>Doug McIlroy&rsquo;s Unix philosophy (1978):</p>
+<blockquote>
+<ol>
+<li>Make each program do one thing well.</li>
+<li>Expect the output of every program to become the input to another.</li>
+<li>Design and build software to be tried early.</li>
+</ol>
+</blockquote>
+<p>We&rsquo;ve applied this to data:</p>
+<ol>
+<li><strong>One thing well</strong>: Each tool manages one domain (bookmarks, ebooks, chats)</li>
+<li><strong>Composable output</strong>: JSONL everywhere, pipe to jq/grep/awk</li>
+<li><strong>Interactive experimentation</strong>: Shell for exploration, CLI for automation</li>
+</ol>
+<p>And we&rsquo;ve extended it:</p>
+<ol start="4">
+<li><strong>Everything is a file</strong>: Even dynamic queries and computed collections</li>
+<li><strong>Navigation over query</strong>: <code>cd</code> to context before operating</li>
+<li><strong>Context is king</strong>: Current directory implies scope</li>
+</ol>
+<h2 id="getting-started-build-your-own">Getting Started: Build Your Own</h2>
+<p>Want to apply this pattern to your data? Here&rsquo;s the recipe:</p>
+<h3 id="1-identify-your-hierarchies">1. Identify Your Hierarchies</h3>
+<p>What natural hierarchies exist in your domain?</p>
+<ul>
+<li><strong>Bookmarks</strong>: Tags, domains, time</li>
+<li><strong>Ebooks</strong>: Authors, subjects, series</li>
+<li><strong>Chats</strong>: Sources, topics, time</li>
+<li><strong>Your domain</strong>: ?</li>
+</ul>
+<h3 id="2-design-your-vfs-root">2. Design Your VFS Root</h3>
+<p>What &ldquo;directories&rdquo; should exist at the top level?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">/
+</span></span><span class="line"><span class="cl">├── &lt;primary-entities&gt;/    # /bookmarks, /books, /conversations
+</span></span><span class="line"><span class="cl">├── &lt;hierarchy-1&gt;/          # /tags, /authors, /sources
+</span></span><span class="line"><span class="cl">├── &lt;hierarchy-2&gt;/          # /domains, /subjects, /topics
+</span></span><span class="line"><span class="cl">├── &lt;time-based&gt;/           # /recent/today, /recent/this-week
+</span></span><span class="line"><span class="cl">└── &lt;smart-collections&gt;/    # /unread, /starred, /popular
+</span></span></code></pre></div><h3 id="3-implement-context-detection">3. Implement Context Detection</h3>
+<p>Map paths to database queries:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Tag</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by_prefix</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Recent</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by_time</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ... etc</span>
+</span></span></code></pre></div><h3 id="4-add-posix-commands">4. Add POSIX Commands</h3>
+<p>Start with the essentials:</p>
+<ul>
+<li><code>cd</code> - Change context</li>
+<li><code>ls</code> - List items in context</li>
+<li><code>pwd</code> - Show current path</li>
+<li><code>cat</code> - Show item details</li>
+<li><code>find</code> - Search within subtree</li>
+<li><code>grep</code> - Filter items</li>
+</ul>
+<p>Then add domain-specific commands:</p>
+<ul>
+<li>Bookmarks: <code>visit</code>, <code>star</code>, <code>tag</code></li>
+<li>Ebooks: <code>rate</code>, <code>read</code>, <code>export</code></li>
+<li>Your domain: ?</li>
+</ul>
+<h3 id="5-provide-both-interfaces">5. Provide Both Interfaces</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Shell (stateful, cmd.Cmd-based)</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DataShell</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Cmd</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">do_cd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># CLI (stateless, Typer/argparse-based)</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@app.command</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nd">@app.command</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">list</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
+</span></span></code></pre></div><p>Users choose based on use case:</p>
+<ul>
+<li><strong>Automation</strong>: Use CLI with pipes</li>
+<li><strong>Exploration</strong>: Use shell with <code>cd</code>/<code>ls</code></li>
+</ul>
+<h3 id="6-output-jsonl-by-default">6. Output JSONL by Default</h3>
+<p>Every command should output newline-delimited JSON unless <code>--pretty</code> is specified:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">output</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pretty</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">pretty</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">print_table</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Rich table</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">item</span><span class="p">))</span>  <span class="c1"># JSONL</span>
+</span></span></code></pre></div><p>This makes your tool a first-class Unix citizen.</p>
+<h2 id="real-world-benefits-what-ive-gained">Real-World Benefits: What I&rsquo;ve Gained</h2>
+<p>Since building these tools, I&rsquo;ve:</p>
+<ol>
+<li><strong>Found forgotten treasures</strong>: Exploring <code>/tags/</code> revealed bookmark categories I&rsquo;d forgotten</li>
+<li><strong>Automated workflows</strong>: <code>cd /recent/this-week/added &amp;&amp; tag * weekly-review</code></li>
+<li><strong>Composed with Unix tools</strong>: <code>btk list | jq '.url' | xargs -I {} curl -I {}</code></li>
+<li><strong>Reduced cognitive load</strong>: No memorizing flags; just <code>cd</code> and <code>ls</code></li>
+<li><strong>Built faster</strong>: New tools reuse the same VFS pattern</li>
+</ol>
+<p>Most importantly: <strong>I actually use these tools daily.</strong> They&rsquo;re not abandoned side projects—they&rsquo;re integral to my workflow.</p>
+<h2 id="the-repository">The Repository</h2>
+<p>All six tools are open source:</p>
+<ul>
+<li><strong>btk</strong> (Bookmark Toolkit): <a href="https://github.com/queelius/btk">github.com/queelius/btk</a></li>
+<li><strong>ebk</strong> (eBook Manager): <a href="https://github.com/queelius/ebk">github.com/queelius/ebk</a></li>
+<li><strong>ctk</strong> (Conversation Toolkit): <a href="https://github.com/queelius/ctk">github.com/queelius/ctk</a></li>
+<li><strong>ghops</strong> (Git Repository Manager): <a href="https://github.com/queelius/ghops">github.com/queelius/ghops</a></li>
+<li><strong>infinigram</strong> (N-gram Models): <a href="https://github.com/queelius/infinigram">github.com/queelius/infinigram</a></li>
+<li><strong>AlgoTree</strong> (Tree Structures): <a href="https://github.com/queelius/AlgoTree">github.com/queelius/AlgoTree</a></li>
+</ul>
+<p>Each is on PyPI, fully documented, and well-tested.</p>
+<h2 id="call-to-action-join-the-movement">Call to Action: Join the Movement</h2>
+<p><strong>If you build CLI tools for hierarchical data:</strong></p>
+<p>Consider the VFS pattern. Your users already know <code>cd</code> and <code>ls</code>. Why make them learn 47 flags?</p>
+<p><strong>If you maintain complex data:</strong></p>
+<p>Try one of these tools. Install with <code>pip install btk</code> or <code>pip install ebk</code>. See if the VFS interface clicks.</p>
+<p><strong>If you want to contribute:</strong></p>
+<p>All six projects welcome contributors. The pattern is proven; the features are endless. Pick your domain (bookmarks, ebooks, chats, repos) and add:</p>
+<ul>
+<li>New smart collections</li>
+<li>New commands</li>
+<li>Better visualizations</li>
+<li>MCP integrations</li>
+<li>Browser extensions</li>
+</ul>
+<p><strong>If you&rsquo;re just here for the philosophy:</strong></p>
+<p>Spread the word. The Unix philosophy isn&rsquo;t dead—it&rsquo;s <em>evolving</em>. We&rsquo;ve gone from &ldquo;everything is a file&rdquo; to &ldquo;everything <em>can be presented as</em> a file.&rdquo;</p>
+<p>Your data deserves to be navigable. Make it a filesystem.</p>
+<hr>
+<h2 id="technical-notes">Technical Notes</h2>
+<h3 id="on-recording-shell-sessions">On Recording Shell Sessions</h3>
+<p>The interactive shell demo at the top of this post is a real <a href="https://asciinema.org/">asciinema</a> recording (78KB):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">asciinema rec btk-demo.cast
+</span></span><span class="line"><span class="cl">btk shell
+</span></span><span class="line"><span class="cl"><span class="c1"># ... do your demo ...</span>
+</span></span><span class="line"><span class="cl"><span class="nb">exit</span>
+</span></span></code></pre></div><p>The resulting <code>.cast</code> file is pure text (JSON), usually just a few KB. Benefits:</p>
+<ul>
+<li><strong>Embeddable</strong>: Use <a href="https://github.com/asciinema/asciinema-player">asciinema-player</a> for interactive playback</li>
+<li><strong>Copy-pasteable</strong>: Viewers can copy text directly from the recording</li>
+<li><strong>Lightweight</strong>: 78KB for several minutes of demo vs. megabytes for video/GIF</li>
+<li><strong>Shareable</strong>: Host on asciinema.org for free or self-host</li>
+</ul>
+<p>This is <em>way</em> better than GIFs or videos for terminal demos. The player works in all modern browsers and supports pause/resume, speed control, and text selection.</p>
+<h3 id="on-jsonl-vs-pretty-printing">On JSONL vs. Pretty Printing</h3>
+<p>JSONL (newline-delimited JSON) is crucial for Unix composability:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Each line is valid JSON</span>
+</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span> <span class="p">|</span> jq <span class="s1">&#39;.title&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># vs. array JSON (breaks streaming)</span>
+</span></span><span class="line"><span class="cl">btk list --format json <span class="p">|</span> jq <span class="s1">&#39;.[] | select(.stars == true) | .title&#39;</span>
+</span></span></code></pre></div><p>JSONL is:</p>
+<ul>
+<li><strong>Streamable</strong>: Process line-by-line, no need to load entire array</li>
+<li><strong>Appendable</strong>: <code>echo '{&quot;new&quot;:&quot;item&quot;}' &gt;&gt; data.jsonl</code></li>
+<li><strong>Grepable</strong>: <code>grep '&quot;stars&quot;:true' data.jsonl</code></li>
+<li><strong>Robust</strong>: One malformed record doesn&rsquo;t break the entire file</li>
+</ul>
+<p>Make it your default. Provide <code>--pretty</code> for humans.</p>
+<h3 id="on-test-coverage">On Test Coverage</h3>
+<p>All six tools have comprehensive test suites:</p>
+<ul>
+<li><strong>btk</strong>: 515 tests (53% shell coverage, 23% CLI coverage)</li>
+<li><strong>ebk</strong>: Similar architecture, similar coverage</li>
+<li><strong>ctk</strong>: Extensive integration tests with multiple LLM providers</li>
+<li><strong>ghops</strong>: 138 tests, 86% coverage</li>
+<li><strong>infinigram</strong>: 36 tests with benchmarks</li>
+<li><strong>AlgoTree</strong>: 197 tests, 86% coverage</li>
+</ul>
+<p>The VFS pattern is <em>highly testable</em>:</p>
+<ol>
+<li>Mock database queries</li>
+<li>Test path parsing</li>
+<li>Test context detection</li>
+<li>Test command handlers</li>
+</ol>
+<p>Each component is isolated and pure.</p>
+<hr>
+<h2 id="conclusion-the-future-is-navigable">Conclusion: The Future is Navigable</h2>
+<p>We&rsquo;ve spent 50 years making filesystems fast, reliable, and ubiquitous. Every operating system has them. Every programmer understands them.</p>
+<p>Why build new mental models for every data domain?</p>
+<p><strong>Make your data navigable. Make it a filesystem.</strong></p>
+<p>The tools are here. The pattern is proven. The Unix philosophy endures.</p>
+<p>Now go forth and <code>cd</code> into your data.</p>
+<hr>
+<p><em>Alex Towell builds tools at the intersection of systems programming, language models, and data wrangling. Find more at <a href="https://metafunctor.com">metafunctor.com</a> or follow the projects on <a href="https://github.com/queelius">GitHub</a>.</em></p>
+]]></content:encoded><category>unix-philosophy</category><category>cli-tools</category><category>python</category><category>data-management</category><category>virtual-filesystem</category><category>software-design</category><category>open-source</category></item><item><title>Mathematical Elegance in Software Design</title><link>https://queelius.github.io/post/2025-01-mathematical-elegance-code/</link><pubDate>Mon, 20 Jan 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-01-mathematical-elegance-code/</guid><description>The best software I’ve written has mathematical elegance—not because it uses advanced math, but because it embodies mathematical principles of abstraction, composition, and invariants.
+What Mathematical Elegance Means In mathematics, elegance means:
+Generality: One theorem covering many specific cases reveals deep structure
+Composability: Small results combine to prove larger results
+Invariants: Properties preserved across transformations
+Minimal assumptions: Maximum results from minimum …</description><content:encoded><![CDATA[<p>The best software I&rsquo;ve written has mathematical elegance—not because it uses advanced math, but because it embodies <strong>mathematical principles of abstraction, composition, and invariants</strong>.</p>
+<h2 id="what-mathematical-elegance-means">What Mathematical Elegance Means</h2>
+<p>In mathematics, elegance means:</p>
+<p><strong>Generality</strong>: One theorem covering many specific cases reveals deep structure</p>
+<p><strong>Composability</strong>: Small results combine to prove larger results</p>
+<p><strong>Invariants</strong>: Properties preserved across transformations</p>
+<p><strong>Minimal assumptions</strong>: Maximum results from minimum prerequisites</p>
+<p><strong>Inevitability</strong>: Each step follows naturally from the previous</p>
+<p>These same principles make software beautiful.</p>
+<h2 id="generality-in-code">Generality in Code</h2>
+<p>Good abstractions are general.</p>
+<p>Instead of:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">sum_integers</span><span class="p">(</span><span class="n">lst</span><span class="p">):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">sum_floats</span><span class="p">(</span><span class="n">lst</span><span class="p">):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">sum_complex</span><span class="p">(</span><span class="n">lst</span><span class="p">):</span> <span class="o">...</span>
+</span></span></code></pre></div><p>Write:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">sum</span><span class="p">(</span><span class="n">iterable</span><span class="p">):</span> <span class="o">...</span>  <span class="c1"># Works for any numeric type</span>
+</span></span></code></pre></div><p>This isn&rsquo;t just code reuse—it&rsquo;s <strong>recognizing essential structure</strong> independent of representation.</p>
+<p>Mathematical parallel: group theory doesn&rsquo;t care if you&rsquo;re rotating shapes or permuting elements. It cares about <strong>the structure of symmetry itself</strong>.</p>
+<h2 id="composability">Composability</h2>
+<p>Mathematical proofs compose: lemmas → theorems → theories.</p>
+<p>Software should work the same:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="n">vector</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">vector</span> <span class="o">/</span> <span class="n">magnitude</span><span class="p">(</span><span class="n">vector</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">magnitude</span><span class="p">(</span><span class="n">vector</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">sqrt</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">vector</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compose naturally</span>
+</span></span><span class="line"><span class="cl"><span class="n">unit_vector</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span></span></code></pre></div><p>Each function does one thing. They <strong>combine predictably</strong>.</p>
+<p>This is Unix philosophy through a mathematical lens.</p>
+<h2 id="invariants-as-correctness">Invariants as Correctness</h2>
+<p>In math, invariants let you reason about properties that survive transformations.</p>
+<p>In code, invariants are <strong>contracts that must hold</strong>:</p>
+<ul>
+<li>A sorted list stays sorted under these operations</li>
+<li>This hash function is deterministic</li>
+<li>This pure function returns same output for same input</li>
+<li>This encryption preserves confidentiality</li>
+</ul>
+<p><strong>Design APIs to make important invariants obvious and enforceable.</strong></p>
+<p>Type systems help:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-haskell" data-lang="haskell"><span class="line"><span class="cl"><span class="c1">-- Once encrypted, type system won&#39;t let you use as plaintext</span>
+</span></span><span class="line"><span class="cl"><span class="nf">encrypt</span> <span class="ow">::</span> <span class="kt">PlainText</span> <span class="ow">-&gt;</span> <span class="kt">Key</span> <span class="ow">-&gt;</span> <span class="kt">CipherText</span>
+</span></span><span class="line"><span class="cl"><span class="nf">decrypt</span> <span class="ow">::</span> <span class="kt">CipherText</span> <span class="ow">-&gt;</span> <span class="kt">Key</span> <span class="ow">-&gt;</span> <span class="kt">PlainText</span>
+</span></span></code></pre></div><h2 id="minimal-assumptions">Minimal Assumptions</h2>
+<p>Mathematical theorems state assumptions explicitly: &ldquo;Let X be a metric space with property P&hellip;&rdquo;</p>
+<p>Software should too:</p>
+<p><strong>Type signatures</strong> declare valid inputs:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">cosine_similarity</span><span class="p">(</span><span class="n">v1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Precondition: v1 and v2 are non-zero vectors of same dimension
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Returns: similarity in [-1, 1]
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span></code></pre></div><p><strong>Documentation</strong> states what must be true:</p>
+<ul>
+<li>Preconditions: what caller must ensure</li>
+<li>Postconditions: what function guarantees</li>
+<li>Invariants: what always holds</li>
+</ul>
+<p>Make it <strong>hard to violate assumptions accidentally</strong>.</p>
+<h2 id="inevitability-in-design">Inevitability in Design</h2>
+<p>The best mathematical proofs feel inevitable—each step follows naturally.</p>
+<p>The best software feels the same:</p>
+<p><strong>Function names that make usage obvious</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Not: process_data(x, True, False, 3)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># But:</span>
+</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">predicate</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">              <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">              <span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">aggregator</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Type systems that guide toward correct code</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="line"><span class="cl"><span class="c1">// Rust&#39;s ownership system makes it hard to write memory-unsafe code
+</span></span></span><span class="line"><span class="cl"><span class="c1">// The correct way is the natural way
+</span></span></span></code></pre></div><p><strong>APIs where the right way is the natural way</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Natural usage:</span>
+</span></span><span class="line"><span class="cl"><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>  <span class="c1"># Automatically closes, handles errors</span>
+</span></span></code></pre></div><p>When users think &ldquo;of course, what else would it be?&quot;—that&rsquo;s inevitability.</p>
+<h2 id="my-two-degrees-combined">My Two Degrees, Combined</h2>
+<p>Two master&rsquo;s degrees gave me complementary modes:</p>
+<p><strong>Computer Science (2015)</strong>: How to build systems that work</p>
+<ul>
+<li>Algorithms and data structures</li>
+<li>Systems programming</li>
+<li>Distributed computing</li>
+<li>Practical engineering</li>
+</ul>
+<p><strong>Mathematics (2023)</strong>: How to reason about structure and correctness</p>
+<ul>
+<li>Rigorous proofs</li>
+<li>Abstract algebra</li>
+<li>Measure theory</li>
+<li>Mathematical maturity</li>
+</ul>
+<p>The combination is powerful: <strong>build systems with mathematical elegance</strong>.</p>
+<h2 id="examples-from-my-work">Examples From My Work</h2>
+<p><strong>Statistical libraries</strong>:</p>
+<p>Functions compose like mathematical operations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-R" data-lang="R"><span class="line"><span class="cl"><span class="nf">bootstrap</span><span class="p">(</span><span class="n">estimator</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">resamples</span> <span class="o">=</span> <span class="m">1000</span><span class="p">)</span> <span class="o">%&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">confidence_interval</span><span class="p">(</span><span class="n">level</span> <span class="o">=</span> <span class="m">0.95</span><span class="p">)</span>
+</span></span></code></pre></div><p>Returns a distribution you can query. Each piece does one thing. They compose naturally.</p>
+<p><strong>Cryptographic tools</strong>:</p>
+<p>Invariants enforced by types:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Encrypted&lt;T&gt; can&#39;t accidentally be used as T
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Type system prevents confusion
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Encrypted</span> <span class="p">{</span> <span class="p">...</span> <span class="p">};</span>
+</span></span></code></pre></div><p><strong>Network analysis</strong>:</p>
+<p>Abstract over graph representations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">pagerank</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="n">GraphProtocol</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.85</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Works on any graph satisfying the protocol&#34;&#34;&#34;</span>
+</span></span></code></pre></div><p>Write algorithms that work on <strong>any structure satisfying the interface</strong>.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>Mathematical elegance isn&rsquo;t aesthetic preference—it&rsquo;s <strong>engineering for comprehension</strong>.</p>
+<p>Code with mathematical structure is:</p>
+<p><strong>Easier to reason about</strong>: Invariants guide understanding</p>
+<p><strong>Easier to test</strong>: Composability enables isolated testing</p>
+<p><strong>Easier to extend</strong>: Generality means fewer special cases</p>
+<p><strong>Easier to prove correct</strong>: Invariants support formal reasoning</p>
+<p><strong>Easier to maintain</strong>: Clear structure resists decay</p>
+<h2 id="the-discipline-required">The Discipline Required</h2>
+<p>Achieving this requires discipline:</p>
+<p><strong>Resist special cases</strong>: Factor out common structure instead</p>
+<p><strong>Name things precisely</strong>: Names should reveal intent</p>
+<p><strong>State assumptions clearly</strong>: Document preconditions and invariants</p>
+<p><strong>Make properties obvious</strong>: Important characteristics should be explicit</p>
+<p><strong>Compose small pieces</strong>: Build complex from simple</p>
+<p>It&rsquo;s harder than throwing code together. But the result is software that feels <strong>mathematically clean</strong>.</p>
+<h2 id="practical-implications">Practical Implications</h2>
+<p>For my research:</p>
+<p><strong>Reliability analysis code</strong>: Estimators defined abstractly, work for any censoring pattern</p>
+<p><strong>Network analysis tools</strong>: Graph algorithms independent of representation</p>
+<p><strong>Statistical methods</strong>: Mathematical properties preserved in implementation</p>
+<p>For general development:</p>
+<p><strong>Write functions that compose</strong>: Small, focused, predictable</p>
+<p><strong>Use types to encode invariants</strong>: Let compiler help maintain correctness</p>
+<p><strong>Document the mathematics</strong>: Explain theoretical properties of your code</p>
+<p><strong>Test invariants explicitly</strong>: Verify properties that should always hold</p>
+<h2 id="the-connection-to-legacy">The Connection to Legacy</h2>
+<p>With stage 4 cancer, I think about code differently:</p>
+<p><strong>Will someone else understand this design?</strong></p>
+<p><strong>Are the mathematical principles clear?</strong></p>
+<p><strong>Can this be extended without me?</strong></p>
+<p><strong>Does the structure communicate intent?</strong></p>
+<p>Mathematical elegance helps here. Code structured like a proof:</p>
+<ul>
+<li>States its assumptions</li>
+<li>Proceeds logically</li>
+<li>Reaches inevitable conclusions</li>
+<li>Can be verified independently</li>
+</ul>
+<p>is <strong>more continuable</strong> than clever hacks.</p>
+<h2 id="examples-of-mathematical-thinking">Examples of Mathematical Thinking</h2>
+<p><strong>Monoids everywhere</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Recognizing monoidal structure</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Identity element, associative operation</span>
+</span></span><span class="line"><span class="cl"><span class="p">[]</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">])</span>  <span class="c1"># List concatenation</span>
+</span></span><span class="line"><span class="cl"><span class="mi">0</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">+</span> <span class="mi">10</span>  <span class="c1"># Addition</span>
+</span></span><span class="line"><span class="cl"><span class="mi">1</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">10</span>  <span class="c1"># Multiplication</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;</span> <span class="o">+</span> <span class="s2">&#34;hello&#34;</span> <span class="o">+</span> <span class="s2">&#34;world&#34;</span>  <span class="c1"># String concatenation</span>
+</span></span></code></pre></div><p><strong>Functors in practice</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># map preserves structure</span>
+</span></span><span class="line"><span class="cl"><span class="nb">list</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">g</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="n">Option</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">==</span> <span class="n">Option</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">g</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+</span></span></code></pre></div><p><strong>Type algebra</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-typescript" data-lang="typescript"><span class="line"><span class="cl"><span class="c1">// Sum types: A | B (union)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Product types: {a: A, b: B} (record)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Function types: A =&gt; B
+</span></span></span><span class="line"><span class="cl"><span class="c1">// These compose algebraically
+</span></span></span></code></pre></div><p>Recognizing these patterns makes code <strong>comprehensible at a higher level</strong>.</p>
+<h2 id="the-aesthetic-dimension">The Aesthetic Dimension</h2>
+<p>There&rsquo;s genuine beauty in code that embodies mathematical principles:</p>
+<ul>
+<li>A function signature that perfectly captures the abstraction</li>
+<li>An invariant that makes correctness obvious</li>
+<li>A composition that feels inevitable</li>
+<li>An API that maps naturally to the domain</li>
+</ul>
+<p>This isn&rsquo;t just satisfying—it&rsquo;s <strong>useful</strong>. Beautiful code tends to be:</p>
+<ul>
+<li>More correct</li>
+<li>More maintainable</li>
+<li>More extendable</li>
+<li>More understandable</li>
+</ul>
+<h2 id="what-im-striving-for">What I&rsquo;m Striving For</h2>
+<p>Every library I publish aims for:</p>
+<p><strong>Mathematical clarity</strong>: Structure reflects underlying theory</p>
+<p><strong>Compositional design</strong>: Small pieces combine naturally</p>
+<p><strong>Explicit invariants</strong>: Important properties are obvious</p>
+<p><strong>Minimal assumptions</strong>: Work with maximum generality</p>
+<p><strong>Inevitable usage</strong>: The right way feels natural</p>
+<p>This takes time. But it&rsquo;s how you build things that <strong>last</strong>.</p>
+<h2 id="the-bottom-line">The Bottom Line</h2>
+<p>My two degrees taught me complementary skills:</p>
+<p>CS: How to build
+Math: How to reason</p>
+<p>The combination: <strong>Building with mathematical elegance</strong></p>
+<p>This means:</p>
+<ul>
+<li>Code that composes</li>
+<li>Types that enforce correctness</li>
+<li>Abstractions that reveal structure</li>
+<li>Invariants that guide reasoning</li>
+<li>Designs that feel inevitable</li>
+</ul>
+<p>Cancer doesn&rsquo;t change this. If anything, it emphasizes it:</p>
+<p><strong>Do work that&rsquo;s comprehensible, continuable, and correct.</strong></p>
+<p>Mathematical elegance serves all three.</p>
+<hr>
+<p><em>The best code feels like executable mathematics.</em></p>
+]]></content:encoded><category>mathematics</category><category>software-design</category><category>elegance</category><category>abstraction</category><category>philosophy</category></item><item><title>Long Echo: Designing for Digital Resilience Across Decades</title><link>https://queelius.github.io/post/2025-01-long-echo/</link><pubDate>Mon, 06 Jan 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-01-long-echo/</guid><description>Not resurrection. Not immortality. Just love that still responds. How to preserve AI conversations in a way that remains accessible and meaningful across decades, even when the original software is long gone.</description><content:encoded><![CDATA[<h2 id="not-resurrection-not-immortality">Not Resurrection. Not Immortality.</h2>
+<p>Just love that still responds.</p>
+<p>That&rsquo;s the philosophy behind <strong>Long Echo</strong>—a project about preserving conversations with AI assistants in a way that remains accessible and meaningful across decades. Not creating digital ghosts that autonomously post to social media. Not trying to resurrect anyone. Just ensuring that the knowledge, care, and wisdom captured in our conversations with AI can still be found, searched, and used when the original software is long gone.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>We&rsquo;re having important conversations with AI assistants:</p>
+<ul>
+<li>Teaching moments with students</li>
+<li>Advice we&rsquo;d give our children</li>
+<li>Technical problems we&rsquo;ve solved</li>
+<li>Creative work we don&rsquo;t want to lose</li>
+<li>Personal growth tracked over years</li>
+</ul>
+<p>But these conversations are trapped in proprietary formats, scattered across platforms (ChatGPT, Claude, Gemini, Copilot), and dependent on companies that may not exist in 50 years.</p>
+<p><strong>What happens when you want to find that debugging advice from 2024?</strong>
+<strong>What if your children want to search your conversations after you&rsquo;re gone?</strong>
+<strong>What if the company shuts down their API?</strong></p>
+<h2 id="the-philosophy-graceful-degradation">The Philosophy: Graceful Degradation</h2>
+<p>The core insight of Long Echo is <strong>graceful degradation</strong>—designing systems that fail progressively, not catastrophically:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">Level</span> <span class="mi">1</span><span class="p">:</span> <span class="n">Full</span> <span class="n">functionality</span>  <span class="err">→</span> <span class="n">CTK</span> <span class="n">with</span> <span class="n">semantic</span> <span class="n">search</span><span class="p">,</span> <span class="n">RAG</span><span class="p">,</span> <span class="n">beautiful</span> <span class="n">TUI</span>
+</span></span><span class="line"><span class="cl"><span class="n">Level</span> <span class="mi">2</span><span class="p">:</span> <span class="n">Database</span> <span class="n">queries</span>    <span class="err">→</span> <span class="n">SQLite</span> <span class="n">direct</span> <span class="n">queries</span> <span class="p">(</span><span class="n">CTK</span> <span class="n">gone</span><span class="p">,</span> <span class="n">SQLite</span> <span class="n">remains</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Level</span> <span class="mi">3</span><span class="p">:</span> <span class="ne">File</span> <span class="n">search</span>         <span class="err">→</span> <span class="n">grep</span> <span class="n">through</span> <span class="n">JSONL</span> <span class="n">files</span> <span class="p">(</span><span class="n">just</span> <span class="n">text</span> <span class="n">tools</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Level</span> <span class="mi">4</span><span class="p">:</span> <span class="n">Human</span> <span class="n">reading</span>       <span class="err">→</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">HTML</span> <span class="p">(</span><span class="n">readable</span> <span class="n">without</span> <span class="n">any</span> <span class="n">tools</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Level</span> <span class="mi">5</span><span class="p">:</span> <span class="n">Ultimate</span> <span class="n">fallback</span>   <span class="err">→</span> <span class="n">Plain</span> <span class="n">text</span> <span class="ow">in</span> <span class="n">notepad</span>
+</span></span></code></pre></div><p>Each level still works even if all the higher levels fail.</p>
+<h2 id="the-discovery-ctk-already-solved-this">The Discovery: CTK Already Solved This</h2>
+<p>I started building Long Echo as a separate system. I designed multi-format importers, search with fallbacks, memory extraction pipelines. Complex architecture diagrams. Deployment strategies.</p>
+<p>Then I realized that <a href="https://github.com/queelius/ctk">CTK (Conversation Toolkit)</a>—which I had built earlier—already solved all the hard problems.</p>
+<p>CTK already provides:</p>
+<ul>
+<li>✅ Import from all platforms (unified API)</li>
+<li>✅ Conversation trees (handles branching, regenerations)</li>
+<li>✅ SQLite storage (local, queryable, persistent)</li>
+<li>✅ Multiple export formats (JSONL, Markdown, HTML, JSON)</li>
+<li>✅ Full-text search + LLM-powered queries</li>
+<li>✅ Complex network RAG (coming soon)</li>
+<li>✅ Beautiful terminal UI</li>
+</ul>
+<p><strong>Everything I was building was already solved—by my own earlier work.</strong></p>
+<p>This wasn&rsquo;t failure. This was success—realizing that CTK, which I had created to solve the technical problems of conversation management, was already good enough to satisfy Long Echo&rsquo;s ambitions. The hard problems (conversation parsing, unified representation, search, storage) were already handled.</p>
+<h2 id="what-long-echo-became">What Long Echo Became</h2>
+<p>Long Echo isn&rsquo;t code. It&rsquo;s a <strong>philosophy documented in the CTK repository</strong> at <code>docs/RESILIENCE.md</code>.</p>
+<p>The philosophy answers:</p>
+<ul>
+<li>How do you use CTK for 50-year preservation?</li>
+<li>What does a resilient archive look like?</li>
+<li>How do you test that recovery actually works?</li>
+<li>What should you store, and in what formats?</li>
+</ul>
+<h3 id="a-resilience-package">A Resilience Package</h3>
+<p>Here&rsquo;s what a resilient archive looks like:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">archive</span><span class="o">/</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">START_HERE</span><span class="o">.</span><span class="n">txt</span>           <span class="c1"># Human-readable entry point</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">conversations</span><span class="o">.</span><span class="n">db</span>         <span class="c1"># SQLite (Level 1: full CTK functionality)</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">conversations</span><span class="o">.</span><span class="n">jsonl</span>      <span class="c1"># Machine-readable (Level 2: greppable)</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">conversations</span><span class="o">.</span><span class="n">md</span>         <span class="c1"># Human-readable (Level 3: documentation)</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">index</span><span class="o">.</span><span class="n">html</span>               <span class="c1"># Browseable (Level 4: any browser)</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">all_conversations</span><span class="o">.</span><span class="n">txt</span>    <span class="c1"># Plain text (Level 5: notepad)</span>
+</span></span><span class="line"><span class="cl"><span class="err">└──</span> <span class="n">RECOVERY</span><span class="o">.</span><span class="n">md</span>              <span class="c1"># Instructions for various scenarios</span>
+</span></span></code></pre></div><h3 id="testing-recovery">Testing Recovery</h3>
+<p>The key is testing each fallback actually works:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Test 1: Can you grep?</span>
+</span></span><span class="line"><span class="cl">grep -r <span class="s2">&#34;debugging&#34;</span> archive/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Test 2: Can you use SQLite directly?</span>
+</span></span><span class="line"><span class="cl">sqlite3 archive/conversations.db <span class="s2">&#34;SELECT * FROM conversations WHERE title LIKE &#39;%python%&#39;;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Test 3: Can you read plain text?</span>
+</span></span><span class="line"><span class="cl">cat archive/all_conversations.txt <span class="p">|</span> less
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Test 4: Can you view in browser?</span>
+</span></span><span class="line"><span class="cl">open archive/index.html
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Test 5: Can you rebuild CTK?</span>
+</span></span><span class="line"><span class="cl">pip install ctk
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;debugging&#34;</span> --db archive/conversations.db
+</span></span></code></pre></div><h2 id="design-assumptions-for-50-years">Design Assumptions for 50 Years</h2>
+<p>This approach assumes:</p>
+<ol>
+<li><strong>Software changes</strong>: Python, CTK, SQLite might not exist in 2075</li>
+<li><strong>Formats persist</strong>: Plain text, JSON, HTML will always be readable</li>
+<li><strong>Basic tools survive</strong>: grep, text editors, web browsers aren&rsquo;t going away</li>
+<li><strong>Humans can rebuild</strong>: Given source code and docs, someone can recreate CTK</li>
+</ol>
+<p>The thought experiment:</p>
+<blockquote>
+<p><em>If someone found this USB drive in 2074, could they:</em></p>
+<ol>
+<li><em>Figure out what it is?</em> ✓ START_HERE.txt explains everything</li>
+<li><em>Read the content?</em> ✓ Plain text and HTML work in any system</li>
+<li><em>Search for topics?</em> ✓ grep works on text files</li>
+<li><em>Rebuild full functionality?</em> ✓ Source code and docs included</li>
+</ol>
+</blockquote>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>This isn&rsquo;t about being morbid or planning for death. It&rsquo;s about <strong>respecting the value of conversations</strong>.</p>
+<p>When you explain async/await to a student, debug a tricky race condition, or give advice about handling failure—those moments have value beyond the immediate interaction. They&rsquo;re worth preserving not just as &ldquo;data backups&rdquo; but as <strong>searchable, accessible knowledge</strong> that can help future humans.</p>
+<p>Maybe it&rsquo;s your children looking for advice you gave.
+Maybe it&rsquo;s future-you trying to remember how you solved that weird bug.
+Maybe it&rsquo;s students you taught who want to remember the key insights.</p>
+<p>The conversations deserve more than &ldquo;hope the company doesn&rsquo;t shut down.&rdquo;</p>
+<h2 id="what-we-built-and-didnt-build">What We Built (and Didn&rsquo;t Build)</h2>
+<h3 id="the-static-site-strategy-maximum-resilience">The Static Site Strategy: Maximum Resilience</h3>
+<p>I AM publishing conversations to my blog—but not through an autonomous daemon. Instead, through <strong>static site generation</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Export to multiple browseable formats</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> blog/conversations.html --db life.db --format html5  <span class="c1"># Interactive JS UI</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> blog/conversations/ --db life.db --format markdown   <span class="c1"># Hugo-compatible</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> blog/conversations.txt --db life.db --format txt     <span class="c1"># Plain text fallback</span>
+</span></span></code></pre></div><p><strong>Why this is resilient</strong>:</p>
+<ul>
+<li>Static HTML + JS works forever (no server needed, runs in any browser)</li>
+<li>Hosted on multiple platforms (GitHub Pages, Netlify, etc.)</li>
+<li>Built from public GitHub repo (anyone can rebuild it)</li>
+<li>Multiple export formats on same site (HTML5, Markdown, plain text)</li>
+<li>Can be viewed directly in repo (Markdown renders on GitHub)</li>
+<li>No ongoing costs or maintenance (static hosting is free)</li>
+<li>No dependencies on live APIs or services</li>
+</ul>
+<p>This gives you:</p>
+<ol>
+<li><strong>HTML5 + JS UI</strong>: Beautiful, searchable interface in any browser</li>
+<li><strong>Hugo Markdown</strong>: Natural browsing, readable in raw form on GitHub</li>
+<li><strong>Plain text</strong>: Ultimate fallback, works in notepad</li>
+<li><strong>Multiple hosts</strong>: GitHub Pages, Netlify, etc.—redundancy built in</li>
+</ol>
+<h3 id="the-daemon-we-didnt-build">The Daemon We Didn&rsquo;t Build</h3>
+<p>What we consciously avoided was an <strong>autonomous daemon</strong> that would:</p>
+<ul>
+<li>Post to social media periodically (&ldquo;Still here, still remembering&hellip;&rdquo;)</li>
+<li>Respond to emails autonomously</li>
+<li>Act as a &ldquo;digital ghost&rdquo;</li>
+</ul>
+<p><strong>Why we didn&rsquo;t build this</strong>:</p>
+<ol>
+<li><strong>Against philosophy</strong>: Autonomy requires live APIs and servers—fragile dependencies</li>
+<li><strong>Creepy factor</strong>: Autonomous posting from a deceased person feels wrong</li>
+<li><strong>Not resilient</strong>: Requires ongoing server costs, API maintenance, platform compliance</li>
+</ol>
+<p><strong>Instead</strong>: Make conversations easily accessible through <strong>static, multi-format publishing</strong>. Living people can browse when they want. No autonomous behavior. No fake presence.</p>
+<h2 id="practical-implementation">Practical Implementation</h2>
+<p>Using CTK for resilient preservation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. Import everything</span>
+</span></span><span class="line"><span class="cl">ctk import chatgpt_export.json --db life.db --tags <span class="s2">&#34;archive&#34;</span>
+</span></span><span class="line"><span class="cl">ctk import claude_export.json --db life.db --tags <span class="s2">&#34;archive&#34;</span>
+</span></span><span class="line"><span class="cl">ctk import copilot_sessions/ --db life.db --tags <span class="s2">&#34;coding&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 2. Export in multiple formats</span>
+</span></span><span class="line"><span class="cl">mkdir archive
+</span></span><span class="line"><span class="cl">cp life.db archive/conversations.db
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> archive/conversations.jsonl --db life.db --format jsonl
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> archive/conversations.md --db life.db --format markdown
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> archive/index.html --db life.db --format html5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 3. Plain text fallback</span>
+</span></span><span class="line"><span class="cl">sqlite3 life.db <span class="s2">&#34;SELECT c.title, m.role, m.content
+</span></span></span><span class="line"><span class="cl"><span class="s2">                FROM conversations c
+</span></span></span><span class="line"><span class="cl"><span class="s2">                JOIN messages m ON c.id = m.conversation_id
+</span></span></span><span class="line"><span class="cl"><span class="s2">                ORDER BY c.created_at&#34;</span> &gt; archive/all_conversations.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 4. Create recovery docs</span>
+</span></span><span class="line"><span class="cl">cat &gt; archive/START_HERE.txt <span class="s">&lt;&lt; &#39;EOF&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s">This is an archive of conversations with AI assistants.
+</span></span></span><span class="line"><span class="cl"><span class="s">[... recovery instructions ...]
+</span></span></span><span class="line"><span class="cl"><span class="s">EOF</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 5. Store redundantly</span>
+</span></span><span class="line"><span class="cl">cp -r archive /backup/
+</span></span><span class="line"><span class="cl">cp -r archive /media/external_drive/
+</span></span><span class="line"><span class="cl">tar -czf archive.tar.gz archive/ <span class="o">&amp;&amp;</span> gpg -c archive.tar.gz
+</span></span></code></pre></div><h2 id="what-we-learned">What We Learned</h2>
+<p>Building Long Echo taught me:</p>
+<ol>
+<li><strong>Recognize your own solutions</strong>: Sometimes you&rsquo;ve already built what you need</li>
+<li><strong>Philosophy over code</strong>: Sometimes the unique value is the mindset, not implementation</li>
+<li><strong>Test degradation</strong>: Actually verify your fallbacks work</li>
+<li><strong>Documentation is infrastructure</strong>: Good README files are as important as code</li>
+<li><strong>Simplify ruthlessly</strong>: Don&rsquo;t duplicate what already exists</li>
+</ol>
+<h2 id="the-beauty-of-this-outcome">The Beauty of This Outcome</h2>
+<p>I didn&rsquo;t fail by realizing CTK was sufficient. I <strong>succeeded by recognizing that the hard problems were already solved</strong> in my earlier work, and that what Long Echo uniquely contributed was the resilience philosophy.</p>
+<p>CTK (my earlier project) handles:</p>
+<ul>
+<li>Conversation parsing and representation</li>
+<li>Storage and querying</li>
+<li>Search and retrieval</li>
+<li>Export flexibility</li>
+</ul>
+<p>Long Echo contributes:</p>
+<ul>
+<li>The philosophical framework</li>
+<li>The resilience mindset</li>
+<li>Documentation for long-term thinking</li>
+<li>Testing strategies for degradation</li>
+</ul>
+<p><strong>This is exactly how good software development works</strong>: recognize when you&rsquo;ve already built the foundation, then add unique value through philosophy and documentation rather than duplicating code.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>CTK Repository</strong>: <a href="https://github.com/queelius/ctk">github.com/queelius/ctk</a></li>
+<li><strong>Resilience Guide</strong>: See <code>docs/RESILIENCE.md</code> in CTK repo</li>
+<li><strong>Philosophy</strong>: This post</li>
+</ul>
+<h2 id="final-thoughts">Final Thoughts</h2>
+<p>We&rsquo;re in the early days of AI assistants becoming intellectual companions. The conversations we have now will be historically interesting in decades to come—both personally and culturally.</p>
+<p>Design for resilience. Export in multiple formats. Test your fallbacks. Write good recovery docs.</p>
+<p>Not for resurrection. Not for immortality.</p>
+<p>Just so love can still respond.</p>
+<hr>
+<p><em>Interested in conversation preservation, resilient systems, or long-term thinking? Let me know in the comments or reach out. This is a philosophy that applies far beyond AI conversations—it&rsquo;s about how we design any system meant to outlive its creators.</em></p>
+]]></content:encoded><category>AI</category><category>conversation-preservation</category><category>resilience</category><category>software-design</category><category>long-term-thinking</category><category>philosophy</category><category>ctk</category></item><item><title>Why I Build Comprehensively in Open Source</title><link>https://queelius.github.io/post/2024-11-open-source-legacy/</link><pubDate>Fri, 15 Nov 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-11-open-source-legacy/</guid><description>I maintain 50+ open source repositories. Every one has documentation, tests, examples, and clear architecture.
+People ask: “Why spend so much time on free software when you have stage 4 cancer?”
+The question misunderstands what I’m doing. This isn’t charity. It’s value imprinting at scale.
+First: Reproducible Science Science requires reproducibility. If you publish computational results without releasing code, you’ve made unverifiable claims.
+Every paper I publish includes:
+Open source …</description><content:encoded><![CDATA[<p>I maintain 50+ open source repositories. Every one has documentation, tests, examples, and clear architecture.</p>
+<p>People ask: &ldquo;Why spend so much time on free software when you have stage 4 cancer?&rdquo;</p>
+<p>The question misunderstands what I&rsquo;m doing. This isn&rsquo;t charity. It&rsquo;s <strong>value imprinting at scale</strong>.</p>
+<h2 id="first-reproducible-science">First: Reproducible Science</h2>
+<p>Science requires reproducibility. If you publish computational results without releasing code, you&rsquo;ve made <strong>unverifiable claims</strong>.</p>
+<p>Every paper I publish includes:</p>
+<ul>
+<li>Open source implementation</li>
+<li>Documented dependencies</li>
+<li>Reproducible examples</li>
+<li>Test suites</li>
+<li>Clear installation instructions</li>
+</ul>
+<p>This isn&rsquo;t optional. It&rsquo;s <strong>methodological rigor</strong>.</p>
+<p>When someone reads my reliability analysis paper and wants to verify my results, they can:</p>
+<ol>
+<li>Clone the repo</li>
+<li>Install dependencies</li>
+<li>Run the code</li>
+<li>Reproduce the figures</li>
+</ol>
+<p>That&rsquo;s how science should work.</p>
+<h2 id="second-continuability">Second: Continuability</h2>
+<p>With stage 4 cancer, I think explicitly: <strong>what if I&rsquo;m not here to maintain this?</strong></p>
+<p>For work to be continuable:</p>
+<p><strong>Clear architecture</strong>: Someone else must understand design decisions</p>
+<p><strong>Comprehensive docs</strong>: Explain not just <em>what</em> but <em>why</em></p>
+<p><strong>Test suites</strong>: Demonstrate usage and validate correctness</p>
+<p><strong>Clean dependencies</strong>: No fragile, undocumented requirements</p>
+<p><strong>Examples</strong>: Show intent through working code</p>
+<p><strong>Open license</strong>: Remove legal barriers to continuation</p>
+<p>I&rsquo;m not building for myself. I&rsquo;m building for <strong>whoever comes next</strong>.</p>
+<h2 id="third-value-imprinting">Third: Value Imprinting</h2>
+<p>Code embodies values. Every API decision reflects beliefs:</p>
+<ul>
+<li>What should be easy vs. hard?</li>
+<li>What should be explicit vs. implicit?</li>
+<li>What should be safe by default?</li>
+<li>What complexity is worth exposing?</li>
+</ul>
+<p>My libraries encode:</p>
+<ul>
+<li><strong>Transparency over magic</strong>: No hidden behavior</li>
+<li><strong>Composition over monoliths</strong>: Small pieces, flexibly combined</li>
+<li><strong>Clarity over cleverness</strong>: Obvious beats impressive</li>
+<li><strong>Safety by default</strong>: The easy path is the safe path</li>
+</ul>
+<p>These values propagate. Someone uses my library → internalizes its principles → applies them elsewhere.</p>
+<p><strong>Code is how values scale beyond individual lifetimes.</strong></p>
+<h2 id="fourth-usefulness-to-others">Fourth: Usefulness to Others</h2>
+<p>I&rsquo;ve benefited enormously from open source:</p>
+<ul>
+<li>Libraries that solved problems I couldn&rsquo;t</li>
+<li>Documentation that taught me techniques</li>
+<li>Examples that clarified concepts</li>
+<li>Tools that accelerated my research</li>
+</ul>
+<p>Contributing back isn&rsquo;t obligation—it&rsquo;s <strong>participating in a gift economy</strong>.</p>
+<p>When you solve a problem well and publish it, thousands don&rsquo;t have to solve it again. That&rsquo;s massive leverage.</p>
+<h2 id="fifth-aesthetic-satisfaction">Fifth: Aesthetic Satisfaction</h2>
+<p>Well-crafted code is intrinsically beautiful:</p>
+<ul>
+<li>Clean abstractions that feel inevitable</li>
+<li>APIs that make complex operations simple</li>
+<li>Documentation explaining <em>why</em> not just <em>what</em></li>
+<li>Tests that serve as executable specifications</li>
+<li>Code structured for human comprehension</li>
+</ul>
+<p>I maintain libraries obsessively because <strong>craftsmanship is rewarding</strong>.</p>
+<p>The cancer doesn&rsquo;t change this. If anything, it intensifies it—do work worth doing <strong>while you can</strong>.</p>
+<h2 id="why-comprehensive">Why &ldquo;Comprehensive&rdquo;?</h2>
+<p>Why not just throw code over the wall?</p>
+<p>Because <strong>incomplete open source often wastes more time than it saves</strong>:</p>
+<ul>
+<li>Undocumented code: Users spend hours figuring out what you could have explained in minutes</li>
+<li>Untested code: Breaks in production, creates technical debt</li>
+<li>Unclear dependencies: Installation becomes archaeological excavation</li>
+<li>No examples: Users can&rsquo;t tell if they&rsquo;re using it correctly</li>
+<li>Ambiguous licensing: Legal uncertainty blocks adoption</li>
+</ul>
+<p>Comprehensive open source <strong>respects users&rsquo; time</strong>.</p>
+<p>When I publish:</p>
+<ol>
+<li>Installation works first try</li>
+<li>Examples run without modification</li>
+<li>API is documented with clear examples</li>
+<li>Tests demonstrate usage patterns</li>
+<li>Architecture is explained</li>
+<li>License is unambiguous</li>
+<li>Dependencies are specified</li>
+<li>Contribution guidelines are clear</li>
+</ol>
+<p>This takes effort. But it&rsquo;s the difference between <strong>publishing code and publishing tools</strong>.</p>
+<h2 id="the-cost">The Cost</h2>
+<p>Comprehensive open source is expensive:</p>
+<p><strong>Time</strong>: Documenting takes longer than coding
+<strong>Energy</strong>: Examples and tests require effort
+<strong>Focus</strong>: Polish competes with new features</p>
+<p>But these costs buy:</p>
+<ul>
+<li>Reproducibility (scientific rigor)</li>
+<li>Continuability (legacy beyond yourself)</li>
+<li>Usefulness (others can actually use it)</li>
+<li>Value propagation (principles spread)</li>
+<li>Quality (craftsmanship matters)</li>
+</ul>
+<p>For work I want to outlive me, <strong>this is the right tradeoff</strong>.</p>
+<h2 id="stage-4-changes-the-calculation">Stage 4 Changes the Calculation</h2>
+<p>With uncertain time horizons:</p>
+<p><strong>Every project gets filtered</strong>: &ldquo;If this is my last contribution to this domain, is it worth it?&rdquo;</p>
+<p><strong>Documentation becomes critical</strong>: I might not be here to explain</p>
+<p><strong>Completeness matters more</strong>: Half-finished work helps no one</p>
+<p><strong>Open source is essential</strong>: Proprietary work dies with me</p>
+<p>Cancer doesn&rsquo;t make me publish less. It makes me <strong>publish more carefully</strong>.</p>
+<h2 id="examples-from-my-work">Examples From My Work</h2>
+<p><strong>Statistical libraries in R</strong>: Every function documented with mathematical background, examples, and tests. Someone can pick this up and understand both the code and the theory.</p>
+<p><strong>Cryptographic tools</strong>: Type systems enforce security properties. Documentation explains threat models. Tests demonstrate correct usage. Someone can audit and continue this work.</p>
+<p><strong>Network analysis code</strong>: Abstracts over graph representations. Works on any structure satisfying the graph interface. Examples show how to extend it. Someone can build on this foundation.</p>
+<p>All structured for <strong>continuation without me</strong>.</p>
+<h2 id="the-long-view">The Long View</h2>
+<p>Well-documented, clearly-architected, thoroughly-tested open source has <strong>staying power</strong>.</p>
+<p>Someone in 2030 might use a library I published in 2024—if it&rsquo;s:</p>
+<ul>
+<li>Well-designed enough to remain relevant</li>
+<li>Well-documented enough to understand</li>
+<li>Well-tested enough to trust</li>
+<li>Well-licensed enough to modify</li>
+</ul>
+<p>That&rsquo;s the goal: <strong>work that remains useful after I&rsquo;m gone</strong>.</p>
+<h2 id="what-this-means-practically">What This Means Practically</h2>
+<p>Every commit I make asks:</p>
+<ul>
+<li>Is this design decision explained?</li>
+<li>Are the tests comprehensive?</li>
+<li>Is the documentation current?</li>
+<li>Can someone else continue this?</li>
+<li>Does this encode the values I want to propagate?</li>
+</ul>
+<p>This discipline is expensive. But <strong>legacy is about what persists</strong>, not what&rsquo;s easiest.</p>
+<h2 id="the-paradox">The Paradox</h2>
+<p>Cancer gives you less time but <strong>clarifies what that time is for</strong>.</p>
+<p>I&rsquo;m more productive now than before diagnosis. Not because I work longer hours (I don&rsquo;t—treatment limits that).</p>
+<p>Because I <strong>waste less time on things that don&rsquo;t matter</strong>:</p>
+<ul>
+<li>Code without docs? Not worth publishing</li>
+<li>Projects I&rsquo;ll abandon? Don&rsquo;t start them</li>
+<li>Work I can&rsquo;t explain? Figure it out or skip it</li>
+<li>Tools no one can use? Not worth building</li>
+</ul>
+<p>The filter is simple: <strong>will this remain useful and usable after I&rsquo;m gone?</strong></p>
+<p>Most things fail that test. The few that pass get everything I have.</p>
+<h2 id="open-source-as-archive">Open Source as Archive</h2>
+<p>My comprehensive open source work is fundamentally an <strong>archival project</strong>:</p>
+<ul>
+<li>Document my reasoning</li>
+<li>Encode my values</li>
+<li>Share my tools</li>
+<li>Make my work reproducible</li>
+<li>Enable continuation</li>
+</ul>
+<p>Not memorial. <strong>Functional archive</strong>.</p>
+<p>If someone in 2030 wants to:</p>
+<ul>
+<li>Reproduce my reliability analysis results</li>
+<li>Understand my cryptographic designs</li>
+<li>Build on my network analysis methods</li>
+<li>Continue my statistical computing work</li>
+</ul>
+<p>They can. The code exists. The documentation explains it. The tests validate it. The license permits it.</p>
+<p><strong>That&rsquo;s what I&rsquo;m building toward.</strong></p>
+<h2 id="for-other-researchers">For Other Researchers</h2>
+<p>If you&rsquo;re doing computational work:</p>
+<p><strong>Publish your code</strong>. Not someday. Now.</p>
+<p><strong>Document it properly</strong>. Explain why, not just what.</p>
+<p><strong>Test it thoroughly</strong>. Tests are specification and validation.</p>
+<p><strong>License it clearly</strong>. MIT or Apache 2.0 removes barriers.</p>
+<p><strong>Make it reproducible</strong>. Someone should be able to run your code and get your results.</p>
+<p>This isn&rsquo;t extra work. It&rsquo;s <strong>the minimum standard for computational science</strong>.</p>
+<h2 id="the-bottom-line">The Bottom Line</h2>
+<p>I build comprehensively in open source because:</p>
+<ol>
+<li><strong>Science demands reproducibility</strong></li>
+<li><strong>Legacy requires continuability</strong></li>
+<li><strong>Values propagate through code</strong></li>
+<li><strong>Others benefit from shared tools</strong></li>
+<li><strong>Craftsmanship is intrinsically rewarding</strong></li>
+<li><strong>Cancer makes priorities clear</strong></li>
+</ol>
+<p>Every repository is an attempt to build something that <strong>outlasts me</strong>.</p>
+<p>Not for immortality. For <strong>usefulness</strong>.</p>
+<hr>
+<p><em>Check the repos. Every commit encodes: this is how I think problems should be solved.</em></p>
+]]></content:encoded><category>open-source</category><category>legacy</category><category>reproducible-science</category><category>philosophy</category><category>software-design</category></item><item><title>API Design as Value Imprinting</title><link>https://queelius.github.io/post/2019-04-api-design-value-imprinting/</link><pubDate>Mon, 22 Apr 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2019-04-api-design-value-imprinting/</guid><description>I’ve been thinking about how API design encodes values—not just technical decisions, but philosophical ones.
+Every interface you create is a constraint on future behavior. Every abstraction emphasizes certain patterns and discourages others. You’re not just building tools—you’re shaping how people think about problems.
+What Your API Communicates Consider these design choices:
+Mutability vs Immutability: Do you encourage stateful modification or pure functions? This isn’t just performance—it’s a …</description><content:encoded><![CDATA[<p>I&rsquo;ve been thinking about how <strong>API design encodes values</strong>—not just technical decisions, but philosophical ones.</p>
+<p>Every interface you create is a constraint on future behavior. Every abstraction emphasizes certain patterns and discourages others. You&rsquo;re not just building tools—you&rsquo;re shaping how people think about problems.</p>
+<h2 id="what-your-api-communicates">What Your API Communicates</h2>
+<p>Consider these design choices:</p>
+<p><strong>Mutability vs Immutability</strong>: Do you encourage stateful modification or pure functions? This isn&rsquo;t just performance—it&rsquo;s a philosophy about side effects and reasoning.</p>
+<p><strong>Explicit vs Implicit</strong>: Do you make users specify parameters or infer from context? This trades convenience for transparency.</p>
+<p><strong>Fail Fast vs Fail Safe</strong>: Do you throw exceptions or return error codes? This encodes beliefs about error handling and control flow.</p>
+<h2 id="my-design-values">My Design Values</h2>
+<p>When I build libraries, I try to encode:</p>
+<p><strong>Explicitness over magic</strong>: I&rsquo;d rather make users type more than hide behavior
+<strong>Composition over inheritance</strong>: Prefer small pieces that combine flexibly
+<strong>Clarity over cleverness</strong>: Code should be obvious, not impressive
+<strong>Safety by default</strong>: The easy path should be the safe path</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>Your API is a value statement. It says:</p>
+<ul>
+<li>What you think is important</li>
+<li>What you think is dangerous</li>
+<li>How you think about the problem domain</li>
+</ul>
+<p>This is why I spend so long on interface design. I&rsquo;m not just making technical decisions—I&rsquo;m imprinting values into artifacts that might outlive me.</p>
+<p><strong>The APIs we create shape future thought.</strong></p>
+<hr>
+<p><em>Every library I publish is an attempt to encode certain values: transparency, composability, and respect for the user&rsquo;s intelligence.</em></p>
+]]></content:encoded><category>api-design</category><category>software-design</category><category>philosophy</category><category>ethics</category></item><item><title>The Unix Philosophy and API Design</title><link>https://queelius.github.io/post/2016-02-unix-philosophy/</link><pubDate>Sat, 20 Feb 2016 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2016-02-unix-philosophy/</guid><description>I keep coming back to the Unix philosophy: do one thing well, compose freely, use text streams.
+This isn’t nostalgia. It’s a design principle that scales from command-line tools to library APIs to distributed systems.
+What Makes a Good Tool The best tools I’ve built or used share these properties:
+Single responsibility - Clear purpose, no feature creep Composable - Works with other tools via clean interfaces Transparent - Behavior is predictable and debuggable Minimal - No unnecessary …</description><content:encoded><![CDATA[<p>I keep coming back to the Unix philosophy: <strong>do one thing well, compose freely, use text streams.</strong></p>
+<p>This isn&rsquo;t nostalgia. It&rsquo;s a design principle that scales from command-line tools to library APIs to distributed systems.</p>
+<h2 id="what-makes-a-good-tool">What Makes a Good Tool</h2>
+<p>The best tools I&rsquo;ve built or used share these properties:</p>
+<ol>
+<li><strong>Single responsibility</strong> - Clear purpose, no feature creep</li>
+<li><strong>Composable</strong> - Works with other tools via clean interfaces</li>
+<li><strong>Transparent</strong> - Behavior is predictable and debuggable</li>
+<li><strong>Minimal</strong> - No unnecessary dependencies or coupling</li>
+</ol>
+<h2 id="why-this-matters-for-libraries">Why This Matters for Libraries</h2>
+<p>When I design APIs, I think in Unix terms:</p>
+<ul>
+<li><strong>Small, focused functions</strong> that do one thing</li>
+<li><strong>Pipeable operations</strong> where output of one becomes input to another</li>
+<li><strong>Plain data</strong> over complex objects when possible</li>
+<li><strong>Fail explicitly</strong> rather than silently</li>
+</ul>
+<h2 id="the-deeper-principle">The Deeper Principle</h2>
+<p>The Unix philosophy is really about <strong>respecting the user&rsquo;s intelligence</strong>. Don&rsquo;t hide complexity behind magic. Give them primitives they can combine in ways you didn&rsquo;t anticipate.</p>
+<p>This is how tools become timeless.</p>
+<hr>
+<p><em>This philosophy influences every library I build. See it in action across my GitHub repos.</em></p>
+]]></content:encoded><category>unix-philosophy</category><category>api-design</category><category>software-design</category><category>philosophy</category></item></channel></rss>

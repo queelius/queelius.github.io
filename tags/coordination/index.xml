@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Coordination on metafunctor</title><link>https://queelius.github.io/tags/coordination/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/coordination/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Apertures: Coordinated Partial Evaluation for Distributed Computation</title><link>https://queelius.github.io/papers/aperture/</link><pubDate>Wed, 01 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/aperture/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/aperture/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/aperture/apertures-workshop.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/aperture/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>oblivious computing</category><category>encrypted search</category><category>distributed computation</category><category>partial evaluation</category><category>coordination</category><category>cryptography</category><category>secure multi-party computation</category><category>oblivious query processing</category></item><item><title>Apertures: Coordinated Partial Evaluation for Distributed Computation</title><link>https://queelius.github.io/post/2024-04-01-aperture/</link><pubDate>Mon, 01 Apr 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-04-01-aperture/</guid><description>A coordination mechanism for distributed computation based on partial evaluation with explicit holes, enabling pausable and resumable evaluation across multiple parties.</description><content:encoded><![CDATA[<p>Apertures provide a lightweight coordination mechanism for distributed computation through partial evaluation with &ldquo;holes&rdquo; (denoted <code>?variable</code>). Unlike cryptographic approaches, apertures make no security claims but instead offer practical coordination for scenarios where parties can share computation structure while controlling when and where data is introduced.</p>
+<h2 id="the-core-idea">The Core Idea</h2>
+<p>An aperture represents an unknown expression—a hole in a computation. Programs with apertures can be:</p>
+<ul>
+<li>Partially evaluated by parties who don&rsquo;t know the aperture values</li>
+<li>Optimized and transformed without seeing the data</li>
+<li>Resumed when apertures are eventually filled</li>
+</ul>
+<p><strong>Critical disclaimer</strong>: Apertures leak information through program structure, evaluation patterns, and algebraic relationships. They&rsquo;re not for adversarial settings or high-security requirements.</p>
+<h2 id="the-local-computation-pattern">The Local Computation Pattern</h2>
+<p>The most compelling use case:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="c1">;; Server optimizes without seeing data or results</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">let</span> <span class="p">((</span><span class="nv">plan</span> <span class="p">(</span><span class="nv">server-optimize</span> <span class="nv">?query</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="nv">client-execute</span> <span class="nv">plan</span> <span class="nv">?local-data</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="c1">;; Results stay local</span>
+</span></span></code></pre></div><p>The server provides optimization expertise without seeing:</p>
+<ul>
+<li>Actual query parameters</li>
+<li>Local data being processed</li>
+<li>Query results</li>
+</ul>
+<p>However, the server learns query structure and patterns.</p>
+<h2 id="how-it-works">How It Works</h2>
+<h3 id="core-language">Core Language</h3>
+<p>Apertures extend a Lisp-like language with holes:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">e ::= v | x | ?h | (e e*) | (λ (x*) e)
+</span></span><span class="line"><span class="cl">    | (let ((x e)*) e) | (if e e e)
+</span></span></code></pre></div><h3 id="partial-evaluation">Partial Evaluation</h3>
+<p>Evaluation proceeds until blocked by apertures:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">E[(+ n1 n2)] → n1 + n2           (arithmetic)
+</span></span><span class="line"><span class="cl">E[(+ ?h n)]  →p (+ ?h n)         (partial - blocked)
+</span></span><span class="line"><span class="cl">E[?h]        →p E[?h]            (aperture blocks)
+</span></span></code></pre></div><h3 id="algebraic-simplification">Algebraic Simplification</h3>
+<p>During partial evaluation, algebraic rules apply:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(* 0 ?x) →p 0
+</span></span><span class="line"><span class="cl">(+ 0 ?x) →p ?x
+</span></span><span class="line"><span class="cl">(* 1 ?x) →p ?x
+</span></span></code></pre></div><p>These simplifications improve performance but also leak information!</p>
+<h2 id="coordination-patterns">Coordination Patterns</h2>
+<h3 id="progressive-refinement">Progressive Refinement</h3>
+<p>Multiple parties incrementally fill apertures:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="c1">;; Initial query with holes</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">select</span> <span class="nv">?table</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="nv">where</span> <span class="p">(</span><span class="nb">and</span> <span class="p">(</span><span class="nf">&gt;</span> <span class="nv">?col1</span> <span class="nv">?val1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">              <span class="p">(</span><span class="nf">&lt;</span> <span class="nv">?col2</span> <span class="nv">?val2</span><span class="p">))))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">;; Party A knows table structure</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">fill</span> <span class="nv">query</span> <span class="nv">{table:</span> <span class="s">&#34;users&#34;</span><span class="o">,</span> <span class="nv">col1:</span> <span class="s">&#34;age&#34;</span><span class="o">,</span> <span class="nv">col2:</span> <span class="s">&#34;salary&#34;</span><span class="nv">}</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">;; Party B knows constraints</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">fill</span> <span class="nv">query</span> <span class="nv">{val1:</span> <span class="mi">18</span><span class="o">,</span> <span class="nv">val2:</span> <span class="nv">100000}</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="speculative-compilation">Speculative Compilation</h3>
+<p>Servers compile multiple code paths without knowing which will be used:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="p">(</span><span class="nb">case</span> <span class="nv">?config</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">[</span><span class="p">(</span><span class="nv">fast</span><span class="p">)</span> <span class="p">(</span><span class="nv">quick-process</span> <span class="nv">data</span><span class="p">)</span><span class="nv">]</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">[</span><span class="p">(</span><span class="nv">accurate</span><span class="p">)</span> <span class="p">(</span><span class="nv">slow-process</span> <span class="nv">data</span><span class="p">)</span><span class="nv">]</span>
+</span></span><span class="line"><span class="cl">  <span class="nv">[</span><span class="p">(</span><span class="nv">balanced</span><span class="p">)</span> <span class="p">(</span><span class="nv">hybrid-process</span> <span class="nv">data</span><span class="p">)</span><span class="nv">]</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="performance">Performance</h2>
+<p>Overhead compared to direct evaluation: <strong>2-5%</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Operation</th>
+          <th>Direct (µs)</th>
+          <th>With Apertures (µs)</th>
+          <th>Overhead</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Arithmetic</td>
+          <td>127</td>
+          <td>131</td>
+          <td>3.1%</td>
+      </tr>
+      <tr>
+          <td>List processing</td>
+          <td>89</td>
+          <td>93</td>
+          <td>4.5%</td>
+      </tr>
+      <tr>
+          <td>Lambda application</td>
+          <td>156</td>
+          <td>164</td>
+          <td>5.1%</td>
+      </tr>
+  </tbody>
+</table>
+<p>The minimal overhead comes from hole checking and maintaining partial evaluation state.</p>
+<h2 id="when-not-to-use-apertures">When NOT to Use Apertures</h2>
+<p><strong>Adversarial Settings</strong>: An adversary can infer values from structure and exploit evaluation patterns.</p>
+<p><strong>High-Sensitivity Data</strong>: Medical records, financial data, personal information—apertures leak too much.</p>
+<p><strong>Regulatory Compliance</strong>: GDPR, HIPAA, financial regulations require stronger guarantees.</p>
+<p><strong>Information Leakage Example</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="p">(</span><span class="k">if</span> <span class="p">(</span><span class="nf">&gt;</span> <span class="nv">?age</span> <span class="mi">65</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nv">discount</span> <span class="mf">0.2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="k">if</span> <span class="p">(</span><span class="nf">&lt;</span> <span class="nv">?age</span> <span class="mi">18</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="nv">discount</span> <span class="mf">0.1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="nv">no-discount</span><span class="p">)))</span>
+</span></span></code></pre></div><p>Even without seeing <code>?age</code>, observers learn:</p>
+<ul>
+<li>Age-based discount tiers exist</li>
+<li>Exact discount amounts</li>
+<li>Business logic structure</li>
+</ul>
+<h2 id="when-apertures-are-appropriate">When Apertures ARE Appropriate</h2>
+<ul>
+<li>Computation structure is not sensitive</li>
+<li>Parties are honest-but-curious, not adversarial</li>
+<li>Performance matters more than perfect privacy</li>
+<li>Local computation can limit result leakage</li>
+</ul>
+<p><strong>Good use cases:</strong></p>
+<ul>
+<li>Scientific computing with public algorithms</li>
+<li>Optimization of non-sensitive business logic</li>
+<li>Collaborative debugging and testing</li>
+<li>Educational systems</li>
+</ul>
+<h2 id="implementation">Implementation</h2>
+<p>Our C++ implementation provides:</p>
+<ul>
+<li>S-expression parser with aperture syntax</li>
+<li>Partial evaluator with algebraic simplification</li>
+<li>Hole tracking and filling mechanism</li>
+<li>Stack-based evaluation with continuation frames</li>
+</ul>
+<h2 id="key-insight">Key Insight</h2>
+<p>Many real-world scenarios don&rsquo;t require cryptographic privacy but do need coordination primitives. Apertures fill this gap with minimal overhead while acknowledging—rather than obscuring—their limitations.</p>
+<p>Not every distributed computation needs cryptographic security, but all need clear understanding of their tradeoffs.</p>
+<p><a href="/latex/aperture/apertures-workshop.pdf">View the full workshop paper (PDF)</a></p>
+<h2 id="related-work">Related Work</h2>
+<ul>
+<li><strong>Partial Evaluation</strong>: Apertures extend partial evaluation with explicit holes for multi-party coordination</li>
+<li><strong>Homomorphic Encryption</strong>: Provides strong privacy with 1000-10000× overhead</li>
+<li><strong>Secure Multi-Party Computation</strong>: Cryptographic guarantees for adversarial settings</li>
+<li><strong>Staged Computation</strong>: Multi-stage programming for performance optimization</li>
+</ul>
+]]></content:encoded><category>distributed-systems</category><category>partial-evaluation</category><category>coordination</category><category>programming-languages</category></item></channel></rss>

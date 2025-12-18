@@ -1,0 +1,832 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Algebra on metafunctor</title><link>https://queelius.github.io/tags/algebra/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/algebra/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Advancing Mathematical Reasoning in AI: Introducing Reverse-Process Synthetic Data Generation</title><link>https://queelius.github.io/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/rpsdg/</guid><description>Check out the (early) project and source code on GitHub.
+Abstract: This paper introduces a methodology for generating high-quality, diverse training data for Language Models (LMs) in complex problem-solving domains. Our approach, termed “Reverse-Process Synthetic Data Generation” (RPSDG), inverts traditionally difficult problems to create an abundance of training examples with known solutions, e.g., symbolically taking the deriative of a function, $f \mapsto f’$, versus solving antiderivatives …</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
+<h2 id="abstract">Abstract:</h2>
+<p>This paper introduces a methodology for generating high-quality, diverse training data for Language Models (LMs) in complex problem-solving domains. Our approach, termed &ldquo;Reverse-Process Synthetic Data Generation&rdquo; (RPSDG), inverts traditionally difficult problems to create an abundance of training examples with known solutions,
+e.g., symbolically taking the deriative of a function, $f \mapsto f&rsquo;$, versus solving antiderivatives of $f&rsquo;$. By automating the generation of problems of graduating difficulty, we create datasets that enable process-supervised training of LLMs. We demonstrate the efficacy of this method for training mathematical reasoning. Our results show significant improvements in LLMs&rsquo; problem-solving capabilities, particularly in areas requiring multi-step reasoning and creative insights. This methodology not only enhances model performance but also provides a framework for generating explainable AI solutions, as the step-by-step problem-solving process is inherent in the training data.</p>
+<h2 id="table-of-contents">Table of Contents:</h2>
+<ul>
+<li>
+<p>Introduction</p>
+<ul>
+<li>The challenge of training data for complex problem-solving</li>
+<li>Overview of Reverse-Process Synthetic Data Generation (RPSDG)</li>
+<li>Potential impact on AI capabilities and explainability</li>
+</ul>
+</li>
+<li>
+<p>Methodology</p>
+<ul>
+<li>Core principles</li>
+<li>Automating generation of process supervision training data</li>
+<li>Curriculum learning and problem difficulty progression</li>
+</ul>
+</li>
+<li>
+<p>Mathematics</p>
+<ul>
+<li>Algebra: Equation solving and manipulation</li>
+<li>Calculus: From differentiation to integration</li>
+</ul>
+</li>
+<li>
+<p>Implementation and Results</p>
+<ul>
+<li>Data generation pipelines</li>
+<li>Transformer-based LMs</li>
+<li>Self-Supervised Learning</li>
+<li>Evals and benchmarks</li>
+</ul>
+</li>
+<li>
+<p>Discussion</p>
+<ul>
+<li>Implications for AI problem-solving capabilities</li>
+<li>Enhancing explainability and transparency</li>
+<li>Limitations and challenges of the RPSDG approach using SSL</li>
+</ul>
+</li>
+<li>
+<p>Future Work</p>
+<ul>
+<li>Expanding to new domains and problem types</li>
+<li>Reinforcement learning to reward multi-step reasoning even without a known (but verifiable) solution</li>
+</ul>
+</li>
+<li>
+<p>Conclusion</p>
+<ul>
+<li>Summary of key findings</li>
+<li>Broader impact on AI research and applications</li>
+</ul>
+</li>
+</ul>
+<h2 id="introduction">Introduction</h2>
+<p>In &ldquo;The Bitter Lesson,&rdquo; Richard Sutton argues that learning algorithms that scale with compute and data will eventually outperform handcrafted algorithms.</p>
+<p>The next frontier in AI research is finding ways to acquire high-quality data that can be used to train models to predict the latent structure and processes in the world. A significant portion of the world&rsquo;s data is latent, where the processes that generate the data are not observable (e.g., not written down). For example, in mathematics, the way in which a proof was discovered is often not demonstrated and instead only a polished proof is presented, hiding the creative process and the &ldquo;dark matter&rdquo; that led to the proof. Understanding and modeling the latent structure in our processes can lead to significant improvements in AI capabilities.</p>
+<p>In this paper, we are interested in exploring <em>algorithmic</em> data generation, where we apply classical algorithms (GOFAI) to automatically generate high-quality step-by-step (process supervision) training data for LMs. In particular, we are interested in exploring problems which have the feature of being easy to solve in one direction, but hard to solve in the other direction, such as</p>
+<h2 id="taking-derivatives-vs-integrating-functions">Taking Derivatives vs. Integrating Functions</h2>
+<p>In mathematics, computing derivatives of functions is generally easier than finding their antiderivatives (integrals). This inherent asymmetry allows us to use the more straightforward differentiation process to generate a rich dataset for training language models (LLMs) by reversing the problem-solving direction: starting with derivatives and deriving the original functions.</p>
+<h3 id="generating-integral-calculus-training-data-by-solving-derivatives-and-reversing-the-process">Generating Integral Calculus Training Data By Solving Derivatives and Reversing the Process</h3>
+<ol>
+<li>
+<p><strong>Starting with Known Functions:</strong></p>
+<ul>
+<li>Select functions \( f(x) \) that have closed-form solutions and well-defined derivatives.</li>
+<li>Examples include polynomials, trigonometric functions, exponential functions, and logarithmic functions.</li>
+<li>To ensure the training data covers a wide range of functions and their transformations, we create a variety of functions with different complexities and forms.</li>
+</ul>
+</li>
+<li>
+<p><strong>Formulating the Reverse Process:</strong></p>
+<ul>
+<li>Take the derivative of \( f(x) \) to generate \( f'(x) \).</li>
+</ul>
+</li>
+<li>
+<p><strong>Reversing the Process:</strong></p>
+<ul>
+<li>Generate the RPSDG by reversing the problem and solution steps, starting with \( f'(x) \)$ to show how to arrive at a corresponding integral \( f(x) \).</li>
+<li>Ensure that each step in this process is well-documented, capturing the intermediate transformations.</li>
+</ul>
+</li>
+</ol>
+<p>This approach allows us to generate integration problems of graduating difficulty, leveraging the inherent asymmetry between differentiation and integration. By automating this process, we create a diverse dataset for training LLMs to predict solutions in integral calculus.</p>
+<h2 id="generating-a-theorem-proof-vs-verifying-a-proof">Generating a Theorem Proof vs. Verifying a Proof</h2>
+<p>One of the key challenges in mathematics and logic is generating proofs for given theorems. While verifying a proof is generally straightforward, generating the proof itself can be significantly more complex. Our methodology leverages this asymmetry by focusing on the reverse process: starting with randomly generated expressions and using rewrite rules to create both theorems and their proofs.</p>
+<h3 id="generating-theorem-proofs">Generating Theorem Proofs</h3>
+<ol>
+<li>
+<p><strong>Random Walks in Expression Space:</strong></p>
+<ul>
+<li>Begin with a randomly generated expression \( e_{\text{start}} \).</li>
+<li>Apply a series of rewrite rules \( r_1, r_2, \ldots, r_n \) to generate a sequence of intermediate expressions \( e_1, e_2, \ldots, e_n \), ultimately arriving at a final expression \( e_{\text{end}} \).</li>
+<li>Each step \( e_i \rightarrow e_{i+1} \) represents a proof step within a logical or mathematical framework.</li>
+</ul>
+</li>
+<li>
+<p><strong>Forming Theorems and Proofs:</strong></p>
+<ul>
+<li>The pair \( (e_{\text{start}}, e_{\text{end}}) \) represents a theorem, where \( e_{\text{start}} \) is the hypothesis and \( e_{\text{end}} \) is the conclusion.</li>
+<li>The sequence of intermediate steps provides the proof for this theorem.</li>
+<li>This method effectively generates theorems and their corresponding proofs by random exploration of the expression space.</li>
+</ul>
+</li>
+<li>
+<p><strong>Reversibility and Bidirectional Processes:</strong></p>
+<ul>
+<li>The reverse process can also be applied, starting with \( e_{\text{end}} \) and working backward to \( e_{\text{start}} \).</li>
+<li>Intermediate steps that involve complex operations (e.g., integration) can often be reversed into simpler operations (e.g., differentiation).</li>
+<li>This bidirectional approach ensures a rich dataset with varied difficulty levels for training models.</li>
+</ul>
+</li>
+<li>
+<p><strong>Automated Proof Generation:</strong></p>
+<ul>
+<li>By applying rewrite rules to random starting points and ending at random points, we automatically generate both theorems and proofs.</li>
+<li>This method circumvents the traditional difficulty of finding a theorem to prove and then discovering its proof.</li>
+<li>The randomness ensures a diverse set of theorems and proofs, capturing a wide range of logical and mathematical concepts.</li>
+</ul>
+</li>
+</ol>
+<p>This methodology allows us to systematically generate a large volume of training data for LLMs. By focusing on problems that are easy in one direction but complex in the other, we create a diverse dataset that captures a wide range of logical and mathematical challenges. This not only enhances the problem-solving capabilities of LLMs but also provides a framework for generating explainable AI solutions, as the step-by-step problem-solving process is inherent in the training data.</p>
+]]></content:encoded><category>artificial intelligence</category><category>machine learning</category><category>mathematics</category><category>algebra</category><category>calculus</category><category>LLMs</category><category>synthetic data</category><category>data generation</category><category>reasoning</category><category>AI training</category><category>explainable AI</category></item><item><title>Alga: Algebraic Parser Composition through Monadic Design A C++20 Template Library for Type-Safe Text Processing</title><link>https://queelius.github.io/papers/alga/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/alga/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/alga/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/alga/alga_technical_report.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/alga/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>c++</category><category>parsing</category><category>monads</category><category>algebra</category><category>library</category><category>functional programming</category></item><item><title>Algebraic Cipher Types: Computing on Encrypted Data While Preserving Structure</title><link>https://queelius.github.io/post/2025-10-07-algebraic-cipher-types/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-10-07-algebraic-cipher-types/</guid><description>A functorial framework that lifts algebraic structures into the encrypted domain, enabling secure computation that preserves mathematical properties.</description><content:encoded><![CDATA[<p>Imagine computing on encrypted data without ever decrypting it. Not just simple operations—but preserving the full algebraic structure of your computations.</p>
+<p>This is the promise of <strong>algebraic cipher types</strong>: a principled framework for secure computation built on category theory and abstract algebra.</p>
+<h2 id="the-fundamental-problem">The Fundamental Problem</h2>
+<p>Traditional encryption forces a choice:</p>
+<ul>
+<li><strong>Decrypt</strong> → Compute → Encrypt (exposes plaintext)</li>
+<li><strong>Encrypt</strong> → ??? (can&rsquo;t compute meaningfully)</li>
+</ul>
+<p>Homomorphic encryption tries to bridge this gap, but existing approaches are:</p>
+<ul>
+<li>Limited to specific algebraic structures</li>
+<li>Ad-hoc constructions for each use case</li>
+<li>Lack compositionality</li>
+<li>Difficult to reason about formally</li>
+</ul>
+<h2 id="the-functorial-solution">The Functorial Solution</h2>
+<p>We present the <strong>cipher functor</strong> c_A: a systematic construction that:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Algebraic Structure (S, ∗, e)
+</span></span><span class="line"><span class="cl">           ↓ c_A (cipher functor)
+</span></span><span class="line"><span class="cl">Encrypted Structure (E, ⊕, ε)
+</span></span></code></pre></div><p><strong>Key property</strong>: Operations in the encrypted domain correspond exactly to operations in the plaintext domain.</p>
+<h3 id="what-this-means">What This Means</h3>
+<p>If you have a monoid <code>(S, ∗, e)</code>:</p>
+<ul>
+<li>Elements: <code>a, b ∈ S</code></li>
+<li>Operation: <code>a ∗ b</code></li>
+<li>Identity: <code>e</code></li>
+</ul>
+<p>The cipher functor gives you <code>(E, ⊕, ε)</code> where:</p>
+<ul>
+<li>Encrypted elements: <code>[a], [b] ∈ E</code></li>
+<li>Encrypted operation: <code>[a] ⊕ [b] = [a ∗ b]</code></li>
+<li>Encrypted identity: <code>ε = [e]</code></li>
+</ul>
+<p><strong>You can compute on ciphertexts exactly as if they were plaintexts!</strong></p>
+<h2 id="category-theory-in-practice">Category Theory in Practice</h2>
+<p>The beauty of the functorial approach:</p>
+<h3 id="1-preservation-of-structure">1. <strong>Preservation of Structure</strong></h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">F(f ∘ g) = F(f) ∘ F(g)    # Composition preserved
+</span></span><span class="line"><span class="cl">F(id) = id                 # Identity preserved
+</span></span></code></pre></div><h3 id="2-natural-transformations">2. <strong>Natural Transformations</strong></h3>
+<p>Operations between structures lift automatically:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">φ: (S₁, ∗₁) → (S₂, ∗₂)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">[φ]: (E₁, ⊕₁) → (E₂, ⊕₂)
+</span></span></code></pre></div><h3 id="3-universal-properties">3. <strong>Universal Properties</strong></h3>
+<p>Guarantees about what can and cannot be computed securely.</p>
+<h2 id="beyond-monoids">Beyond Monoids</h2>
+<p>The framework extends to:</p>
+<ul>
+<li><strong>Groups</strong>: Full invertibility in encrypted domain</li>
+<li><strong>Rings</strong>: Both addition and multiplication</li>
+<li><strong>Lattices</strong>: Ordered structures</li>
+<li><strong>Categories</strong>: Arbitrary algebraic theories</li>
+</ul>
+<h2 id="practical-applications">Practical Applications</h2>
+<h3 id="secure-multi-party-computation">Secure Multi-Party Computation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Parties hold encrypted shares</span>
+</span></span><span class="line"><span class="cl"><span class="n">shares</span> <span class="o">=</span> <span class="p">[</span><span class="n">encrypt</span><span class="p">(</span><span class="n">x₁</span><span class="p">),</span> <span class="n">encrypt</span><span class="p">(</span><span class="n">x₂</span><span class="p">),</span> <span class="n">encrypt</span><span class="p">(</span><span class="n">x₃</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compute on encrypted data</span>
+</span></span><span class="line"><span class="cl"><span class="n">encrypted_sum</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">cipher_add</span><span class="p">,</span> <span class="n">shares</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Only final result is decrypted</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">decrypt</span><span class="p">(</span><span class="n">encrypted_sum</span><span class="p">)</span>  <span class="c1"># = x₁ + x₂ + x₃</span>
+</span></span></code></pre></div><h3 id="private-database-queries">Private Database Queries</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Query database without revealing query</span>
+</span></span><span class="line"><span class="cl"><span class="n">encrypted_query</span> <span class="o">=</span> <span class="n">encrypt</span><span class="p">(</span><span class="n">search_term</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">encrypted_result</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">encrypted_query</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">decrypt</span><span class="p">(</span><span class="n">encrypted_result</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="oblivious-algorithms">Oblivious Algorithms</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Sort encrypted data without revealing order</span>
+</span></span><span class="line"><span class="cl"><span class="n">encrypted_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">encrypt</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">encrypted_sorted</span> <span class="o">=</span> <span class="n">cipher_sort</span><span class="p">(</span><span class="n">encrypted_list</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Sorted order revealed only to authorized party</span>
+</span></span></code></pre></div><h2 id="security-guarantees">Security Guarantees</h2>
+<p>The functorial construction provides:</p>
+<ul>
+<li><strong>Semantic security</strong>: Ciphertexts reveal nothing about plaintexts</li>
+<li><strong>Non-malleability</strong>: Operations cannot be tampered with</li>
+<li><strong>Compositionality</strong>: Complex systems proven secure from component properties</li>
+</ul>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<p>Tradeoffs:</p>
+<ul>
+<li><strong>Stronger guarantees</strong> → More computational overhead</li>
+<li><strong>Richer structures</strong> → Larger ciphertext size</li>
+<li><strong>Generic constructions</strong> → May be less efficient than specialized schemes</li>
+</ul>
+<p>The paper analyzes these tradeoffs and provides optimization techniques.</p>
+<h2 id="read-the-full-paper">Read the Full Paper</h2>
+<p>For the mathematical foundations, security proofs, and implementation details:</p>
+<p>→ <a href="/latex/algebraic-cipher-types/">View Paper</a></p>
+<p>Topics covered:</p>
+<ul>
+<li>Formal category-theoretic framework</li>
+<li>Security definitions and proofs</li>
+<li>Construction for various algebraic structures</li>
+<li>Performance analysis and benchmarks</li>
+<li>Comparison with existing homomorphic schemes</li>
+<li>Applications to real-world problems</li>
+</ul>
+<hr>
+<p><strong>Tags</strong>: cryptography, homomorphic encryption, category theory, functional programming, secure computation, abstract algebra</p>
+]]></content:encoded><category>cryptography</category><category>category-theory</category><category>algebra</category><category>homomorphic-encryption</category><category>functors</category></item><item><title>An Algebraic Framework for Language Model Composition: Unifying Projections, Mixtures, and Constraints</title><link>https://queelius.github.io/papers/langcalc/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/langcalc/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/langcalc/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/langcalc/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/langcalc/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>large language models</category><category>algebra</category><category>composition</category><category>machine learning</category><category>natural language processing</category></item><item><title>Language Calculus: An Algebraic Framework for LLM Composition</title><link>https://queelius.github.io/post/2025-10-07-langcalc/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-10-07-langcalc/</guid><description>A mathematical framework that treats language models as algebraic objects with rich compositional structure.</description><content:encoded><![CDATA[<p>What if we could compose language models the way we compose functions in mathematics? What if there was an <strong>algebra of language models</strong>?</p>
+<p>We present <strong>Language Calculus</strong> (langcalc)—a comprehensive algebraic framework that transforms how we build and reason about language model systems.</p>
+<h2 id="the-problem-with-current-llm-composition">The Problem with Current LLM Composition</h2>
+<p>Today, combining language models typically means:</p>
+<ul>
+<li>Ad-hoc ensembling techniques</li>
+<li>Manual prompt chaining</li>
+<li>Hardcoded decision trees</li>
+<li>Black-box orchestration layers</li>
+</ul>
+<p>There&rsquo;s no principled way to reason about what these compositions do or how they behave.</p>
+<h2 id="the-algebraic-solution">The Algebraic Solution</h2>
+<p>Language Calculus introduces a rich set of operators with well-defined semantics:</p>
+<h3 id="core-operators">Core Operators</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">M₁ + M₂     Mixture (weighted combination)
+</span></span><span class="line"><span class="cl">k * M       Scaling (temperature/probability adjustment)
+</span></span><span class="line"><span class="cl">M₁ — M₂     Maximum (most confident response)
+</span></span><span class="line"><span class="cl">M₁ &amp; M₂     Minimum (most conservative response)
+</span></span><span class="line"><span class="cl">M₁ ⊕ M₂     Exclusive-or (diverse perspectives)
+</span></span><span class="line"><span class="cl">M ** t      Temperature adjustment
+</span></span><span class="line"><span class="cl">M ¿¿ p      Threshold filtering
+</span></span><span class="line"><span class="cl">M &gt;&gt;&gt; τ     Truncation/limiting
+</span></span></code></pre></div><h3 id="why-this-matters">Why This Matters</h3>
+<p>These operators satisfy <strong>algebraic laws</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(M₁ + M₂) + M₃ = M₁ + (M₂ + M₃)   # Associativity
+</span></span><span class="line"><span class="cl">M₁ + M₂ = M₂ + M₁                  # Commutativity
+</span></span><span class="line"><span class="cl">M + 0 = M                          # Identity
+</span></span><span class="line"><span class="cl">a * (M₁ + M₂) = a*M₁ + a*M₂        # Distributivity
+</span></span></code></pre></div><p>This means we can <strong>transform</strong>, <strong>optimize</strong>, and <strong>reason about</strong> language model compositions algebraically!</p>
+<h2 id="practical-examples">Practical Examples</h2>
+<h3 id="ensemble-with-confidence-weighting">Ensemble with Confidence Weighting</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">output = 0.4 * GPT4 + 0.3 * Claude + 0.3 * Llama
+</span></span></code></pre></div><h3 id="expert-selection">Expert Selection</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">code_task = (CodeLlama — GPT4) &amp; SafetyModel
+</span></span></code></pre></div><h3 id="diverse-brainstorming">Diverse Brainstorming</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">ideas = CreativeModel ⊕ ConservativeModel ⊕ TechnicalModel
+</span></span></code></pre></div><h3 id="temperature-search">Temperature Search</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">explore = Model ** 1.5
+</span></span><span class="line"><span class="cl">exploit = Model ** 0.2
+</span></span><span class="line"><span class="cl">adaptive = 0.7 * exploit + 0.3 * explore
+</span></span></code></pre></div><h2 id="theoretical-foundations">Theoretical Foundations</h2>
+<p>The framework provides:</p>
+<ul>
+<li><strong>Formal semantics</strong> for each operator</li>
+<li><strong>Type system</strong> ensuring valid compositions</li>
+<li><strong>Equivalence relations</strong> for optimization</li>
+<li><strong>Normal forms</strong> for canonical representations</li>
+</ul>
+<p>This lets us prove properties like:</p>
+<ul>
+<li>Safety preservation under composition</li>
+<li>Bias reduction through specific mixtures</li>
+<li>Computational complexity bounds</li>
+</ul>
+<h2 id="applications">Applications</h2>
+<p>Language Calculus enables:</p>
+<ol>
+<li><strong>Automatic Optimization</strong>: Transform expensive compositions into equivalent cheaper ones</li>
+<li><strong>Compositional Testing</strong>: Verify properties of complex systems from component properties</li>
+<li><strong>Explainability</strong>: Understand what a composition does from its algebraic structure</li>
+<li><strong>Meta-Learning</strong>: Learn optimal compositions for task families</li>
+</ol>
+<h2 id="implementation">Implementation</h2>
+<p>The paper includes:</p>
+<ul>
+<li>Reference implementation in Python</li>
+<li>Type checker for valid compositions</li>
+<li>Optimizer for algebraic simplification</li>
+<li>Library of common composition patterns</li>
+</ul>
+<h2 id="read-more">Read More</h2>
+<p>For the full mathematical treatment, formal semantics, and experimental validation:</p>
+<p>→ <a href="/latex/langcalc/">View Paper</a></p>
+<p>The paper covers:</p>
+<ul>
+<li>Complete operator semantics</li>
+<li>Algebraic laws and their proofs</li>
+<li>Type system formalization</li>
+<li>Optimization algorithms</li>
+<li>Empirical evaluation on benchmark tasks</li>
+<li>Comparison with existing composition methods</li>
+</ul>
+<hr>
+<p><strong>Tags</strong>: language model composition, algebraic framework, formal methods, LLM engineering, compositional systems</p>
+]]></content:encoded><category>llm</category><category>algebra</category><category>composition</category><category>framework</category><category>language-models</category></item><item><title>Algebraic Hashing A Modern C++20 Library for Composable Hash Functions Version 2.0</title><link>https://queelius.github.io/papers/algebraic_hashing/</link><pubDate>Wed, 01 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/algebraic_hashing/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/algebraic_hashing/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/algebraic_hashing/algebraic_hashing_whitepaper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/algebraic_hashing/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>cryptography</category><category>hash functions</category><category>algebra</category><category>c++</category><category>library</category></item><item><title>Algebraic Hashing: Composable Hash Functions Through XOR</title><link>https://queelius.github.io/post/2024-06-01-algebraic_hashing/</link><pubDate>Tue, 01 Nov 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-06-01-algebraic_hashing/</guid><description>Most hash libraries treat hash functions as black boxes. Algebraic Hashing exposes their mathematical structure, letting you compose hash functions like algebraic expressions—with zero runtime overhead.
+The Core Insight Hash functions form an abelian group under XOR:
+Closure: h₁ ⊕ h₂ is still a valid hash function Associativity: (h₁ ⊕ h₂) ⊕ h₃ = h₁ ⊕ (h₂ ⊕ h₃) Identity: XOR with zero Inverses: Each hash is its own inverse under XOR This algebraic structure is the foundation for compositional …</description><content:encoded><![CDATA[<p>Most hash libraries treat hash functions as black boxes. <strong>Algebraic Hashing</strong> exposes their mathematical structure, letting you compose hash functions like algebraic expressions—with zero runtime overhead.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Hash functions form an <strong>abelian group</strong> under XOR:</p>
+<ul>
+<li><strong>Closure</strong>: <code>h₁ ⊕ h₂</code> is still a valid hash function</li>
+<li><strong>Associativity</strong>: <code>(h₁ ⊕ h₂) ⊕ h₃ = h₁ ⊕ (h₂ ⊕ h₃)</code></li>
+<li><strong>Identity</strong>: XOR with zero</li>
+<li><strong>Inverses</strong>: Each hash is its own inverse under XOR</li>
+</ul>
+<p>This algebraic structure is the foundation for <strong>compositional hashing</strong>.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>1. Compile-Time Composition</strong></p>
+<p>Using C++20 concepts and template metaprogramming:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">composed</span> <span class="o">=</span> <span class="n">fnv1a</span><span class="o">&lt;&gt;</span> <span class="o">^</span> <span class="n">sha256</span><span class="o">&lt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">hash</span> <span class="o">=</span> <span class="n">composed</span><span class="p">(</span><span class="s">&#34;data&#34;</span><span class="p">);</span>  <span class="c1">// Zero runtime overhead
+</span></span></span></code></pre></div><p>All composition resolves at compile time—no virtual dispatch, no function pointers.</p>
+<p><strong>2. Provable Properties</strong></p>
+<p>We prove that XOR composition <strong>preserves</strong>:</p>
+<ul>
+<li>Uniform distribution (under independence)</li>
+<li>Avalanche effect (bit changes cascade)</li>
+<li>Collision resistance (for cryptographic hashes)</li>
+</ul>
+<p><strong>3. Universal Interface</strong></p>
+<p>Works with <strong>any</strong> hash function—non-cryptographic (FNV-1a), perfect (FKS), or cryptographic (SHA-256). The algebra doesn&rsquo;t care about the implementation.</p>
+<h2 id="practical-use-cases">Practical Use Cases</h2>
+<ul>
+<li><strong>Domain separation</strong>: <code>hash_user ^ hash_timestamp</code> prevents collision attacks across domains</li>
+<li><strong>Perfect hashing</strong>: FKS two-level scheme with pluggable base hash functions</li>
+<li><strong>Composite keys</strong>: Hash multiple fields independently, then XOR</li>
+<li><strong>Type-based hashing</strong>: Different hash functions for different types, composed generically</li>
+</ul>
+<h2 id="connection-to-oblivious-computing">Connection to Oblivious Computing</h2>
+<p>This work shares DNA with my oblivious computing research: <strong>make mathematical structure explicit in the type system</strong>. Just as Bernoulli types enforce privacy invariants algebraically, algebraic hashing enforces compositional invariants through group theory.</p>
+<p><strong>Technical</strong>: Modern C++20 header-only library • Zero-cost abstractions via concepts • Production-ready implementations</p>
+<p><a href="/latex/algebraic_hashing/">View the whitepaper</a> • <a href="https://github.com/queelius/algebraic_hashing">GitHub</a></p>
+]]></content:encoded><category>cryptography</category><category>hash functions</category><category>algebra</category><category>C++</category><category>template metaprogramming</category></item><item><title>algebraic.mle: The Foundation of a Statistical Inference Ecosystem</title><link>https://queelius.github.io/post/2024-05-15-algebraic.mle/</link><pubDate>Sat, 15 May 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-15-algebraic.mle/</guid><description>An R package treating MLEs as first-class algebraic objects with composable statistical properties.</description><content:encoded><![CDATA[<p>Maximum likelihood estimators have rich mathematical structure—they&rsquo;re consistent, asymptotically normal, efficient. <strong><a href="https://github.com/queelius/algebraic.mle">algebraic.mle</a></strong> exposes this structure through an algebra where MLEs are objects you compose, transform, and query.</p>
+<h2 id="the-core-abstraction">The Core Abstraction</h2>
+<p>An MLE isn&rsquo;t just parameter estimates—it&rsquo;s a <strong>statistical object</strong> carrying:</p>
+<ul>
+<li>Point estimates \(\hat{\theta}\)</li>
+<li>Fisher Information matrix \(I(\hat{\theta})\)</li>
+<li>Variance-covariance matrix \(I^{-1}(\hat{\theta})\)</li>
+<li>Confidence intervals (Wald-type from asymptotic normality)</li>
+<li>Log-likelihood value</li>
+<li>Convergence diagnostics</li>
+</ul>
+<p>The package wraps all of this in a consistent interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">algebraic.mle</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">likelihood_model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">coef</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>           <span class="c1"># Parameter estimates</span>
+</span></span><span class="line"><span class="cl"><span class="nf">vcov</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>           <span class="c1"># Variance-covariance matrix</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>        <span class="c1"># Confidence intervals</span>
+</span></span><span class="line"><span class="cl"><span class="nf">logLik</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>         <span class="c1"># Log-likelihood</span>
+</span></span><span class="line"><span class="cl"><span class="nf">aic</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>            <span class="c1"># Model selection</span>
+</span></span></code></pre></div><h2 id="algebraic-operations">Algebraic Operations</h2>
+<p>The real power: <strong>MLEs compose</strong>. Independent models combine:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">fit1</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">model1</span><span class="p">,</span> <span class="n">data1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit2</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">model2</span><span class="p">,</span> <span class="n">data2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">&lt;-</span> <span class="n">fit1</span> <span class="o">+</span> <span class="n">fit2</span>  <span class="c1"># Joint likelihood</span>
+</span></span></code></pre></div><p>The package handles the algebra—joint log-likelihood, block-diagonal Fisher Information, everything propagates correctly.</p>
+<h2 id="the-ecosystem">The Ecosystem</h2>
+<p><code>algebraic.mle</code> is the foundation for a family of packages:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Package</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/projects/likelihood.model/">likelihood.model</a></td>
+          <td>Compositional likelihood specification</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>Masked failure data in series systems</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/mdrelax/">mdrelax</a></td>
+          <td>Relaxed masking conditions</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/algebraic.dist/">algebraic.dist</a></td>
+          <td>Distributions as algebraic objects</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/dfr_dist/">dfr.dist</a></td>
+          <td>Dynamic failure rate distributions</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/hypothesize/">hypothesize</a></td>
+          <td>Likelihood ratio tests on MLEs</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/numerical.mle/">numerical.mle</a></td>
+          <td>Numerical optimization backends</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="how-they-connect">How They Connect</h3>
+<p>The flow typically looks like:</p>
+<ol>
+<li><strong>Define distributions</strong> with <code>algebraic.dist</code></li>
+<li><strong>Specify likelihood contributions</strong> with <code>likelihood.model</code></li>
+<li><strong>Fit the model</strong> → get an <code>mle</code> object from <code>algebraic.mle</code></li>
+<li><strong>Query statistical properties</strong>: CIs, hypothesis tests, model selection</li>
+</ol>
+<p>For series systems with masked data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">likelihood.model.series.md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">algebraic.mle</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Specify masking model (C1-C2-C3 conditions)</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">md_likelihood_model</span><span class="p">(</span><span class="n">components</span> <span class="o">=</span> <span class="m">3</span><span class="p">,</span> <span class="n">masking</span> <span class="o">=</span> <span class="s">&#34;bernoulli&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fit → returns algebraic.mle object</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">masked_data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># All the standard MLE methods work</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">vcov</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">aic</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>The asymptotic properties that <code>algebraic.mle</code> exploits come from classical MLE theory:</p>
+$$\sqrt{n}(\hat{\theta}_n - \theta^*) \xrightarrow{d} \mathcal{N}(0, I^{-1}(\theta^*))$$<p>The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for exponential series systems—this is exactly what <code>algebraic.mle</code> uses internally for variance estimation in that case.</p>
+<p>For more complex models (Weibull, relaxed conditions), we compute Fisher Information numerically via observed information:</p>
+$$\hat{I}(\hat{\theta}) = -\frac{\partial^2 \ell}{\partial \theta \partial \theta^T}\bigg|_{\theta=\hat{\theta}}$$<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>Separation of concerns</strong>: The likelihood specification (<code>likelihood.model</code>) is independent of the fitting algorithm (<code>numerical.mle</code>) and the result type (<code>algebraic.mle</code>). You can swap optimizers without changing downstream code.</p>
+<p><strong>Correctness by construction</strong>: Standard errors, confidence intervals, and hypothesis tests are computed from the Fisher Information—not ad-hoc formulas. If your likelihood is correct, statistical inference follows automatically.</p>
+<p><strong>Composability</strong>: Build complex models from simpler ones. The algebra ensures properties propagate correctly.</p>
+<h2 id="connection-to-my-thesis">Connection to My Thesis</h2>
+<p>This package directly supports the work in my <a href="/publications/math-proj/">master&rsquo;s thesis</a> on reliability estimation in series systems. The bootstrap confidence intervals, likelihood ratio tests, and model selection all use <code>algebraic.mle</code> objects.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/algebraic.mle">github.com/queelius/algebraic.mle</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/algebraic.mle/">queelius.github.io/algebraic.mle</a></li>
+<li><strong>Related paper</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+<li><strong>Companion package</strong>: <a href="/projects/algebraic.dist/">algebraic.dist</a> (distributions as algebraic objects)</li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category><category>algebra</category><category>Fisher information</category></item><item><title>algebraic.dist: Treating Distributions as First-Class Algebraic Objects in R</title><link>https://queelius.github.io/post/2024-05-01-algebraic.dist/</link><pubDate>Mon, 01 Feb 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-01-algebraic.dist/</guid><description>Most statistical software treats probability distributions as static parameter sets you pass to sampling or density functions. algebraic.dist takes a different approach: distributions are algebraic objects that compose, transform, and combine using standard mathematical operations.
+The Core Idea Instead of writing:
+x &lt;- rnorm(1000, mean=5, sd=2) y &lt;- rnorm(1000, mean=3, sd=1) z &lt;- x + y # Just numeric vectors You write:
+X &lt;- Normal(mean=5, sd=2) Y &lt;- Normal(mean=3, sd=1) Z &lt;- X + Y # A new …</description><content:encoded><![CDATA[<p>Most statistical software treats probability distributions as <strong>static parameter sets</strong> you pass to sampling or density functions. <code>algebraic.dist</code> takes a different approach: <strong>distributions are algebraic objects</strong> that compose, transform, and combine using standard mathematical operations.</p>
+<h2 id="the-core-idea">The Core Idea</h2>
+<p>Instead of writing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">x</span> <span class="o">&lt;-</span> <span class="nf">rnorm</span><span class="p">(</span><span class="m">1000</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="m">5</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">y</span> <span class="o">&lt;-</span> <span class="nf">rnorm</span><span class="p">(</span><span class="m">1000</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="m">3</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">z</span> <span class="o">&lt;-</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>  <span class="c1"># Just numeric vectors</span>
+</span></span></code></pre></div><p>You write:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">X</span> <span class="o">&lt;-</span> <span class="nf">Normal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="m">5</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Y</span> <span class="o">&lt;-</span> <span class="nf">Normal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="m">3</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Z</span> <span class="o">&lt;-</span> <span class="n">X</span> <span class="o">+</span> <span class="n">Y</span>  <span class="c1"># A new distribution object!</span>
+</span></span><span class="line"><span class="cl"><span class="nf">sample</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="m">1000</span><span class="p">)</span>
+</span></span></code></pre></div><p>The sum <code>Z</code> <strong>knows</strong> it&rsquo;s <code>Normal(mean=8, sd=sqrt(5))</code> because the algebra works it out.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>1. Correctness Through Type Safety</strong></p>
+<p>When you add two normal distributions numerically, you get samples from the sum. But you lose the <strong>distributional structure</strong>. With <code>algebraic.dist</code>, the result is still a distribution object with proper parameters.</p>
+<p><strong>2. Symbolic Computation Before Sampling</strong></p>
+<p>You can build complex distributional expressions and simplify them algebraically before ever drawing a sample:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">portfolio</span> <span class="o">&lt;-</span> <span class="m">0.6</span><span class="o">*</span><span class="n">StockA</span> <span class="o">+</span> <span class="m">0.4</span><span class="o">*</span><span class="n">StockB</span>
+</span></span><span class="line"><span class="cl"><span class="n">risk</span> <span class="o">&lt;-</span> <span class="nf">sd</span><span class="p">(</span><span class="n">portfolio</span><span class="p">)</span>  <span class="c1"># Computed symbolically</span>
+</span></span></code></pre></div><p><strong>3. Monte Carlo Without the Monte Carlo</strong></p>
+<p>For distributions with known closed-form algebra (normal, exponential, certain mixtures), you don&rsquo;t need simulation—you just compute the exact answer.</p>
+<h2 id="compositional-statistics">Compositional Statistics</h2>
+<p>This is <strong>functional programming for probability theory</strong>. Distributions become composable building blocks:</p>
+<ul>
+<li><strong>Mixture models</strong>: <code>0.3*Normal(0,1) + 0.7*Normal(5,2)</code></li>
+<li><strong>Transformed distributions</strong>: <code>exp(Normal(0,1))</code> is lognormal</li>
+<li><strong>Conditional distributions</strong>: <code>X | (X &gt; 0)</code> for truncation</li>
+</ul>
+<h2 id="connection-to-my-research">Connection to My Research</h2>
+<p>This package embodies a core theme in my work: <strong>computation should mirror mathematical structure</strong>.</p>
+<p>Just as my oblivious computing research uses type theory to enforce privacy invariants, <code>algebraic.dist</code> uses algebraic types to enforce <strong>distributional invariants</strong>. The algebra tells you what operations are valid and what the results mean.</p>
+<p><strong>Related projects</strong>:</p>
+<ul>
+<li><strong>algebraic.mle</strong>: Maximum likelihood estimation with algebraic specification</li>
+<li><strong>numerical.mle</strong>: Numerical optimization for MLE when closed forms don&rsquo;t exist</li>
+<li><strong>likelihood.model</strong>: Likelihood-based inference with compositional model building</li>
+</ul>
+<h2 id="technical-details">Technical Details</h2>
+<ul>
+<li><strong>Language</strong>: R</li>
+<li><strong>Type system</strong>: S3 classes with method dispatch for operations</li>
+<li><strong>Closed-form operations</strong>: Normal, exponential, gamma families</li>
+<li><strong>Fallback</strong>: Monte Carlo for complex compositions</li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/algebraic.dist">github.com/queelius/algebraic.dist</a></li>
+</ul>
+<h2 id="the-bigger-picture">The Bigger Picture</h2>
+<p>Most statistical software is <strong>imperative</strong>: you tell the computer what to do step-by-step. <code>algebraic.dist</code> is <strong>declarative</strong>: you describe the distributional relationships, and the computer figures out what to compute.</p>
+<p>This mirrors the Unix philosophy: small composable pieces that do one thing well. Here, the &ldquo;one thing&rdquo; is: <strong>preserve distributional structure through transformations</strong>.</p>
+]]></content:encoded><category>statistics</category><category>probability</category><category>distributions</category><category>R</category><category>functional programming</category><category>algebra</category></item></channel></rss>

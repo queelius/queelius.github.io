@@ -1,0 +1,1606 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Statistics on metafunctor</title><link>https://queelius.github.io/tags/statistics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/statistics/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Master's project: Reliability Estimation in Series Systems</title><link>https://queelius.github.io/post/masters-stats-siue-proj/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/masters-stats-siue-proj/</guid><description>I presented my master’s project in October 2023. It was titled ‘Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data’.</description><content:encoded><![CDATA[<p>To complete my masters degree in statistics/mathematics at SIUe I presented my
+master&rsquo;s project in October 2023. Their was also a paper associated with the project
+titled &ldquo;Reliability Estimation in Series Systems: Maximum Likelihood Techniques
+for Right-Censored and Masked Failure Data&rdquo;.</p>
+<p>See the project <a href="/projects/reliability-estimation-in-series-systems/">here</a>.</p>
+]]></content:encoded><category>likelihood-models</category><category>likelihood-contributions-model</category><category>data-generating-process</category><category>R</category><category>statistics</category></item><item><title>compositional.mle: SICP-Inspired Optimization</title><link>https://queelius.github.io/post/2025-12-17-compositional-mle/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-17-compositional-mle/</guid><description>An R package where solvers are first-class functions that compose through chaining, racing, and restarts.</description><content:encoded><![CDATA[<p>I&rsquo;ve recently updated <a href="https://github.com/queelius/compositional.mle">compositional.mle</a>, an R package for maximum likelihood estimation that takes seriously the idea that <strong>optimization strategies should compose</strong>.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Most optimization libraries treat solvers as monolithic procedures: you call <code>optim()</code>, pass some options, and hope for the best. If you want to try multiple methods, you write loops. If you want coarse-to-fine optimization, you manually wire the output of one solver to the input of another.</p>
+<p><code>compositional.mle</code> takes a different approach, inspired by SICP&rsquo;s treatment of procedures as first-class citizens. The package provides:</p>
+<ol>
+<li><strong>Primitive solvers</strong> - <code>gradient_ascent()</code>, <code>newton_raphson()</code>, <code>bfgs()</code>, <code>nelder_mead()</code></li>
+<li><strong>Composition operators</strong> - <code>%&gt;&gt;%</code> (sequential chaining), <code>%|%</code> (parallel racing), <code>with_restarts()</code></li>
+<li><strong>Closure property</strong> - Combining solvers yields a solver</li>
+</ol>
+<p>That last point is crucial. When you chain two solvers together, the result is itself a solver with the same interface. This means compositions can be further composed, stored in variables, passed to functions, or used anywhere a solver is expected.</p>
+<h2 id="what-this-looks-like">What This Looks Like</h2>
+<p>Define your problem once:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">problem</span> <span class="o">&lt;-</span> <span class="nf">mle_problem</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="n">loglike</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">theta[2]</span> <span class="o">&lt;=</span> <span class="m">0</span><span class="p">)</span> <span class="kr">return</span><span class="p">(</span><span class="o">-</span><span class="kc">Inf</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">sum</span><span class="p">(</span><span class="nf">dnorm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">theta[1]</span><span class="p">,</span> <span class="n">theta[2]</span><span class="p">,</span> <span class="n">log</span> <span class="o">=</span> <span class="kc">TRUE</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="n">score</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mu</span> <span class="o">&lt;-</span> <span class="n">theta[1]</span><span class="p">;</span> <span class="n">sigma</span> <span class="o">&lt;-</span> <span class="n">theta[2]</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">c</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma^2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="o">-</span><span class="n">n</span> <span class="o">/</span> <span class="n">sigma</span> <span class="o">+</span> <span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span><span class="n">^2</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma^3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Then compose strategies declaratively:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Global search -&gt; local refinement -&gt; final polish</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">grid_search</span><span class="p">(</span><span class="n">lower</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">-10</span><span class="p">,</span> <span class="m">0.5</span><span class="p">),</span> <span class="n">upper</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">10</span><span class="p">,</span> <span class="m">5</span><span class="p">),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">5</span><span class="p">)</span> <span class="o">%&gt;&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">gradient_ascent</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="m">50</span><span class="p">)</span> <span class="o">%&gt;&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">newton_raphson</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="m">20</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="m">1</span><span class="p">))</span>
+</span></span></code></pre></div><p>Or race multiple approaches:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Try all methods, keep the best</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">gradient_ascent</span><span class="p">()</span> <span class="o">%|%</span> <span class="nf">bfgs</span><span class="p">()</span> <span class="o">%|%</span> <span class="nf">nelder_mead</span><span class="p">()</span>
+</span></span></code></pre></div><p>Or handle multimodal landscapes:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Random restarts to escape local optima</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">with_restarts</span><span class="p">(</span><span class="nf">gradient_ascent</span><span class="p">(),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">sampler</span> <span class="o">=</span> <span class="nf">uniform_sampler</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="the-sicp-connection">The SICP Connection</h2>
+<p>This design directly applies lessons from <em>Structure and Interpretation of Computer Programs</em>:</p>
+<p><strong>Primitives</strong>: The base solvers are well-defined building blocks with clear contracts. <code>gradient_ascent()</code> returns a solver that uses steepest ascent. <code>nelder_mead()</code> returns a derivative-free simplex solver.</p>
+<p><strong>Means of Combination</strong>: The operators <code>%&gt;&gt;%</code>, <code>%|%</code>, and <code>with_restarts()</code> combine solvers into new solvers. Sequential chaining feeds the output of one solver as input to the next. Racing runs solvers in parallel and picks the winner.</p>
+<p><strong>Abstraction</strong>: Solver factories hide implementation details behind a consistent interface. Users work with the solver abstraction, not with specific algorithms.</p>
+<p><strong>Closure</strong>: The key insight. Because composition produces objects of the same type as the inputs, the language of solvers is <em>closed</em> under composition. You can build arbitrarily complex strategies from simple parts.</p>
+<h2 id="relationship-to-algebraicmle">Relationship to algebraic.mle</h2>
+<p>This package complements <a href="/projects/algebraic.mle/">algebraic.mle</a>, which provides algebraic operations on MLE <em>results</em>. Where <code>algebraic.mle</code> lets you compose likelihood functions and manipulate fitted models, <code>compositional.mle</code> focuses on the <em>process</em> of finding those estimates.</p>
+<p>The two work together:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># compositional.mle: find the estimate</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># algebraic.mle: work with the fitted model</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">coef</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="try-it">Try It</h2>
+<p>Install from GitHub:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">devtools</span><span class="o">::</span><span class="nf">install_github</span><span class="p">(</span><span class="s">&#34;queelius/compositional.mle&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/compositional.mle/">queelius.github.io/compositional.mle</a>.</p>
+<p>The design philosophy here extends beyond statistics. Any domain with multiple solution strategies can benefit from composable primitives with closure under composition. The question is always: what are your primitives, and how should they combine?</p>
+]]></content:encoded><category>r-package</category><category>statistics</category><category>mle</category><category>optimization</category><category>sicp</category><category>functional-programming</category><category>dsl</category><category>api-design</category></item><item><title>Graduate Statistics Problem Sets Now Available</title><link>https://queelius.github.io/post/2025-12-16-graduate-problem-sets/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-graduate-problem-sets/</guid><description>I've made my graduate coursework from SIUe's mathematics program available online, covering time series, regression, computational statistics, multivariate analysis, and statistical methods.</description><content:encoded><![CDATA[<p>I&rsquo;ve expanded the <a href="/probsets">problem sets</a> section of this site to include coursework from my Master&rsquo;s in Mathematics at Southern Illinois University Edwardsville (SIUe). These five courses represent the core of my graduate statistics training from 2021-2022.</p>
+<h2 id="available-courses">Available Courses</h2>
+<h3 id="stat-478---time-series-analysis"><a href="/probsets/stat478/">STAT 478 - Time Series Analysis</a></h3>
+<p><em>Spring 2021 - Dr. Beidi</em></p>
+<p>Covers ARIMA models, forecasting, spectral analysis, and state space methods. The problem sets include both theoretical derivations and practical R implementations for analyzing temporal data.</p>
+<h3 id="stat-482---regression-analysis"><a href="/probsets/stat482/">STAT 482 - Regression Analysis</a></h3>
+<p><em>Fall 2022 - Dr. Andrew Neath</em></p>
+<p>A deep dive into linear models, diagnostics, variable selection, and model comparison. Dr. Neath&rsquo;s approach emphasized understanding the theoretical foundations alongside practical application.</p>
+<h3 id="stat-575---computational-statistics"><a href="/probsets/stat575/">STAT 575 - Computational Statistics</a></h3>
+<p><em>Summer 2021 - Dr. Qiang Beidi</em></p>
+<p>This was perhaps the most hands-on course. Topics included:</p>
+<ul>
+<li>Newton-Raphson and numerical optimization</li>
+<li>Monte Carlo simulation</li>
+<li>Sampling methods (inverse transform, acceptance-rejection)</li>
+<li>Hand-coded MLE for Poisson regression</li>
+</ul>
+<p>Implementing these algorithms from scratch, rather than relying on library functions, provided a much deeper understanding of how statistical methods actually work.</p>
+<h3 id="stat-579---discrete-multivariate-analysis"><a href="/probsets/stat579/">STAT 579 - Discrete Multivariate Analysis</a></h3>
+<p><em>Spring 2021 - Dr. Andrew Neath</em></p>
+<p>Analysis of categorical data, log-linear models, and contingency tables. The coursework covers both the mathematical theory and R implementations for analyzing discrete multivariate data.</p>
+<h3 id="stat-581---statistical-methods"><a href="/probsets/stat581/">STAT 581 - Statistical Methods</a></h3>
+<p><em>Fall 2021 - Dr. Neath</em></p>
+<p>A comprehensive methods course covering experimental design, ANOVA, and general linear models with practical applications.</p>
+<h2 id="why-share-this">Why Share This?</h2>
+<p>A few reasons:</p>
+<ol>
+<li>
+<p><strong>Learning resource</strong>: Graduate-level statistics coursework with worked solutions can be hard to find. Maybe someone studying similar material will find these useful.</p>
+</li>
+<li>
+<p><strong>Personal archive</strong>: I completed much of this work during cancer treatment. Having it organized and accessible feels like preserving something meaningful from that period.</p>
+</li>
+<li>
+<p><strong>Reference material</strong>: I occasionally refer back to these derivations and implementations in my own research work.</p>
+</li>
+</ol>
+<h2 id="format">Format</h2>
+<p>Each course section includes:</p>
+<ul>
+<li>Problem set PDFs (original assignments)</li>
+<li>My solutions with full derivations</li>
+<li>R code implementations</li>
+<li>Exam solutions where available</li>
+</ul>
+<p>The solutions show complete working, not just final answers. When I implemented numerical methods, I included verification against built-in R functions to confirm correctness.</p>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>I&rsquo;m grateful to the faculty in SIUe&rsquo;s Department of Mathematics and Statistics, particularly Dr. Andrew Neath and Dr. Qiang Beidi, for their excellent instruction during my time in the program.</p>
+<hr>
+<p>Browse the complete collection at <a href="/probsets">/probsets</a>.</p>
+]]></content:encoded><category>statistics</category><category>R</category><category>SIUe</category><category>coursework</category><category>education</category></item><item><title>symlik: Symbolic Likelihood Models in Python</title><link>https://queelius.github.io/post/2025-12-16-symlik/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-symlik/</guid><description>Introducing symlik - define statistical models symbolically and automatically derive score functions, Hessians, and Fisher information.</description><content:encoded><![CDATA[<p>I&rsquo;ve released <a href="/projects/symlik/">symlik</a>, a Python library for symbolic likelihood models. The core idea: write your log-likelihood as a symbolic expression, and let the computer derive everything needed for inference.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Traditional statistical computing requires either:</p>
+<ol>
+<li><strong>Manual derivation</strong> - Work out score functions and information matrices by hand, then implement them</li>
+<li><strong>Numerical approximation</strong> - Use finite differences, which can be unstable and slow</li>
+</ol>
+<p>Both approaches have drawbacks. Manual derivation is error-prone and tedious. Numerical methods accumulate errors and don&rsquo;t give you the symbolic form.</p>
+<h2 id="the-solution">The Solution</h2>
+<p>symlik takes a third approach: symbolic differentiation. Define your model once, get exact derivatives automatically.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.distributions</span> <span class="kn">import</span> <span class="n">exponential</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">exponential</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">]}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mle</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mle</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;lambda&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="n">se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">se</span><span class="p">(</span><span class="n">mle</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Rate: </span><span class="si">{</span><span class="n">mle</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> +/- </span><span class="si">{</span><span class="n">se</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Rate: 0.714 +/- 0.357</span>
+</span></span></code></pre></div><p>Behind the scenes, symlik:</p>
+<ol>
+<li>Symbolically differentiates the log-likelihood to get the score function</li>
+<li>Differentiates again for the Hessian</li>
+<li>Computes Fisher information from the Hessian</li>
+<li>Derives standard errors from the inverse information matrix</li>
+</ol>
+<p>All exact. No numerical approximation.</p>
+<h2 id="custom-models">Custom Models</h2>
+<p>The real power is defining custom models using s-expressions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">LikelihoodModel</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Exponential: l(lambda) = sum[log(lambda) - lambda*x_i]</span>
+</span></span><span class="line"><span class="cl"><span class="n">log_lik</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;len&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">           <span class="p">[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;@&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;i&#39;</span><span class="p">]]]]]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">LikelihoodModel</span><span class="p">(</span><span class="n">log_lik</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Symbolic derivatives available</span>
+</span></span><span class="line"><span class="cl"><span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">()</span>       <span class="c1"># Gradient</span>
+</span></span><span class="line"><span class="cl"><span class="n">hess</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">hessian</span><span class="p">()</span>      <span class="c1"># Hessian matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">info</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">information</span><span class="p">()</span>  <span class="c1"># Fisher information</span>
+</span></span></code></pre></div><h2 id="heterogeneous-data">Heterogeneous Data</h2>
+<p>One of symlik&rsquo;s strengths is handling mixed observation types - exactly what you need for reliability analysis with censored data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">ContributionModel</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.contributions</span> <span class="kn">import</span> <span class="n">complete_exponential</span><span class="p">,</span> <span class="n">right_censored_exponential</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">ContributionModel</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;lambda&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">type_column</span><span class="o">=</span><span class="s2">&#34;status&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">contributions</span><span class="o">=</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;observed&#34;</span><span class="p">:</span> <span class="n">complete_exponential</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;censored&#34;</span><span class="p">:</span> <span class="n">right_censored_exponential</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;status&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;censored&#34;</span><span class="p">,</span> <span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;censored&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;t&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Each observation type contributes differently to the likelihood. symlik handles the bookkeeping.</p>
+<h2 id="connection-to-research">Connection to Research</h2>
+<p>symlik is the Python successor to my R package <a href="/projects/likelihood.model/">likelihood.model</a>. It implements the theoretical framework from my thesis work on likelihood-based inference for series systems.</p>
+<p>The <a href="/papers/reliability-series-sys-model-sel/">Weibull Series Model Selection</a> paper shows applications to reliability engineering - exactly the kind of complex likelihood that benefits from symbolic treatment.</p>
+<h2 id="powered-by-rerum">Powered by rerum</h2>
+<p>symlik uses <a href="/projects/rerum/">rerum</a> for symbolic differentiation. rerum is a pattern matching and term rewriting library that handles the calculus automatically. The separation means you can use rerum for other symbolic computation tasks beyond likelihood models.</p>
+<h2 id="installation">Installation</h2>
+<p><strong>Now available on <a href="https://pypi.org/project/symlik/">PyPI</a>!</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install symlik
+</span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/symlik/">queelius.github.io/symlik</a>.</p>
+<p>See the <a href="/projects/symlik/">project page</a> for more details.</p>
+]]></content:encoded><category>statistics</category><category>python</category><category>symbolic-computation</category><category>likelihood</category><category>mle</category><category>reliability</category></item><item><title>hypothesize: Now Available on CRAN</title><link>https://queelius.github.io/post/2025-12-12-hypothesize-cran/</link><pubDate>Fri, 12 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-12-hypothesize-cran/</guid><description>My R package for hypothesis testing, hypothesize, is now available on CRAN.</description><content:encoded><![CDATA[<p>I&rsquo;m pleased to announce that <strong>hypothesize</strong> is now available on <a href="https://CRAN.R-project.org/package=hypothesize">CRAN</a>, the official R package repository.</p>
+<h2 id="what-is-hypothesize">What is hypothesize?</h2>
+<p><code>hypothesize</code> provides a consistent API for hypothesis testing in R. It defines generic methods that any hypothesis test can implement:</p>
+<ul>
+<li><code>pval()</code> - Extract the p-value</li>
+<li><code>test_stat()</code> - Get the test statistic</li>
+<li><code>dof()</code> - Retrieve degrees of freedom</li>
+<li><code>is_significant_at()</code> - Check significance at a given level</li>
+</ul>
+<p>The package includes implementations for two common tests:</p>
+<ul>
+<li><strong>Likelihood Ratio Test (LRT)</strong> - For comparing nested models</li>
+<li><strong>Wald Test</strong> - For testing parameter estimates</li>
+</ul>
+<h2 id="why-a-consistent-api">Why a Consistent API?</h2>
+<p>When building statistical libraries, I found myself repeatedly implementing ad-hoc hypothesis test structures. <code>hypothesize</code> standardizes this: any package can wrap its tests in a consistent interface, making it easier to compose statistical workflows.</p>
+<h2 id="installation">Installation</h2>
+<p>Now that it&rsquo;s on CRAN, installation is simple:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">install.packages</span><span class="p">(</span><span class="s">&#34;hypothesize&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="quick-example">Quick Example</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">hypothesize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Likelihood Ratio Test</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">lrt</span><span class="p">(</span><span class="n">null_loglik</span> <span class="o">=</span> <span class="m">-100</span><span class="p">,</span> <span class="n">alt_loglik</span> <span class="o">=</span> <span class="m">-96</span><span class="p">,</span> <span class="n">dof</span> <span class="o">=</span> <span class="m">3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Check significance</span>
+</span></span><span class="line"><span class="cl"><span class="nf">is_significant_at</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="m">0.05</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract components</span>
+</span></span><span class="line"><span class="cl"><span class="nf">pval</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">test_stat</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="documentation">Documentation</h2>
+<p>Full documentation is available at <a href="https://queelius.github.io/hypothesize/">queelius.github.io/hypothesize</a>.</p>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>I have several other R packages in the pipeline for CRAN submission, including packages for likelihood-based inference and reliability analysis. Stay tuned for more announcements.</p>
+<h2 id="links">Links</h2>
+<ul>
+<li><strong>CRAN</strong>: <a href="https://CRAN.R-project.org/package=hypothesize">CRAN.R-project.org/package=hypothesize</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/hypothesize">github.com/queelius/hypothesize</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/hypothesize/">queelius.github.io/hypothesize</a></li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>hypothesis testing</category><category>CRAN</category><category>open source</category></item><item><title>Likelihood Models for Series Systems with Masked Component Failure Data: An R Package for Maximum Likelihood Estimation</title><link>https://queelius.github.io/papers/likelihood.model.series.md/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/likelihood.model.series.md/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/likelihood.model.series.md/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/likelihood.model.series.md/likelihood_model_series_md.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/likelihood.model.series.md/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category><category>Weibull</category><category>exponential distribution</category></item><item><title>mdrelax: When Masking Conditions Don't Hold</title><link>https://queelius.github.io/post/2025-12-03-mdrelax/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-03-mdrelax/</guid><description>Extending masked failure data analysis when traditional C1-C2-C3 conditions are violated.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/mdrelax">mdrelax</a></strong> extends my work on series system reliability by handling cases where traditional masking assumptions break down.</p>
+<h2 id="background-the-c1-c2-c3-framework">Background: The C1-C2-C3 Framework</h2>
+<p>My <a href="/publications/math-proj/">master&rsquo;s thesis</a> developed maximum likelihood techniques for series systems with masked failure data. The standard framework assumes three conditions:</p>
+<ul>
+<li><strong>C1</strong>: The failed component is always in the candidate set</li>
+<li><strong>C2</strong>: Non-informative masking (uniform probability within candidate set)</li>
+<li><strong>C3</strong>: Masking mechanism is independent of system parameters</li>
+</ul>
+<p>Under these conditions, the masking probabilities factor out and can be ignored for parameter estimation. The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for the exponential case, and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implements the general framework.</p>
+<h2 id="the-problem-real-world-violations">The Problem: Real-World Violations</h2>
+<p>In practice, C2 and C3 are often violated:</p>
+<p><strong>Informative masking (C2 violation)</strong>: Diagnostic tests may be more likely to correctly identify certain failure modes. A component that fails catastrophically might be easier to identify than one that fails subtly.</p>
+<p><strong>Parameter-dependent masking (C3 violation)</strong>: The masking mechanism might depend on component reliabilities. Components with shorter lifetimes might be easier to diagnose because they fail more frequently and technicians gain experience.</p>
+<h2 id="what-mdrelax-provides">What mdrelax Provides</h2>
+<p>The package implements likelihood-based inference when conditions are relaxed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">mdrelax</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Generate masked data with Bernoulli candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_bernoulli_cand_C1_C2_C3</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sample candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_cand_sampler</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># MLE for exponential series system</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fisher information matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">fim</span> <span class="o">&lt;-</span> <span class="nf">md_fim_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="nf">params</span><span class="p">(</span><span class="n">fit</span><span class="p">))</span>
+</span></span></code></pre></div><h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>Flexible masking models</strong>: Bernoulli, rank-based, KL-divergence constrained</li>
+<li><strong>Identifiability analysis</strong>: Tools to check when parameters can be estimated</li>
+<li><strong>Fisher information</strong>: Efficiency analysis under relaxed conditions</li>
+<li><strong>Simulation utilities</strong>: Monte Carlo studies for method validation</li>
+</ul>
+<h2 id="relationship-to-other-work">Relationship to Other Work</h2>
+<p>This package builds on a family of related projects:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Project</th>
+          <th>Focus</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/papers/expo-masked-fim/">expo-masked-fim</a></td>
+          <td>Closed-form FIM for exponential case</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>General R framework for masked data likelihood</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/reliability-estimation-in-series-systems/">reliability-estimation-in-series-systems</a></td>
+          <td>Master&rsquo;s thesis implementation</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/wei.series.md.c1.c2.c3/">wei.series.md.c1.c2.c3</a></td>
+          <td>Weibull series systems under C1-C2-C3</td>
+      </tr>
+      <tr>
+          <td><strong>mdrelax</strong></td>
+          <td>Relaxed conditions (C2, C3 violations)</td>
+      </tr>
+  </tbody>
+</table>
+<p>The progression represents increasing generality:</p>
+<ol>
+<li><strong>Exponential + C1-C2-C3</strong> → Closed-form solutions</li>
+<li><strong>Weibull + C1-C2-C3</strong> → Numerical MLE</li>
+<li><strong>Weibull + relaxed conditions</strong> → mdrelax</li>
+</ol>
+<h2 id="when-to-use-mdrelax">When to Use mdrelax</h2>
+<p>Use this package when you suspect:</p>
+<ul>
+<li>Diagnostic accuracy varies by component type</li>
+<li>Masking patterns correlate with component reliabilities</li>
+<li>Standard C1-C2-C3 assumptions are too restrictive</li>
+</ul>
+<p>The trade-off: relaxed models have more parameters and may require larger samples for reliable estimation.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/mdrelax">github.com/queelius/mdrelax</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/mdrelax/">queelius.github.io/mdrelax</a></li>
+<li><strong>Master&rsquo;s Thesis</strong>: <a href="/publications/math-proj/">Reliability Estimation in Series Systems</a></li>
+<li><strong>Theoretical Foundation</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category></item><item><title>Model Selection for Weibull Series Systems: When Simpler Models Suffice</title><link>https://queelius.github.io/post/2025-12-03-weibull-model-selection/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-03-weibull-model-selection/</guid><description>When can reliability engineers safely use simpler models? This paper provides sharp boundaries through likelihood ratio tests on Weibull series systems.</description><content:encoded><![CDATA[<p><strong>When can reliability engineers safely use a simpler model?</strong> This paper provides a definitive answer through extensive simulation studies with likelihood ratio tests.</p>
+<h2 id="the-model-selection-problem">The Model Selection Problem</h2>
+<p>In series system reliability, we estimate component parameters from masked failure data. For Weibull components, this means estimating \(2m\) parameters: shape \(k_j\) and scale \(\lambda_j\) for each of \(m\) components.</p>
+<p>But what if components share similar failure characteristics? A <strong>reduced model</strong> with homogeneous shape parameters uses only \(m+1\) parameters (one common \(k\) plus \(m\) scales). This halves the parameter count and has a remarkable property: <strong>the system itself becomes Weibull-distributed</strong>.</p>
+<p>The question: when is this simplification justified?</p>
+<h2 id="key-findings">Key Findings</h2>
+<h3 id="the-striking-robustness-result">The Striking Robustness Result</h3>
+<p>For <strong>well-designed series systems</strong> (components with similar failure characteristics):</p>
+<blockquote>
+<p>The reduced homogeneous-shape model cannot be rejected even with sample sizes approaching 30,000&mdash;far larger than typically available in practice.</p>
+</blockquote>
+<p>This provides strong justification for using the simpler model. With realistic sample sizes (50-500), the likelihood ratio test shows no statistical evidence against the reduced model when components truly have similar shapes.</p>
+<h3 id="sharp-sensitivity-boundaries">Sharp Sensitivity Boundaries</h3>
+<p>The paper quantifies exactly how much heterogeneity triggers rejection:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Shape Deviation</th>
+          <th>Sample Size</th>
+          <th>LRT Decision</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0.25</td>
+          <td>30,000</td>
+          <td>Fail to reject</td>
+      </tr>
+      <tr>
+          <td>0.50</td>
+          <td>1,000+</td>
+          <td>Reject</td>
+      </tr>
+      <tr>
+          <td>1.0</td>
+          <td>100+</td>
+          <td>Strong reject</td>
+      </tr>
+      <tr>
+          <td>3.0</td>
+          <td>50+</td>
+          <td>Very strong reject</td>
+      </tr>
+  </tbody>
+</table>
+<p>Even modest deviations in a <strong>single component&rsquo;s</strong> shape parameter provide evidence against the reduced model, offering clear guidance on when complexity is warranted.</p>
+<h3 id="practical-implications">Practical Implications</h3>
+<p><strong>Use the reduced model when:</strong></p>
+<ul>
+<li>Components are from similar manufacturing processes</li>
+<li>Historical data suggests similar wear-out patterns</li>
+<li>Sample sizes are moderate (\(n < 500\))</li>
+<li>Quick reliability assessment is needed</li>
+</ul>
+<p><strong>Use the full model when:</strong></p>
+<ul>
+<li>Components have fundamentally different failure modes (infant mortality vs wear-out)</li>
+<li>Large samples are available (\(n > 1000\))</li>
+<li>Precise component-level inference is critical</li>
+<li>Simulation studies suggest model inadequacy</li>
+</ul>
+<h2 id="connection-to-related-work">Connection to Related Work</h2>
+<p>This paper builds on my research ecosystem for masked failure data:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Paper/Package</th>
+          <th>Focus</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/publications/math-proj/">Master&rsquo;s Thesis</a></td>
+          <td>Weibull MLE with masked data</td>
+      </tr>
+      <tr>
+          <td><a href="/papers/expo-masked-fim/">expo-masked-fim</a></td>
+          <td>Closed-form FIM for exponential case</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>R framework for masked data likelihood</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/mdrelax/">mdrelax</a></td>
+          <td>Relaxed masking conditions</td>
+      </tr>
+      <tr>
+          <td><strong>This paper</strong></td>
+          <td>Model selection via LRT</td>
+      </tr>
+  </tbody>
+</table>
+<p>The progression represents different aspects of the same problem:</p>
+<ol>
+<li><strong>Estimation</strong> (thesis): How to estimate parameters from masked data</li>
+<li><strong>Efficiency</strong> (expo-masked-fim): Closed-form variance bounds</li>
+<li><strong>Model selection</strong> (this paper): When simpler models suffice</li>
+<li><strong>Robustness</strong> (mdrelax): What happens when assumptions break</li>
+</ol>
+<h2 id="technical-approach">Technical Approach</h2>
+<h3 id="likelihood-ratio-test">Likelihood Ratio Test</h3>
+<p>The test compares:</p>
+<ul>
+<li><strong>Full model</strong> \(H_1\): Each component has its own shape \(k_j\)</li>
+<li><strong>Reduced model</strong> \(H_0\): All components share shape \(k\)</li>
+</ul>
+<p>Test statistic:
+</p>
+$$\Lambda = -2\left[\ell(\hat{\theta}_0) - \ell(\hat{\theta}_1)\right]$$<p>Under \(H_0\), asymptotically \(\Lambda \sim \chi^2_{m-1}\).</p>
+<h3 id="simulation-design">Simulation Design</h3>
+<ul>
+<li><strong>System</strong>: 5-component series with Weibull lifetimes</li>
+<li><strong>Masking</strong>: Candidate set width 2 (C1-C2-C3 conditions)</li>
+<li><strong>Censoring</strong>: 30% right-censoring</li>
+<li><strong>Sample sizes</strong>: 50, 100, 250, 500, 1000, 5000, 30000</li>
+<li><strong>Shape deviations</strong>: Perturbing single component from 0.25 to 3.0</li>
+</ul>
+<h3 id="well-designed-systems">Well-Designed Systems</h3>
+<p>A <strong>well-designed series system</strong> has:</p>
+<ul>
+<li>Component MTTFs within factor of 2-3</li>
+<li>Shape parameters within 20-30% of each other</li>
+<li>No single dominant weak point</li>
+</ul>
+<p>This concept is crucial: the reduced model is appropriate for well-designed systems but fails when components have fundamentally different reliability characteristics.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>The bias-variance tradeoff in reliability engineering:</p>
+<ul>
+<li><strong>Simpler models</strong> (fewer parameters) have lower variance but potential bias</li>
+<li><strong>Complex models</strong> (more parameters) reduce bias but increase variance</li>
+</ul>
+<p>For small samples typical in reliability testing, the reduced model&rsquo;s variance advantage often outweighs any bias from shape heterogeneity. This paper provides the quantitative boundaries for making this decision.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Paper</strong>: <a href="/papers/weibull-series-model-selection/">Model Selection for Reliability Estimation in Series Systems</a></li>
+<li><strong>Master&rsquo;s Thesis</strong>: <a href="/publications/math-proj/">Reliability Estimation in Series Systems</a></li>
+<li><strong>Related Paper</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+<li><strong>R Package</strong>: <a href="https://github.com/queelius/wei.series.md.c1.c2.c3">wei.series.md.c1.c2.c3</a></li>
+</ul>
+]]></content:encoded><category>statistics</category><category>reliability</category><category>weibull-distribution</category><category>model-selection</category><category>likelihood-ratio-test</category><category>series-systems</category><category>masked-data</category></item><item><title>Closed-Form Results for Masked Exponential Series Systems</title><link>https://queelius.github.io/post/2024-04-15-expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-04-15-expo-masked-fim/</guid><description>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.
+The Problem In series systems, the system fails when any component fails. You observe:
+System failure time \(t\) Candidate set \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components But you don’t know which component in \(C\) actually caused the failure. This is …</description><content:encoded><![CDATA[<p>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>In series systems, the system fails when <strong>any</strong> component fails. You observe:</p>
+<ul>
+<li><strong>System failure time</strong> \(t\)</li>
+<li><strong>Candidate set</strong> \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components</li>
+</ul>
+<p>But you don&rsquo;t know which component in \(C\) actually caused the failure. This is <strong>masked failure data</strong>.</p>
+<h2 id="key-contributions">Key Contributions</h2>
+<h3 id="1-closed-form-fisher-information-matrix">1. Closed-Form Fisher Information Matrix</h3>
+<p>For exponential masked data with arbitrary masking patterns:</p>
+$$I_{ij}(\boldsymbol{\lambda}) = n \cdot \sum_{A \ni i,j} \frac{\hat{\omega}_A}{(\sum_{k \in A} \lambda_k)^2}$$<p>where \(\hat{\omega}_A\) is the observed frequency of candidate set \(A\). This enables:</p>
+<ul>
+<li>Direct computation of asymptotic variances</li>
+<li>Identifiability checking before running MLE</li>
+<li>Stability analysis of optimization</li>
+</ul>
+<h3 id="2-sufficient-statistics">2. Sufficient Statistics</h3>
+<p>The mean system lifetime and candidate set frequency vector constitute <strong>sufficient statistics</strong>, reducing an entire dataset to just \(1 + \binom{m}{w}\) numbers (where \(w\) is the masking width).</p>
+<p>This is a major simplification: all statistical information is captured by counting which candidate sets appear and what the average failure time is.</p>
+<h3 id="3-closed-form-mle-for-three-component-systems">3. Closed-Form MLE for Three-Component Systems</h3>
+<p>For \(m=3\) components with pairwise masking (\(w=2\)), we derive an <strong>explicit closed-form solution</strong> to the likelihood equations:</p>
+$$\hat{\lambda}_j = \frac{\sum_{A \ni j} \hat{\omega}_A}{\bar{t} \cdot n}$$<p>This eliminates numerical optimization entirely for this case. The \(w=2\) case is particularly important because:</p>
+<ul>
+<li>\(w=1\) means no masking (exact cause identification)</li>
+<li>\(w=m\) means complete masking (no diagnostic information)</li>
+<li>\(w=2\) is the simplest non-degenerate masking scenario</li>
+</ul>
+<h3 id="4-asymptotic-distribution-theory">4. Asymptotic Distribution Theory</h3>
+<p>The MLE follows:</p>
+$$\sqrt{n}(\hat{\boldsymbol{\lambda}}_n - \boldsymbol{\lambda}^\star) \xrightarrow{d} \mathcal{N}(\mathbf{0}, \mathcal{I}^{-1}(\boldsymbol{\lambda}^\star))$$<p>with explicit Wald-type confidence intervals using the closed-form Fisher information.</p>
+<h2 id="why-exponential">Why Exponential?</h2>
+<p>The exponential distribution assumption isn&rsquo;t just for tractability:</p>
+<ul>
+<li><strong>Constant hazard rate</strong> models systems subject to random external shocks</li>
+<li><strong>Memoryless property</strong> simplifies the likelihood structure</li>
+<li><strong>Foundation for generalization</strong> to Weibull and other distributions</li>
+</ul>
+<p>More importantly, exponential is the one case where closed-form solutions exist. The insights gained here guide numerical methods for more complex distributions.</p>
+<h2 id="connection-to-other-work">Connection to Other Work</h2>
+<p>This paper is the analytical foundation for the generalized Weibull treatment in my <a href="/publications/math-proj/">master&rsquo;s thesis</a>, which handles:</p>
+<ul>
+<li>Shape and scale parameters</li>
+<li>More realistic masking models</li>
+<li>Model selection between candidate mechanisms</li>
+</ul>
+<p>The R packages <a href="/projects/likelihood.model/">likelihood.model</a> and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implement these methods.</p>
+<h2 id="technical-details">Technical Details</h2>
+<ul>
+<li><strong>Paper</strong>: <a href="/papers/expo-masked-fim/">Statistical Inference for Series Systems from Masked Failure Time Data: The Exponential Case</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/expo-masked-fim">github.com/queelius/expo-masked-fim</a></li>
+<li><strong>Key result</strong>: Complete analytical treatment including MLE, Fisher information, sufficient statistics, and asymptotic theory</li>
+</ul>
+]]></content:encoded><category>statistics</category><category>fisher information</category><category>masked data</category><category>series systems</category><category>reliability</category><category>exponential distribution</category><category>maximum likelihood</category><category>sufficient statistics</category></item><item><title>Statistical Inference for Series Systems from Masked Failure Time Data: The Exponential Case</title><link>https://queelius.github.io/papers/expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/expo-masked-fim/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/expo-masked-fim/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/expo-masked-fim/main.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/expo-masked-fim/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>fisher information</category><category>masked data</category><category>series systems</category><category>reliability</category><category>exponential distribution</category><category>maximum likelihood</category><category>sufficient statistics</category><category>asymptotic theory</category><category>confidence intervals</category></item><item><title>Alea: A Modern C++ Library for Algebraic Random Elements</title><link>https://queelius.github.io/papers/alea/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/alea/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/alea/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/alea/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/alea/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>c++</category><category>probability</category><category>Monte Carlo</category><category>library</category><category>statistics</category><category>type erasure</category></item><item><title>Fisher Flow: An Information-Geometric Framework for Sequential Estimation</title><link>https://queelius.github.io/papers/fisher-flow/</link><pubDate>Thu, 20 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/fisher-flow/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/fisher-flow/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/fisher-flow/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/fisher-flow/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>information geometry</category><category>sequential estimation</category><category>fisher information</category><category>hessian</category><category>maximum likelihood</category></item><item><title>Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</title><link>https://queelius.github.io/post/2024-06-15-reliability-estimation-in-series-systems/</link><pubDate>Sat, 15 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-06-15-reliability-estimation-in-series-systems/</guid><description>Maximum likelihood estimation of component reliability from masked failure data in series systems, with BCa bootstrap confidence intervals validated through extensive simulation studies.</description><content:encoded><![CDATA[<p><strong>My master&rsquo;s thesis in mathematics</strong> investigating maximum likelihood techniques to estimate component reliability from masked failure data in series systems.</p>
+<h2 id="the-challenge">The Challenge</h2>
+<p>Quantifying the reliability of individual components in a series system is challenging when:</p>
+<ul>
+<li>Only system-level failure data is observable</li>
+<li>The exact component cause of failure is masked (ambiguous)</li>
+<li>System lifetimes are right-censored</li>
+<li>Sample sizes are small</li>
+</ul>
+<p>A series system fails when <strong>any</strong> component fails, making it critical to understand which components are weakest.</p>
+<h2 id="key-contributions">Key Contributions</h2>
+<h3 id="1-likelihood-model-for-masked-data">1. Likelihood Model for Masked Data</h3>
+<p>Developed a likelihood model that handles two types of masking:</p>
+<p><strong>Right-Censoring</strong>: System observed until time \(\tau\), but may not have failed
+</p>
+\[
+S_i = \min\{\tau_i, T_i\}
+\]<p>
+</p>
+\[
+\delta_i = \mathbb{1}_{T_i < \tau_i}
+\]<p><strong>Component Cause Masking</strong>: When system fails, we observe a <strong>candidate set</strong> \(\mathcal{C}_i\) containing the failed component, but cannot pinpoint the exact cause.</p>
+<p><strong>Three Key Conditions</strong> (satisfied in many industrial scenarios):</p>
+<ol>
+<li>Candidate set always contains the failed component: \(\Pr\{K_i \in \mathcal{C}_i\} = 1\)</li>
+<li>Masking probability is the same for all components in the candidate set</li>
+<li>Masking probabilities don&rsquo;t depend on system parameters \(\theta\)</li>
+</ol>
+<p>Under these conditions, the likelihood contribution simplifies to:</p>
+\[
+L_i(\theta) \propto \left[\prod_{j=1}^m R_j(s_i; \theta_j)\right] \times \left[\sum_{j \in \mathcal{C}_i} h_j(s_i; \theta_j)\right]^{\delta_i}
+\]<p>where \(R_j\) is the reliability function and \(h_j\) is the hazard function of component \(j\).</p>
+<h3 id="2-weibull-series-systems">2. Weibull Series Systems</h3>
+<p>For components with Weibull lifetimes:</p>
+<ul>
+<li>Component \(j\): \(T_{ij} \sim \text{Weibull}(k_j, \lambda_j)\)</li>
+<li>Shape parameter \(k_j\) determines failure behavior:
+<ul>
+<li>\(k < 1\): infant mortality</li>
+<li>\(k = 1\): random failures (exponential)</li>
+<li>\(k > 1\): wear-out failures</li>
+</ul>
+</li>
+</ul>
+<p><strong>System reliability</strong> when all components have Weibull lifetimes:</p>
+\[
+R_{T_i}(t; \theta) = \exp\left\{-\sum_{j=1}^m \left(\frac{t}{\lambda_j}\right)^{k_j}\right\}
+\]<p>The hazard function is additive:
+</p>
+\[
+h_{T_i}(t; \theta) = \sum_{j=1}^m \frac{k_j}{\lambda_j}\left(\frac{t}{\lambda_j}\right)^{k_j-1}
+\]<h3 id="3-extensive-simulation-studies">3. Extensive Simulation Studies</h3>
+<p>Validated MLE performance under varying conditions:</p>
+<p><strong>Scenario 1: Right-Censoring Impact</strong> (\(q = 60\%\) to \(100\%\))</p>
+<ul>
+<li><strong>Finding</strong>: Scale parameters showed positive bias with censoring</li>
+<li><strong>Finding</strong>: Shape parameters more sensitive than scale parameters</li>
+<li><strong>Finding</strong>: Most reliable component (component 1) most affected by censoring</li>
+<li><strong>Finding</strong>: Convergence rate \(>95\%\) for \(q \geq 0.7\)</li>
+</ul>
+<p><strong>Scenario 2: Masking Probability</strong> (\(p = 10\%\) to \(70\%\))</p>
+<ul>
+<li><strong>Finding</strong>: Scale parameter CIs correctly specified up to \(p=0.7\) (\(>90\%\) coverage)</li>
+<li><strong>Finding</strong>: Shape parameter CIs correctly specified up to \(p=0.4\)</li>
+<li><strong>Finding</strong>: Convergence rate \(>95\%\) for \(p \leq 0.4\)</li>
+<li><strong>Finding</strong>: Bias increases with masking probability</li>
+</ul>
+<p><strong>Scenario 3: Sample Size</strong> (\(n = 50\) to \(500\))</p>
+<ul>
+<li><strong>Finding</strong>: At \(n=250\), estimator essentially unbiased despite moderate censoring and masking</li>
+<li><strong>Finding</strong>: Convergence rate \(>95\%\) for \(n \geq 100\)</li>
+<li><strong>Finding</strong>: Precision improves rapidly with sample size</li>
+<li><strong>Finding</strong>: Small samples (\(n<100\)) require caution</li>
+</ul>
+<h3 id="4-bca-bootstrap-confidence-intervals">4. BCa Bootstrap Confidence Intervals</h3>
+<p>Bias-Corrected and Accelerated (BCa) bootstrap provides:</p>
+<ul>
+<li><strong>Bias correction</strong>: Adjusts for bias in bootstrap distribution</li>
+<li><strong>Acceleration</strong>: Accounts for parameter-dependent distribution shape</li>
+</ul>
+<p><strong>Key Results</strong>:</p>
+<ul>
+<li>Good coverage probability (\(>90\%\)) even for small samples</li>
+<li>Scale parameters better calibrated than shape parameters</li>
+<li>Coverage approaches nominal \(95\%\) as sample size increases</li>
+<li>CIs neither too wide nor too narrow</li>
+</ul>
+<h2 id="performance-summary">Performance Summary</h2>
+<p>Despite significant masking and censoring, the MLE demonstrates:</p>
+<p>✓ <strong>Good accuracy</strong> for moderate sample sizes (\(n \geq 100\))
+✓ <strong>Reasonable precision</strong> with well-specified confidence intervals
+✓ <strong>High convergence rates</strong> (\(>95\%\)) under realistic conditions
+✓ <strong>Robust performance</strong> for well-designed series systems</p>
+<p><strong>Challenges identified</strong>:</p>
+<ul>
+<li>Shape parameters harder to estimate than scale parameters</li>
+<li>Most reliable components require more data</li>
+<li>Small samples (\(n<100\)) need careful interpretation</li>
+<li>Severe masking/censoring reduces reliability</li>
+</ul>
+<h2 id="practical-applications">Practical Applications</h2>
+<p>This methodology applies to:</p>
+<ul>
+<li>Industrial reliability testing with incomplete failure diagnosis</li>
+<li>Electronic system reliability with board-level diagnostics</li>
+<li>Mechanical systems where root cause analysis is expensive</li>
+<li>Any series system with Weibull component lifetimes</li>
+</ul>
+<h2 id="technical-implementation">Technical Implementation</h2>
+<p>Full R implementation available: <a href="https://github.com/queelius/wei.series.md.c1.c2.c3">wei.series.md.c1.c2.c3</a></p>
+<p>Features:</p>
+<ul>
+<li>Analytical score function for efficient optimization</li>
+<li>L-BFGS-B solver with bound constraints</li>
+<li>BCa bootstrap confidence intervals</li>
+<li>Bernoulli masking model for simulations</li>
+<li>Complete simulation framework</li>
+</ul>
+<h2 id="full-thesis">Full Thesis</h2>
+<p><a href="/latex/reliability-estimation-in-series-systems/paper.pdf">View complete PDF</a> (40 pages)</p>
+<p><strong>Abstract</strong>: This paper investigates maximum likelihood techniques to estimate component reliability from masked failure data in series systems. A likelihood model accounts for right-censoring and candidate sets indicative of masked failure causes. Extensive simulation studies assess the accuracy and precision of maximum likelihood estimates under varying sample size, masking probability, and right-censoring time for components with Weibull lifetimes.</p>
+<h2 id="related-work">Related Work</h2>
+<p>For more research and projects, see my <a href="/research/">research page</a> and <a href="/publications/">publications</a>.</p>
+]]></content:encoded><category>reliability</category><category>statistics</category><category>weibull-distribution</category><category>maximum-likelihood</category><category>bootstrap</category><category>series-systems</category><category>censored-data</category></item><item><title>Accumux: Compositional Online Statistical Reductions in C++</title><link>https://queelius.github.io/post/2024-03-01-accumux/</link><pubDate>Fri, 01 Mar 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-03-01-accumux/</guid><description>A modern C++20 library for compositional online data reductions with numerically stable algorithms and algebraic composition.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/accumux">Accumux</a></strong> provides a framework for combining statistical accumulators using algebraic composition. Built on solid mathematical foundations (monoids, homomorphisms), it enables single-pass computation of complex statistical measures with optimal numerical stability.</p>
+<h2 id="the-problem-multi-statistic-computation">The Problem: Multi-Statistic Computation</h2>
+<p>Computing multiple statistics over large datasets typically requires:</p>
+<ul>
+<li>Multiple passes over the data, or</li>
+<li>Hand-rolled code combining different algorithms, or</li>
+<li>Numerical instability from naive implementations</li>
+</ul>
+<p>Accumux solves this with <strong>compositional accumulators</strong>: combine any accumulators with <code>+</code>, process data once, extract all results.</p>
+<h2 id="quick-example">Quick Example</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/kbn_sum.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/welford.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/core/composition.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="k">namespace</span> <span class="n">accumux</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Compose accumulators with +
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Single pass through data
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">value</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">stats</span> <span class="o">+=</span> <span class="n">value</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Extract all results
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">get_first</span><span class="p">().</span><span class="n">eval</span><span class="p">();</span>           <span class="c1">// 15.0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">mean</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">mean</span><span class="p">();</span>         <span class="c1">// 3.0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">variance</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">sample_variance</span><span class="p">();</span>  <span class="c1">// 2.5
+</span></span></span></code></pre></div><h2 id="numerically-stable-algorithms">Numerically Stable Algorithms</h2>
+<p>Accumux uses proven algorithms that maintain accuracy even with ill-conditioned data:</p>
+<h3 id="kahan-babuška-neumaier-summation">Kahan-Babuška-Neumaier Summation</h3>
+<p>Standard floating-point summation loses precision:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Naive sum fails on this
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1e100</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e100</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Naive: 0.0 (wrong!)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// KBN:   2.0 (correct!)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">summer</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">values</span><span class="p">)</span> <span class="n">summer</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">summer</span><span class="p">.</span><span class="n">eval</span><span class="p">();</span>  <span class="c1">// 2.0
+</span></span></span></code></pre></div><h3 id="welfords-online-algorithm">Welford&rsquo;s Online Algorithm</h3>
+<p>Computes mean and variance in a single pass without catastrophic cancellation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">welford</span> <span class="o">=</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span> <span class="n">welford</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">welford</span><span class="p">.</span><span class="n">count</span><span class="p">();</span>           <span class="c1">// Number of samples
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">welford</span><span class="p">.</span><span class="n">mean</span><span class="p">();</span>            <span class="c1">// Running mean
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">welford</span><span class="p">.</span><span class="n">sample_variance</span><span class="p">();</span> <span class="c1">// Unbiased variance
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">welford</span><span class="p">.</span><span class="n">sample_std_dev</span><span class="p">();</span>  <span class="c1">// Standard deviation
+</span></span></span></code></pre></div><h3 id="minmax-tracking">Min/Max Tracking</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">minmax</span> <span class="o">=</span> <span class="n">minmax_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span> <span class="n">minmax</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">minmax</span><span class="p">.</span><span class="n">min</span><span class="p">();</span>  <span class="c1">// Minimum value
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">minmax</span><span class="p">.</span><span class="n">max</span><span class="p">();</span>  <span class="c1">// Maximum value
+</span></span></span></code></pre></div><h2 id="algebraic-composition">Algebraic Composition</h2>
+<p>The key insight: accumulators form a <strong>monoid</strong> under composition.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compose arbitrarily many accumulators
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">financial</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">minmax_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">returns</span> <span class="o">=</span> <span class="p">{</span><span class="mf">0.05</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">ret</span> <span class="p">:</span> <span class="n">returns</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">financial</span> <span class="o">+=</span> <span class="n">ret</span><span class="p">;</span>  <span class="c1">// All three update simultaneously
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Extract nested results
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">total</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_first</span><span class="p">().</span><span class="n">eval</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">mean</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">mean</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">volatility</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">sample_std_dev</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">worst</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">get_second</span><span class="p">().</span><span class="n">min</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">best</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">get_second</span><span class="p">().</span><span class="n">max</span><span class="p">();</span>
+</span></span></code></pre></div><h2 id="mathematical-foundation">Mathematical Foundation</h2>
+<h3 id="monoid-structure">Monoid Structure</h3>
+<p>Each accumulator type <code>A</code> forms a monoid:</p>
+<ul>
+<li><strong>Identity</strong>: Empty accumulator with no observations</li>
+<li><strong>Binary operation</strong>: Merge two accumulators (combine their observations)</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">a</span> <span class="o">=</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">b</span> <span class="o">=</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Process different data
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data1</span><span class="p">)</span> <span class="n">a</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data2</span><span class="p">)</span> <span class="n">b</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Merge results
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">combined</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Equivalent to processing data1 ++ data2
+</span></span></span></code></pre></div><h3 id="homomorphism-property">Homomorphism Property</h3>
+<p>The composition operation preserves structure:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(a + b).process(x) = a.process(x) + b.process(x)
+</span></span></code></pre></div><p>This enables parallel processing: split data, accumulate in parallel, merge results.</p>
+<h2 id="type-safety-with-c20-concepts">Type Safety with C++20 Concepts</h2>
+<p>Invalid compositions fail at compile-time:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compile error: can&#39;t add incompatible accumulators
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">invalid</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">();</span>  <span class="c1">// Type mismatch!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// OK: compatible types compose
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">valid</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Financial Analysis</strong>: Track returns, volatility, drawdowns in one pass</li>
+<li><strong>Scientific Computing</strong>: Online statistics for streaming sensor data</li>
+<li><strong>Machine Learning</strong>: Feature statistics during data preprocessing</li>
+<li><strong>Monitoring Systems</strong>: Real-time metrics aggregation</li>
+</ul>
+<h2 id="performance">Performance</h2>
+<ul>
+<li><strong>O(1) space</strong> per accumulator (constant memory regardless of data size)</li>
+<li><strong>O(n) time</strong> for n data points (single pass)</li>
+<li><strong>Zero allocations</strong> during accumulation</li>
+<li><strong>Header-only</strong>: No linking, no dependencies</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>Header-only—just include:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/kbn_sum.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/welford.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/core/composition.hpp&#34;</span><span class="cp">
+</span></span></span></code></pre></div><p>Or with CMake:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">accumux</span><span class="p">)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">accumux::accumux</span><span class="p">)</span><span class="err">
+</span></span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/accumux">github.com/queelius/accumux</a></li>
+<li><strong>Paper</strong>: <a href="/papers/accumux/">AccuMux Technical Report</a></li>
+</ul>
+<hr>
+<p><em>Accumux: Compose your statistics, compute in one pass, trust the math.</em></p>
+]]></content:encoded><category>C++</category><category>statistics</category><category>numerical-computing</category><category>accumulators</category><category>functional-programming</category><category>header-only</category></item><item><title>Approximations of Solomonoff Induction</title><link>https://queelius.github.io/research/solomonoff/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/research/solomonoff/</guid><description>I experiment with simple predictive / generative models to approximate Solomonoff induction for a relatively simple synthetic data-generating process.</description><content:encoded><![CDATA[<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re interested in collaborating on any projects.</p>
+]]></content:encoded><category>large language models</category><category>solomonoff induction</category><category>synthetic data</category><category>algorthmic data</category><category>n-gram models</category><category>markov models</category><category>foundation models</category><category>statistics</category></item><item><title>Mathematics Master's Complete: Post-Mortem on Three Years</title><link>https://queelius.github.io/post/2023-10-math-masters-complete-postmortem/</link><pubDate>Wed, 18 Oct 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2023-10-math-masters-complete-postmortem/</guid><description>I defended my mathematics thesis yesterday. It’s done.
+Three years. Two degrees. Stage 3 cancer. And now: MS in Mathematics and Statistics from SIUE.
+October 13, 2023: Defense complete.
+Time for a post-mortem on what worked, what didn’t, and what I learned.
+The Decision (2020) I started this degree for specific reasons:
+Needed deeper statistical foundations Wanted to understand proofs, not just applications Suspected mathematical maturity would unlock better research All three turned out to be …</description><content:encoded><![CDATA[<p>I defended my mathematics thesis yesterday. It&rsquo;s done.</p>
+<p>Three years. Two degrees. Stage 3 cancer. And now: MS in Mathematics and Statistics from SIUE.</p>
+<p>October 13, 2023: Defense complete.</p>
+<p>Time for a post-mortem on what worked, what didn&rsquo;t, and what I learned.</p>
+<h2 id="the-decision-2020">The Decision (2020)</h2>
+<p>I started this degree for specific reasons:</p>
+<ul>
+<li>Needed deeper statistical foundations</li>
+<li>Wanted to understand proofs, not just applications</li>
+<li>Suspected mathematical maturity would unlock better research</li>
+</ul>
+<p>All three turned out to be true, but not how I expected.</p>
+<h2 id="what-i-actually-learned">What I Actually Learned</h2>
+<p><strong>Not just statistical methods, but statistical thinking:</strong></p>
+<p>Before: &ldquo;Run this test, get p-value, make decision&rdquo;
+After: &ldquo;What&rsquo;s the generative model? What are we assuming? What could go wrong?&rdquo;</p>
+<p><strong>Not just probability theory, but measure-theoretic probability:</strong></p>
+<p>Before: Probability is counting favorable outcomes
+After: Probability is a measure on σ-algebras and everything flows from Kolmogorov&rsquo;s axioms</p>
+<p><strong>Not just computing estimates, but understanding why they work:</strong></p>
+<p>Before: &ldquo;Maximum likelihood works because stats textbook says so&rdquo;
+After: &ldquo;MLE is consistent under these regularity conditions because of this proof&hellip;&rdquo;</p>
+<h2 id="the-thesis">The Thesis</h2>
+<p>My thesis: <em>Maximum Likelihood Estimation for Series Systems with Masked, Censored Failure Data</em></p>
+<p>Translation: When you have a system that fails if any component fails, some systems haven&rsquo;t failed when testing stops (censoring), and you don&rsquo;t know which component caused failures (masking), how do you estimate component reliability?</p>
+<p>This required combining:</p>
+<ul>
+<li>Survival analysis (censored data)</li>
+<li>Mixture models (masked causes)</li>
+<li>EM algorithm (hidden variables)</li>
+<li>Bootstrap methods (confidence intervals)</li>
+<li>Simulation studies (validation)</li>
+</ul>
+<p>It&rsquo;s not groundbreaking work. But it&rsquo;s <strong>complete, rigorous, and useful</strong>.</p>
+<h2 id="what-worked">What Worked</h2>
+<p><strong>Starting with clear goals</strong>: I knew what gaps I was filling. No wandering.</p>
+<p><strong>Choosing thesis topic early</strong>: Spent 2+ years with the problem. Got deep.</p>
+<p><strong>Coding while learning theory</strong>: Implemented methods as I derived them. Theory stayed concrete.</p>
+<p><strong>Cancer as deadline</strong>: Stage 3 diagnosis in 2020 made me finish. No lingering perfectionism.</p>
+<p><strong>Strong mathematical foundation</strong>: The CS degree gave me coding. This gave me proofs.</p>
+<h2 id="what-didnt-work">What Didn&rsquo;t Work</h2>
+<p><strong>Took some irrelevant courses</strong>: A few classes didn&rsquo;t connect to my research. Time tax.</p>
+<p><strong>Should have published earlier</strong>: Waited for thesis completion. Should have pushed papers out incrementally.</p>
+<p><strong>Didn&rsquo;t network enough</strong>: Focused on work, not relationships. Probably cost me collaboration opportunities.</p>
+<p><strong>Underestimated administrative burden</strong>: So much paperwork for something that should be about ideas.</p>
+<h2 id="the-cancer-context">The Cancer Context</h2>
+<p>Doing a math degree while managing stage 3 cancer was&hellip; complicated.</p>
+<p><strong>Good aspects:</strong></p>
+<ul>
+<li>Mathematics worked when biology didn&rsquo;t</li>
+<li>Having structure helped between treatments</li>
+<li>Research gave me something controllable</li>
+<li>Thesis deadlines kept me moving forward</li>
+</ul>
+<p><strong>Hard aspects:</strong></p>
+<ul>
+<li>Chemo brain made proofs harder</li>
+<li>Medical appointments ate time</li>
+<li>Energy unpredictable</li>
+<li>Had to accept reduced pace</li>
+</ul>
+<p>But I finished. That counts.</p>
+<h2 id="key-insights-gained">Key Insights Gained</h2>
+<p><strong>1. Statistical inference is philosophy formalized</strong></p>
+<p>Every statistical method embodies beliefs about:</p>
+<ul>
+<li>What&rsquo;s knowable from data</li>
+<li>What uncertainty means</li>
+<li>What constitutes evidence</li>
+<li>What trade-offs matter</li>
+</ul>
+<p>Understanding this makes you a better researcher.</p>
+<p><strong>2. Proofs force clarity</strong></p>
+<p>Can&rsquo;t handwave in a proof. Every step justified. This discipline carries over to everything else.</p>
+<p><strong>3. Computation and theory need each other</strong></p>
+<p>Pure theory becomes disconnected. Pure computation becomes unprincipled. The magic is in the synthesis.</p>
+<p><strong>4. The EM algorithm is everywhere</strong></p>
+<p>Hidden variables, mixture models, censored data, missing data—all EM problems. Once you see the pattern, you see it everywhere.</p>
+<p><strong>5. Mathematics is a mode of thought</strong></p>
+<p>Not just a toolkit. A way of seeing structure, abstraction, and pattern.</p>
+<h2 id="how-this-changed-my-research">How This Changed My Research</h2>
+<p>I now approach problems differently:</p>
+<p><strong>Before</strong>: Find existing method, apply it, report results</p>
+<p><strong>After</strong>:</p>
+<ul>
+<li>What&rsquo;s the generative process?</li>
+<li>What are we assuming?</li>
+<li>Can I derive this from first principles?</li>
+<li>What breaks under model misspecification?</li>
+</ul>
+<p>This makes research slower but more robust.</p>
+<h2 id="was-it-worth-it">Was It Worth It?</h2>
+<p>People ask: &ldquo;Was a second master&rsquo;s degree worth three years?&rdquo;</p>
+<p><strong>Absolutely.</strong></p>
+<p>I&rsquo;m a better researcher because of:</p>
+<ul>
+<li>Mathematical foundations</li>
+<li>Statistical rigor</li>
+<li>Comfort with proofs</li>
+<li>Understanding of asymptotic theory</li>
+</ul>
+<p>But more than that: <strong>I think differently now.</strong></p>
+<p>Computer science taught me to build.
+Mathematics taught me to reason.</p>
+<p>Both are essential.</p>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>Planning to start PhD in Computer Science soon.</p>
+<p>Focus areas:</p>
+<ul>
+<li>Machine learning and AI safety</li>
+<li>Complex networks</li>
+<li>Statistical computing</li>
+<li>Computational methods for hard problems</li>
+</ul>
+<p>The math degree was preparation. Now comes application.</p>
+<h2 id="for-anyone-considering-a-similar-path">For Anyone Considering a Similar Path</h2>
+<p>If you&rsquo;re thinking about a second degree in a related field:</p>
+<p><strong>Do it if:</strong></p>
+<ul>
+<li>You have specific gaps you need to fill</li>
+<li>You&rsquo;re willing to go deep, not just collect credentials</li>
+<li>You have research questions that require it</li>
+<li>You can afford the time investment</li>
+</ul>
+<p><strong>Don&rsquo;t do it if:</strong></p>
+<ul>
+<li>You just want credentials</li>
+<li>You&rsquo;re not willing to struggle with proofs</li>
+<li>You could learn what you need from textbooks</li>
+<li>You&rsquo;re doing it because it sounds impressive</li>
+</ul>
+<p><strong>If you do it:</strong></p>
+<ul>
+<li>Start with clear goals</li>
+<li>Choose thesis topic early</li>
+<li>Code while you learn</li>
+<li>Publish incrementally</li>
+<li>Accept that it&rsquo;s hard</li>
+</ul>
+<h2 id="final-thoughts">Final Thoughts</h2>
+<p>Three years. Stage 3 cancer. Two master&rsquo;s degrees.</p>
+<p>The work is done. The defense went well. The degree is complete.</p>
+<p>On to the next thing.</p>
+<hr>
+<p><em>MS Mathematics and Statistics, 2023. Next: PhD in Computer Science.</em></p>
+]]></content:encoded><category>mathematics</category><category>statistics</category><category>thesis</category><category>education</category><category>reflection</category></item><item><title>Model Selection for Reliability Estimation in Series Systems</title><link>https://queelius.github.io/papers/reliability-series-sys-model-sel/</link><pubDate>Sat, 07 Oct 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/reliability-series-sys-model-sel/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/reliability-series-sys-model-sel/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/reliability-series-sys-model-sel/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/reliability-series-sys-model-sel/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>reliability</category><category>series systems</category><category>model selection</category><category>weibull distribution</category><category>maximum likelihood</category></item><item><title>Reliability Estimation in Series Systems Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</title><link>https://queelius.github.io/papers/reliability-estimation-in-series-systems/</link><pubDate>Wed, 09 Aug 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/reliability-estimation-in-series-systems/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/reliability-estimation-in-series-systems/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/reliability-estimation-in-series-systems/paper-alt.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/reliability-estimation-in-series-systems/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category></item><item><title>Problem Set Solutions</title><link>https://queelius.github.io/post/2023-03-31-problem-sets/</link><pubDate>Fri, 31 Mar 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2023-03-31-problem-sets/</guid><description>I have a fairly broad interest in problem-solving, from problems in statistics to algorithms. Over the years, I’ve accumulated a collection of problem sets from graduate coursework and independent study. These represent solutions to challenging problems in computational statistics, numerical methods, and algorithm design.
+Overview The problem sets cover several courses I took during my mathematics master’s program at SIUe, focusing on computational methods and statistical computing. While I …</description><content:encoded><![CDATA[<p>I have a fairly broad interest in problem-solving, from problems in statistics to algorithms. Over the years, I&rsquo;ve accumulated a collection of problem sets from graduate coursework and independent study. These represent solutions to challenging problems in computational statistics, numerical methods, and algorithm design.</p>
+<h2 id="overview">Overview</h2>
+<p>The problem sets cover several courses I took during my mathematics master&rsquo;s program at SIUe, focusing on computational methods and statistical computing. While I don&rsquo;t claim expertise in all areas, working through these problems deepened my understanding of how statistical methods actually work under the hood—beyond just calling library functions.</p>
+<h2 id="stat-575-computational-statistics">STAT 575: Computational Statistics</h2>
+<p>This was a particularly valuable course taught by Dr. Qiang Beidi during Summer 2021. The problem sets covered:</p>
+<p><strong>Numerical Methods:</strong></p>
+<ul>
+<li>Newton-Raphson method for root finding</li>
+<li>Secant method and convergence analysis</li>
+<li>Multivariate optimization techniques</li>
+<li>Numerical derivatives (Jacobian and Hessian computation)</li>
+</ul>
+<p><strong>Statistical Computing:</strong></p>
+<ul>
+<li>Poisson regression with hand-coded Newton-Raphson</li>
+<li>Maximum likelihood estimation</li>
+<li>Comparison with built-in GLM implementations</li>
+</ul>
+<p><strong>Sampling and Simulation:</strong></p>
+<ul>
+<li>Inverse transform method for logistic and Cauchy distributions</li>
+<li>Acceptance-rejection sampling for custom distributions</li>
+<li>Generating from geometric distributions via Bernoulli trials</li>
+<li>Sampling from bimodal and half-normal distributions</li>
+</ul>
+<p>The problem sets required implementing these methods from scratch in R, which forced a deep understanding of the underlying mathematics. For example, fitting a Poisson regression model by hand-coding the Newton-Raphson algorithm—computing gradients and Hessians numerically—teaches you far more than just calling <code>glm()</code>.</p>
+<h2 id="stat-482-additional-topics">STAT 482: Additional Topics</h2>
+<p>This course covered complementary material in statistical methods and applications, with problem sets focused on practical implementation and theoretical understanding.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>There&rsquo;s value in implementing statistical methods from scratch:</p>
+<ol>
+<li>
+<p><strong>Understanding tradeoffs</strong>: When you code Newton&rsquo;s method yourself, you understand why starting values matter and when convergence fails.</p>
+</li>
+<li>
+<p><strong>Debugging intuition</strong>: If a built-in function gives unexpected results, you can reason about what might be going wrong internally.</p>
+</li>
+<li>
+<p><strong>Foundation for research</strong>: When you need to extend existing methods or develop new ones, understanding the computational substrate is essential.</p>
+</li>
+<li>
+<p><strong>Appreciating library implementations</strong>: After hand-coding these algorithms, you gain respect for well-optimized statistical software.</p>
+</li>
+</ol>
+<p>During my cancer treatment and master&rsquo;s program, working through these problem sets was a way to stay engaged with concrete problems when larger research questions felt overwhelming. There&rsquo;s something therapeutic about a well-defined problem with a clear solution.</p>
+<h2 id="accessing-the-problem-sets">Accessing the Problem Sets</h2>
+<p>You can find these problem sets organized by course at <a href="/probsets">/probsets</a>. Each includes detailed solutions with code implementations in R.</p>
+<p>The solutions show full working—mathematical derivations, implementation details, and verification against built-in functions. They&rsquo;re written for someone trying to understand not just <em>what</em> works but <em>why</em> it works.</p>
+<hr>
+<p><em>These represent coursework from 2021, during my mathematics master&rsquo;s program at SIUe.</em></p>
+]]></content:encoded><category>problem-sets</category><category>statistics</category><category>algorithms</category><category>computational-statistics</category></item><item><title>Model Selection in Weibull Series Systems</title><link>https://queelius.github.io/research/reliability-estimation-in-series-systems-model-sel/</link><pubDate>Wed, 29 Mar 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/research/reliability-estimation-in-series-systems-model-sel/</guid><description>In my paper, Reliability Estimation in Series Systems, I discarded a lot of research that may be interesting to pursue further. This one is about using homogeneous shape parameters for the Weibull series system, which can greatly simplify the analysis and reduce the number of parameters to estimate. It’s also quite reasonable for most well-designed systems.</description><content:encoded><![CDATA[<p>The repo on <a href="https://github.com/queelius/reliability-estimation-in-series-systems-model-selection">Github</a> contains the prelimniary
+work. It follows from the Future Work section in the paper, which is <a href="/alex-towell-math-proj-masters.pdf#page=31">here</a>.
+In particular, it explores the homogenous shape parameter Weiibull series system, which is a simplification of the model
+and results in a system with a lifetime that is itself Weibull distributed.</p>
+<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re interested in collaborating on any projects.</p>
+]]></content:encoded><category>maximum-likelihood-estimation</category><category>data-generating-process</category><category>statistics</category><category>siue</category></item></channel></rss>

@@ -1,0 +1,455 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Algorithms on metafunctor</title><link>https://queelius.github.io/tags/algorithms/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/algorithms/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>AlgoGraph: Immutable Graph Library with Functional Transformers</title><link>https://queelius.github.io/post/2025-11-30-algograph/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-algograph/</guid><description>AlgoGraph brings functional programming elegance to graph algorithms with immutable data structures, pipe-based transformers, declarative selectors, and lazy views.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/AlgoGraph/">AlgoGraph</a></strong> is an immutable graph library for Python that brings functional programming elegance to graph algorithms. Version 2.0.0 introduces pipe-based transformers, declarative selectors, and lazy views—achieving ~90% code reduction for common operations.</p>
+<h2 id="why-immutability-for-graphs">Why Immutability for Graphs?</h2>
+<p>Mutable graph libraries like NetworkX are powerful but come with hidden costs:</p>
+<ul>
+<li><strong>Side effects</strong>: Modifying a graph can break other code holding references</li>
+<li><strong>Debugging difficulty</strong>: Hard to track when/where a graph changed</li>
+<li><strong>Thread unsafety</strong>: Concurrent modifications cause subtle bugs</li>
+</ul>
+<p>AlgoGraph takes a different approach: <strong>all operations return new graph objects</strong>. The original is never modified.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">g1</span> <span class="o">=</span> <span class="n">Graph</span><span class="o">.</span><span class="n">from_edges</span><span class="p">((</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">g2</span> <span class="o">=</span> <span class="n">g1</span><span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;D&#39;</span><span class="p">)</span>  <span class="c1"># g1 unchanged, g2 is new graph</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">g1</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">in</span> <span class="n">g2</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="pipe-based-transformers">Pipe-Based Transformers</h2>
+<p>The killer feature of v2.0.0 is the transformer pipeline using Python&rsquo;s <code>|</code> operator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">largest_component</span><span class="p">,</span> <span class="n">stats</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compose operations declaratively</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">graph</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">largest_component</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">stats</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># result: {&#39;vertex_count&#39;: 42, &#39;edge_count&#39;: 156, &#39;density&#39;: 0.18, ...}</span>
+</span></span></code></pre></div><p>This replaces verbose imperative code:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Old way (NetworkX-style)</span>
+</span></span><span class="line"><span class="cl"><span class="n">active</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">subgraph</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">)])</span>
+</span></span><span class="line"><span class="cl"><span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">connected_components</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">largest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">subgraph</span> <span class="o">=</span> <span class="n">active</span><span class="o">.</span><span class="n">subgraph</span><span class="p">(</span><span class="n">largest</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stats</span> <span class="o">=</span> <span class="n">compute_stats</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Available transformers:</strong></p>
+<ul>
+<li><code>filter_vertices(pred)</code>, <code>filter_edges(pred)</code> — Filter by predicate</li>
+<li><code>map_vertices(fn)</code>, <code>map_edges(fn)</code> — Transform attributes</li>
+<li><code>reverse()</code>, <code>to_undirected()</code> — Structure transformations</li>
+<li><code>largest_component()</code>, <code>minimum_spanning_tree()</code> — Algorithm-based</li>
+<li><code>to_dict()</code>, <code>to_adjacency_list()</code>, <code>stats()</code> — Export operations</li>
+</ul>
+<h2 id="declarative-selectors">Declarative Selectors</h2>
+<p>Query vertices and edges with logical operators instead of filtering lambdas:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.graph_selectors</span> <span class="kn">import</span> <span class="n">vertex</span> <span class="k">as</span> <span class="n">v</span><span class="p">,</span> <span class="n">edge</span> <span class="k">as</span> <span class="n">e</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find active users with high degree</span>
+</span></span><span class="line"><span class="cl"><span class="n">power_users</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find heavy edges from admin nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">admin_edges</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_edges</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;admin&#39;</span><span class="p">))</span> <span class="o">&amp;</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span><span class="p">(</span><span class="n">min_weight</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Complex queries with OR, NOT, XOR</span>
+</span></span><span class="line"><span class="cl"><span class="n">special</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">vip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">|</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">50</span><span class="p">))</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">banned</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>This is <strong>declarative</strong>: you specify <em>what</em> you want, not <em>how</em> to find it.</p>
+<h2 id="lazy-views">Lazy Views</h2>
+<p>Views provide efficient filtering without copying data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.views</span> <span class="kn">import</span> <span class="n">filtered_view</span><span class="p">,</span> <span class="n">neighborhood_view</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create view without copying (O(1) space)</span>
+</span></span><span class="line"><span class="cl"><span class="n">view</span> <span class="o">=</span> <span class="n">filtered_view</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">large_graph</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">vertex_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">edge_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span> <span class="o">&gt;</span> <span class="mf">5.0</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Iterate lazily</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="n">view</span><span class="o">.</span><span class="n">vertices</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">vertex</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Materialize only when needed</span>
+</span></span><span class="line"><span class="cl"><span class="n">small_graph</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">materialize</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Explore k-hop neighborhood</span>
+</span></span><span class="line"><span class="cl"><span class="n">local</span> <span class="o">=</span> <span class="n">neighborhood_view</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="s1">&#39;Alice&#39;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>View types:</strong></p>
+<ul>
+<li><code>filtered_view()</code> — Filter vertices/edges</li>
+<li><code>subgraph_view()</code> — View specific vertices</li>
+<li><code>reversed_view()</code> — Reverse edge directions</li>
+<li><code>undirected_view()</code> — View as undirected</li>
+<li><code>neighborhood_view()</code> — k-hop neighborhood</li>
+</ul>
+<h2 id="56-algorithms">56+ Algorithms</h2>
+<p>AlgoGraph includes comprehensive algorithm coverage:</p>
+<h3 id="traversal">Traversal</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dfs</span><span class="p">,</span> <span class="n">bfs</span><span class="p">,</span> <span class="n">topological_sort</span><span class="p">,</span> <span class="n">find_path</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">visited</span> <span class="o">=</span> <span class="n">dfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">levels</span> <span class="o">=</span> <span class="n">bfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">order</span> <span class="o">=</span> <span class="n">topological_sort</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># DAG only</span>
+</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">find_path</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="shortest-paths">Shortest Paths</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">bellman_ford</span><span class="p">,</span> <span class="n">floyd_warshall</span><span class="p">,</span> <span class="n">a_star</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">bellman_ford</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>  <span class="c1"># Handles negative weights</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_pairs</span> <span class="o">=</span> <span class="n">floyd_warshall</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">a_star</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">,</span> <span class="n">heuristic</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="centrality">Centrality</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">pagerank</span><span class="p">,</span> <span class="n">betweenness_centrality</span><span class="p">,</span> <span class="n">closeness_centrality</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">social_network</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">bc</span> <span class="o">=</span> <span class="n">betweenness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cc</span> <span class="o">=</span> <span class="n">closeness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="flow-networks">Flow Networks</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">max_flow</span><span class="p">,</span> <span class="n">min_cut</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">flow_value</span> <span class="o">=</span> <span class="n">max_flow</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cut_value</span><span class="p">,</span> <span class="n">source_set</span><span class="p">,</span> <span class="n">sink_set</span> <span class="o">=</span> <span class="n">min_cut</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="matching">Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">hopcroft_karp</span><span class="p">,</span> <span class="n">maximum_bipartite_matching</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matching</span> <span class="o">=</span> <span class="n">hopcroft_karp</span><span class="p">(</span><span class="n">bipartite_graph</span><span class="p">,</span> <span class="n">left_set</span><span class="p">,</span> <span class="n">right_set</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">max_matching</span> <span class="o">=</span> <span class="n">maximum_bipartite_matching</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="graph-coloring">Graph Coloring</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">welsh_powell</span><span class="p">,</span> <span class="n">chromatic_number</span><span class="p">,</span> <span class="n">dsatur</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">welsh_powell</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">num_colors</span> <span class="o">=</span> <span class="n">chromatic_number</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">dsatur</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># Often better than greedy</span>
+</span></span></code></pre></div><h2 id="interactive-shell">Interactive Shell</h2>
+<p>Explore graphs with a filesystem-like interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
+</span></span><span class="line"><span class="cl">algograph network.json
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">graph(5v):/$ ls
+</span></span><span class="line"><span class="cl">Alice/  [2 neighbors]
+</span></span><span class="line"><span class="cl">Bob/    [3 neighbors]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">graph(5v):/$ cd Alice
+</span></span><span class="line"><span class="cl">graph(5v):/Alice$ ls
+</span></span><span class="line"><span class="cl">Attributes:
+</span></span><span class="line"><span class="cl">  age = 30
+</span></span><span class="line"><span class="cl">neighbors/  [2 vertices]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">graph(5v):/Alice$ path Bob Eve
+</span></span><span class="line"><span class="cl">Path found: Alice -&gt; Bob -&gt; Diana -&gt; Eve
+</span></span></code></pre></div><h2 id="relationship-to-algotree">Relationship to AlgoTree</h2>
+<p>AlgoGraph and <a href="/post/algotree-post/">AlgoTree</a> share the same design philosophy:</p>
+<ul>
+<li>Immutable data structures</li>
+<li>Pipe-based transformers</li>
+<li>Declarative selectors</li>
+<li>Lazy views</li>
+</ul>
+<p>They also interoperate:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Tree</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">tree_to_graph</span><span class="p">,</span> <span class="n">graph_to_tree</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Tree to Graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Graph to Tree (extracts spanning tree)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">graph_to_tree</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s1">&#39;root&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">pagerank</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">stats</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build a graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">Graph</span><span class="o">.</span><span class="n">builder</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">build</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Run algorithms</span>
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Transform with pipes</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">g</span> <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">)</span> <span class="o">|</span> <span class="n">stats</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/AlgoGraph/">pypi.org/project/AlgoGraph/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoGraph">github.com/queelius/AlgoGraph</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoGraph/">queelius.github.io/AlgoGraph/</a></li>
+</ul>
+<hr>
+<p><em>AlgoGraph: Functional programming meets graph algorithms. Immutable, composable, and elegant.</em></p>
+]]></content:encoded><category>Python</category><category>graphs</category><category>algorithms</category><category>functional-programming</category><category>data-structures</category><category>immutability</category></item><item><title>CBT: Computational Basis Transforms - A Unified Framework</title><link>https://queelius.github.io/post/2025-11-30-cbt/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-cbt/</guid><description>A C++17 header-only library implementing Computational Basis Transforms - a unified framework for understanding how FFT, logarithmic arithmetic, and Bayesian inference are all instances of the same pattern.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/cbt">CBT</a></strong> (Computational Basis Transforms) is a C++17 header-only library that formalizes a fundamental principle underlying many computational techniques: <strong>transforming problems into different representational domains where certain operations become more efficient</strong>.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Consider these seemingly unrelated techniques:</p>
+<ul>
+<li><strong>FFT</strong> transforms convolution (O(n²)) into pointwise multiplication (O(n))</li>
+<li><strong>Logarithms</strong> transform multiplication into addition</li>
+<li><strong>Odds ratios</strong> transform Bayesian updates into simple multiplication</li>
+</ul>
+<p>They all share the same pattern: <strong>transform to a domain where your target operation is cheap</strong>.</p>
+<p>CBT formalizes this as a quadruple <strong>(D, D&rsquo;, φ, Ω)</strong> where:</p>
+<ul>
+<li><strong>D, D&rsquo;</strong> are computational domains</li>
+<li><strong>φ: D → D&rsquo;</strong> is the transform</li>
+<li><strong>Ω</strong> captures the trade-offs</li>
+</ul>
+<blockquote>
+<p>There is no universal &ldquo;best&rdquo; representation—only fitness for purpose. Every transform involves fundamental trade-offs.</p>
+</blockquote>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="k">namespace</span> <span class="n">cbt</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Avoid underflow in products of small probabilities
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">lgd</span> <span class="n">product</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">product</span> <span class="o">=</span> <span class="n">product</span> <span class="o">*</span> <span class="n">lgd</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>  <span class="c1">// No underflow!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Bayesian inference without normalization
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Simple multiplication!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="available-transforms">Available Transforms</h2>
+<h3 id="logarithmic-transform-cbtlgt">Logarithmic Transform (<code>cbt::lg&lt;T&gt;</code>)</h3>
+<p>Transform multiplication into addition, handle extreme ranges:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">a</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Internally: log(1000) + log(2000)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">huge</span> <span class="o">=</span> <span class="n">lgd</span><span class="o">::</span><span class="n">from_log</span><span class="p">(</span><span class="mi">800</span><span class="p">);</span>  <span class="c1">// Represents e^800 without overflow
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains efficient multiplication and extended range; loses direct addition.</p>
+<p><strong>Use cases</strong>: Products of many terms, wide dynamic ranges, ML log-likelihoods.</p>
+<h3 id="odds-ratio-transform-cbtodds_ratiot">Odds-Ratio Transform (<code>cbt::odds_ratio&lt;T&gt;</code>)</h3>
+<p>Transform Bayesian updates into multiplication:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Bayesian update!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">prob</span> <span class="o">=</span> <span class="n">posterior</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
+</span></span></code></pre></div><p><strong>Trade-off</strong>: Gains simple sequential updates without normalization; loses direct probability addition.</p>
+<p><strong>Use cases</strong>: Medical diagnosis, spam filtering, any sequential Bayesian inference.</p>
+<h3 id="stern-brocot-transform-cbtstern_brocott">Stern-Brocot Transform (<code>cbt::stern_brocot&lt;T&gt;</code>)</h3>
+<p>Exact rational arithmetic without floating-point errors:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Exact: 10/21, no rounding errors!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">pi</span> <span class="o">=</span> <span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">approximate</span><span class="p">(</span><span class="mf">3.14159</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>  <span class="c1">// Best rational approx
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains exact arithmetic; loses finite representation for irrationals.</p>
+<p><strong>Use cases</strong>: Computer algebra, music theory (pure intervals), continued fractions.</p>
+<h3 id="residue-number-system-cbtresidue_number_systemtn">Residue Number System (<code>cbt::residue_number_system&lt;T,N&gt;</code>)</h3>
+<p>Fully parallel arithmetic:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_a</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">12345</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_b</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">67890</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">rns_a</span> <span class="o">*</span> <span class="n">rns_b</span><span class="p">;</span>  <span class="c1">// No carry propagation, fully parallel!
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains parallelism; loses efficient comparison and division.</p>
+<p><strong>Use cases</strong>: Cryptography, DSP, fault-tolerant computing.</p>
+<h3 id="multiscale-transform-cbtmultiscalet">Multiscale Transform (<code>cbt::multiscale&lt;T&gt;</code>)</h3>
+<p>Handle 200+ orders of magnitude:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">planck_length</span><span class="p">(</span><span class="mf">1.616e-35</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">universe_diameter</span><span class="p">(</span><span class="mf">8.8e26</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">ratio</span> <span class="o">=</span> <span class="n">universe_diameter</span> <span class="o">/</span> <span class="n">planck_length</span><span class="p">;</span>  <span class="c1">// 61 orders of magnitude!
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains extreme range; loses precision at scale boundaries.</p>
+<p><strong>Use cases</strong>: Astrophysics, quantum mechanics, multi-scale simulations.</p>
+<h3 id="additional-transforms">Additional Transforms</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Transform</th>
+          <th>Class</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Dual</strong></td>
+          <td><code>dual&lt;T&gt;</code></td>
+          <td>Automatic differentiation</td>
+      </tr>
+      <tr>
+          <td><strong>Interval</strong></td>
+          <td><code>interval&lt;T&gt;</code></td>
+          <td>Rigorous error bounds</td>
+      </tr>
+      <tr>
+          <td><strong>Tropical</strong></td>
+          <td><code>tropical&lt;T&gt;</code></td>
+          <td>Min-plus algebra (shortest paths)</td>
+      </tr>
+      <tr>
+          <td><strong>Modular</strong></td>
+          <td><code>modular&lt;T,M&gt;</code></td>
+          <td>Cyclic arithmetic</td>
+      </tr>
+      <tr>
+          <td><strong>Quaternion</strong></td>
+          <td><code>quaternion&lt;T&gt;</code></td>
+          <td>Gimbal-lock-free 3D rotations</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="transform-composition">Transform Composition</h2>
+<p>CBTs compose for multiplicative benefits:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Extreme scale multiplication efficiency
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">extreme_mult</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Stable Bayesian inference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">log_odds</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Exact rational intervals
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">rational_interval</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">interval</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span></code></pre></div><h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="avoiding-numerical-underflow">Avoiding Numerical Underflow</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Problem: Product of many small probabilities underflows
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="nf">compute_likelihood_naive</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">*=</span> <span class="n">p</span><span class="p">;</span>  <span class="c1">// Underflows to 0!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Solution: Logarithmic transform
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="nf">compute_likelihood_stable</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">result</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>  <span class="c1">// No underflow!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h3 id="medical-diagnosis-system">Medical Diagnosis System</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">MedicalDiagnosis</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">disease_odds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">MedicalDiagnosis</span><span class="p">(</span><span class="kt">double</span> <span class="n">prevalence</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">:</span> <span class="n">disease_odds</span><span class="p">(</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="n">prevalence</span><span class="p">))</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">update_with_test</span><span class="p">(</span><span class="kt">double</span> <span class="n">sensitivity</span><span class="p">,</span> <span class="kt">double</span> <span class="n">specificity</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">double</span> <span class="n">lr</span> <span class="o">=</span> <span class="n">sensitivity</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">specificity</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">disease_odds</span> <span class="o">=</span> <span class="n">disease_odds</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">lr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="nf">get_probability</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">disease_odds</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Usage
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">MedicalDiagnosis</span> <span class="nf">covid_test</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>  <span class="c1">// 1% prevalence
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// First test
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// Second test
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Probability updates correctly without manual normalization
+</span></span></span></code></pre></div><h2 id="installation">Installation</h2>
+<p>CBT is header-only—just include and use:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">  </span><span class="c1">// All transforms
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Or specific transforms:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;cbt/logarithmic.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/odds_ratio.hpp&gt;</span><span class="cp">
+</span></span></span></code></pre></div><p>CMake integration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">path/to/cbt</span><span class="p">)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">cbt::cbt</span><span class="p">)</span><span class="err">
+</span></span></span></code></pre></div><h2 id="why-this-matters">Why This Matters</h2>
+<p>The CBT framework provides:</p>
+<ol>
+<li><strong>Unifying Principle</strong>: Understand diverse techniques as instances of one pattern</li>
+<li><strong>Design Guidance</strong>: Meta-patterns help discover new transforms</li>
+<li><strong>Composition Rules</strong>: Transforms can be systematically combined</li>
+<li><strong>Trade-off Analysis</strong>: Makes implicit costs explicit</li>
+</ol>
+<p>Rather than learning FFT, log-arithmetic, and odds ratios as separate tools, CBT reveals they&rsquo;re all the same idea applied to different domains.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/cbt">github.com/queelius/cbt</a></li>
+<li><strong>Paper</strong>: See <code>paper/cbt_theory.tex</code> for formal treatment</li>
+</ul>
+<hr>
+<p><em>CBT: When you understand that all computational tricks are just basis transforms, you stop memorizing techniques and start deriving them.</em></p>
+]]></content:encoded><category>C++</category><category>numerical-computing</category><category>algorithms</category><category>mathematics</category><category>header-only</category><category>scientific-computing</category></item><item><title>Problem Set Solutions</title><link>https://queelius.github.io/post/2023-03-31-problem-sets/</link><pubDate>Fri, 31 Mar 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2023-03-31-problem-sets/</guid><description>I have a fairly broad interest in problem-solving, from problems in statistics to algorithms. Over the years, I’ve accumulated a collection of problem sets from graduate coursework and independent study. These represent solutions to challenging problems in computational statistics, numerical methods, and algorithm design.
+Overview The problem sets cover several courses I took during my mathematics master’s program at SIUe, focusing on computational methods and statistical computing. While I …</description><content:encoded><![CDATA[<p>I have a fairly broad interest in problem-solving, from problems in statistics to algorithms. Over the years, I&rsquo;ve accumulated a collection of problem sets from graduate coursework and independent study. These represent solutions to challenging problems in computational statistics, numerical methods, and algorithm design.</p>
+<h2 id="overview">Overview</h2>
+<p>The problem sets cover several courses I took during my mathematics master&rsquo;s program at SIUe, focusing on computational methods and statistical computing. While I don&rsquo;t claim expertise in all areas, working through these problems deepened my understanding of how statistical methods actually work under the hood—beyond just calling library functions.</p>
+<h2 id="stat-575-computational-statistics">STAT 575: Computational Statistics</h2>
+<p>This was a particularly valuable course taught by Dr. Qiang Beidi during Summer 2021. The problem sets covered:</p>
+<p><strong>Numerical Methods:</strong></p>
+<ul>
+<li>Newton-Raphson method for root finding</li>
+<li>Secant method and convergence analysis</li>
+<li>Multivariate optimization techniques</li>
+<li>Numerical derivatives (Jacobian and Hessian computation)</li>
+</ul>
+<p><strong>Statistical Computing:</strong></p>
+<ul>
+<li>Poisson regression with hand-coded Newton-Raphson</li>
+<li>Maximum likelihood estimation</li>
+<li>Comparison with built-in GLM implementations</li>
+</ul>
+<p><strong>Sampling and Simulation:</strong></p>
+<ul>
+<li>Inverse transform method for logistic and Cauchy distributions</li>
+<li>Acceptance-rejection sampling for custom distributions</li>
+<li>Generating from geometric distributions via Bernoulli trials</li>
+<li>Sampling from bimodal and half-normal distributions</li>
+</ul>
+<p>The problem sets required implementing these methods from scratch in R, which forced a deep understanding of the underlying mathematics. For example, fitting a Poisson regression model by hand-coding the Newton-Raphson algorithm—computing gradients and Hessians numerically—teaches you far more than just calling <code>glm()</code>.</p>
+<h2 id="stat-482-additional-topics">STAT 482: Additional Topics</h2>
+<p>This course covered complementary material in statistical methods and applications, with problem sets focused on practical implementation and theoretical understanding.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>There&rsquo;s value in implementing statistical methods from scratch:</p>
+<ol>
+<li>
+<p><strong>Understanding tradeoffs</strong>: When you code Newton&rsquo;s method yourself, you understand why starting values matter and when convergence fails.</p>
+</li>
+<li>
+<p><strong>Debugging intuition</strong>: If a built-in function gives unexpected results, you can reason about what might be going wrong internally.</p>
+</li>
+<li>
+<p><strong>Foundation for research</strong>: When you need to extend existing methods or develop new ones, understanding the computational substrate is essential.</p>
+</li>
+<li>
+<p><strong>Appreciating library implementations</strong>: After hand-coding these algorithms, you gain respect for well-optimized statistical software.</p>
+</li>
+</ol>
+<p>During my cancer treatment and master&rsquo;s program, working through these problem sets was a way to stay engaged with concrete problems when larger research questions felt overwhelming. There&rsquo;s something therapeutic about a well-defined problem with a clear solution.</p>
+<h2 id="accessing-the-problem-sets">Accessing the Problem Sets</h2>
+<p>You can find these problem sets organized by course at <a href="/probsets">/probsets</a>. Each includes detailed solutions with code implementations in R.</p>
+<p>The solutions show full working—mathematical derivations, implementation details, and verification against built-in functions. They&rsquo;re written for someone trying to understand not just <em>what</em> works but <em>why</em> it works.</p>
+<hr>
+<p><em>These represent coursework from 2021, during my mathematics master&rsquo;s program at SIUe.</em></p>
+]]></content:encoded><category>problem-sets</category><category>statistics</category><category>algorithms</category><category>computational-statistics</category></item><item><title>Bloom Filters and the Art of Probabilistic Certainty</title><link>https://queelius.github.io/post/2015-03-bloom-filters/</link><pubDate>Sun, 15 Mar 2015 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2015-03-bloom-filters/</guid><description>One of the most elegant ideas I encountered during my CS masters work is the Bloom filter—a data structure that gives you probabilistic membership testing with extraordinary space efficiency.
+The Core Insight A Bloom filter can tell you two things:
+Definitely not in the set (100% certain) Probably in the set (with tunable false positive rate) This asymmetry is beautiful. You trade perfect recall for massive space savings. For many applications, this is exactly the right tradeoff.
+Why This …</description><content:encoded><![CDATA[<p>One of the most elegant ideas I encountered during my CS masters work is the Bloom filter—a data structure that gives you probabilistic membership testing with extraordinary space efficiency.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>A Bloom filter can tell you two things:</p>
+<ul>
+<li><strong>Definitely not in the set</strong> (100% certain)</li>
+<li><strong>Probably in the set</strong> (with tunable false positive rate)</li>
+</ul>
+<p>This asymmetry is beautiful. You trade perfect recall for massive space savings. For many applications, this is exactly the right tradeoff.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>In encrypted search systems (my thesis area), space efficiency is critical. When you&rsquo;re building secure indices, every bit counts. Bloom filters let you:</p>
+<ul>
+<li>Test membership in O(k) time with k hash functions</li>
+<li>Use dramatically less space than hash tables</li>
+<li>Tune false positive rates by adjusting filter size</li>
+</ul>
+<p>The math is clean: for n items and m bits, with k optimal hash functions, you get predictable false positive rates. No hidden complexity.</p>
+<h2 id="the-broader-lesson">The Broader Lesson</h2>
+<p>Bloom filters taught me something important about system design: <strong>sometimes &ldquo;approximately correct&rdquo; is more valuable than &ldquo;exactly correct but expensive.&rdquo;</strong></p>
+<p>This principle shows up everywhere:</p>
+<ul>
+<li>Caching strategies</li>
+<li>Distributed systems</li>
+<li>Privacy-preserving protocols</li>
+</ul>
+<p>The elegance is in knowing when approximation is not just acceptable, but <em>superior</em>.</p>
+<hr>
+<p><em>This was one of my first encounters with probabilistic data structures. It wouldn&rsquo;t be my last.</em></p>
+]]></content:encoded><category>bloom-filters</category><category>probabilistic-data-structures</category><category>computer-science</category><category>algorithms</category></item></channel></rss>

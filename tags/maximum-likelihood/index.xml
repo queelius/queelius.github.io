@@ -1,0 +1,1244 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Maximum Likelihood on metafunctor</title><link>https://queelius.github.io/tags/maximum-likelihood/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/maximum-likelihood/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Likelihood Models for Series Systems with Masked Component Failure Data: An R Package for Maximum Likelihood Estimation</title><link>https://queelius.github.io/papers/likelihood.model.series.md/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/likelihood.model.series.md/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/likelihood.model.series.md/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/likelihood.model.series.md/likelihood_model_series_md.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/likelihood.model.series.md/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category><category>Weibull</category><category>exponential distribution</category></item><item><title>mdrelax: When Masking Conditions Don't Hold</title><link>https://queelius.github.io/post/2025-12-03-mdrelax/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-03-mdrelax/</guid><description>Extending masked failure data analysis when traditional C1-C2-C3 conditions are violated.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/mdrelax">mdrelax</a></strong> extends my work on series system reliability by handling cases where traditional masking assumptions break down.</p>
+<h2 id="background-the-c1-c2-c3-framework">Background: The C1-C2-C3 Framework</h2>
+<p>My <a href="/publications/math-proj/">master&rsquo;s thesis</a> developed maximum likelihood techniques for series systems with masked failure data. The standard framework assumes three conditions:</p>
+<ul>
+<li><strong>C1</strong>: The failed component is always in the candidate set</li>
+<li><strong>C2</strong>: Non-informative masking (uniform probability within candidate set)</li>
+<li><strong>C3</strong>: Masking mechanism is independent of system parameters</li>
+</ul>
+<p>Under these conditions, the masking probabilities factor out and can be ignored for parameter estimation. The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for the exponential case, and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implements the general framework.</p>
+<h2 id="the-problem-real-world-violations">The Problem: Real-World Violations</h2>
+<p>In practice, C2 and C3 are often violated:</p>
+<p><strong>Informative masking (C2 violation)</strong>: Diagnostic tests may be more likely to correctly identify certain failure modes. A component that fails catastrophically might be easier to identify than one that fails subtly.</p>
+<p><strong>Parameter-dependent masking (C3 violation)</strong>: The masking mechanism might depend on component reliabilities. Components with shorter lifetimes might be easier to diagnose because they fail more frequently and technicians gain experience.</p>
+<h2 id="what-mdrelax-provides">What mdrelax Provides</h2>
+<p>The package implements likelihood-based inference when conditions are relaxed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">mdrelax</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Generate masked data with Bernoulli candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_bernoulli_cand_C1_C2_C3</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sample candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_cand_sampler</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># MLE for exponential series system</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fisher information matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">fim</span> <span class="o">&lt;-</span> <span class="nf">md_fim_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="nf">params</span><span class="p">(</span><span class="n">fit</span><span class="p">))</span>
+</span></span></code></pre></div><h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>Flexible masking models</strong>: Bernoulli, rank-based, KL-divergence constrained</li>
+<li><strong>Identifiability analysis</strong>: Tools to check when parameters can be estimated</li>
+<li><strong>Fisher information</strong>: Efficiency analysis under relaxed conditions</li>
+<li><strong>Simulation utilities</strong>: Monte Carlo studies for method validation</li>
+</ul>
+<h2 id="relationship-to-other-work">Relationship to Other Work</h2>
+<p>This package builds on a family of related projects:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Project</th>
+          <th>Focus</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/papers/expo-masked-fim/">expo-masked-fim</a></td>
+          <td>Closed-form FIM for exponential case</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>General R framework for masked data likelihood</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/reliability-estimation-in-series-systems/">reliability-estimation-in-series-systems</a></td>
+          <td>Master&rsquo;s thesis implementation</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/wei.series.md.c1.c2.c3/">wei.series.md.c1.c2.c3</a></td>
+          <td>Weibull series systems under C1-C2-C3</td>
+      </tr>
+      <tr>
+          <td><strong>mdrelax</strong></td>
+          <td>Relaxed conditions (C2, C3 violations)</td>
+      </tr>
+  </tbody>
+</table>
+<p>The progression represents increasing generality:</p>
+<ol>
+<li><strong>Exponential + C1-C2-C3</strong> → Closed-form solutions</li>
+<li><strong>Weibull + C1-C2-C3</strong> → Numerical MLE</li>
+<li><strong>Weibull + relaxed conditions</strong> → mdrelax</li>
+</ol>
+<h2 id="when-to-use-mdrelax">When to Use mdrelax</h2>
+<p>Use this package when you suspect:</p>
+<ul>
+<li>Diagnostic accuracy varies by component type</li>
+<li>Masking patterns correlate with component reliabilities</li>
+<li>Standard C1-C2-C3 assumptions are too restrictive</li>
+</ul>
+<p>The trade-off: relaxed models have more parameters and may require larger samples for reliable estimation.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/mdrelax">github.com/queelius/mdrelax</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/mdrelax/">queelius.github.io/mdrelax</a></li>
+<li><strong>Master&rsquo;s Thesis</strong>: <a href="/publications/math-proj/">Reliability Estimation in Series Systems</a></li>
+<li><strong>Theoretical Foundation</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category></item><item><title>Closed-Form Results for Masked Exponential Series Systems</title><link>https://queelius.github.io/post/2024-04-15-expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-04-15-expo-masked-fim/</guid><description>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.
+The Problem In series systems, the system fails when any component fails. You observe:
+System failure time \(t\) Candidate set \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components But you don’t know which component in \(C\) actually caused the failure. This is …</description><content:encoded><![CDATA[<p>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>In series systems, the system fails when <strong>any</strong> component fails. You observe:</p>
+<ul>
+<li><strong>System failure time</strong> \(t\)</li>
+<li><strong>Candidate set</strong> \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components</li>
+</ul>
+<p>But you don&rsquo;t know which component in \(C\) actually caused the failure. This is <strong>masked failure data</strong>.</p>
+<h2 id="key-contributions">Key Contributions</h2>
+<h3 id="1-closed-form-fisher-information-matrix">1. Closed-Form Fisher Information Matrix</h3>
+<p>For exponential masked data with arbitrary masking patterns:</p>
+$$I_{ij}(\boldsymbol{\lambda}) = n \cdot \sum_{A \ni i,j} \frac{\hat{\omega}_A}{(\sum_{k \in A} \lambda_k)^2}$$<p>where \(\hat{\omega}_A\) is the observed frequency of candidate set \(A\). This enables:</p>
+<ul>
+<li>Direct computation of asymptotic variances</li>
+<li>Identifiability checking before running MLE</li>
+<li>Stability analysis of optimization</li>
+</ul>
+<h3 id="2-sufficient-statistics">2. Sufficient Statistics</h3>
+<p>The mean system lifetime and candidate set frequency vector constitute <strong>sufficient statistics</strong>, reducing an entire dataset to just \(1 + \binom{m}{w}\) numbers (where \(w\) is the masking width).</p>
+<p>This is a major simplification: all statistical information is captured by counting which candidate sets appear and what the average failure time is.</p>
+<h3 id="3-closed-form-mle-for-three-component-systems">3. Closed-Form MLE for Three-Component Systems</h3>
+<p>For \(m=3\) components with pairwise masking (\(w=2\)), we derive an <strong>explicit closed-form solution</strong> to the likelihood equations:</p>
+$$\hat{\lambda}_j = \frac{\sum_{A \ni j} \hat{\omega}_A}{\bar{t} \cdot n}$$<p>This eliminates numerical optimization entirely for this case. The \(w=2\) case is particularly important because:</p>
+<ul>
+<li>\(w=1\) means no masking (exact cause identification)</li>
+<li>\(w=m\) means complete masking (no diagnostic information)</li>
+<li>\(w=2\) is the simplest non-degenerate masking scenario</li>
+</ul>
+<h3 id="4-asymptotic-distribution-theory">4. Asymptotic Distribution Theory</h3>
+<p>The MLE follows:</p>
+$$\sqrt{n}(\hat{\boldsymbol{\lambda}}_n - \boldsymbol{\lambda}^\star) \xrightarrow{d} \mathcal{N}(\mathbf{0}, \mathcal{I}^{-1}(\boldsymbol{\lambda}^\star))$$<p>with explicit Wald-type confidence intervals using the closed-form Fisher information.</p>
+<h2 id="why-exponential">Why Exponential?</h2>
+<p>The exponential distribution assumption isn&rsquo;t just for tractability:</p>
+<ul>
+<li><strong>Constant hazard rate</strong> models systems subject to random external shocks</li>
+<li><strong>Memoryless property</strong> simplifies the likelihood structure</li>
+<li><strong>Foundation for generalization</strong> to Weibull and other distributions</li>
+</ul>
+<p>More importantly, exponential is the one case where closed-form solutions exist. The insights gained here guide numerical methods for more complex distributions.</p>
+<h2 id="connection-to-other-work">Connection to Other Work</h2>
+<p>This paper is the analytical foundation for the generalized Weibull treatment in my <a href="/publications/math-proj/">master&rsquo;s thesis</a>, which handles:</p>
+<ul>
+<li>Shape and scale parameters</li>
+<li>More realistic masking models</li>
+<li>Model selection between candidate mechanisms</li>
+</ul>
+<p>The R packages <a href="/projects/likelihood.model/">likelihood.model</a> and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implement these methods.</p>
+<h2 id="technical-details">Technical Details</h2>
+<ul>
+<li><strong>Paper</strong>: <a href="/papers/expo-masked-fim/">Statistical Inference for Series Systems from Masked Failure Time Data: The Exponential Case</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/expo-masked-fim">github.com/queelius/expo-masked-fim</a></li>
+<li><strong>Key result</strong>: Complete analytical treatment including MLE, Fisher information, sufficient statistics, and asymptotic theory</li>
+</ul>
+]]></content:encoded><category>statistics</category><category>fisher information</category><category>masked data</category><category>series systems</category><category>reliability</category><category>exponential distribution</category><category>maximum likelihood</category><category>sufficient statistics</category></item><item><title>Statistical Inference for Series Systems from Masked Failure Time Data: The Exponential Case</title><link>https://queelius.github.io/papers/expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/expo-masked-fim/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/expo-masked-fim/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/expo-masked-fim/main.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/expo-masked-fim/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>fisher information</category><category>masked data</category><category>series systems</category><category>reliability</category><category>exponential distribution</category><category>maximum likelihood</category><category>sufficient statistics</category><category>asymptotic theory</category><category>confidence intervals</category></item><item><title>Fisher Flow: An Information-Geometric Framework for Sequential Estimation</title><link>https://queelius.github.io/papers/fisher-flow/</link><pubDate>Thu, 20 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/fisher-flow/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/fisher-flow/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/fisher-flow/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/fisher-flow/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>information geometry</category><category>sequential estimation</category><category>fisher information</category><category>hessian</category><category>maximum likelihood</category></item><item><title>Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</title><link>https://queelius.github.io/post/2024-06-15-reliability-estimation-in-series-systems/</link><pubDate>Sat, 15 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-06-15-reliability-estimation-in-series-systems/</guid><description>Maximum likelihood estimation of component reliability from masked failure data in series systems, with BCa bootstrap confidence intervals validated through extensive simulation studies.</description><content:encoded><![CDATA[<p><strong>My master&rsquo;s thesis in mathematics</strong> investigating maximum likelihood techniques to estimate component reliability from masked failure data in series systems.</p>
+<h2 id="the-challenge">The Challenge</h2>
+<p>Quantifying the reliability of individual components in a series system is challenging when:</p>
+<ul>
+<li>Only system-level failure data is observable</li>
+<li>The exact component cause of failure is masked (ambiguous)</li>
+<li>System lifetimes are right-censored</li>
+<li>Sample sizes are small</li>
+</ul>
+<p>A series system fails when <strong>any</strong> component fails, making it critical to understand which components are weakest.</p>
+<h2 id="key-contributions">Key Contributions</h2>
+<h3 id="1-likelihood-model-for-masked-data">1. Likelihood Model for Masked Data</h3>
+<p>Developed a likelihood model that handles two types of masking:</p>
+<p><strong>Right-Censoring</strong>: System observed until time \(\tau\), but may not have failed
+</p>
+\[
+S_i = \min\{\tau_i, T_i\}
+\]<p>
+</p>
+\[
+\delta_i = \mathbb{1}_{T_i < \tau_i}
+\]<p><strong>Component Cause Masking</strong>: When system fails, we observe a <strong>candidate set</strong> \(\mathcal{C}_i\) containing the failed component, but cannot pinpoint the exact cause.</p>
+<p><strong>Three Key Conditions</strong> (satisfied in many industrial scenarios):</p>
+<ol>
+<li>Candidate set always contains the failed component: \(\Pr\{K_i \in \mathcal{C}_i\} = 1\)</li>
+<li>Masking probability is the same for all components in the candidate set</li>
+<li>Masking probabilities don&rsquo;t depend on system parameters \(\theta\)</li>
+</ol>
+<p>Under these conditions, the likelihood contribution simplifies to:</p>
+\[
+L_i(\theta) \propto \left[\prod_{j=1}^m R_j(s_i; \theta_j)\right] \times \left[\sum_{j \in \mathcal{C}_i} h_j(s_i; \theta_j)\right]^{\delta_i}
+\]<p>where \(R_j\) is the reliability function and \(h_j\) is the hazard function of component \(j\).</p>
+<h3 id="2-weibull-series-systems">2. Weibull Series Systems</h3>
+<p>For components with Weibull lifetimes:</p>
+<ul>
+<li>Component \(j\): \(T_{ij} \sim \text{Weibull}(k_j, \lambda_j)\)</li>
+<li>Shape parameter \(k_j\) determines failure behavior:
+<ul>
+<li>\(k < 1\): infant mortality</li>
+<li>\(k = 1\): random failures (exponential)</li>
+<li>\(k > 1\): wear-out failures</li>
+</ul>
+</li>
+</ul>
+<p><strong>System reliability</strong> when all components have Weibull lifetimes:</p>
+\[
+R_{T_i}(t; \theta) = \exp\left\{-\sum_{j=1}^m \left(\frac{t}{\lambda_j}\right)^{k_j}\right\}
+\]<p>The hazard function is additive:
+</p>
+\[
+h_{T_i}(t; \theta) = \sum_{j=1}^m \frac{k_j}{\lambda_j}\left(\frac{t}{\lambda_j}\right)^{k_j-1}
+\]<h3 id="3-extensive-simulation-studies">3. Extensive Simulation Studies</h3>
+<p>Validated MLE performance under varying conditions:</p>
+<p><strong>Scenario 1: Right-Censoring Impact</strong> (\(q = 60\%\) to \(100\%\))</p>
+<ul>
+<li><strong>Finding</strong>: Scale parameters showed positive bias with censoring</li>
+<li><strong>Finding</strong>: Shape parameters more sensitive than scale parameters</li>
+<li><strong>Finding</strong>: Most reliable component (component 1) most affected by censoring</li>
+<li><strong>Finding</strong>: Convergence rate \(>95\%\) for \(q \geq 0.7\)</li>
+</ul>
+<p><strong>Scenario 2: Masking Probability</strong> (\(p = 10\%\) to \(70\%\))</p>
+<ul>
+<li><strong>Finding</strong>: Scale parameter CIs correctly specified up to \(p=0.7\) (\(>90\%\) coverage)</li>
+<li><strong>Finding</strong>: Shape parameter CIs correctly specified up to \(p=0.4\)</li>
+<li><strong>Finding</strong>: Convergence rate \(>95\%\) for \(p \leq 0.4\)</li>
+<li><strong>Finding</strong>: Bias increases with masking probability</li>
+</ul>
+<p><strong>Scenario 3: Sample Size</strong> (\(n = 50\) to \(500\))</p>
+<ul>
+<li><strong>Finding</strong>: At \(n=250\), estimator essentially unbiased despite moderate censoring and masking</li>
+<li><strong>Finding</strong>: Convergence rate \(>95\%\) for \(n \geq 100\)</li>
+<li><strong>Finding</strong>: Precision improves rapidly with sample size</li>
+<li><strong>Finding</strong>: Small samples (\(n<100\)) require caution</li>
+</ul>
+<h3 id="4-bca-bootstrap-confidence-intervals">4. BCa Bootstrap Confidence Intervals</h3>
+<p>Bias-Corrected and Accelerated (BCa) bootstrap provides:</p>
+<ul>
+<li><strong>Bias correction</strong>: Adjusts for bias in bootstrap distribution</li>
+<li><strong>Acceleration</strong>: Accounts for parameter-dependent distribution shape</li>
+</ul>
+<p><strong>Key Results</strong>:</p>
+<ul>
+<li>Good coverage probability (\(>90\%\)) even for small samples</li>
+<li>Scale parameters better calibrated than shape parameters</li>
+<li>Coverage approaches nominal \(95\%\) as sample size increases</li>
+<li>CIs neither too wide nor too narrow</li>
+</ul>
+<h2 id="performance-summary">Performance Summary</h2>
+<p>Despite significant masking and censoring, the MLE demonstrates:</p>
+<p>✓ <strong>Good accuracy</strong> for moderate sample sizes (\(n \geq 100\))
+✓ <strong>Reasonable precision</strong> with well-specified confidence intervals
+✓ <strong>High convergence rates</strong> (\(>95\%\)) under realistic conditions
+✓ <strong>Robust performance</strong> for well-designed series systems</p>
+<p><strong>Challenges identified</strong>:</p>
+<ul>
+<li>Shape parameters harder to estimate than scale parameters</li>
+<li>Most reliable components require more data</li>
+<li>Small samples (\(n<100\)) need careful interpretation</li>
+<li>Severe masking/censoring reduces reliability</li>
+</ul>
+<h2 id="practical-applications">Practical Applications</h2>
+<p>This methodology applies to:</p>
+<ul>
+<li>Industrial reliability testing with incomplete failure diagnosis</li>
+<li>Electronic system reliability with board-level diagnostics</li>
+<li>Mechanical systems where root cause analysis is expensive</li>
+<li>Any series system with Weibull component lifetimes</li>
+</ul>
+<h2 id="technical-implementation">Technical Implementation</h2>
+<p>Full R implementation available: <a href="https://github.com/queelius/wei.series.md.c1.c2.c3">wei.series.md.c1.c2.c3</a></p>
+<p>Features:</p>
+<ul>
+<li>Analytical score function for efficient optimization</li>
+<li>L-BFGS-B solver with bound constraints</li>
+<li>BCa bootstrap confidence intervals</li>
+<li>Bernoulli masking model for simulations</li>
+<li>Complete simulation framework</li>
+</ul>
+<h2 id="full-thesis">Full Thesis</h2>
+<p><a href="/latex/reliability-estimation-in-series-systems/paper.pdf">View complete PDF</a> (40 pages)</p>
+<p><strong>Abstract</strong>: This paper investigates maximum likelihood techniques to estimate component reliability from masked failure data in series systems. A likelihood model accounts for right-censoring and candidate sets indicative of masked failure causes. Extensive simulation studies assess the accuracy and precision of maximum likelihood estimates under varying sample size, masking probability, and right-censoring time for components with Weibull lifetimes.</p>
+<h2 id="related-work">Related Work</h2>
+<p>For more research and projects, see my <a href="/research/">research page</a> and <a href="/publications/">publications</a>.</p>
+]]></content:encoded><category>reliability</category><category>statistics</category><category>weibull-distribution</category><category>maximum-likelihood</category><category>bootstrap</category><category>series-systems</category><category>censored-data</category></item><item><title>Model Selection for Reliability Estimation in Series Systems</title><link>https://queelius.github.io/papers/reliability-series-sys-model-sel/</link><pubDate>Sat, 07 Oct 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/reliability-series-sys-model-sel/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/reliability-series-sys-model-sel/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/reliability-series-sys-model-sel/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/reliability-series-sys-model-sel/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>reliability</category><category>series systems</category><category>model selection</category><category>weibull distribution</category><category>maximum likelihood</category></item><item><title>Reliability Estimation in Series Systems Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</title><link>https://queelius.github.io/papers/reliability-estimation-in-series-systems/</link><pubDate>Wed, 09 Aug 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/reliability-estimation-in-series-systems/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/reliability-estimation-in-series-systems/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/reliability-estimation-in-series-systems/paper-alt.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/reliability-estimation-in-series-systems/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category></item><item><title>likelihood.model: Composable Statistical Inference in R</title><link>https://queelius.github.io/post/2024-05-30-likelihood.model/</link><pubDate>Thu, 30 Jun 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-30-likelihood.model/</guid><description>Most R packages hardcode specific likelihood models. likelihood.model provides a generic framework where likelihoods are first-class composable objects—designed to work seamlessly with algebraic.mle for maximum likelihood estimation.
+The Core Concept A likelihood model is anything implementing these generic methods:
+loglik(model, data, params) - Log-likelihood score(model, data, params) - Score function (gradient) hessian(model, data, params) - Observed information matrix This interface lets you …</description><content:encoded><![CDATA[<p>Most R packages hardcode specific likelihood models. <strong>likelihood.model</strong> provides a generic framework where likelihoods are first-class composable objects—designed to work seamlessly with <code>algebraic.mle</code> for maximum likelihood estimation.</p>
+<h2 id="the-core-concept">The Core Concept</h2>
+<p>A <strong>likelihood model</strong> is anything implementing these generic methods:</p>
+<ul>
+<li><code>loglik(model, data, params)</code> - Log-likelihood</li>
+<li><code>score(model, data, params)</code> - Score function (gradient)</li>
+<li><code>hessian(model, data, params)</code> - Observed information matrix</li>
+</ul>
+<p>This interface lets you <strong>compose</strong> likelihood models, swap implementations, and integrate with optimization algorithms—without coupling to specific distributions.</p>
+<h2 id="likelihood-contributions">Likelihood Contributions</h2>
+<p>The key class is <code>likelihood_contr_model</code>—a likelihood built from <strong>independent contributions</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Different observation types get different likelihood contributions</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">likelihood_contr_model</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="n">exact</span> <span class="o">=</span> <span class="nf">normal_contrib</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">  <span class="n">right_censored</span> <span class="o">=</span> <span class="nf">censored_contrib</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>This handles heterogeneous data (exact + censored, multiple distributions) in a unified framework.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>1. Flexibility</strong>: Mix observation types (exact, censored, truncated) within one model</p>
+<p><strong>2. Composability</strong>: Likelihood models are objects you can manipulate, not just function calls</p>
+<p><strong>3. Interoperability</strong>: Designed to work with <code>algebraic.mle</code> for robust MLE</p>
+<p><strong>4. Generality</strong>: Works with any distribution—specify contributions, not hardcoded models</p>
+<h2 id="connection-to-my-research">Connection to My Research</h2>
+<p>This embodies the same compositional philosophy as my thesis work on masked failure data: <strong>build complex models from simple, independent contributions</strong>. The i.i.d. assumption decomposes into additive log-likelihood contributions, which is how MLE actually works under the hood.</p>
+<p><strong>R package</strong> • MIT licensed • <a href="/latex/likelihood.model/">Documentation</a> • <a href="https://github.com/queelius/likelihood.model">GitHub</a></p>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category><category>inference</category></item><item><title>algebraic.mle: The Foundation of a Statistical Inference Ecosystem</title><link>https://queelius.github.io/post/2024-05-15-algebraic.mle/</link><pubDate>Sat, 15 May 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-15-algebraic.mle/</guid><description>An R package treating MLEs as first-class algebraic objects with composable statistical properties.</description><content:encoded><![CDATA[<p>Maximum likelihood estimators have rich mathematical structure—they&rsquo;re consistent, asymptotically normal, efficient. <strong><a href="https://github.com/queelius/algebraic.mle">algebraic.mle</a></strong> exposes this structure through an algebra where MLEs are objects you compose, transform, and query.</p>
+<h2 id="the-core-abstraction">The Core Abstraction</h2>
+<p>An MLE isn&rsquo;t just parameter estimates—it&rsquo;s a <strong>statistical object</strong> carrying:</p>
+<ul>
+<li>Point estimates \(\hat{\theta}\)</li>
+<li>Fisher Information matrix \(I(\hat{\theta})\)</li>
+<li>Variance-covariance matrix \(I^{-1}(\hat{\theta})\)</li>
+<li>Confidence intervals (Wald-type from asymptotic normality)</li>
+<li>Log-likelihood value</li>
+<li>Convergence diagnostics</li>
+</ul>
+<p>The package wraps all of this in a consistent interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">algebraic.mle</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">likelihood_model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">coef</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>           <span class="c1"># Parameter estimates</span>
+</span></span><span class="line"><span class="cl"><span class="nf">vcov</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>           <span class="c1"># Variance-covariance matrix</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>        <span class="c1"># Confidence intervals</span>
+</span></span><span class="line"><span class="cl"><span class="nf">logLik</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>         <span class="c1"># Log-likelihood</span>
+</span></span><span class="line"><span class="cl"><span class="nf">aic</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>            <span class="c1"># Model selection</span>
+</span></span></code></pre></div><h2 id="algebraic-operations">Algebraic Operations</h2>
+<p>The real power: <strong>MLEs compose</strong>. Independent models combine:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">fit1</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">model1</span><span class="p">,</span> <span class="n">data1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit2</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">model2</span><span class="p">,</span> <span class="n">data2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">&lt;-</span> <span class="n">fit1</span> <span class="o">+</span> <span class="n">fit2</span>  <span class="c1"># Joint likelihood</span>
+</span></span></code></pre></div><p>The package handles the algebra—joint log-likelihood, block-diagonal Fisher Information, everything propagates correctly.</p>
+<h2 id="the-ecosystem">The Ecosystem</h2>
+<p><code>algebraic.mle</code> is the foundation for a family of packages:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Package</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/projects/likelihood.model/">likelihood.model</a></td>
+          <td>Compositional likelihood specification</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>Masked failure data in series systems</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/mdrelax/">mdrelax</a></td>
+          <td>Relaxed masking conditions</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/algebraic.dist/">algebraic.dist</a></td>
+          <td>Distributions as algebraic objects</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/dfr_dist/">dfr.dist</a></td>
+          <td>Dynamic failure rate distributions</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/hypothesize/">hypothesize</a></td>
+          <td>Likelihood ratio tests on MLEs</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/numerical.mle/">numerical.mle</a></td>
+          <td>Numerical optimization backends</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="how-they-connect">How They Connect</h3>
+<p>The flow typically looks like:</p>
+<ol>
+<li><strong>Define distributions</strong> with <code>algebraic.dist</code></li>
+<li><strong>Specify likelihood contributions</strong> with <code>likelihood.model</code></li>
+<li><strong>Fit the model</strong> → get an <code>mle</code> object from <code>algebraic.mle</code></li>
+<li><strong>Query statistical properties</strong>: CIs, hypothesis tests, model selection</li>
+</ol>
+<p>For series systems with masked data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">likelihood.model.series.md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">algebraic.mle</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Specify masking model (C1-C2-C3 conditions)</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">md_likelihood_model</span><span class="p">(</span><span class="n">components</span> <span class="o">=</span> <span class="m">3</span><span class="p">,</span> <span class="n">masking</span> <span class="o">=</span> <span class="s">&#34;bernoulli&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fit → returns algebraic.mle object</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">masked_data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># All the standard MLE methods work</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">vcov</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">aic</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>The asymptotic properties that <code>algebraic.mle</code> exploits come from classical MLE theory:</p>
+$$\sqrt{n}(\hat{\theta}_n - \theta^*) \xrightarrow{d} \mathcal{N}(0, I^{-1}(\theta^*))$$<p>The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for exponential series systems—this is exactly what <code>algebraic.mle</code> uses internally for variance estimation in that case.</p>
+<p>For more complex models (Weibull, relaxed conditions), we compute Fisher Information numerically via observed information:</p>
+$$\hat{I}(\hat{\theta}) = -\frac{\partial^2 \ell}{\partial \theta \partial \theta^T}\bigg|_{\theta=\hat{\theta}}$$<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>Separation of concerns</strong>: The likelihood specification (<code>likelihood.model</code>) is independent of the fitting algorithm (<code>numerical.mle</code>) and the result type (<code>algebraic.mle</code>). You can swap optimizers without changing downstream code.</p>
+<p><strong>Correctness by construction</strong>: Standard errors, confidence intervals, and hypothesis tests are computed from the Fisher Information—not ad-hoc formulas. If your likelihood is correct, statistical inference follows automatically.</p>
+<p><strong>Composability</strong>: Build complex models from simpler ones. The algebra ensures properties propagate correctly.</p>
+<h2 id="connection-to-my-thesis">Connection to My Thesis</h2>
+<p>This package directly supports the work in my <a href="/publications/math-proj/">master&rsquo;s thesis</a> on reliability estimation in series systems. The bootstrap confidence intervals, likelihood ratio tests, and model selection all use <code>algebraic.mle</code> objects.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/algebraic.mle">github.com/queelius/algebraic.mle</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/algebraic.mle/">queelius.github.io/algebraic.mle</a></li>
+<li><strong>Related paper</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+<li><strong>Companion package</strong>: <a href="/projects/algebraic.dist/">algebraic.dist</a> (distributions as algebraic objects)</li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category><category>algebra</category><category>Fisher information</category></item><item><title>Likelihood Model</title><link>https://queelius.github.io/papers/likelihood.model/</link><pubDate>Thu, 01 Oct 2020 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/likelihood.model/</guid><description> Open full page</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/likelihood.model/index.html" target="_blank" rel="noopener">Open full page</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/likelihood.model/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category></item><item><title>Numerical maximum likelihood estimation</title><link>https://queelius.github.io/papers/numerical.mle/</link><pubDate>Thu, 01 Oct 2020 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/numerical.mle/</guid><description> Open full page</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/numerical.mle/index.html" target="_blank" rel="noopener">Open full page</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/numerical.mle/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category></item><item><title>Algebraic Maximum Likelihood Estimators</title><link>https://queelius.github.io/papers/algebraic.mle/</link><pubDate>Mon, 01 Jun 2020 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/algebraic.mle/</guid><description> Open full page</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/algebraic.mle/index.html" target="_blank" rel="noopener">Open full page</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/algebraic.mle/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>statistics</category><category>maximum likelihood</category><category>R</category></item></channel></rss>

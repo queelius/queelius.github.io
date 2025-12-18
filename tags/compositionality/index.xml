@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Compositionality on metafunctor</title><link>https://queelius.github.io/tags/compositionality/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/compositionality/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>The Dot Ecosystem: From Simple Paths to Data Algebras</title><link>https://queelius.github.io/post/2024-12-dotsuite/</link><pubDate>Sun, 15 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-12-dotsuite/</guid><description>A mathematically grounded ecosystem of composable tools for manipulating nested data structures. From simple helper functions to sophisticated data algebras, guided by purity, pedagogy, and the principle of least power.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/dotsuite">dotsuite</a></strong> is a suite of composable tools for working with nested data structures like JSON, YAML, and Python dictionaries. What began as a single helper function evolved into a complete, mathematically grounded ecosystem—a journey in API design guided by purity, pedagogy, and the Unix philosophy.</p>
+<h2 id="the-origin-story">The Origin Story</h2>
+<p>It always starts with a simple problem. You have a nested dictionary or JSON payload, and you need to get a value buried deep inside:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Brittle code that crashes on missing keys</span>
+</span></span><span class="line"><span class="cl"><span class="n">email</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;contacts&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>  <span class="c1"># KeyError? IndexError?</span>
+</span></span></code></pre></div><p>The first, obvious solution is a helper function:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># The essence of dotget - simple enough to copy</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">segment</span><span class="p">)]</span> <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">else</span> <span class="n">data</span><span class="p">[</span><span class="n">segment</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">data</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">default</span>
+</span></span></code></pre></div><p><strong>This is where the story begins</strong>. What started as this single, humble function evolved through a series of questions and insights into a complete, coherent ecosystem for data manipulation.</p>
+<h2 id="the-three-pillars">The Three Pillars</h2>
+<p>The ecosystem is built on three fundamental pillars, each answering a core question about data:</p>
+<h3 id="-depth-pillar--where-is-the-data">🎯 Depth Pillar — &ldquo;Where is the data?&rdquo;</h3>
+<p>Tools for finding and extracting values from within documents.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+          <th>Complexity</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotget</strong></td>
+          <td>Simple exact paths</td>
+          <td><code>get(data, &quot;user.name&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotstar</strong></td>
+          <td>Wildcard patterns</td>
+          <td><code>search(data, &quot;users.*.name&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotselect</strong></td>
+          <td>Advanced selection with predicates</td>
+          <td><code>find_first(data, &quot;users[role=admin].name&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotpath</strong></td>
+          <td>Extensible path engine</td>
+          <td>Powers all other tools, Turing-complete</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Mathematical foundation</strong>: The addressing layer forms a <em>free algebra on selectors</em>, with operators being morphisms in the Kleisli category of the powerset monad. This ensures compositional reasoning: <code>dotstar ∘ dotselect</code> still yields a well-defined set of values.</p>
+<h3 id="-truth-pillar--is-this-assertion-true">✅ Truth Pillar — &ldquo;Is this assertion true?&rdquo;</h3>
+<p>Tools for asking boolean questions and validating data.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+          <th>Logic</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotexists</strong></td>
+          <td>Path existence</td>
+          <td><code>check(data, &quot;user.email&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotany</strong></td>
+          <td>Existential quantifier</td>
+          <td><code>any_match(data, &quot;users.*.role&quot;, &quot;admin&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotall</strong></td>
+          <td>Universal quantifier</td>
+          <td><code>all_match(data, &quot;users.*.status&quot;, &quot;active&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotquery</strong></td>
+          <td>Compositional logic engine</td>
+          <td><code>Query(&quot;any equals role admin&quot;).check(data)</code></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Mathematical foundation</strong>: Predicates form a Boolean algebra under ∧, ∨, ¬ that is <em>homomorphic</em> to set algebra on result subsets (intersection, union, complement). This enables short-circuit evaluation and distributive laws.</p>
+<h3 id="-shape-pillar--how-should-the-data-be-transformed">🔄 Shape Pillar — &ldquo;How should the data be transformed?&rdquo;</h3>
+<p>Tools for reshaping and modifying data structures.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+          <th>Type</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotmod</strong></td>
+          <td>Surgical modifications</td>
+          <td><code>set_(data, &quot;user.status&quot;, &quot;inactive&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotbatch</strong></td>
+          <td>Atomic transactions</td>
+          <td>Apply multiple changes safely</td>
+      </tr>
+      <tr>
+          <td><strong>dotpipe</strong></td>
+          <td>Data transformation pipelines</td>
+          <td>Reshape documents into new forms</td>
+      </tr>
+      <tr>
+          <td><strong>dotpluck</strong></td>
+          <td>Value extraction</td>
+          <td>Create new structures from selections</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Mathematical foundation</strong>: Transformations are endofunctors on document spaces with monoid composition. <code>dotmod</code> implements lenses with put-get laws, while <code>dotpipe</code> provides Kleisli composition of pure functions.</p>
+<h2 id="the-pedagogical-gradient">The Pedagogical Gradient</h2>
+<p>The ecosystem is designed as a learning journey:</p>
+<p><strong>1. Hello World</strong> — O(1) mental load</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotget.core</span> <span class="kn">import</span> <span class="n">get</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotexists.core</span> <span class="kn">import</span> <span class="n">check</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;users&#34;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">}]}</span>
+</span></span><span class="line"><span class="cl"><span class="n">name</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.name&#34;</span><span class="p">)</span>  <span class="c1"># &#34;Alice&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="n">exists</span> <span class="o">=</span> <span class="n">check</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.email&#34;</span><span class="p">)</span>  <span class="c1"># False</span>
+</span></span></code></pre></div><p><strong>2. Pattern Phase</strong> — Wildcards and basic changes</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotmod.core</span> <span class="kn">import</span> <span class="n">set_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">all_names</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.*.name&#34;</span><span class="p">)</span>  <span class="c1"># [&#34;Alice&#34;]</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_data</span> <span class="o">=</span> <span class="n">set_</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">)</span>  <span class="c1"># Immutable!</span>
+</span></span></code></pre></div><p><strong>3. Power User</strong> — Complex operations</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compositional boolean logic</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin and greater login_count 10&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="p">[</span><span class="n">user</span> <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">users</span> <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">user</span><span class="p">)]</span>
+</span></span></code></pre></div><p><strong>4. Expert</strong> — Extensible engines</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotpath.core</span> <span class="kn">import</span> <span class="n">PathEngine</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Custom selector primitives</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">PathEngine</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="o">.</span><span class="n">register_selector</span><span class="p">(</span><span class="n">FuzzyKeySelector</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relational operations</span>
+</span></span><span class="line"><span class="cl"><span class="n">enriched</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Each stage builds on the previous, with no tool becoming obsolete. A <code>dotget</code> call is still the right choice when you know the exact path.</p>
+<h2 id="the-steal-this-code-philosophy">The &ldquo;Steal This Code&rdquo; Philosophy</h2>
+<p>Many tools are intentionally simple enough that you can copy their core logic rather than add a dependency:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># The entire essence of dotget</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">segment</span><span class="p">)]</span> <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span><span class="p">[</span><span class="n">segment</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">data</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">default</span>
+</span></span></code></pre></div><p>This embodies the Unix philosophy: <strong>Make each program do one thing so well that its implementation becomes obvious</strong>.</p>
+<h2 id="lifting-to-collections">Lifting to Collections</h2>
+<p>Once you have operations on single documents, you can <em>lift</em> them to collections:</p>
+<h3 id="boolean-wing--filtering">Boolean Wing — Filtering</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotfilter.core</span> <span class="kn">import</span> <span class="n">filter_collection</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter documents matching a predicate</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="n">filter_collection</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">users</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Boolean algebra on collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">active_admins</span> <span class="o">=</span> <span class="n">filter_collection</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">admins</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals status active&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Mathematical property</strong>: Every collection operator is a <em>monoid homomorphism</em> with respect to multiset union, enabling parallelization and streaming.</p>
+<h3 id="relational-wing--joining-and-transforming">Relational Wing — Joining and Transforming</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">project</span><span class="p">,</span> <span class="n">union</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relational algebra on document collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">user_orders</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">how</span><span class="o">=</span><span class="s2">&#34;left&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Project to specific fields</span>
+</span></span><span class="line"><span class="cl"><span class="n">summary</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">user_orders</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;name&#34;</span><span class="p">,</span> <span class="s2">&#34;total_spent&#34;</span><span class="p">])</span>
+</span></span></code></pre></div><p>This mirrors database theory: single-document logic ≈ tuple calculus; <code>dotrelate</code> ≈ relational algebra.</p>
+<h2 id="command-line-first">Command-Line First</h2>
+<p>Every tool works from the command line, making them perfect for shell scripts and data pipelines:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Check if any user is an admin</span>
+</span></span><span class="line"><span class="cl">cat users.json <span class="p">|</span> dotquery <span class="s2">&#34;any equals role admin&#34;</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Admin found&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract all email addresses</span>
+</span></span><span class="line"><span class="cl">cat contacts.json <span class="p">|</span> dotstar <span class="s2">&#34;contacts.*.email&#34;</span> &gt; emails.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join users with their orders</span>
+</span></span><span class="line"><span class="cl">dotrelate join --on<span class="o">=</span><span class="s2">&#34;user_id&#34;</span> users.jsonl orders.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter pipeline</span>
+</span></span><span class="line"><span class="cl">cat books.json <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  <span class="p">|</span> dotquery <span class="s2">&#34;less price 10 or equals author &#39;Tolkien&#39;&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  <span class="p">|</span> dotquery and <span class="s2">&#34;equals in_stock true&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  <span class="p">|</span> dotquery resolve
+</span></span></code></pre></div><h2 id="dual-apis-programmatic-and-declarative">Dual APIs: Programmatic and Declarative</h2>
+<p>Many tools offer both Python APIs and serializable query formats:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Programmatic (Python API)</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.primitives</span> <span class="kn">import</span> <span class="n">equals</span><span class="p">,</span> <span class="n">greater</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">equals</span><span class="p">(</span><span class="s1">&#39;role&#39;</span><span class="p">,</span> <span class="s1">&#39;admin&#39;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">greater</span><span class="p">(</span><span class="s1">&#39;login_count&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Declarative (string DSL)</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin and greater login_count 10&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Both produce the same AST</span>
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="n">query</span><span class="o">.</span><span class="n">ast</span> <span class="o">==</span> <span class="n">other_query</span><span class="o">.</span><span class="n">ast</span>
+</span></span></code></pre></div><p>This enables:</p>
+<ul>
+<li><strong>Serialization</strong>: Save queries to JSON/YAML</li>
+<li><strong>Network transmission</strong>: Send queries over REST APIs</li>
+<li><strong>Version control</strong>: Track query logic in git</li>
+<li><strong>CLI usage</strong>: Complex logic from command line</li>
+</ul>
+<h2 id="mathematical-foundation">Mathematical Foundation</h2>
+<p>The ecosystem is built on solid mathematical principles:</p>
+<h3 id="type-signatures">Type Signatures</h3>
+<p><strong>Depth Pillar</strong> (Addressing):
+</p>
+\[
+\text{dotget}: \mathcal{D} \times \text{Path}_{\text{exact}} \to V \cup \{\emptyset\}
+\]<p>
+</p>
+\[
+\text{dotstar}: \mathcal{D} \times \text{Path}_{*} \to V^{*}
+\]<p>
+</p>
+\[
+\text{dotpath}: \text{Free algebra on selectors (Turing-complete)}
+\]<p><strong>Truth Pillar</strong> (Predicates):
+</p>
+\[
+\text{dotexists}: \mathcal{D} \times P \to \mathbb{B}
+\]<p>
+</p>
+\[
+\text{dotquery}: \mathcal{D} \times \mathcal{L}_{\text{BOOL}}(\varphi_i) \to \mathbb{B}
+\]<p><strong>Shape Pillar</strong> (Transformations):
+</p>
+\[
+\text{dotmod}: \mathcal{D} \times \delta \to \mathcal{D} \quad \text{(lens with put-get law)}
+\]<p>
+</p>
+\[
+\text{dotpipe}: \mathcal{D} \times F^{*} \to \mathcal{D} \quad \text{(Kleisli composition)}
+\]<h3 id="functorial-lifting">Functorial Lifting</h3>
+<p>Operations lift to collections via functors:</p>
+\[
+\text{map}: (\mathcal{D} \to X) \to (C \to X^{*})
+\]<p>
+</p>
+\[
+\text{filter}: (\mathcal{D} \to \mathbb{B}) \to (C \to C)
+\]<p>Where \(C \subseteq \mathcal{D}\) is a finite multiset (collection).</p>
+<h3 id="key-properties">Key Properties</h3>
+<ol>
+<li><strong>Compositionality</strong>: Operators form algebras (Boolean, monoidal, Kleisli) guaranteeing local reasoning</li>
+<li><strong>Purity</strong>: Functions are referentially transparent—concurrency is trivial</li>
+<li><strong>Totality</strong>: Missing paths yield ∅ rather than exceptions</li>
+<li><strong>Orthogonality</strong>: No operator belongs to multiple pillars</li>
+<li><strong>Homomorphism</strong>: Collection operators preserve structure under union</li>
+</ol>
+<h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="data-pipeline-processing">Data Pipeline Processing</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotpipe.core</span> <span class="kn">import</span> <span class="n">pipe</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract → Filter → Transform pipeline</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">doc</span><span class="p">:</span> <span class="n">search</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="s2">&#34;transactions.*.amount&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">amounts</span><span class="p">:</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">amounts</span> <span class="k">if</span> <span class="n">a</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">large</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">large</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">total_large_transactions</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">financial_data</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="etl-with-relational-operations">ETL with Relational Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">project</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join users with orders</span>
+</span></span><span class="line"><span class="cl"><span class="n">user_orders</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;customer_id&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join with products</span>
+</span></span><span class="line"><span class="cl"><span class="n">full_data</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">user_orders</span><span class="p">,</span> <span class="n">products</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;product_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Project to summary</span>
+</span></span><span class="line"><span class="cl"><span class="n">summary</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">full_data</span><span class="p">,</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;user.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;order.date&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;product.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;order.total&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span></code></pre></div><h3 id="complex-boolean-logic">Complex Boolean Logic</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find books that are:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Either cheap (&lt;$10) OR by Tolkien</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - AND in stock</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - AND have good reviews (&gt;4 stars)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    (less price 10 or equals author &#39;Tolkien&#39;)
+</span></span></span><span class="line"><span class="cl"><span class="s2">    and equals in_stock true
+</span></span></span><span class="line"><span class="cl"><span class="s2">    and greater rating 4.0
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matching_books</span> <span class="o">=</span> <span class="p">[</span><span class="n">book</span> <span class="k">for</span> <span class="n">book</span> <span class="ow">in</span> <span class="n">catalog</span> <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">book</span><span class="p">)]</span>
+</span></span></code></pre></div><h2 id="design-principles">Design Principles</h2>
+<p><strong>🧩 Compositionality</strong>: Every tool composes cleanly with others</p>
+<p><strong>🔒 Immutability</strong>: Original data is never modified</p>
+<p><strong>📚 Pedagogical</strong>: Simple tools graduate to powerful ones</p>
+<p><strong>🎯 Single Purpose</strong>: Each tool has one clear responsibility</p>
+<p><strong>🔗 Interoperability</strong>: Common patterns work across all tools</p>
+<p><strong>⚡ Performance</strong>: Lazy evaluation and efficient algorithms</p>
+<p><strong>🛡️ Safety</strong>: Graceful handling of missing paths and malformed data</p>
+<h2 id="comparison-dotsuite-vs-jaf">Comparison: dotsuite vs JAF</h2>
+<p>For production use cases requiring advanced features, consider <a href="https://github.com/realazthat/jaf">JAF (Just Another Flow)</a>:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Feature</th>
+          <th>dotsuite</th>
+          <th>JAF</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Philosophy</strong></td>
+          <td>Pedagogy, simplicity</td>
+          <td>Production-ready, feature-complete</td>
+      </tr>
+      <tr>
+          <td><strong>Streaming</strong></td>
+          <td>Planned</td>
+          <td>✅ Lazy streaming</td>
+      </tr>
+      <tr>
+          <td><strong>Path System</strong></td>
+          <td>JSONPath-inspired</td>
+          <td>✅ Regex, fuzzy, wildcards</td>
+      </tr>
+      <tr>
+          <td><strong>Query Language</strong></td>
+          <td>Boolean DSL</td>
+          <td>✅ S-expressions</td>
+      </tr>
+      <tr>
+          <td><strong>Set Operations</strong></td>
+          <td>Planned</td>
+          <td>✅ Index-preserving results</td>
+      </tr>
+      <tr>
+          <td><strong>Data Sources</strong></td>
+          <td>Files</td>
+          <td>✅ Files, directories, stdin, compressed</td>
+      </tr>
+      <tr>
+          <td><strong>Target Audience</strong></td>
+          <td>Learners, scripters</td>
+          <td>Production systems</td>
+      </tr>
+  </tbody>
+</table>
+<p>Think of dotsuite as the &ldquo;learn by building&rdquo; approach and JAF as the &ldquo;battle-tested solution&rdquo;—both valuable for different purposes.</p>
+<h2 id="the-unix-philosophy-in-action">The Unix Philosophy in Action</h2>
+<p>Each tool embodies the Unix philosophy:</p>
+<ol>
+<li>
+<p><strong>Make each program do one thing well</strong></p>
+<ul>
+<li><code>dotget</code> only gets values</li>
+<li><code>dotexists</code> only checks existence</li>
+<li><code>dotmod</code> only modifies documents</li>
+</ul>
+</li>
+<li>
+<p><strong>Expect the output of every program to become the input to another</strong></p>
+<ul>
+<li>All tools accept/produce JSON</li>
+<li>Composable via pipes: <code>dotstar | dotquery | dotrelate</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Write programs to work together</strong></p>
+<ul>
+<li>Common interfaces (paths, predicates, documents)</li>
+<li>Shared semantics across tools</li>
+</ul>
+</li>
+<li>
+<p><strong>Write programs to handle text streams</strong></p>
+<ul>
+<li>JSONL for collections</li>
+<li>Streaming evaluation where possible</li>
+</ul>
+</li>
+</ol>
+<h2 id="category-theory-for-the-curious">Category Theory for the Curious</h2>
+<p>For those interested in the theoretical foundations:</p>
+<p><strong>Paths as Optics</strong>: The addressing layer implements <em>lenses</em> and <em>prisms</em> from optics theory, providing composable getters and setters.</p>
+<p><strong>Predicates as Subobjects</strong>: Boolean queries correspond to subobjects in the topos of sets, with ∧/∨/¬ being categorical limits/colimits/exponentials.</p>
+<p><strong>Transformations as Endofunctors</strong>: Shape operations are endofunctors on the category of documents, with natural transformations providing the composition structure.</p>
+<p><strong>Collections as Functorial Lift</strong>: The map/filter operations on collections are functors from the category of single-document operations to the category of collection operations, preserving algebraic structure.</p>
+<p>This isn&rsquo;t just mathematical window dressing—these properties <strong>guarantee</strong> that composition behaves predictably and that parallel evaluation is always safe.</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install from PyPI (once published)</span>
+</span></span><span class="line"><span class="cl">pip install dotsuite
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Or install from source</span>
+</span></span><span class="line"><span class="cl">git clone https://github.com/queelius/dotsuite.git
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> dotsuite
+</span></span><span class="line"><span class="cl">pip install -e .
+</span></span></code></pre></div><p><strong>Basic usage</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotget.core</span> <span class="kn">import</span> <span class="n">get</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotmod.core</span> <span class="kn">import</span> <span class="n">set_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Simple addressing</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;users&#34;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">,</span> <span class="s2">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;admin&#34;</span><span class="p">}]}</span>
+</span></span><span class="line"><span class="cl"><span class="n">name</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.name&#34;</span><span class="p">)</span>  <span class="c1"># &#34;Alice&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pattern matching</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_names</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.*.name&#34;</span><span class="p">)</span>  <span class="c1"># [&#34;Alice&#34;]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Boolean queries</span>
+</span></span><span class="line"><span class="cl"><span class="n">is_admin</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&#34;users&#34;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># True</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Immutable modifications</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_data</span> <span class="o">=</span> <span class="n">set_</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="the-journey-continues">The Journey Continues</h2>
+<p>The dot ecosystem demonstrates that good API design is about more than convenience—it&rsquo;s about <strong>mathematical coherence</strong>, <strong>pedagogical progression</strong>, and <strong>compositional guarantees</strong>.</p>
+<p>What began as a simple <code>dotget</code> function revealed a complete algebra for data manipulation, where:</p>
+<ul>
+<li>Every operation has a clear mathematical meaning</li>
+<li>Composition is guaranteed to work</li>
+<li>Parallelization is safe by construction</li>
+<li>Learning proceeds from simple to sophisticated without abandoning earlier tools</li>
+</ul>
+<p>This is software design as mathematics, pedagogy, and philosophy working together.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/dotsuite">github.com/queelius/dotsuite</a></li>
+<li><strong>Philosophy</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/philosophy.md">docs/philosophy.md</a></li>
+<li><strong>Formal Spec</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/dot-formalism.md">docs/dot-formalism.md</a></li>
+<li><strong>Tool Docs</strong>: Individual README for each tool</li>
+<li><strong>JAF Comparison</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/jaf-comparison.md">docs/jaf-comparison.md</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+<hr>
+<p><em>The dot ecosystem: from simple paths to sophisticated data algebras, one tool at a time. A journey in API design guided by purity, pedagogy, and the principle of least power.</em></p>
+]]></content:encoded><category>Python</category><category>data-structures</category><category>JSON</category><category>functional-programming</category><category>API-design</category><category>category-theory</category><category>compositionality</category><category>Unix-philosophy</category></item></channel></rss>

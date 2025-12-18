@@ -1,0 +1,818 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Mathematics on metafunctor</title><link>https://queelius.github.io/categories/mathematics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/categories/mathematics/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Advancing Mathematical Reasoning in AI: Introducing Reverse-Process Synthetic Data Generation</title><link>https://queelius.github.io/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/rpsdg/</guid><description>Check out the (early) project and source code on GitHub.
+Abstract: This paper introduces a methodology for generating high-quality, diverse training data for Language Models (LMs) in complex problem-solving domains. Our approach, termed “Reverse-Process Synthetic Data Generation” (RPSDG), inverts traditionally difficult problems to create an abundance of training examples with known solutions, e.g., symbolically taking the deriative of a function, $f \mapsto f’$, versus solving antiderivatives …</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
+<h2 id="abstract">Abstract:</h2>
+<p>This paper introduces a methodology for generating high-quality, diverse training data for Language Models (LMs) in complex problem-solving domains. Our approach, termed &ldquo;Reverse-Process Synthetic Data Generation&rdquo; (RPSDG), inverts traditionally difficult problems to create an abundance of training examples with known solutions,
+e.g., symbolically taking the deriative of a function, $f \mapsto f&rsquo;$, versus solving antiderivatives of $f&rsquo;$. By automating the generation of problems of graduating difficulty, we create datasets that enable process-supervised training of LLMs. We demonstrate the efficacy of this method for training mathematical reasoning. Our results show significant improvements in LLMs&rsquo; problem-solving capabilities, particularly in areas requiring multi-step reasoning and creative insights. This methodology not only enhances model performance but also provides a framework for generating explainable AI solutions, as the step-by-step problem-solving process is inherent in the training data.</p>
+<h2 id="table-of-contents">Table of Contents:</h2>
+<ul>
+<li>
+<p>Introduction</p>
+<ul>
+<li>The challenge of training data for complex problem-solving</li>
+<li>Overview of Reverse-Process Synthetic Data Generation (RPSDG)</li>
+<li>Potential impact on AI capabilities and explainability</li>
+</ul>
+</li>
+<li>
+<p>Methodology</p>
+<ul>
+<li>Core principles</li>
+<li>Automating generation of process supervision training data</li>
+<li>Curriculum learning and problem difficulty progression</li>
+</ul>
+</li>
+<li>
+<p>Mathematics</p>
+<ul>
+<li>Algebra: Equation solving and manipulation</li>
+<li>Calculus: From differentiation to integration</li>
+</ul>
+</li>
+<li>
+<p>Implementation and Results</p>
+<ul>
+<li>Data generation pipelines</li>
+<li>Transformer-based LMs</li>
+<li>Self-Supervised Learning</li>
+<li>Evals and benchmarks</li>
+</ul>
+</li>
+<li>
+<p>Discussion</p>
+<ul>
+<li>Implications for AI problem-solving capabilities</li>
+<li>Enhancing explainability and transparency</li>
+<li>Limitations and challenges of the RPSDG approach using SSL</li>
+</ul>
+</li>
+<li>
+<p>Future Work</p>
+<ul>
+<li>Expanding to new domains and problem types</li>
+<li>Reinforcement learning to reward multi-step reasoning even without a known (but verifiable) solution</li>
+</ul>
+</li>
+<li>
+<p>Conclusion</p>
+<ul>
+<li>Summary of key findings</li>
+<li>Broader impact on AI research and applications</li>
+</ul>
+</li>
+</ul>
+<h2 id="introduction">Introduction</h2>
+<p>In &ldquo;The Bitter Lesson,&rdquo; Richard Sutton argues that learning algorithms that scale with compute and data will eventually outperform handcrafted algorithms.</p>
+<p>The next frontier in AI research is finding ways to acquire high-quality data that can be used to train models to predict the latent structure and processes in the world. A significant portion of the world&rsquo;s data is latent, where the processes that generate the data are not observable (e.g., not written down). For example, in mathematics, the way in which a proof was discovered is often not demonstrated and instead only a polished proof is presented, hiding the creative process and the &ldquo;dark matter&rdquo; that led to the proof. Understanding and modeling the latent structure in our processes can lead to significant improvements in AI capabilities.</p>
+<p>In this paper, we are interested in exploring <em>algorithmic</em> data generation, where we apply classical algorithms (GOFAI) to automatically generate high-quality step-by-step (process supervision) training data for LMs. In particular, we are interested in exploring problems which have the feature of being easy to solve in one direction, but hard to solve in the other direction, such as</p>
+<h2 id="taking-derivatives-vs-integrating-functions">Taking Derivatives vs. Integrating Functions</h2>
+<p>In mathematics, computing derivatives of functions is generally easier than finding their antiderivatives (integrals). This inherent asymmetry allows us to use the more straightforward differentiation process to generate a rich dataset for training language models (LLMs) by reversing the problem-solving direction: starting with derivatives and deriving the original functions.</p>
+<h3 id="generating-integral-calculus-training-data-by-solving-derivatives-and-reversing-the-process">Generating Integral Calculus Training Data By Solving Derivatives and Reversing the Process</h3>
+<ol>
+<li>
+<p><strong>Starting with Known Functions:</strong></p>
+<ul>
+<li>Select functions \( f(x) \) that have closed-form solutions and well-defined derivatives.</li>
+<li>Examples include polynomials, trigonometric functions, exponential functions, and logarithmic functions.</li>
+<li>To ensure the training data covers a wide range of functions and their transformations, we create a variety of functions with different complexities and forms.</li>
+</ul>
+</li>
+<li>
+<p><strong>Formulating the Reverse Process:</strong></p>
+<ul>
+<li>Take the derivative of \( f(x) \) to generate \( f'(x) \).</li>
+</ul>
+</li>
+<li>
+<p><strong>Reversing the Process:</strong></p>
+<ul>
+<li>Generate the RPSDG by reversing the problem and solution steps, starting with \( f'(x) \)$ to show how to arrive at a corresponding integral \( f(x) \).</li>
+<li>Ensure that each step in this process is well-documented, capturing the intermediate transformations.</li>
+</ul>
+</li>
+</ol>
+<p>This approach allows us to generate integration problems of graduating difficulty, leveraging the inherent asymmetry between differentiation and integration. By automating this process, we create a diverse dataset for training LLMs to predict solutions in integral calculus.</p>
+<h2 id="generating-a-theorem-proof-vs-verifying-a-proof">Generating a Theorem Proof vs. Verifying a Proof</h2>
+<p>One of the key challenges in mathematics and logic is generating proofs for given theorems. While verifying a proof is generally straightforward, generating the proof itself can be significantly more complex. Our methodology leverages this asymmetry by focusing on the reverse process: starting with randomly generated expressions and using rewrite rules to create both theorems and their proofs.</p>
+<h3 id="generating-theorem-proofs">Generating Theorem Proofs</h3>
+<ol>
+<li>
+<p><strong>Random Walks in Expression Space:</strong></p>
+<ul>
+<li>Begin with a randomly generated expression \( e_{\text{start}} \).</li>
+<li>Apply a series of rewrite rules \( r_1, r_2, \ldots, r_n \) to generate a sequence of intermediate expressions \( e_1, e_2, \ldots, e_n \), ultimately arriving at a final expression \( e_{\text{end}} \).</li>
+<li>Each step \( e_i \rightarrow e_{i+1} \) represents a proof step within a logical or mathematical framework.</li>
+</ul>
+</li>
+<li>
+<p><strong>Forming Theorems and Proofs:</strong></p>
+<ul>
+<li>The pair \( (e_{\text{start}}, e_{\text{end}}) \) represents a theorem, where \( e_{\text{start}} \) is the hypothesis and \( e_{\text{end}} \) is the conclusion.</li>
+<li>The sequence of intermediate steps provides the proof for this theorem.</li>
+<li>This method effectively generates theorems and their corresponding proofs by random exploration of the expression space.</li>
+</ul>
+</li>
+<li>
+<p><strong>Reversibility and Bidirectional Processes:</strong></p>
+<ul>
+<li>The reverse process can also be applied, starting with \( e_{\text{end}} \) and working backward to \( e_{\text{start}} \).</li>
+<li>Intermediate steps that involve complex operations (e.g., integration) can often be reversed into simpler operations (e.g., differentiation).</li>
+<li>This bidirectional approach ensures a rich dataset with varied difficulty levels for training models.</li>
+</ul>
+</li>
+<li>
+<p><strong>Automated Proof Generation:</strong></p>
+<ul>
+<li>By applying rewrite rules to random starting points and ending at random points, we automatically generate both theorems and proofs.</li>
+<li>This method circumvents the traditional difficulty of finding a theorem to prove and then discovering its proof.</li>
+<li>The randomness ensures a diverse set of theorems and proofs, capturing a wide range of logical and mathematical concepts.</li>
+</ul>
+</li>
+</ol>
+<p>This methodology allows us to systematically generate a large volume of training data for LLMs. By focusing on problems that are easy in one direction but complex in the other, we create a diverse dataset that captures a wide range of logical and mathematical challenges. This not only enhances the problem-solving capabilities of LLMs but also provides a framework for generating explainable AI solutions, as the step-by-step problem-solving process is inherent in the training data.</p>
+]]></content:encoded><category>artificial intelligence</category><category>machine learning</category><category>mathematics</category><category>algebra</category><category>calculus</category><category>LLMs</category><category>synthetic data</category><category>data generation</category><category>reasoning</category><category>AI training</category><category>explainable AI</category></item><item><title>Closed-Form Results for Masked Exponential Series Systems</title><link>https://queelius.github.io/post/2024-04-15-expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-04-15-expo-masked-fim/</guid><description>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.
+The Problem In series systems, the system fails when any component fails. You observe:
+System failure time \(t\) Candidate set \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components But you don’t know which component in \(C\) actually caused the failure. This is …</description><content:encoded><![CDATA[<p>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>In series systems, the system fails when <strong>any</strong> component fails. You observe:</p>
+<ul>
+<li><strong>System failure time</strong> \(t\)</li>
+<li><strong>Candidate set</strong> \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components</li>
+</ul>
+<p>But you don&rsquo;t know which component in \(C\) actually caused the failure. This is <strong>masked failure data</strong>.</p>
+<h2 id="key-contributions">Key Contributions</h2>
+<h3 id="1-closed-form-fisher-information-matrix">1. Closed-Form Fisher Information Matrix</h3>
+<p>For exponential masked data with arbitrary masking patterns:</p>
+$$I_{ij}(\boldsymbol{\lambda}) = n \cdot \sum_{A \ni i,j} \frac{\hat{\omega}_A}{(\sum_{k \in A} \lambda_k)^2}$$<p>where \(\hat{\omega}_A\) is the observed frequency of candidate set \(A\). This enables:</p>
+<ul>
+<li>Direct computation of asymptotic variances</li>
+<li>Identifiability checking before running MLE</li>
+<li>Stability analysis of optimization</li>
+</ul>
+<h3 id="2-sufficient-statistics">2. Sufficient Statistics</h3>
+<p>The mean system lifetime and candidate set frequency vector constitute <strong>sufficient statistics</strong>, reducing an entire dataset to just \(1 + \binom{m}{w}\) numbers (where \(w\) is the masking width).</p>
+<p>This is a major simplification: all statistical information is captured by counting which candidate sets appear and what the average failure time is.</p>
+<h3 id="3-closed-form-mle-for-three-component-systems">3. Closed-Form MLE for Three-Component Systems</h3>
+<p>For \(m=3\) components with pairwise masking (\(w=2\)), we derive an <strong>explicit closed-form solution</strong> to the likelihood equations:</p>
+$$\hat{\lambda}_j = \frac{\sum_{A \ni j} \hat{\omega}_A}{\bar{t} \cdot n}$$<p>This eliminates numerical optimization entirely for this case. The \(w=2\) case is particularly important because:</p>
+<ul>
+<li>\(w=1\) means no masking (exact cause identification)</li>
+<li>\(w=m\) means complete masking (no diagnostic information)</li>
+<li>\(w=2\) is the simplest non-degenerate masking scenario</li>
+</ul>
+<h3 id="4-asymptotic-distribution-theory">4. Asymptotic Distribution Theory</h3>
+<p>The MLE follows:</p>
+$$\sqrt{n}(\hat{\boldsymbol{\lambda}}_n - \boldsymbol{\lambda}^\star) \xrightarrow{d} \mathcal{N}(\mathbf{0}, \mathcal{I}^{-1}(\boldsymbol{\lambda}^\star))$$<p>with explicit Wald-type confidence intervals using the closed-form Fisher information.</p>
+<h2 id="why-exponential">Why Exponential?</h2>
+<p>The exponential distribution assumption isn&rsquo;t just for tractability:</p>
+<ul>
+<li><strong>Constant hazard rate</strong> models systems subject to random external shocks</li>
+<li><strong>Memoryless property</strong> simplifies the likelihood structure</li>
+<li><strong>Foundation for generalization</strong> to Weibull and other distributions</li>
+</ul>
+<p>More importantly, exponential is the one case where closed-form solutions exist. The insights gained here guide numerical methods for more complex distributions.</p>
+<h2 id="connection-to-other-work">Connection to Other Work</h2>
+<p>This paper is the analytical foundation for the generalized Weibull treatment in my <a href="/publications/math-proj/">master&rsquo;s thesis</a>, which handles:</p>
+<ul>
+<li>Shape and scale parameters</li>
+<li>More realistic masking models</li>
+<li>Model selection between candidate mechanisms</li>
+</ul>
+<p>The R packages <a href="/projects/likelihood.model/">likelihood.model</a> and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implement these methods.</p>
+<h2 id="technical-details">Technical Details</h2>
+<ul>
+<li><strong>Paper</strong>: <a href="/papers/expo-masked-fim/">Statistical Inference for Series Systems from Masked Failure Time Data: The Exponential Case</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/expo-masked-fim">github.com/queelius/expo-masked-fim</a></li>
+<li><strong>Key result</strong>: Complete analytical treatment including MLE, Fisher information, sufficient statistics, and asymptotic theory</li>
+</ul>
+]]></content:encoded><category>statistics</category><category>fisher information</category><category>masked data</category><category>series systems</category><category>reliability</category><category>exponential distribution</category><category>maximum likelihood</category><category>sufficient statistics</category></item><item><title>CBT: Computational Basis Transforms - A Unified Framework</title><link>https://queelius.github.io/post/2025-11-30-cbt/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-cbt/</guid><description>A C++17 header-only library implementing Computational Basis Transforms - a unified framework for understanding how FFT, logarithmic arithmetic, and Bayesian inference are all instances of the same pattern.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/cbt">CBT</a></strong> (Computational Basis Transforms) is a C++17 header-only library that formalizes a fundamental principle underlying many computational techniques: <strong>transforming problems into different representational domains where certain operations become more efficient</strong>.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Consider these seemingly unrelated techniques:</p>
+<ul>
+<li><strong>FFT</strong> transforms convolution (O(n²)) into pointwise multiplication (O(n))</li>
+<li><strong>Logarithms</strong> transform multiplication into addition</li>
+<li><strong>Odds ratios</strong> transform Bayesian updates into simple multiplication</li>
+</ul>
+<p>They all share the same pattern: <strong>transform to a domain where your target operation is cheap</strong>.</p>
+<p>CBT formalizes this as a quadruple <strong>(D, D&rsquo;, φ, Ω)</strong> where:</p>
+<ul>
+<li><strong>D, D&rsquo;</strong> are computational domains</li>
+<li><strong>φ: D → D&rsquo;</strong> is the transform</li>
+<li><strong>Ω</strong> captures the trade-offs</li>
+</ul>
+<blockquote>
+<p>There is no universal &ldquo;best&rdquo; representation—only fitness for purpose. Every transform involves fundamental trade-offs.</p>
+</blockquote>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="k">namespace</span> <span class="n">cbt</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Avoid underflow in products of small probabilities
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">lgd</span> <span class="n">product</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">product</span> <span class="o">=</span> <span class="n">product</span> <span class="o">*</span> <span class="n">lgd</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>  <span class="c1">// No underflow!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Bayesian inference without normalization
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Simple multiplication!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="available-transforms">Available Transforms</h2>
+<h3 id="logarithmic-transform-cbtlgt">Logarithmic Transform (<code>cbt::lg&lt;T&gt;</code>)</h3>
+<p>Transform multiplication into addition, handle extreme ranges:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">a</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Internally: log(1000) + log(2000)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">huge</span> <span class="o">=</span> <span class="n">lgd</span><span class="o">::</span><span class="n">from_log</span><span class="p">(</span><span class="mi">800</span><span class="p">);</span>  <span class="c1">// Represents e^800 without overflow
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains efficient multiplication and extended range; loses direct addition.</p>
+<p><strong>Use cases</strong>: Products of many terms, wide dynamic ranges, ML log-likelihoods.</p>
+<h3 id="odds-ratio-transform-cbtodds_ratiot">Odds-Ratio Transform (<code>cbt::odds_ratio&lt;T&gt;</code>)</h3>
+<p>Transform Bayesian updates into multiplication:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Bayesian update!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">prob</span> <span class="o">=</span> <span class="n">posterior</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
+</span></span></code></pre></div><p><strong>Trade-off</strong>: Gains simple sequential updates without normalization; loses direct probability addition.</p>
+<p><strong>Use cases</strong>: Medical diagnosis, spam filtering, any sequential Bayesian inference.</p>
+<h3 id="stern-brocot-transform-cbtstern_brocott">Stern-Brocot Transform (<code>cbt::stern_brocot&lt;T&gt;</code>)</h3>
+<p>Exact rational arithmetic without floating-point errors:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Exact: 10/21, no rounding errors!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">pi</span> <span class="o">=</span> <span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">approximate</span><span class="p">(</span><span class="mf">3.14159</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>  <span class="c1">// Best rational approx
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains exact arithmetic; loses finite representation for irrationals.</p>
+<p><strong>Use cases</strong>: Computer algebra, music theory (pure intervals), continued fractions.</p>
+<h3 id="residue-number-system-cbtresidue_number_systemtn">Residue Number System (<code>cbt::residue_number_system&lt;T,N&gt;</code>)</h3>
+<p>Fully parallel arithmetic:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_a</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">12345</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_b</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">67890</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">rns_a</span> <span class="o">*</span> <span class="n">rns_b</span><span class="p">;</span>  <span class="c1">// No carry propagation, fully parallel!
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains parallelism; loses efficient comparison and division.</p>
+<p><strong>Use cases</strong>: Cryptography, DSP, fault-tolerant computing.</p>
+<h3 id="multiscale-transform-cbtmultiscalet">Multiscale Transform (<code>cbt::multiscale&lt;T&gt;</code>)</h3>
+<p>Handle 200+ orders of magnitude:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">planck_length</span><span class="p">(</span><span class="mf">1.616e-35</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">universe_diameter</span><span class="p">(</span><span class="mf">8.8e26</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">ratio</span> <span class="o">=</span> <span class="n">universe_diameter</span> <span class="o">/</span> <span class="n">planck_length</span><span class="p">;</span>  <span class="c1">// 61 orders of magnitude!
+</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains extreme range; loses precision at scale boundaries.</p>
+<p><strong>Use cases</strong>: Astrophysics, quantum mechanics, multi-scale simulations.</p>
+<h3 id="additional-transforms">Additional Transforms</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Transform</th>
+          <th>Class</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Dual</strong></td>
+          <td><code>dual&lt;T&gt;</code></td>
+          <td>Automatic differentiation</td>
+      </tr>
+      <tr>
+          <td><strong>Interval</strong></td>
+          <td><code>interval&lt;T&gt;</code></td>
+          <td>Rigorous error bounds</td>
+      </tr>
+      <tr>
+          <td><strong>Tropical</strong></td>
+          <td><code>tropical&lt;T&gt;</code></td>
+          <td>Min-plus algebra (shortest paths)</td>
+      </tr>
+      <tr>
+          <td><strong>Modular</strong></td>
+          <td><code>modular&lt;T,M&gt;</code></td>
+          <td>Cyclic arithmetic</td>
+      </tr>
+      <tr>
+          <td><strong>Quaternion</strong></td>
+          <td><code>quaternion&lt;T&gt;</code></td>
+          <td>Gimbal-lock-free 3D rotations</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="transform-composition">Transform Composition</h2>
+<p>CBTs compose for multiplicative benefits:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Extreme scale multiplication efficiency
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">extreme_mult</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Stable Bayesian inference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">log_odds</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Exact rational intervals
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">rational_interval</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">interval</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span></code></pre></div><h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="avoiding-numerical-underflow">Avoiding Numerical Underflow</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Problem: Product of many small probabilities underflows
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="nf">compute_likelihood_naive</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">*=</span> <span class="n">p</span><span class="p">;</span>  <span class="c1">// Underflows to 0!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Solution: Logarithmic transform
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="nf">compute_likelihood_stable</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">result</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>  <span class="c1">// No underflow!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h3 id="medical-diagnosis-system">Medical Diagnosis System</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">MedicalDiagnosis</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">disease_odds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">MedicalDiagnosis</span><span class="p">(</span><span class="kt">double</span> <span class="n">prevalence</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">:</span> <span class="n">disease_odds</span><span class="p">(</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="n">prevalence</span><span class="p">))</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">update_with_test</span><span class="p">(</span><span class="kt">double</span> <span class="n">sensitivity</span><span class="p">,</span> <span class="kt">double</span> <span class="n">specificity</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">double</span> <span class="n">lr</span> <span class="o">=</span> <span class="n">sensitivity</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">specificity</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">disease_odds</span> <span class="o">=</span> <span class="n">disease_odds</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">lr</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="nf">get_probability</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">disease_odds</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Usage
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">MedicalDiagnosis</span> <span class="nf">covid_test</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>  <span class="c1">// 1% prevalence
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// First test
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// Second test
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Probability updates correctly without manual normalization
+</span></span></span></code></pre></div><h2 id="installation">Installation</h2>
+<p>CBT is header-only—just include and use:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">  </span><span class="c1">// All transforms
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Or specific transforms:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;cbt/logarithmic.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/odds_ratio.hpp&gt;</span><span class="cp">
+</span></span></span></code></pre></div><p>CMake integration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">path/to/cbt</span><span class="p">)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">cbt::cbt</span><span class="p">)</span><span class="err">
+</span></span></span></code></pre></div><h2 id="why-this-matters">Why This Matters</h2>
+<p>The CBT framework provides:</p>
+<ol>
+<li><strong>Unifying Principle</strong>: Understand diverse techniques as instances of one pattern</li>
+<li><strong>Design Guidance</strong>: Meta-patterns help discover new transforms</li>
+<li><strong>Composition Rules</strong>: Transforms can be systematically combined</li>
+<li><strong>Trade-off Analysis</strong>: Makes implicit costs explicit</li>
+</ol>
+<p>Rather than learning FFT, log-arithmetic, and odds ratios as separate tools, CBT reveals they&rsquo;re all the same idea applied to different domains.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/cbt">github.com/queelius/cbt</a></li>
+<li><strong>Paper</strong>: See <code>paper/cbt_theory.tex</code> for formal treatment</li>
+</ul>
+<hr>
+<p><em>CBT: When you understand that all computational tricks are just basis transforms, you stop memorizing techniques and start deriving them.</em></p>
+]]></content:encoded><category>C++</category><category>numerical-computing</category><category>algorithms</category><category>mathematics</category><category>header-only</category><category>scientific-computing</category></item><item><title>libdis: Disjoint Interval Sets as a Complete Boolean Algebra</title><link>https://queelius.github.io/post/2025-11-30-libdis/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-libdis/</guid><description>A modern C++ header-only library implementing disjoint interval sets as first-class mathematical objects with rigorous Boolean algebra operations.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/disjoint_interval_set">libdis</a></strong> is a C++17/20/23 header-only library that treats interval sets as first-class mathematical objects forming a complete Boolean algebra. Unlike libraries that merely provide interval containers, libdis gives you the full power of set-theoretic operations with mathematical rigor.</p>
+<h2 id="why-disjoint-interval-sets">Why Disjoint Interval Sets?</h2>
+<p>Working with intervals is fundamental in many domains—scheduling, computational geometry, range queries. But most implementations treat intervals as data containers rather than mathematical objects.</p>
+<p>libdis takes a different approach:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;dis/disjoint_interval_set.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">dis</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">disjoint_interval_set</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">a</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">|</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>  <span class="c1">// [1,5] ∪ [10,15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">dis</span> <span class="n">b</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">);</span>                        <span class="c1">// [3,12]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">intersection</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span><span class="p">;</span>   <span class="c1">// [3,5] ∪ [10,12]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">union_set</span> <span class="o">=</span> <span class="n">a</span> <span class="o">|</span> <span class="n">b</span><span class="p">;</span>      <span class="c1">// [1,15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">difference</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">;</span>     <span class="c1">// [1,3) ∪ (12,15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">complement</span> <span class="o">=</span> <span class="o">~</span><span class="n">a</span><span class="p">;</span>        <span class="c1">// (-∞,1) ∪ (5,10) ∪ (15,+∞)
+</span></span></span></code></pre></div><h2 id="boolean-algebra-axioms">Boolean Algebra Axioms</h2>
+<p>libdis rigorously implements Boolean algebra. These aren&rsquo;t just convenient operators—they satisfy mathematical laws:</p>
+<p><strong>Associativity</strong>: <code>(a | b) | c == a | (b | c)</code></p>
+<p><strong>Commutativity</strong>: <code>a &amp; b == b &amp; a</code></p>
+<p><strong>Distributivity</strong>: <code>a &amp; (b | c) == (a &amp; b) | (a &amp; c)</code></p>
+<p><strong>Identity</strong>: <code>a | ∅ == a</code>, <code>a &amp; U == a</code></p>
+<p><strong>Complement</strong>: <code>a | ~a == U</code>, <code>a &amp; ~a == ∅</code></p>
+<p><strong>De Morgan&rsquo;s Laws</strong>: <code>~(a &amp; b) == ~a | ~b</code></p>
+<p>All 94 test cases verify these algebraic properties.</p>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>Mathematical Elegance</strong>: Operations follow Boolean algebra axioms rigorously</li>
+<li><strong>Intuitive API</strong>: Express complex set operations naturally with operators</li>
+<li><strong>Zero-Cost Abstractions</strong>: Compile-time interval validation with no runtime overhead</li>
+<li><strong>STL Compatibility</strong>: Full alignment with C++ Standard Library conventions</li>
+<li><strong>Production Ready</strong>: 97.46% test coverage on core implementation</li>
+</ul>
+<h2 id="interval-types">Interval Types</h2>
+<p>Create intervals with different boundary conditions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">closed</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>      <span class="c1">// [1, 5]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">open</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">open</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>          <span class="c1">// (1, 5)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">left_open</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">left_open</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>   <span class="c1">// (1, 5]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">right_open</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">right_open</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span> <span class="c1">// [1, 5)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Unbounded intervals
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">from</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">from</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>             <span class="c1">// [5, +∞)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">until</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">until</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>           <span class="c1">// (-∞, 5]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">everything</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">all</span><span class="p">();</span>         <span class="c1">// (-∞, +∞)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">nothing</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">empty</span><span class="p">();</span>          <span class="c1">// ∅
+</span></span></span></code></pre></div><h2 id="set-operations">Set Operations</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">a</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">b</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Union
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">u</span> <span class="o">=</span> <span class="n">a</span> <span class="o">|</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [0, 15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Intersection
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">i</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [5, 10]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Difference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">d</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [0, 5)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Symmetric difference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">s</span> <span class="o">=</span> <span class="n">a</span> <span class="o">^</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [0, 5) ∪ (10, 15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Complement
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">c</span> <span class="o">=</span> <span class="o">~</span><span class="n">a</span><span class="p">;</span>     <span class="c1">// (-∞, 0) ∪ (10, +∞)
+</span></span></span></code></pre></div><h2 id="querying">Querying</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">intervals</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">|</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Point containment
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>   <span class="c1">// true
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">7</span><span class="p">);</span>   <span class="c1">// false
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Interval containment
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">));</span>   <span class="c1">// true
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">12</span><span class="p">));</span>  <span class="c1">// false
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Overlap detection
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">overlaps</span><span class="p">(</span><span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">));</span>  <span class="c1">// true
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Iteration
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">interval</span> <span class="p">:</span> <span class="n">intervals</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">interval</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="stl-conformance">STL Conformance</h2>
+<p>libdis v1.1.0 brings full STL container conformance:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">intervals</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">|</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// STL-style access
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>     <span class="c1">// Number of disjoint intervals
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">empty</span><span class="p">();</span>    <span class="c1">// Check if empty
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>    <span class="c1">// Iterator to first interval
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">end</span><span class="p">();</span>      <span class="c1">// Past-the-end iterator
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Range-based for
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">iv</span> <span class="p">:</span> <span class="n">intervals</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">iv</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Algorithms
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">find_if</span><span class="p">(</span><span class="n">intervals</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">intervals</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">iv</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">iv</span><span class="p">.</span><span class="n">length</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">;</span> <span class="p">});</span>
+</span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Scheduling</strong>: Find available time slots, detect conflicts</li>
+<li><strong>Memory Management</strong>: Track allocated/free regions</li>
+<li><strong>Database Queries</strong>: Range predicates, temporal queries</li>
+<li><strong>Network ACLs</strong>: IP range matching, port ranges</li>
+<li><strong>Computational Geometry</strong>: 1D intersection problems</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>Header-only—just include:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;dis/disjoint_interval_set.hpp&gt;</span><span class="cp">
+</span></span></span></code></pre></div><p>Or with CMake:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">libdis</span><span class="p">)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">dis::dis</span><span class="p">)</span><span class="err">
+</span></span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/disjoint_interval_set">github.com/queelius/disjoint_interval_set</a></li>
+</ul>
+<hr>
+<p><em>libdis: When intervals become first-class mathematical citizens, set operations become trivial.</em></p>
+]]></content:encoded><category>C++</category><category>data-structures</category><category>intervals</category><category>boolean-algebra</category><category>header-only</category><category>STL</category></item><item><title>XTK: Expression Toolkit for Symbolic Computation</title><link>https://queelius.github.io/post/2025-11-30-xtk/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-xtk/</guid><description>A powerful symbolic expression toolkit for rule-based term rewriting with pattern matching, multiple input formats, and an interactive REPL.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/xpression-tk/">XTK</a></strong> (Expression Toolkit) is a Python library for symbolic computation through rule-based term rewriting. It provides pattern matching, expression transformation, and an interactive REPL with rich visualizations.</p>
+<h2 id="quick-start">Quick Start</h2>
+<p>The fastest way to explore XTK is through the interactive REPL:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install xpression-tk
+</span></span><span class="line"><span class="cl">python3 -m xtk.cli
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; (+ 2 3)
+</span></span><span class="line"><span class="cl">xtk&gt; /rewrite
+</span></span><span class="line"><span class="cl">Rewritten: 5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">xtk&gt; (define square (lambda (x) (* x x)))
+</span></span><span class="line"><span class="cl">xtk&gt; (square 4)
+</span></span><span class="line"><span class="cl">xtk&gt; /rewrite
+</span></span><span class="line"><span class="cl">Rewritten: 16
+</span></span></code></pre></div><h2 id="core-concepts">Core Concepts</h2>
+<h3 id="s-expressions">S-Expressions</h3>
+<p>XTK uses S-expressions (like Lisp) as its primary representation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(+ 1 2)           ; Addition
+</span></span><span class="line"><span class="cl">(* x (+ y 1))     ; Nested expressions
+</span></span><span class="line"><span class="cl">(lambda (x) x)    ; Lambda abstraction
+</span></span></code></pre></div><h3 id="infix-notation">Infix Notation</h3>
+<p>For convenience, XTK also supports infix notation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; /infix 2 + 3 * 4
+</span></span><span class="line"><span class="cl">S-expr: (+ 2 (* 3 4))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">xtk&gt; /infix (x + y) * (x - y)
+</span></span><span class="line"><span class="cl">S-expr: (* (+ x y) (- x y))
+</span></span></code></pre></div><h3 id="rewrite-rules">Rewrite Rules</h3>
+<p>Rules are defined as <code>[pattern, skeleton]</code> pairs using pattern variables:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">xtk</span> <span class="kn">import</span> <span class="n">rewriter</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Define rules: x + 0 =&gt; x, x * 0 =&gt; 0</span>
+</span></span><span class="line"><span class="cl"><span class="n">rules</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">]],</span>  <span class="c1"># x + 0 =&gt; x</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span>            <span class="c1"># x * 0 =&gt; 0</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create rewriter and apply</span>
+</span></span><span class="line"><span class="cl"><span class="n">rewrite</span> <span class="o">=</span> <span class="n">rewriter</span><span class="p">(</span><span class="n">rules</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">rewrite</span><span class="p">([</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># =&gt; &#39;a&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">rewrite</span><span class="p">([</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># =&gt; 0</span>
+</span></span></code></pre></div><p>Pattern syntax:</p>
+<ul>
+<li><code>['?', 'x']</code> — Variable matching any expression</li>
+<li><code>[':', 'x']</code> — Skeleton reference to matched variable</li>
+</ul>
+<h2 id="built-in-rewrite-rules">Built-in Rewrite Rules</h2>
+<p>XTK includes standard algebraic simplification rules:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; Arithmetic
+</span></span><span class="line"><span class="cl">(+ x 0) → x
+</span></span><span class="line"><span class="cl">(* x 1) → x
+</span></span><span class="line"><span class="cl">(* x 0) → 0
+</span></span><span class="line"><span class="cl">(- x x) → 0
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Boolean
+</span></span><span class="line"><span class="cl">(and true x) → x
+</span></span><span class="line"><span class="cl">(or false x) → x
+</span></span><span class="line"><span class="cl">(not (not x)) → x
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Lambda calculus
+</span></span><span class="line"><span class="cl">((lambda (x) body) arg) → body[x := arg]
+</span></span></code></pre></div><h2 id="interactive-repl-commands">Interactive REPL Commands</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="o">/</span><span class="n">help</span>           <span class="n">Show</span> <span class="n">all</span> <span class="n">commands</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">rewrite</span>        <span class="n">Apply</span> <span class="n">rewrite</span> <span class="n">rules</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">step</span>           <span class="n">Single</span> <span class="n">rewrite</span> <span class="n">step</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">trace</span>          <span class="n">Show</span> <span class="n">rewrite</span> <span class="n">trace</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">rules</span>          <span class="n">List</span> <span class="n">active</span> <span class="n">rules</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="nb">load</span> <span class="n">file</span><span class="o">.</span><span class="n">xtk</span>  <span class="n">Load</span> <span class="n">rule</span> <span class="n">definitions</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">infix</span> <span class="n">expr</span>     <span class="n">Parse</span> <span class="n">infix</span> <span class="n">to</span> <span class="n">S</span><span class="o">-</span><span class="n">expr</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">tree</span>           <span class="n">Show</span> <span class="n">expression</span> <span class="n">tree</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">quit</span>           <span class="n">Exit</span> <span class="n">REPL</span>
+</span></span></code></pre></div><h2 id="step-by-step-tracing">Step-by-Step Tracing</h2>
+<p>Watch how expressions simplify:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; (* (+ 1 2) (- 5 5))
+</span></span><span class="line"><span class="cl">xtk&gt; /trace
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Step 1: (* (+ 1 2) (- 5 5))
+</span></span><span class="line"><span class="cl">  Rule: (+ a b) → eval
+</span></span><span class="line"><span class="cl">  Result: (* 3 (- 5 5))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Step 2: (* 3 (- 5 5))
+</span></span><span class="line"><span class="cl">  Rule: (- a a) → 0
+</span></span><span class="line"><span class="cl">  Result: (* 3 0)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Step 3: (* 3 0)
+</span></span><span class="line"><span class="cl">  Rule: (* x 0) → 0
+</span></span><span class="line"><span class="cl">  Result: 0
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Final: 0
+</span></span></code></pre></div><h2 id="python-api">Python API</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">xtk</span> <span class="kn">import</span> <span class="n">Expression</span><span class="p">,</span> <span class="n">RuleSet</span><span class="p">,</span> <span class="n">Engine</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create engine with standard rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="o">.</span><span class="n">with_standard_rules</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Parse and rewrite</span>
+</span></span><span class="line"><span class="cl"><span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(* (+ 1 2) (+ 3 4))&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">rewrite</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># 21</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Custom rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">rules</span> <span class="o">=</span> <span class="n">RuleSet</span><span class="p">([</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Rule</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(square ?x) → (* ?x ?x)&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Rule</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(cube ?x) → (* ?x ?x ?x)&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="o">.</span><span class="n">add_rules</span><span class="p">(</span><span class="n">rules</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(+ (square 3) (cube 2))&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">rewrite</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># 17</span>
+</span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Computer Algebra</strong>: Symbolic differentiation, integration</li>
+<li><strong>Compiler Optimization</strong>: Peephole optimization rules</li>
+<li><strong>Theorem Proving</strong>: Automated reasoning</li>
+<li><strong>DSL Implementation</strong>: Custom language semantics</li>
+<li><strong>Education</strong>: Teaching term rewriting and lambda calculus</li>
+</ul>
+<h2 id="expression-visualization">Expression Visualization</h2>
+<p>The REPL can display expression trees:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; (* (+ a b) (- c d))
+</span></span><span class="line"><span class="cl">xtk&gt; /tree
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        *
+</span></span><span class="line"><span class="cl">       / \
+</span></span><span class="line"><span class="cl">      +   -
+</span></span><span class="line"><span class="cl">     / \ / \
+</span></span><span class="line"><span class="cl">    a  b c  d
+</span></span></code></pre></div><h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install xpression-tk
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/xpression-tk/">pypi.org/project/xpression-tk/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/xtk">github.com/queelius/xtk</a></li>
+</ul>
+<hr>
+<p><em>XTK: Where pattern matching meets symbolic computation. Define the rules, let the engine do the rest.</em></p>
+]]></content:encoded><category>Python</category><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>REPL</category><category>mathematics</category></item><item><title>Cipher Maps: When Category Theory Meets Oblivious Computing</title><link>https://queelius.github.io/post/2025-10-cipher-maps-algebraic-computing/</link><pubDate>Tue, 14 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-10-cipher-maps-algebraic-computing/</guid><description>What if we could compute on encrypted data while preserving algebraic structure? Not through expensive homomorphic encryption, but through a principled mathematical framework that unifies oblivious computing, Bernoulli types, and categorical abstractions?
+That’s what my recent work on cipher maps and algebraic cipher types explores.
+The Vision: Computing Without Seeing Imagine you have a monoid (S, *, e) with some operation * and identity e. Now imagine computing on encrypted versions of …</description><content:encoded><![CDATA[<p>What if we could compute on encrypted data while preserving algebraic structure? Not through expensive homomorphic encryption, but through a principled mathematical framework that unifies oblivious computing, Bernoulli types, and categorical abstractions?</p>
+<p>That&rsquo;s what my recent work on <strong>cipher maps</strong> and <strong>algebraic cipher types</strong> explores.</p>
+<h2 id="the-vision-computing-without-seeing">The Vision: Computing Without Seeing</h2>
+<p>Imagine you have a monoid <code>(S, *, e)</code> with some operation <code>*</code> and identity <code>e</code>. Now imagine computing on <strong>encrypted versions</strong> of elements from <code>S</code> while:</p>
+<ul>
+<li>Preserving the monoidal structure</li>
+<li>Hiding the actual values</li>
+<li>Getting approximate but privacy-preserving results</li>
+<li>Maintaining composability</li>
+</ul>
+<p>This is what cipher functors enable.</p>
+<h2 id="two-foundational-papers">Two Foundational Papers</h2>
+<h3 id="1-algebraic-cipher-types-algebraic-cipher-types">1. Algebraic Cipher Types (<a href="/papers/algebraic-cipher-types/">algebraic-cipher-types</a>)</h3>
+<p><strong>The core idea</strong>: A cipher functor <code>cA</code> that lifts a monoid <code>(S, *, e)</code> into a cipher monoid <code>(cA(S), ⊕, cA(e))</code>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Latent space:  (S, *, e)      -- the &#34;real&#34; monoid
+</span></span><span class="line"><span class="cl">                ↓ cA (cipher functor)
+</span></span><span class="line"><span class="cl">Cipher space:  (cA(S), ⊕, ê)  -- encrypted monoid
+</span></span></code></pre></div><p><strong>Key properties</strong>:</p>
+<ul>
+<li><code>cA(x * y) ≈ cA(x) ⊕ cA(y)</code> (structure preservation, up to approximation)</li>
+<li>Operations on ciphers don&rsquo;t reveal the underlying values</li>
+<li>Composition of cipher operations mirrors composition in the base monoid</li>
+</ul>
+<p><strong>Why this matters</strong>: We get a <strong>type system</strong> for oblivious computing. Instead of ad-hoc encryption schemes, we have principled constructions that preserve algebraic structure.</p>
+<p><strong>Examples</strong>:</p>
+<ul>
+<li><strong>Encrypted counters</strong>: <code>(ℕ, +, 0)</code> lifts to oblivious count structures</li>
+<li><strong>Encrypted sets</strong>: <code>(𝒫(U), ∪, ∅)</code> lifts to hash-based oblivious sets (Bloom filters)</li>
+<li><strong>Encrypted multisets</strong>: <code>(ℕᵁ, ⊕, 0̄)</code> lifts to Count-Min sketches</li>
+</ul>
+<h3 id="2-cipher-maps-cipher-maps">2. Cipher Maps (<a href="/papers/cipher-maps/">cipher-maps</a>)</h3>
+<p>This paper <strong>unifies</strong> three major threads:</p>
+<ol>
+<li><strong>Algebraic cipher types</strong> (categorical foundations)</li>
+<li><strong>Bernoulli types</strong> (statistical approximation theory)</li>
+<li><strong>Oblivious function approximation</strong> (practical algorithms)</li>
+</ol>
+<p><strong>The synthesis</strong>: Cipher maps are morphisms in a category where:</p>
+<ul>
+<li>Objects are cipher types (encrypted/oblivious data structures)</li>
+<li>Morphisms preserve both algebraic structure AND statistical properties</li>
+<li>Composition gives you principled ways to build complex oblivious computations</li>
+</ul>
+<p><strong>Key contribution</strong>: <strong>Oblivious Bernoulli maps</strong></p>
+<p>These are functions <code>f : cA(S) → cA(T)</code> that:</p>
+<ul>
+<li>Operate on encrypted/oblivious inputs</li>
+<li>Produce encrypted/oblivious outputs</li>
+<li>Have provable error bounds (from Bernoulli type theory)</li>
+<li>Preserve categorical structure (from cipher functors)</li>
+</ul>
+<p><strong>Practical result</strong>: You can now:</p>
+<ol>
+<li>Start with a regular function <code>f : S → T</code></li>
+<li>Lift it to a cipher map <code>cA(f) : cA(S) → cA(T)</code></li>
+<li>Get automatic privacy guarantees</li>
+<li>Get formal error bounds</li>
+<li>Compose multiple cipher maps while tracking error propagation</li>
+</ol>
+<h2 id="why-category-theory">Why Category Theory?</h2>
+<p>You might ask: why all the abstract mathematics?</p>
+<p><strong>Answer</strong>: Category theory gives us <strong>composition for free</strong>.</p>
+<p>Without it, every new oblivious algorithm is a one-off construction with custom security proofs. With cipher functors:</p>
+<ul>
+<li><strong>Functoriality</strong>: <code>cA(f ∘ g) = cA(f) ∘ cA(g)</code> — composition of secure operations is secure</li>
+<li><strong>Natural transformations</strong>: Generic ways to convert between different oblivious representations</li>
+<li><strong>Limits/colimits</strong>: Systematic construction of compound oblivious types</li>
+<li><strong>Monoidal structure</strong>: Parallel composition of oblivious computations</li>
+</ul>
+<p>This isn&rsquo;t just elegance—it&rsquo;s <strong>practical abstraction</strong> that lets you build complex systems from verified components.</p>
+<h2 id="connection-to-hash-based-oblivious-sets">Connection to Hash-Based Oblivious Sets</h2>
+<p>The <a href="/papers/cipher-trapdoor-sets/">cipher-trapdoor-sets paper</a> shows a concrete instantiation:</p>
+<p><strong>Hash-Based Oblivious Sets (HBOS)</strong> = cipher functor applied to <code>(𝒫(U), ∪, ∅)</code></p>
+<p>The construction:</p>
+<ol>
+<li>Start with the powerset monoid (sets with union)</li>
+<li>Apply the cipher functor with hash-based Bernoulli maps</li>
+<li>Get: Bloom filters with provable privacy guarantees</li>
+<li>Bonus: the categorical structure gives you set operations (union, intersection) for free</li>
+</ol>
+<p><strong>Novel contribution</strong>: Unlike traditional Bloom filters (just data structures), HBOS are <strong>oblivious types</strong> with:</p>
+<ul>
+<li>Formal privacy semantics</li>
+<li>Compositional error bounds</li>
+<li>Type-safe operations</li>
+<li>Integration with cipher maps for complex queries</li>
+</ul>
+<h2 id="practical-applications">Practical Applications</h2>
+<p>This framework enables several applications I&rsquo;m actively developing:</p>
+<h3 id="1-privacy-preserving-databases">1. Privacy-Preserving Databases</h3>
+<p>Use cipher maps to build database operators (join, project, select) that work on oblivious data while hiding access patterns.</p>
+<h3 id="2-encrypted-analytics">2. Encrypted Analytics</h3>
+<p>Aggregation queries (SUM, COUNT, AVG) lift naturally to cipher maps over appropriate monoids.</p>
+<h3 id="3-federated-learning">3. Federated Learning</h3>
+<p>Gradient aggregation with oblivious types ensures differential privacy without trusted aggregators.</p>
+<h3 id="4-secure-streaming">4. Secure Streaming</h3>
+<p>Process streams with cipher maps over streaming monoids—constant memory, provable privacy.</p>
+<h2 id="from-theory-to-practice">From Theory to Practice</h2>
+<p>The beauty of this framework: <strong>it&rsquo;s implementable</strong>.</p>
+<p>A cipher functor isn&rsquo;t just mathematical abstraction—it&rsquo;s a <strong>design pattern</strong> for building oblivious systems:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Pseudocode sketch
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">CipherFunctor</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">Cipher</span> <span class="o">=</span> <span class="n">ObliviousBernoulli</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">Cipher</span> <span class="nf">lift</span><span class="p">(</span><span class="n">T</span> <span class="n">value</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="nf">approximate_inverse</span><span class="p">(</span><span class="n">Cipher</span> <span class="n">cipher</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Monoidal operation on ciphers
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">Cipher</span> <span class="nf">combine</span><span class="p">(</span><span class="n">Cipher</span> <span class="n">a</span><span class="p">,</span> <span class="n">Cipher</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>I&rsquo;m working on C++ implementations using modern template metaprogramming to make cipher types zero-cost abstractions.</p>
+<h2 id="looking-forward">Looking Forward</h2>
+<p>These papers open several research directions:</p>
+<ol>
+<li><strong>Higher categories</strong>: What about functors between cipher categories?</li>
+<li><strong>Dependent types</strong>: Can we encode privacy/accuracy trade-offs in the type system?</li>
+<li><strong>Effect systems</strong>: Track information flow using cipher maps</li>
+<li><strong>Compiler integration</strong>: Automatically lift regular code to oblivious versions</li>
+</ol>
+<h2 id="why-this-matters-now">Why This Matters Now</h2>
+<p>We&rsquo;re at an inflection point where:</p>
+<ul>
+<li>Privacy regulations demand oblivious computing</li>
+<li>Scale requires approximate algorithms</li>
+<li>Complexity demands compositional abstractions</li>
+</ul>
+<p>Cipher maps provide the mathematical foundation to build these systems <strong>correctly</strong>.</p>
+<p>Instead of:</p>
+<ul>
+<li>Ad-hoc crypto + hope</li>
+<li>Custom privacy proofs for each algorithm</li>
+<li>Non-compositional security guarantees</li>
+</ul>
+<p>We get:</p>
+<ul>
+<li>Principled constructions from category theory</li>
+<li>Automatic privacy from functoriality</li>
+<li>Compositional security from categorical structure</li>
+</ul>
+<p><strong>Related Papers:</strong></p>
+<ul>
+<li><a href="/papers/algebraic-cipher-types/">Algebraic Cipher Types</a></li>
+<li><a href="/papers/cipher-maps/">Cipher Maps: Unified Framework</a></li>
+<li><a href="/papers/cipher-trapdoor-sets/">Hash-Based Oblivious Sets</a></li>
+<li><a href="/post/2025-10-bernoulli-types-foundations/">Bernoulli Types Series</a></li>
+<li><a href="/post/2025-10-encrypted-search-oblivious-types/">Encrypted Search with Oblivious Types</a></li>
+</ul>
+<hr>
+<p><em>This work synthesizes my research in oblivious computing, type theory, and cryptography into a unified framework. The mathematics is deep, but the payoff is practical: systematic construction of privacy-preserving systems with formal guarantees.</em></p>
+]]></content:encoded><category>oblivious computing</category><category>category theory</category><category>algebraic cipher types</category><category>cipher maps</category><category>functors</category><category>type theory</category><category>cryptography</category><category>Bernoulli models</category><category>research</category></item><item><title>Perfect Hashing: Space Bounds, Entropy, and Cryptographic Security</title><link>https://queelius.github.io/post/2024-02-01-crypto-perf-hash/</link><pubDate>Thu, 01 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-02-01-crypto-perf-hash/</guid><description>What if a perfect hash function could simultaneously be: (1) cryptographically secure, (2) space-optimal, and (3) maximum-entropy encoded? This paper proves such a construction exists—and analyzes exactly what you sacrifice to get all three.
+The Impossible Triangle Perfect hash functions typically face tradeoffs:
+Space-optimal constructions (CHD, BDZ) sacrifice randomness Cryptographic hash functions waste space on collision resistance Maximum-entropy encodings require extra bits We ask: can you …</description><content:encoded><![CDATA[<p>What if a perfect hash function could simultaneously be: (1) cryptographically secure, (2) space-optimal, and (3) maximum-entropy encoded? This paper proves such a construction exists—and analyzes exactly what you sacrifice to get all three.</p>
+<h2 id="the-impossible-triangle">The Impossible Triangle</h2>
+<p>Perfect hash functions typically face tradeoffs:</p>
+<ul>
+<li><strong>Space-optimal</strong> constructions (CHD, BDZ) sacrifice randomness</li>
+<li><strong>Cryptographic</strong> hash functions waste space on collision resistance</li>
+<li><strong>Maximum-entropy</strong> encodings require extra bits</li>
+</ul>
+<p>We ask: <strong>can you have all three?</strong></p>
+<h2 id="the-construction">The Construction</h2>
+<p>The data type is <em><em>PH = {0,1}</em> × ℕ</em>* with a constructor <code>ph(X, r) = (n', N)</code> where:</p>
+<ul>
+<li><strong>N = ⌈m/r⌉</strong>: Hash table size (where m = |X|)</li>
+<li><strong>β(x,n) = trunc(hash(x&rsquo; # n&rsquo;), k)&rsquo; mod N</strong>: Hash function parameterized by seed n</li>
+<li><strong>n = min{j ∈ ℕ | β is collision-free on X}</strong>: Search for smallest collision-free seed</li>
+<li><strong>n&rsquo;</strong>: Geometric code encoding n (variable-length prefix-free)</li>
+</ul>
+<p><strong>The algorithm</strong>: Try seeds n = 0, 1, 2, &hellip; until β(·,n) has no collisions on X. Each trial is geometrically distributed with success probability p(m,r), so the expected space for encoding n&rsquo; achieves the <strong>information-theoretic lower bound of ~1.44 bits per element</strong>.</p>
+<p><strong>Random oracle assumption</strong>: hash: {0,1}* → {0,1}^∞ outputs uniform random bits, making the final encoding (n&rsquo;, N) indistinguishable from a random bit string.</p>
+<h2 id="rate-distortion-tradeoff">Rate-Distortion Tradeoff</h2>
+<p>The title&rsquo;s &ldquo;rate-distortion&rdquo; comes from information theory: what&rsquo;s the <strong>rate</strong> (bits per key) for a given <strong>distortion</strong> (lookup time)?</p>
+<p><strong>Zero distortion</strong> (O(1) lookup): <code>~n log n</code> bits
+<strong>Constant distortion</strong> (small tables): Practical two-level schemes approach <code>~1.44n</code> bits
+<strong>Variable distortion</strong>: Trade bits for lookup time continuously</p>
+<h2 id="why-cryptographic-matters">Why Cryptographic Matters</h2>
+<p>Non-cryptographic perfect hashes are <strong>deterministic</strong>—adversaries can engineer collision-inducing inputs. A cryptographic perfect hash (random oracle) prevents:</p>
+<ul>
+<li><strong>Adversarial key selection</strong>: Can&rsquo;t craft keys that break the hash</li>
+<li><strong>Side-channel attacks</strong>: Encoding reveals no information about keys</li>
+<li><strong>Fingerprinting</strong>: Maximum entropy makes encodings look random</li>
+</ul>
+<h2 id="the-algebra-of-composition">The Algebra of Composition</h2>
+<p>Section 5 proves: <strong>composing perfect hash functions preserves injectivity</strong>. If <code>h₁: S → T</code> and <code>h₂: T → U</code> are injective, then <code>h₂ ∘ h₁: S → U</code> is injective.</p>
+<p>This connects to my <code>algebraic_hashing</code> library—composition of cryptographic hashes (via XOR) preserves both security AND structure.</p>
+<h2 id="connection-to-oblivious-computing">Connection to Oblivious Computing</h2>
+<p>This paper is about <strong>minimizing information leakage</strong> while maintaining functionality—exactly the oblivious computing philosophy. The maximum-entropy encoding hides which permutation you&rsquo;re using, even though the function is deterministic.</p>
+<p><strong>Research paper</strong> • 4★ • <a href="/latex/crypto-perf-hash/">View PDF</a> • <a href="https://github.com/queelius/crypto-perf-hash">GitHub</a></p>
+]]></content:encoded><category>cryptography</category><category>hash functions</category><category>information theory</category><category>space complexity</category><category>entropy</category><category>perfect hashing</category></item></channel></rss>

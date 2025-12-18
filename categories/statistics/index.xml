@@ -1,0 +1,1459 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Statistics on metafunctor</title><link>https://queelius.github.io/categories/statistics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/categories/statistics/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Fine-Tuning Tiny LLMs for ElasticSearch DSL</title><link>https://queelius.github.io/post/llm-fine-tuning-es-dsl/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/llm-fine-tuning-es-dsl/</guid><description>I am creating a tiny LLM for ElasticSearch DSL as a proof of concept.</description><content:encoded><![CDATA[<p>I am fine-tuning a tiny LLM for ElasticSearch DSL as a proof of concept. The
+GitHub repo for this project can be found <a href="https://github.com/queelius/elasticsearch-lm">here</a>.
+It mostly consists of synthetic data. I need to reshape the data so that it&rsquo;s
+in the expected format and then fine-tune the model, as the data has been
+generated, initially from GPT-4 and then from a script I made to sample from
+those outputs and use them as few-shot examples for Mistral to generate
+a lot more synthetic data. I will then use this data to fine-tune the model
+and see how well it performs on the ElasticSearch DSL.</p>
+<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re
+interested in collaborating on any projects.</p>
+]]></content:encoded><category>large language models</category><category>fine-tuning</category><category>information retrieval</category><category>elastic search</category><category>domain-specific language</category><category>json</category></item><item><title>compositional.mle: SICP-Inspired Optimization</title><link>https://queelius.github.io/post/2025-12-17-compositional-mle/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-17-compositional-mle/</guid><description>An R package where solvers are first-class functions that compose through chaining, racing, and restarts.</description><content:encoded><![CDATA[<p>I&rsquo;ve recently updated <a href="https://github.com/queelius/compositional.mle">compositional.mle</a>, an R package for maximum likelihood estimation that takes seriously the idea that <strong>optimization strategies should compose</strong>.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Most optimization libraries treat solvers as monolithic procedures: you call <code>optim()</code>, pass some options, and hope for the best. If you want to try multiple methods, you write loops. If you want coarse-to-fine optimization, you manually wire the output of one solver to the input of another.</p>
+<p><code>compositional.mle</code> takes a different approach, inspired by SICP&rsquo;s treatment of procedures as first-class citizens. The package provides:</p>
+<ol>
+<li><strong>Primitive solvers</strong> - <code>gradient_ascent()</code>, <code>newton_raphson()</code>, <code>bfgs()</code>, <code>nelder_mead()</code></li>
+<li><strong>Composition operators</strong> - <code>%&gt;&gt;%</code> (sequential chaining), <code>%|%</code> (parallel racing), <code>with_restarts()</code></li>
+<li><strong>Closure property</strong> - Combining solvers yields a solver</li>
+</ol>
+<p>That last point is crucial. When you chain two solvers together, the result is itself a solver with the same interface. This means compositions can be further composed, stored in variables, passed to functions, or used anywhere a solver is expected.</p>
+<h2 id="what-this-looks-like">What This Looks Like</h2>
+<p>Define your problem once:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">problem</span> <span class="o">&lt;-</span> <span class="nf">mle_problem</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="n">loglike</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">theta[2]</span> <span class="o">&lt;=</span> <span class="m">0</span><span class="p">)</span> <span class="kr">return</span><span class="p">(</span><span class="o">-</span><span class="kc">Inf</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">sum</span><span class="p">(</span><span class="nf">dnorm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">theta[1]</span><span class="p">,</span> <span class="n">theta[2]</span><span class="p">,</span> <span class="n">log</span> <span class="o">=</span> <span class="kc">TRUE</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="n">score</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mu</span> <span class="o">&lt;-</span> <span class="n">theta[1]</span><span class="p">;</span> <span class="n">sigma</span> <span class="o">&lt;-</span> <span class="n">theta[2]</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">c</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma^2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="o">-</span><span class="n">n</span> <span class="o">/</span> <span class="n">sigma</span> <span class="o">+</span> <span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span><span class="n">^2</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma^3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Then compose strategies declaratively:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Global search -&gt; local refinement -&gt; final polish</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">grid_search</span><span class="p">(</span><span class="n">lower</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">-10</span><span class="p">,</span> <span class="m">0.5</span><span class="p">),</span> <span class="n">upper</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">10</span><span class="p">,</span> <span class="m">5</span><span class="p">),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">5</span><span class="p">)</span> <span class="o">%&gt;&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">gradient_ascent</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="m">50</span><span class="p">)</span> <span class="o">%&gt;&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">newton_raphson</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="m">20</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="m">1</span><span class="p">))</span>
+</span></span></code></pre></div><p>Or race multiple approaches:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Try all methods, keep the best</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">gradient_ascent</span><span class="p">()</span> <span class="o">%|%</span> <span class="nf">bfgs</span><span class="p">()</span> <span class="o">%|%</span> <span class="nf">nelder_mead</span><span class="p">()</span>
+</span></span></code></pre></div><p>Or handle multimodal landscapes:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Random restarts to escape local optima</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">with_restarts</span><span class="p">(</span><span class="nf">gradient_ascent</span><span class="p">(),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">sampler</span> <span class="o">=</span> <span class="nf">uniform_sampler</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="the-sicp-connection">The SICP Connection</h2>
+<p>This design directly applies lessons from <em>Structure and Interpretation of Computer Programs</em>:</p>
+<p><strong>Primitives</strong>: The base solvers are well-defined building blocks with clear contracts. <code>gradient_ascent()</code> returns a solver that uses steepest ascent. <code>nelder_mead()</code> returns a derivative-free simplex solver.</p>
+<p><strong>Means of Combination</strong>: The operators <code>%&gt;&gt;%</code>, <code>%|%</code>, and <code>with_restarts()</code> combine solvers into new solvers. Sequential chaining feeds the output of one solver as input to the next. Racing runs solvers in parallel and picks the winner.</p>
+<p><strong>Abstraction</strong>: Solver factories hide implementation details behind a consistent interface. Users work with the solver abstraction, not with specific algorithms.</p>
+<p><strong>Closure</strong>: The key insight. Because composition produces objects of the same type as the inputs, the language of solvers is <em>closed</em> under composition. You can build arbitrarily complex strategies from simple parts.</p>
+<h2 id="relationship-to-algebraicmle">Relationship to algebraic.mle</h2>
+<p>This package complements <a href="/projects/algebraic.mle/">algebraic.mle</a>, which provides algebraic operations on MLE <em>results</em>. Where <code>algebraic.mle</code> lets you compose likelihood functions and manipulate fitted models, <code>compositional.mle</code> focuses on the <em>process</em> of finding those estimates.</p>
+<p>The two work together:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># compositional.mle: find the estimate</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># algebraic.mle: work with the fitted model</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">coef</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="try-it">Try It</h2>
+<p>Install from GitHub:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">devtools</span><span class="o">::</span><span class="nf">install_github</span><span class="p">(</span><span class="s">&#34;queelius/compositional.mle&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/compositional.mle/">queelius.github.io/compositional.mle</a>.</p>
+<p>The design philosophy here extends beyond statistics. Any domain with multiple solution strategies can benefit from composable primitives with closure under composition. The question is always: what are your primitives, and how should they combine?</p>
+]]></content:encoded><category>r-package</category><category>statistics</category><category>mle</category><category>optimization</category><category>sicp</category><category>functional-programming</category><category>dsl</category><category>api-design</category></item><item><title>Graduate Statistics Problem Sets Now Available</title><link>https://queelius.github.io/post/2025-12-16-graduate-problem-sets/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-graduate-problem-sets/</guid><description>I've made my graduate coursework from SIUe's mathematics program available online, covering time series, regression, computational statistics, multivariate analysis, and statistical methods.</description><content:encoded><![CDATA[<p>I&rsquo;ve expanded the <a href="/probsets">problem sets</a> section of this site to include coursework from my Master&rsquo;s in Mathematics at Southern Illinois University Edwardsville (SIUe). These five courses represent the core of my graduate statistics training from 2021-2022.</p>
+<h2 id="available-courses">Available Courses</h2>
+<h3 id="stat-478---time-series-analysis"><a href="/probsets/stat478/">STAT 478 - Time Series Analysis</a></h3>
+<p><em>Spring 2021 - Dr. Beidi</em></p>
+<p>Covers ARIMA models, forecasting, spectral analysis, and state space methods. The problem sets include both theoretical derivations and practical R implementations for analyzing temporal data.</p>
+<h3 id="stat-482---regression-analysis"><a href="/probsets/stat482/">STAT 482 - Regression Analysis</a></h3>
+<p><em>Fall 2022 - Dr. Andrew Neath</em></p>
+<p>A deep dive into linear models, diagnostics, variable selection, and model comparison. Dr. Neath&rsquo;s approach emphasized understanding the theoretical foundations alongside practical application.</p>
+<h3 id="stat-575---computational-statistics"><a href="/probsets/stat575/">STAT 575 - Computational Statistics</a></h3>
+<p><em>Summer 2021 - Dr. Qiang Beidi</em></p>
+<p>This was perhaps the most hands-on course. Topics included:</p>
+<ul>
+<li>Newton-Raphson and numerical optimization</li>
+<li>Monte Carlo simulation</li>
+<li>Sampling methods (inverse transform, acceptance-rejection)</li>
+<li>Hand-coded MLE for Poisson regression</li>
+</ul>
+<p>Implementing these algorithms from scratch, rather than relying on library functions, provided a much deeper understanding of how statistical methods actually work.</p>
+<h3 id="stat-579---discrete-multivariate-analysis"><a href="/probsets/stat579/">STAT 579 - Discrete Multivariate Analysis</a></h3>
+<p><em>Spring 2021 - Dr. Andrew Neath</em></p>
+<p>Analysis of categorical data, log-linear models, and contingency tables. The coursework covers both the mathematical theory and R implementations for analyzing discrete multivariate data.</p>
+<h3 id="stat-581---statistical-methods"><a href="/probsets/stat581/">STAT 581 - Statistical Methods</a></h3>
+<p><em>Fall 2021 - Dr. Neath</em></p>
+<p>A comprehensive methods course covering experimental design, ANOVA, and general linear models with practical applications.</p>
+<h2 id="why-share-this">Why Share This?</h2>
+<p>A few reasons:</p>
+<ol>
+<li>
+<p><strong>Learning resource</strong>: Graduate-level statistics coursework with worked solutions can be hard to find. Maybe someone studying similar material will find these useful.</p>
+</li>
+<li>
+<p><strong>Personal archive</strong>: I completed much of this work during cancer treatment. Having it organized and accessible feels like preserving something meaningful from that period.</p>
+</li>
+<li>
+<p><strong>Reference material</strong>: I occasionally refer back to these derivations and implementations in my own research work.</p>
+</li>
+</ol>
+<h2 id="format">Format</h2>
+<p>Each course section includes:</p>
+<ul>
+<li>Problem set PDFs (original assignments)</li>
+<li>My solutions with full derivations</li>
+<li>R code implementations</li>
+<li>Exam solutions where available</li>
+</ul>
+<p>The solutions show complete working, not just final answers. When I implemented numerical methods, I included verification against built-in R functions to confirm correctness.</p>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>I&rsquo;m grateful to the faculty in SIUe&rsquo;s Department of Mathematics and Statistics, particularly Dr. Andrew Neath and Dr. Qiang Beidi, for their excellent instruction during my time in the program.</p>
+<hr>
+<p>Browse the complete collection at <a href="/probsets">/probsets</a>.</p>
+]]></content:encoded><category>statistics</category><category>R</category><category>SIUe</category><category>coursework</category><category>education</category></item><item><title>symlik: Symbolic Likelihood Models in Python</title><link>https://queelius.github.io/post/2025-12-16-symlik/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-symlik/</guid><description>Introducing symlik - define statistical models symbolically and automatically derive score functions, Hessians, and Fisher information.</description><content:encoded><![CDATA[<p>I&rsquo;ve released <a href="/projects/symlik/">symlik</a>, a Python library for symbolic likelihood models. The core idea: write your log-likelihood as a symbolic expression, and let the computer derive everything needed for inference.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Traditional statistical computing requires either:</p>
+<ol>
+<li><strong>Manual derivation</strong> - Work out score functions and information matrices by hand, then implement them</li>
+<li><strong>Numerical approximation</strong> - Use finite differences, which can be unstable and slow</li>
+</ol>
+<p>Both approaches have drawbacks. Manual derivation is error-prone and tedious. Numerical methods accumulate errors and don&rsquo;t give you the symbolic form.</p>
+<h2 id="the-solution">The Solution</h2>
+<p>symlik takes a third approach: symbolic differentiation. Define your model once, get exact derivatives automatically.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.distributions</span> <span class="kn">import</span> <span class="n">exponential</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">exponential</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">]}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mle</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mle</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;lambda&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="n">se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">se</span><span class="p">(</span><span class="n">mle</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Rate: </span><span class="si">{</span><span class="n">mle</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> +/- </span><span class="si">{</span><span class="n">se</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Rate: 0.714 +/- 0.357</span>
+</span></span></code></pre></div><p>Behind the scenes, symlik:</p>
+<ol>
+<li>Symbolically differentiates the log-likelihood to get the score function</li>
+<li>Differentiates again for the Hessian</li>
+<li>Computes Fisher information from the Hessian</li>
+<li>Derives standard errors from the inverse information matrix</li>
+</ol>
+<p>All exact. No numerical approximation.</p>
+<h2 id="custom-models">Custom Models</h2>
+<p>The real power is defining custom models using s-expressions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">LikelihoodModel</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Exponential: l(lambda) = sum[log(lambda) - lambda*x_i]</span>
+</span></span><span class="line"><span class="cl"><span class="n">log_lik</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;len&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">           <span class="p">[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;@&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;i&#39;</span><span class="p">]]]]]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">LikelihoodModel</span><span class="p">(</span><span class="n">log_lik</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Symbolic derivatives available</span>
+</span></span><span class="line"><span class="cl"><span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">()</span>       <span class="c1"># Gradient</span>
+</span></span><span class="line"><span class="cl"><span class="n">hess</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">hessian</span><span class="p">()</span>      <span class="c1"># Hessian matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">info</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">information</span><span class="p">()</span>  <span class="c1"># Fisher information</span>
+</span></span></code></pre></div><h2 id="heterogeneous-data">Heterogeneous Data</h2>
+<p>One of symlik&rsquo;s strengths is handling mixed observation types - exactly what you need for reliability analysis with censored data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">ContributionModel</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.contributions</span> <span class="kn">import</span> <span class="n">complete_exponential</span><span class="p">,</span> <span class="n">right_censored_exponential</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">ContributionModel</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;lambda&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">type_column</span><span class="o">=</span><span class="s2">&#34;status&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">contributions</span><span class="o">=</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;observed&#34;</span><span class="p">:</span> <span class="n">complete_exponential</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;censored&#34;</span><span class="p">:</span> <span class="n">right_censored_exponential</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;status&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;censored&#34;</span><span class="p">,</span> <span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;censored&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;t&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Each observation type contributes differently to the likelihood. symlik handles the bookkeeping.</p>
+<h2 id="connection-to-research">Connection to Research</h2>
+<p>symlik is the Python successor to my R package <a href="/projects/likelihood.model/">likelihood.model</a>. It implements the theoretical framework from my thesis work on likelihood-based inference for series systems.</p>
+<p>The <a href="/papers/reliability-series-sys-model-sel/">Weibull Series Model Selection</a> paper shows applications to reliability engineering - exactly the kind of complex likelihood that benefits from symbolic treatment.</p>
+<h2 id="powered-by-rerum">Powered by rerum</h2>
+<p>symlik uses <a href="/projects/rerum/">rerum</a> for symbolic differentiation. rerum is a pattern matching and term rewriting library that handles the calculus automatically. The separation means you can use rerum for other symbolic computation tasks beyond likelihood models.</p>
+<h2 id="installation">Installation</h2>
+<p><strong>Now available on <a href="https://pypi.org/project/symlik/">PyPI</a>!</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install symlik
+</span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/symlik/">queelius.github.io/symlik</a>.</p>
+<p>See the <a href="/projects/symlik/">project page</a> for more details.</p>
+]]></content:encoded><category>statistics</category><category>python</category><category>symbolic-computation</category><category>likelihood</category><category>mle</category><category>reliability</category></item><item><title>mdrelax: When Masking Conditions Don't Hold</title><link>https://queelius.github.io/post/2025-12-03-mdrelax/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-03-mdrelax/</guid><description>Extending masked failure data analysis when traditional C1-C2-C3 conditions are violated.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/mdrelax">mdrelax</a></strong> extends my work on series system reliability by handling cases where traditional masking assumptions break down.</p>
+<h2 id="background-the-c1-c2-c3-framework">Background: The C1-C2-C3 Framework</h2>
+<p>My <a href="/publications/math-proj/">master&rsquo;s thesis</a> developed maximum likelihood techniques for series systems with masked failure data. The standard framework assumes three conditions:</p>
+<ul>
+<li><strong>C1</strong>: The failed component is always in the candidate set</li>
+<li><strong>C2</strong>: Non-informative masking (uniform probability within candidate set)</li>
+<li><strong>C3</strong>: Masking mechanism is independent of system parameters</li>
+</ul>
+<p>Under these conditions, the masking probabilities factor out and can be ignored for parameter estimation. The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for the exponential case, and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implements the general framework.</p>
+<h2 id="the-problem-real-world-violations">The Problem: Real-World Violations</h2>
+<p>In practice, C2 and C3 are often violated:</p>
+<p><strong>Informative masking (C2 violation)</strong>: Diagnostic tests may be more likely to correctly identify certain failure modes. A component that fails catastrophically might be easier to identify than one that fails subtly.</p>
+<p><strong>Parameter-dependent masking (C3 violation)</strong>: The masking mechanism might depend on component reliabilities. Components with shorter lifetimes might be easier to diagnose because they fail more frequently and technicians gain experience.</p>
+<h2 id="what-mdrelax-provides">What mdrelax Provides</h2>
+<p>The package implements likelihood-based inference when conditions are relaxed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">mdrelax</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Generate masked data with Bernoulli candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_bernoulli_cand_C1_C2_C3</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sample candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_cand_sampler</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># MLE for exponential series system</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fisher information matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">fim</span> <span class="o">&lt;-</span> <span class="nf">md_fim_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="nf">params</span><span class="p">(</span><span class="n">fit</span><span class="p">))</span>
+</span></span></code></pre></div><h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>Flexible masking models</strong>: Bernoulli, rank-based, KL-divergence constrained</li>
+<li><strong>Identifiability analysis</strong>: Tools to check when parameters can be estimated</li>
+<li><strong>Fisher information</strong>: Efficiency analysis under relaxed conditions</li>
+<li><strong>Simulation utilities</strong>: Monte Carlo studies for method validation</li>
+</ul>
+<h2 id="relationship-to-other-work">Relationship to Other Work</h2>
+<p>This package builds on a family of related projects:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Project</th>
+          <th>Focus</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/papers/expo-masked-fim/">expo-masked-fim</a></td>
+          <td>Closed-form FIM for exponential case</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>General R framework for masked data likelihood</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/reliability-estimation-in-series-systems/">reliability-estimation-in-series-systems</a></td>
+          <td>Master&rsquo;s thesis implementation</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/wei.series.md.c1.c2.c3/">wei.series.md.c1.c2.c3</a></td>
+          <td>Weibull series systems under C1-C2-C3</td>
+      </tr>
+      <tr>
+          <td><strong>mdrelax</strong></td>
+          <td>Relaxed conditions (C2, C3 violations)</td>
+      </tr>
+  </tbody>
+</table>
+<p>The progression represents increasing generality:</p>
+<ol>
+<li><strong>Exponential + C1-C2-C3</strong> → Closed-form solutions</li>
+<li><strong>Weibull + C1-C2-C3</strong> → Numerical MLE</li>
+<li><strong>Weibull + relaxed conditions</strong> → mdrelax</li>
+</ol>
+<h2 id="when-to-use-mdrelax">When to Use mdrelax</h2>
+<p>Use this package when you suspect:</p>
+<ul>
+<li>Diagnostic accuracy varies by component type</li>
+<li>Masking patterns correlate with component reliabilities</li>
+<li>Standard C1-C2-C3 assumptions are too restrictive</li>
+</ul>
+<p>The trade-off: relaxed models have more parameters and may require larger samples for reliable estimation.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/mdrelax">github.com/queelius/mdrelax</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/mdrelax/">queelius.github.io/mdrelax</a></li>
+<li><strong>Master&rsquo;s Thesis</strong>: <a href="/publications/math-proj/">Reliability Estimation in Series Systems</a></li>
+<li><strong>Theoretical Foundation</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category></item><item><title>Model Selection for Weibull Series Systems: When Simpler Models Suffice</title><link>https://queelius.github.io/post/2025-12-03-weibull-model-selection/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-03-weibull-model-selection/</guid><description>When can reliability engineers safely use simpler models? This paper provides sharp boundaries through likelihood ratio tests on Weibull series systems.</description><content:encoded><![CDATA[<p><strong>When can reliability engineers safely use a simpler model?</strong> This paper provides a definitive answer through extensive simulation studies with likelihood ratio tests.</p>
+<h2 id="the-model-selection-problem">The Model Selection Problem</h2>
+<p>In series system reliability, we estimate component parameters from masked failure data. For Weibull components, this means estimating \(2m\) parameters: shape \(k_j\) and scale \(\lambda_j\) for each of \(m\) components.</p>
+<p>But what if components share similar failure characteristics? A <strong>reduced model</strong> with homogeneous shape parameters uses only \(m+1\) parameters (one common \(k\) plus \(m\) scales). This halves the parameter count and has a remarkable property: <strong>the system itself becomes Weibull-distributed</strong>.</p>
+<p>The question: when is this simplification justified?</p>
+<h2 id="key-findings">Key Findings</h2>
+<h3 id="the-striking-robustness-result">The Striking Robustness Result</h3>
+<p>For <strong>well-designed series systems</strong> (components with similar failure characteristics):</p>
+<blockquote>
+<p>The reduced homogeneous-shape model cannot be rejected even with sample sizes approaching 30,000&mdash;far larger than typically available in practice.</p>
+</blockquote>
+<p>This provides strong justification for using the simpler model. With realistic sample sizes (50-500), the likelihood ratio test shows no statistical evidence against the reduced model when components truly have similar shapes.</p>
+<h3 id="sharp-sensitivity-boundaries">Sharp Sensitivity Boundaries</h3>
+<p>The paper quantifies exactly how much heterogeneity triggers rejection:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Shape Deviation</th>
+          <th>Sample Size</th>
+          <th>LRT Decision</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0.25</td>
+          <td>30,000</td>
+          <td>Fail to reject</td>
+      </tr>
+      <tr>
+          <td>0.50</td>
+          <td>1,000+</td>
+          <td>Reject</td>
+      </tr>
+      <tr>
+          <td>1.0</td>
+          <td>100+</td>
+          <td>Strong reject</td>
+      </tr>
+      <tr>
+          <td>3.0</td>
+          <td>50+</td>
+          <td>Very strong reject</td>
+      </tr>
+  </tbody>
+</table>
+<p>Even modest deviations in a <strong>single component&rsquo;s</strong> shape parameter provide evidence against the reduced model, offering clear guidance on when complexity is warranted.</p>
+<h3 id="practical-implications">Practical Implications</h3>
+<p><strong>Use the reduced model when:</strong></p>
+<ul>
+<li>Components are from similar manufacturing processes</li>
+<li>Historical data suggests similar wear-out patterns</li>
+<li>Sample sizes are moderate (\(n < 500\))</li>
+<li>Quick reliability assessment is needed</li>
+</ul>
+<p><strong>Use the full model when:</strong></p>
+<ul>
+<li>Components have fundamentally different failure modes (infant mortality vs wear-out)</li>
+<li>Large samples are available (\(n > 1000\))</li>
+<li>Precise component-level inference is critical</li>
+<li>Simulation studies suggest model inadequacy</li>
+</ul>
+<h2 id="connection-to-related-work">Connection to Related Work</h2>
+<p>This paper builds on my research ecosystem for masked failure data:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Paper/Package</th>
+          <th>Focus</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/publications/math-proj/">Master&rsquo;s Thesis</a></td>
+          <td>Weibull MLE with masked data</td>
+      </tr>
+      <tr>
+          <td><a href="/papers/expo-masked-fim/">expo-masked-fim</a></td>
+          <td>Closed-form FIM for exponential case</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>R framework for masked data likelihood</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/mdrelax/">mdrelax</a></td>
+          <td>Relaxed masking conditions</td>
+      </tr>
+      <tr>
+          <td><strong>This paper</strong></td>
+          <td>Model selection via LRT</td>
+      </tr>
+  </tbody>
+</table>
+<p>The progression represents different aspects of the same problem:</p>
+<ol>
+<li><strong>Estimation</strong> (thesis): How to estimate parameters from masked data</li>
+<li><strong>Efficiency</strong> (expo-masked-fim): Closed-form variance bounds</li>
+<li><strong>Model selection</strong> (this paper): When simpler models suffice</li>
+<li><strong>Robustness</strong> (mdrelax): What happens when assumptions break</li>
+</ol>
+<h2 id="technical-approach">Technical Approach</h2>
+<h3 id="likelihood-ratio-test">Likelihood Ratio Test</h3>
+<p>The test compares:</p>
+<ul>
+<li><strong>Full model</strong> \(H_1\): Each component has its own shape \(k_j\)</li>
+<li><strong>Reduced model</strong> \(H_0\): All components share shape \(k\)</li>
+</ul>
+<p>Test statistic:
+</p>
+$$\Lambda = -2\left[\ell(\hat{\theta}_0) - \ell(\hat{\theta}_1)\right]$$<p>Under \(H_0\), asymptotically \(\Lambda \sim \chi^2_{m-1}\).</p>
+<h3 id="simulation-design">Simulation Design</h3>
+<ul>
+<li><strong>System</strong>: 5-component series with Weibull lifetimes</li>
+<li><strong>Masking</strong>: Candidate set width 2 (C1-C2-C3 conditions)</li>
+<li><strong>Censoring</strong>: 30% right-censoring</li>
+<li><strong>Sample sizes</strong>: 50, 100, 250, 500, 1000, 5000, 30000</li>
+<li><strong>Shape deviations</strong>: Perturbing single component from 0.25 to 3.0</li>
+</ul>
+<h3 id="well-designed-systems">Well-Designed Systems</h3>
+<p>A <strong>well-designed series system</strong> has:</p>
+<ul>
+<li>Component MTTFs within factor of 2-3</li>
+<li>Shape parameters within 20-30% of each other</li>
+<li>No single dominant weak point</li>
+</ul>
+<p>This concept is crucial: the reduced model is appropriate for well-designed systems but fails when components have fundamentally different reliability characteristics.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>The bias-variance tradeoff in reliability engineering:</p>
+<ul>
+<li><strong>Simpler models</strong> (fewer parameters) have lower variance but potential bias</li>
+<li><strong>Complex models</strong> (more parameters) reduce bias but increase variance</li>
+</ul>
+<p>For small samples typical in reliability testing, the reduced model&rsquo;s variance advantage often outweighs any bias from shape heterogeneity. This paper provides the quantitative boundaries for making this decision.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Paper</strong>: <a href="/papers/weibull-series-model-selection/">Model Selection for Reliability Estimation in Series Systems</a></li>
+<li><strong>Master&rsquo;s Thesis</strong>: <a href="/publications/math-proj/">Reliability Estimation in Series Systems</a></li>
+<li><strong>Related Paper</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+<li><strong>R Package</strong>: <a href="https://github.com/queelius/wei.series.md.c1.c2.c3">wei.series.md.c1.c2.c3</a></li>
+</ul>
+]]></content:encoded><category>statistics</category><category>reliability</category><category>weibull-distribution</category><category>model-selection</category><category>likelihood-ratio-test</category><category>series-systems</category><category>masked-data</category></item><item><title>Closed-Form Results for Masked Exponential Series Systems</title><link>https://queelius.github.io/post/2024-04-15-expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-04-15-expo-masked-fim/</guid><description>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.
+The Problem In series systems, the system fails when any component fails. You observe:
+System failure time \(t\) Candidate set \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components But you don’t know which component in \(C\) actually caused the failure. This is …</description><content:encoded><![CDATA[<p>This paper provides complete analytical results for maximum likelihood estimation in series systems with masked failure data under exponential component lifetimes. Unlike numerical approaches, everything here has a closed form.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>In series systems, the system fails when <strong>any</strong> component fails. You observe:</p>
+<ul>
+<li><strong>System failure time</strong> \(t\)</li>
+<li><strong>Candidate set</strong> \(C \subseteq \{1,2,\ldots,m\}\) of possible failed components</li>
+</ul>
+<p>But you don&rsquo;t know which component in \(C\) actually caused the failure. This is <strong>masked failure data</strong>.</p>
+<h2 id="key-contributions">Key Contributions</h2>
+<h3 id="1-closed-form-fisher-information-matrix">1. Closed-Form Fisher Information Matrix</h3>
+<p>For exponential masked data with arbitrary masking patterns:</p>
+$$I_{ij}(\boldsymbol{\lambda}) = n \cdot \sum_{A \ni i,j} \frac{\hat{\omega}_A}{(\sum_{k \in A} \lambda_k)^2}$$<p>where \(\hat{\omega}_A\) is the observed frequency of candidate set \(A\). This enables:</p>
+<ul>
+<li>Direct computation of asymptotic variances</li>
+<li>Identifiability checking before running MLE</li>
+<li>Stability analysis of optimization</li>
+</ul>
+<h3 id="2-sufficient-statistics">2. Sufficient Statistics</h3>
+<p>The mean system lifetime and candidate set frequency vector constitute <strong>sufficient statistics</strong>, reducing an entire dataset to just \(1 + \binom{m}{w}\) numbers (where \(w\) is the masking width).</p>
+<p>This is a major simplification: all statistical information is captured by counting which candidate sets appear and what the average failure time is.</p>
+<h3 id="3-closed-form-mle-for-three-component-systems">3. Closed-Form MLE for Three-Component Systems</h3>
+<p>For \(m=3\) components with pairwise masking (\(w=2\)), we derive an <strong>explicit closed-form solution</strong> to the likelihood equations:</p>
+$$\hat{\lambda}_j = \frac{\sum_{A \ni j} \hat{\omega}_A}{\bar{t} \cdot n}$$<p>This eliminates numerical optimization entirely for this case. The \(w=2\) case is particularly important because:</p>
+<ul>
+<li>\(w=1\) means no masking (exact cause identification)</li>
+<li>\(w=m\) means complete masking (no diagnostic information)</li>
+<li>\(w=2\) is the simplest non-degenerate masking scenario</li>
+</ul>
+<h3 id="4-asymptotic-distribution-theory">4. Asymptotic Distribution Theory</h3>
+<p>The MLE follows:</p>
+$$\sqrt{n}(\hat{\boldsymbol{\lambda}}_n - \boldsymbol{\lambda}^\star) \xrightarrow{d} \mathcal{N}(\mathbf{0}, \mathcal{I}^{-1}(\boldsymbol{\lambda}^\star))$$<p>with explicit Wald-type confidence intervals using the closed-form Fisher information.</p>
+<h2 id="why-exponential">Why Exponential?</h2>
+<p>The exponential distribution assumption isn&rsquo;t just for tractability:</p>
+<ul>
+<li><strong>Constant hazard rate</strong> models systems subject to random external shocks</li>
+<li><strong>Memoryless property</strong> simplifies the likelihood structure</li>
+<li><strong>Foundation for generalization</strong> to Weibull and other distributions</li>
+</ul>
+<p>More importantly, exponential is the one case where closed-form solutions exist. The insights gained here guide numerical methods for more complex distributions.</p>
+<h2 id="connection-to-other-work">Connection to Other Work</h2>
+<p>This paper is the analytical foundation for the generalized Weibull treatment in my <a href="/publications/math-proj/">master&rsquo;s thesis</a>, which handles:</p>
+<ul>
+<li>Shape and scale parameters</li>
+<li>More realistic masking models</li>
+<li>Model selection between candidate mechanisms</li>
+</ul>
+<p>The R packages <a href="/projects/likelihood.model/">likelihood.model</a> and <a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a> implement these methods.</p>
+<h2 id="technical-details">Technical Details</h2>
+<ul>
+<li><strong>Paper</strong>: <a href="/papers/expo-masked-fim/">Statistical Inference for Series Systems from Masked Failure Time Data: The Exponential Case</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/expo-masked-fim">github.com/queelius/expo-masked-fim</a></li>
+<li><strong>Key result</strong>: Complete analytical treatment including MLE, Fisher information, sufficient statistics, and asymptotic theory</li>
+</ul>
+]]></content:encoded><category>statistics</category><category>fisher information</category><category>masked data</category><category>series systems</category><category>reliability</category><category>exponential distribution</category><category>maximum likelihood</category><category>sufficient statistics</category></item><item><title>Approximations of Solomonoff Induction</title><link>https://queelius.github.io/research/solomonoff/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/research/solomonoff/</guid><description>I experiment with simple predictive / generative models to approximate Solomonoff induction for a relatively simple synthetic data-generating process.</description><content:encoded><![CDATA[<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re interested in collaborating on any projects.</p>
+]]></content:encoded><category>large language models</category><category>solomonoff induction</category><category>synthetic data</category><category>algorthmic data</category><category>n-gram models</category><category>markov models</category><category>foundation models</category><category>statistics</category></item><item><title>Model Selection in Weibull Series Systems</title><link>https://queelius.github.io/research/reliability-estimation-in-series-systems-model-sel/</link><pubDate>Wed, 29 Mar 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/research/reliability-estimation-in-series-systems-model-sel/</guid><description>In my paper, Reliability Estimation in Series Systems, I discarded a lot of research that may be interesting to pursue further. This one is about using homogeneous shape parameters for the Weibull series system, which can greatly simplify the analysis and reduce the number of parameters to estimate. It’s also quite reasonable for most well-designed systems.</description><content:encoded><![CDATA[<p>The repo on <a href="https://github.com/queelius/reliability-estimation-in-series-systems-model-selection">Github</a> contains the prelimniary
+work. It follows from the Future Work section in the paper, which is <a href="/alex-towell-math-proj-masters.pdf#page=31">here</a>.
+In particular, it explores the homogenous shape parameter Weiibull series system, which is a simplification of the model
+and results in a system with a lifetime that is itself Weibull distributed.</p>
+<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re interested in collaborating on any projects.</p>
+]]></content:encoded><category>maximum-likelihood-estimation</category><category>data-generating-process</category><category>statistics</category><category>siue</category></item><item><title>likelihood.model: Composable Statistical Inference in R</title><link>https://queelius.github.io/post/2024-05-30-likelihood.model/</link><pubDate>Thu, 30 Jun 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-30-likelihood.model/</guid><description>Most R packages hardcode specific likelihood models. likelihood.model provides a generic framework where likelihoods are first-class composable objects—designed to work seamlessly with algebraic.mle for maximum likelihood estimation.
+The Core Concept A likelihood model is anything implementing these generic methods:
+loglik(model, data, params) - Log-likelihood score(model, data, params) - Score function (gradient) hessian(model, data, params) - Observed information matrix This interface lets you …</description><content:encoded><![CDATA[<p>Most R packages hardcode specific likelihood models. <strong>likelihood.model</strong> provides a generic framework where likelihoods are first-class composable objects—designed to work seamlessly with <code>algebraic.mle</code> for maximum likelihood estimation.</p>
+<h2 id="the-core-concept">The Core Concept</h2>
+<p>A <strong>likelihood model</strong> is anything implementing these generic methods:</p>
+<ul>
+<li><code>loglik(model, data, params)</code> - Log-likelihood</li>
+<li><code>score(model, data, params)</code> - Score function (gradient)</li>
+<li><code>hessian(model, data, params)</code> - Observed information matrix</li>
+</ul>
+<p>This interface lets you <strong>compose</strong> likelihood models, swap implementations, and integrate with optimization algorithms—without coupling to specific distributions.</p>
+<h2 id="likelihood-contributions">Likelihood Contributions</h2>
+<p>The key class is <code>likelihood_contr_model</code>—a likelihood built from <strong>independent contributions</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Different observation types get different likelihood contributions</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">likelihood_contr_model</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="n">exact</span> <span class="o">=</span> <span class="nf">normal_contrib</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">  <span class="n">right_censored</span> <span class="o">=</span> <span class="nf">censored_contrib</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>This handles heterogeneous data (exact + censored, multiple distributions) in a unified framework.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>1. Flexibility</strong>: Mix observation types (exact, censored, truncated) within one model</p>
+<p><strong>2. Composability</strong>: Likelihood models are objects you can manipulate, not just function calls</p>
+<p><strong>3. Interoperability</strong>: Designed to work with <code>algebraic.mle</code> for robust MLE</p>
+<p><strong>4. Generality</strong>: Works with any distribution—specify contributions, not hardcoded models</p>
+<h2 id="connection-to-my-research">Connection to My Research</h2>
+<p>This embodies the same compositional philosophy as my thesis work on masked failure data: <strong>build complex models from simple, independent contributions</strong>. The i.i.d. assumption decomposes into additive log-likelihood contributions, which is how MLE actually works under the hood.</p>
+<p><strong>R package</strong> • MIT licensed • <a href="/latex/likelihood.model/">Documentation</a> • <a href="https://github.com/queelius/likelihood.model">GitHub</a></p>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category><category>inference</category></item><item><title>hypothesize: A Consistent API for Statistical Tests in R</title><link>https://queelius.github.io/post/2024-05-25-hypothesize/</link><pubDate>Fri, 25 Mar 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-25-hypothesize/</guid><description>R’s hypothesis testing functions are inconsistent—t.test() returns different structures than chisq.test(), making generic workflows painful. hypothesize provides a unified API so any test returns the same interface: p-value, test statistic, degrees of freedom.
+The Problem Different R tests return incompatible objects:
+t.test(x, y)$p.value # Works chisq.test(x, y)$p.value # Also works my_custom_test(x, y)$??? # Who knows? You can’t write generic code that works across tests.
+The Solution …</description><content:encoded><![CDATA[<p>R&rsquo;s hypothesis testing functions are inconsistent—<code>t.test()</code> returns different structures than <code>chisq.test()</code>, making generic workflows painful. <strong>hypothesize</strong> provides a unified API so any test returns the same interface: p-value, test statistic, degrees of freedom.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Different R tests return incompatible objects:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">t.test</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span><span class="o">$</span><span class="n">p.value</span>        <span class="c1"># Works</span>
+</span></span><span class="line"><span class="cl"><span class="nf">chisq.test</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span><span class="o">$</span><span class="n">p.value</span>    <span class="c1"># Also works</span>
+</span></span><span class="line"><span class="cl"><span class="nf">my_custom_test</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span><span class="o">$???</span>    <span class="c1"># Who knows?</span>
+</span></span></code></pre></div><p>You can&rsquo;t write <strong>generic</strong> code that works across tests.</p>
+<h2 id="the-solution">The Solution</h2>
+<p><strong>hypothesize</strong> defines a consistent interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">test</span> <span class="o">&lt;-</span> <span class="nf">lrt</span><span class="p">(</span><span class="n">model_null</span><span class="p">,</span> <span class="n">model_alt</span><span class="p">)</span>  <span class="c1"># Likelihood ratio test</span>
+</span></span><span class="line"><span class="cl"><span class="nf">pval</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>          <span class="c1"># Extract p-value</span>
+</span></span><span class="line"><span class="cl"><span class="nf">test_stat</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>     <span class="c1"># Extract test statistic</span>
+</span></span><span class="line"><span class="cl"><span class="nf">dof</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>           <span class="c1"># Extract degrees of freedom</span>
+</span></span><span class="line"><span class="cl"><span class="nf">is_significant_at</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="m">0.05</span><span class="p">)</span>  <span class="c1"># Boolean check</span>
+</span></span></code></pre></div><p>All tests—built-in or custom—implement the same generic functions.</p>
+<h2 id="built-on-likelihoodmodel">Built on likelihood.model</h2>
+<p>The package integrates with <code>likelihood.model</code>, making it trivial to perform likelihood ratio tests on any model:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">lrt</span><span class="p">(</span><span class="n">null_model</span><span class="p">,</span> <span class="n">alternative_model</span><span class="p">)</span>  <span class="c1"># Automatic LRT</span>
+</span></span></code></pre></div><p>Also includes Wald test, Z-test, and extensibility for custom tests.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>Reusability</strong>: Write test-agnostic pipelines that work with any hypothesis test</p>
+<p><strong>Composability</strong>: Tests are objects you manipulate, not magic side effects</p>
+<p><strong>Extensibility</strong>: Wrap your own tests in the same interface</p>
+<p>This is the R equivalent of generic programming—a consistent abstraction over heterogeneous implementations.</p>
+<p><strong>R package</strong> • Works with <code>likelihood.model</code> • <a href="/latex/hypothesize/">Documentation</a> • <a href="https://github.com/queelius/hypothesize">GitHub</a></p>
+]]></content:encoded><category>R</category><category>statistics</category><category>hypothesis testing</category><category>likelihood ratio test</category></item><item><title>Computational Statistics - SIUe - STAT 575 - Problem Set 2</title><link>https://queelius.github.io/probsets/stat575/stat575-problem-set-2/</link><pubDate>Sat, 30 Oct 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/probsets/stat575/stat575-problem-set-2/</guid><description>This problem set covers the E-M algorithm for right-censored normal data with known variance.</description><content:encoded><![CDATA[<h1 id="problem-1">Problem 1</h1>
+<p>Derive the E-M algorithm for right-censored normal data with known variance, say $2 = 1$. Consider $Y_i$’s that are i.i.d. from a $N(\theta, 1)$, $i=1,2\ldots, n$. We observe $(x_1, \ldots, x_n)$ and $(\delta_1, \ldots, \delta_n)$, where $x_i = \min(y_i,c)$, and $\delta_i = I(y_i &lt; c)$. Let $C$ be the total number of censored (incomplete) observations. We denote the missing data as ${Z_i : \delta_i = 0}$.</p>
+<h2 id="part-a">Part (a)</h2>
+<p>Derive the complete log-likelihood, $\ell(\theta | Y)$.</p>
+<h3 id="solution">Solution</h3>
+<p>The unobserved random variates ${Y_i}$ are i.i.d. normally distributed,
+</p>
+$$
+  Y_i \sim f_{Y_i}(y | \theta)
+$$<p>
+where
+</p>
+$$
+  f_{Y_i}(y | \theta) = (2 \pi)^{-\frac{1}{2}} \exp\left(-\frac{1}{2}(y - \theta)^2\right).
+$$<p>The likelihood function is therefore
+</p>
+$$
+\begin{align*}
+  L(\theta | \{y_i\})
+    &= \prod_{i=1}^{n} (2 \pi)^{-\frac{1}{2}} \exp\left(-\frac{1}{2}(y_i - \theta)^2\right)\\
+    &= (2 \pi)^{-\frac{n}{2}} \exp\left(-\sum_{i=1}^{n} \frac{1}{2}(y_i - \theta)^2\right).
+\end{align*}
+$$<p>Taking the logarithm of $L$,
+</p>
+$$
+\begin{align*}
+  \ell(\theta | \{y_i\})
+    &= \log L(\theta | \{y_i\})\\
+    &= -\frac{n}{2} \log (2 \pi) - \frac{1}{2} \sum_{i=1}^{n} (y_i - \theta)^2\\
+    &= -\frac{n}{2} \log (2 \pi) - \frac{1}{2} \sum_{i=1}^{n} y_i^2 + \theta \sum_{i=1}^{n} y_i - \frac{n}{2} \theta^2.
+\end{align*}
+$$<p>Anticipating that we will be maximizing the complete log-likelihood with respect
+to $\theta$, we put any terms that are not a function of $\theta$ into $k$,
+obtaining the result
+</p>
+$$
+  \ell(\theta | \{y_i\}) = k + \theta \sum_{i=1}^{n} y_i - \frac{n}{2} \theta^2.
+$$<h2 id="part-b">Part (b)</h2>
+<p>Show the conditional expectation
+</p>
+$$
+  E(Y | x, \delta=1, \theta^{(t)}) = x
+$$<p>
+and
+</p>
+$$
+  E(Y | x, \delta=0, \theta^{(t)}) = E(Y | Y > x) = \theta^{(t)} + \frac{\phi(x-\mu)}{1 - \Phi(x-\mu)}
+$$<p>
+where $\phi$ and $\Phi$ are pdf and cdf of standard normal.</p>
+<h3 id="solution-1">Solution</h3>
+<p>The distribution of $Y$ given $\delta = 1$, is uncensored
+and therefore it is given that $Y$ realized the value $x$.
+Since the expectation of a constant $x$ is $x$, that means
+$E(Y | Y = x) = x$.</p>
+<p>If $\delta = 0$, $Y$ is censored, i.e., $Y &gt; x$.
+To take its expectation, we first need to derive the conditional conditional distribution of $Y$ given $Y &gt; x$ and $\theta^{(t)}$.</p>
+<p>The probability $\Pr(Y \leq y | Y &gt; x)$ is given by
+</p>
+$$
+  \Pr(Y \leq y | Y > x) = \Pr(x < Y \leq y) / \Pr(Y > x)
+$$<p>
+which may be rewritten as
+</p>
+$$
+  \Pr(Y \leq y | Y > x) = \frac{F_Y(y | \theta^{(t)}) - F_Y(x | \theta^{(t)})}{1 - F_Y(y | \theta^{(t)})}.
+$$<p>
+where $F_{Y|\theta^{(t)}}$ is the cdf of the normal distribution with $\sigma=1$ and $\mu=\theta^{(t)}$.</p>
+<p>We may rewrite $F_{Y|\theta^{(t)}}$ in terms of the standard normal,
+</p>
+$$
+  F_{Y}(y|\theta^{(t)}) = \Phi(y - \theta^{(t)}),
+$$<p>
+and thus we may rewrite the conditional distribution of $Y | Y &gt; x$ as
+</p>
+$$
+  \Pr(Y \leq y | Y > x) = \frac{\Phi(y - \theta^{(t)}) - \Phi(x - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}
+$$<p>
+and thus after further simplifying, we obtain the cdf of $Y | x$,
+</p>
+$$
+    F_{Y|x}(y|\theta^{(t)}) = 1 - \frac{1- \Phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}
+$$<p>
+which has a density given by
+</p>
+$$
+    f_{Y}(y|x,\theta^{(t)}) = \frac{\phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})} I(y > x).
+$$<p>The expectation of $Y|(x,\theta^{(t)})$ is given by
+</p>
+$$
+\begin{align*}
+  E(Y|x,\theta^{(t)})
+    &= \int_{x}^{\infty} y f_{Y}(y|x,\theta^{(t)}) dy\\
+    &= \int_{x}^{\infty} y \left(\frac{\phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}\right) dy\\
+    &= \frac{1}{{1 - \Phi(x - \theta^{(t)})}}\int_{x}^{\infty} y \phi(y - \theta^{(t)}) dy.
+\end{align*}
+$$<p>Analytically, this is a tricky integration problem.
+Certainly, it would be trivial to numerically integrate this to obtain a solution, but we seek a closed-form solution.</p>
+<p>I searched online, and discovered an interesting way to tackle this integration problem.</p>
+<p>Let $f$ and $F$ respectively denote the pdf and cdf of the normally distributed $Y$. Then,
+</p>
+$$
+  \frac{df}{dy} = -(y - \theta) f(y)
+$$<p>
+and
+</p>
+$$
+  \int_{a}^{b} \frac{df}{dy} dy = f(b) - f(a).
+$$<p>Then,
+</p>
+$$
+\begin{align*}
+  E(Y|x,\theta^{(t)})
+    &= \frac{1}{1 - F(x)}\int_{x}^{\infty} y f(y) dy\\
+    &= -\frac{1}{1 - F(x)}\int_{x}^{\infty} - (y -\theta^{(t)}) f(y) dy + \frac{\theta^{(t)}}{1-F(x)}\int_{x}^{\infty} f(y) dy\\
+    &= -\frac{1}{1 - F(x)}\int_{x}^{\infty} \frac{df}{dy} dy + \frac{\theta^{(t)}}{1-F(x)} (1-F(x))\\
+    &= -\frac{1}{1 - F(x)}\left(f(\infty) - f(x)\right) + \theta^{(t)}\\
+    &= \frac{f(x)}{1 - F(x)} + \theta^{(t)}.
+\end{align*}
+$$<p>We may rewrite the last line as
+</p>
+$$
+  E(Y|x,\theta^{(t)}) = \theta^{(t)} + \frac{\phi(x-\theta^{(t)})}{1 - \Phi(x-\theta^{(t)})}.
+$$<h2 id="part-c">Part (c)</h2>
+<p>Derive the $E$-step and $M$-step using parts (a) and (b). Give the updating equation.</p>
+<h3 id="solution-2">Solution</h3>
+<h4 id="e-step">E-step</h4>
+<p>The $E$-step entails taking the conditional expectation of the complete log-likelihood function $\ell(\theta | {Y_i})$ given the observed data ${x_i}$ and ${\delta_i}$.</p>
+$$
+\begin{align*}
+  Q(\theta | \theta^{(t)})
+    &= E_{Y_i | x_i,\delta_i}(\ell(\theta | \{Y_i\})\\
+    &= E_{Y_i | x_i,\delta_i}\left(k + \theta \sum_{i=1}^{n} Y_i - \frac{n}{2} \theta^2\right)\\
+    &= k - \frac{n}{2}\theta^2 + \theta \sum_{i=1}^{n} E_{Y_i | x_i,\delta_i}(Y_i).
+\end{align*}
+$$<p>We have already solved the expectation of $Y_i$ given $x_i$ and $\delta_i$. We rewrite $Q$ by substituting $E(Y_i | x_i, \delta_i)$ with its previously found solution,
+</p>
+$$
+  Q(\theta | \theta^{(t)}) = k - \frac{n}{2}\theta^2 + \theta \sum_{i=1}^{n} \delta_i x_i + (1-\delta_i) \left(\theta^{(t)} + \frac{\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}\right).
+$$<p>Letting $C = \sum_{i=1}^{n} (1 - \delta_i)$, $R = \sum_{i=1}^{n} \delta_i x_i$,
+and separating out all terms that are independent of $\theta^{(t)}$,
+</p>
+$$
+  Q(\theta | \theta^{(t)}) = k - \frac{n}{2}\theta^2 + C \theta \theta^{(t)} + R \theta
+    + \theta \sum_{i=1}^{n} \frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}.
+$$<h4 id="m-step">M-step</h4>
+<p>We wish to solve
+</p>
+$$
+  \theta^{(t+1)} = \arg\max_{\theta} Q(\theta | \theta^{(t)}).
+$$<p>
+by solving
+</p>
+$$
+  \frac{d Q(\theta | \theta^{(t)})}{d \theta}\Biggr|_{\theta=\theta^{(t+1)}} = 0,
+$$<p>
+which may be written as
+</p>
+$$
+  -n\theta^{(t+1)} + C \theta^{(t)} + R + \sum_{i=1}^{n} \frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})} = 0.
+$$<p>Solving for $\theta^{(t+1)}$ obtains the updating equation
+</p>
+$$
+  \theta^{(t+1)} = \frac{R}{n} + \frac{C}{n} \theta^{(t)} + \frac{1}{n}\sum_{i=1}^{n}\frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}.
+$$<p>
+where
+</p>
+$$
+  R = \sum_{i=1}^{n} \delta_i x_i
+$$<p>
+and
+</p>
+$$
+  C = \sum_{i=1}^{n} (1-\delta_i).
+$$<h2 id="part-d">Part (d)</h2>
+<p>Use your algorithm on the V.A. data to find the MLE of $\mu$. Take the log of the event times first and standardize by sample standard deviation. You may simply use the censored data sample mean as your starting value.</p>
+<h3 id="solution-3">Solution</h3>
+<p>In the following R code, we implement the updating equation derived in the previous step. We encapulsate the procedure into a function that takes its arguments in
+the form of a censored set, uncensorted set, starting value ($\theta^{(1)}$), and an $\epsilon$ value to control stopping condition.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># assuming the uncensored and censored data are distributed normally,</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># we use the EM algorithm to derive an estimator given censored and uncensored</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># data.</span>
+</span></span><span class="line"><span class="cl"><span class="n">mean_normal_censored_estimator_em</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">uncensored</span><span class="p">,</span><span class="n">censored</span><span class="p">,</span><span class="n">theta</span><span class="p">,</span><span class="n">eps</span><span class="o">=</span><span class="m">1e-6</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">dev</span> <span class="o">&lt;-</span> <span class="nf">sd</span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="n">uncensored</span><span class="p">,</span><span class="n">censored</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">  <span class="n">censored</span> <span class="o">&lt;-</span> <span class="nf">log</span><span class="p">(</span><span class="n">censored</span><span class="p">)</span> <span class="o">/</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">  <span class="n">uncensored</span> <span class="o">&lt;-</span> <span class="nf">log</span><span class="p">(</span><span class="n">uncensored</span><span class="p">)</span> <span class="o">/</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta</span> <span class="o">&lt;-</span> <span class="nf">log</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">n</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">censored</span><span class="p">)</span> <span class="o">+</span> <span class="nf">length</span><span class="p">(</span><span class="n">uncensored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">C</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">censored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">R</span> <span class="o">&lt;-</span> <span class="nf">sum</span><span class="p">(</span><span class="n">uncensored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">s</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sum</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="n">C</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">num</span> <span class="o">&lt;-</span> <span class="nf">dnorm</span><span class="p">(</span><span class="n">censored[i]</span><span class="p">,</span><span class="n">mean</span><span class="o">=</span><span class="n">theta</span><span class="p">,</span><span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="n">denom</span> <span class="o">&lt;-</span> <span class="m">1</span><span class="o">-</span><span class="nf">pnorm</span><span class="p">(</span><span class="n">censored[i]</span><span class="p">,</span><span class="n">mean</span><span class="o">=</span><span class="n">theta</span><span class="p">,</span><span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="n">sum</span> <span class="o">&lt;-</span> <span class="n">sum</span> <span class="o">+</span> <span class="p">(</span><span class="n">num</span> <span class="o">/</span> <span class="n">denom</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sum</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">i</span> <span class="o">&lt;-</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">repeat</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">theta.new</span> <span class="o">&lt;-</span> <span class="n">R</span><span class="o">/</span><span class="n">n</span> <span class="o">+</span> <span class="n">C</span><span class="o">/</span><span class="n">n</span> <span class="o">*</span> <span class="n">theta</span> <span class="o">+</span> <span class="p">(</span><span class="m">1</span><span class="o">/</span><span class="n">n</span><span class="p">)</span><span class="o">*</span><span class="nf">s</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">debug</span><span class="o">==</span><span class="bp">T</span><span class="p">)</span> <span class="p">{</span> <span class="nf">cat</span><span class="p">(</span><span class="s">&#34;theta[&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s">&#34;] =&#34;</span><span class="p">,</span><span class="n">theta</span><span class="p">,</span><span class="s">&#34;, theta[&#34;</span><span class="p">,</span> <span class="n">i</span><span class="m">+1</span><span class="p">,</span> <span class="s">&#34;] =&#34;</span><span class="p">,</span><span class="n">theta.new</span><span class="p">,</span><span class="s">&#34;\n&#34;</span><span class="p">)</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">theta.new</span> <span class="o">-</span> <span class="n">theta</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">eps</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">theta</span> <span class="o">&lt;-</span> <span class="n">theta.new</span> <span class="o">*</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">      <span class="n">theta</span> <span class="o">&lt;-</span> <span class="nf">exp</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="kr">return</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">i</span> <span class="o">&lt;-</span> <span class="n">i</span> <span class="o">+</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">theta</span> <span class="o">&lt;-</span> <span class="n">theta.new</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>We apply this procedure to the indicated data set.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">MASS</span><span class="p">)</span> <span class="c1"># has VA data</span>
+</span></span><span class="line"><span class="cl"><span class="n">VAs</span> <span class="o">&lt;-</span> <span class="nf">subset</span><span class="p">(</span><span class="n">VA</span><span class="p">,</span><span class="n">prior</span><span class="o">==</span><span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">censored</span> <span class="o">&lt;-</span> <span class="n">VAs</span><span class="o">$</span><span class="n">status</span> <span class="o">==</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="n">censored_xs</span> <span class="o">&lt;-</span> <span class="n">VAs[censored</span><span class="p">,</span><span class="nf">c</span><span class="p">(</span><span class="s">&#34;stime&#34;</span><span class="p">)</span><span class="n">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">uncensored_xs</span> <span class="o">&lt;-</span> <span class="n">VAs[</span><span class="o">!</span><span class="n">censored</span><span class="p">,</span><span class="nf">c</span><span class="p">(</span><span class="s">&#34;stime&#34;</span><span class="p">)</span><span class="n">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mu</span> <span class="o">&lt;-</span> <span class="nf">mean</span><span class="p">(</span><span class="n">uncensored_xs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">cat</span><span class="p">(</span><span class="s">&#34;mean of the uncensored sample is &#34;</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="s">&#34;.&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## mean of the uncensored sample is  112.1648 .
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">sol</span> <span class="o">&lt;-</span> <span class="nf">mean_normal_censored_estimator_em</span><span class="p">(</span><span class="n">uncensored_xs</span><span class="p">,</span><span class="n">censored_xs</span><span class="p">,</span><span class="n">mu</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## theta[ 1 ] = 3.857928 , theta[ 2 ] = 3.424258 
+</span></span><span class="line"><span class="cl">## theta[ 2 ] = 3.424258 , theta[ 3 ] = 3.415443 
+</span></span><span class="line"><span class="cl">## theta[ 3 ] = 3.415443 , theta[ 4 ] = 3.415286 
+</span></span><span class="line"><span class="cl">## theta[ 4 ] = 3.415286 , theta[ 5 ] = 3.415283 
+</span></span><span class="line"><span class="cl">## theta[ 5 ] = 3.415283 , theta[ 6 ] = 3.415283
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">sol</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## [1] 65.2625
+</span></span></code></pre></div><p>We see that our estimate of $\theta$ is $\hat{\theta} = 65.2624985$. (The $\theta$ before transforming it to the appropriate scale was $3.415283$.)</p>
+<p>This mean is somewhat lower than anticipated, which makes me suspect something is wrong with my updating equation. If I have the time, I will revisit it.</p>
+<h1 id="problem-2">Problem 2</h1>
+<p><img src="prob4.2.png" alt="Problem 4.2"></p>
+<h2 id="solution-4">Solution</h2>
+<h3 id="part-a-1">Part (a)</h3>
+<p>There are $N=1500$ gay men in the survey sample where $X_i$ denotes the $i$-th persons response to the number of risky sexual encounters he had in the previous $30$ days.
+Thus, we observe a sample $\vec{X} = (X_1,X_2,\ldots, X_N)$.</p>
+<p>We assume there are $3$ groups in the population, denoted by $z=1$, $t=2$, and $p=3$. Group $1$ members report $0$ risky sexual encounters regardless of the truth where the probability of being a member of group $1$ is denoted by $\alpha$,</p>
+<p>Group $2$ members accurately report risky sexual encounters and represent typical behavior where the probability of being a member of group $2$ is denoted by $\beta$. We assume this group&rsquo;s number of sexual encounters follows a poisson with mean $\mu$.</p>
+<p>Group $3$ members accurately report risky sexual encounters and represent high-risk behavior where the probability of being a member of group $3$ is $\gamma = 1-\alpha-\beta$. We assume this group&rsquo;s number of sexual encounters follows a poisson with mean $\lambda$.</p>
+<p>This represents a finite mixture model with a pdf
+</p>
+$$
+  X_i \sim f(x | \vec{\theta}) = \alpha I(x=0) +
+    \beta \mathrm{Poi}(x | \mu) + (1-\alpha-\beta)\mathrm{Poi}(x | \lambda)
+$$<p>
+with a parameter vector
+</p>
+$$
+  \vec{\theta} = (\alpha,\beta,\mu,\lambda)'.
+$$<p>Let the uncertain group that the $i$-th person belongs to be denoted by $Z_i$. If we observe group membership data, $X_i | Z_i = z_i$, then
+</p>
+$$
+\begin{align*}
+  X_i | Z_i &= 1 \sim I(x=0),\\
+  X_i | Z_i &= 2 \sim \mathrm{Poi}(\mu),\\
+  X_i | Z_i &= 3 \sim \mathrm{Poi}(\lambda),
+\end{align*}
+$$<p>
+where
+</p>
+$$
+  Z_i \sim f_{Z_i}(z_i | \vec{\theta}) = \Pr(Z_i=z_i) = 
+  \begin{cases}
+    \alpha                  & z_i = 1,\\
+    \beta                   & z_i = 2,\\
+    \gamma=1-\alpha-\beta   & z_i = 3,
+  \end{cases}
+$$<p>
+and thus
+</p>
+$$
+  f_{X_i,Z_i}(x_i,z_i | \vec{\theta}) =
+    \alpha I(z_i = 1) + \beta \mathrm{Poi}(\mu) I(z_i = 2) + (1-\alpha-\beta) \mathrm{Poi}(\lambda) I(z_i=3).
+$$<p>The <strong>complete</strong> likelihood function is thus given by
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) = \prod_{i=1}^{N} f_{X_i,Z_i}(x_i,z_i | \vec{\theta}),
+$$<p>
+which may be rewritten as
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) =
+    \left(\prod_{\{i | z_i = 1\}} \alpha I(x_i=0)\right)
+    \left(\prod_{\{i | z_i = 2\}} \beta \frac{\mu^{x_i} e^{-\mu}}{x_i!}\right)
+    \left(\prod_{\{i | z_i = 3\}} \gamma \frac{\lambda^{x_i} e^{-\lambda}}{x_i!}\right).
+$$<p>We wish to rewrite this so that the data is explicitly represented. First, we do the transformation
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) =
+    \left(\prod_{\{i | z_i = 1, x_i = 0 \}} \alpha\right)
+    \prod_{k=0}^{16} \left(\prod_{\{i | z_i = 2, x_i = k\}} \beta \frac{\mu^{k} e^{-\mu}}{k!}\right)
+    \prod_{k=0}^{16} \left(\prod_{\{i | z_i = 3, x_i = k\}} \gamma \frac{\lambda^{k} e^{-\lambda}}{k!}\right).
+$$<p>We let $n_{a,b}$ denote the (unobserved) cardinality of ${i | z_i = a, x_i = b}$,
+thus
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \{n_{j,k}\}) =
+    \alpha^{n_{1,0}}
+    \prod_{k=0}^{16} \beta^{n_{2,k}} \frac{\mu^{k n_{2,k}} e^{-\mu n_{2,k}}}{(k!)^{n_{2,k}}}
+    \prod_{k=0}^{16} \gamma^{n_{3,k}} \frac{\lambda^{k n_{3,k}} e^{-\lambda n_{3,k}}}{(k!)^{n_{3,k}}}
+$$<p>
+is the complete likelihood.
+The complete log-likelihood is thus
+</p>
+$$
+  \ell(\vec{\theta} | \{n_{j,k}\}) =
+    n_{1,0} \log \alpha +
+    \sum_{k=0}^{16} \log \left(\beta^{n_{2,k}} \frac{\mu^{k n_{2,k}} e^{-\mu n_{2,k}}}{(k!)^{n_{2,k}}}\right) +
+    \sum_{k=0}^{16} \log \left(\gamma^{n_{3,k}} \frac{\lambda^{k n_{3,k}} e^{-\lambda n_{3,k}}}{(k!)^{n_{3,k}}}\right)
+$$<p>
+which simplies to
+</p>
+$$
+\begin{split}
+  \ell(\vec{\theta} | \{n_{j,k}\}) =
+    n_{1,0} \log \alpha +
+    \sum_{k=0}^{16}
+      &n_{2,k}(\log \beta + k \log \mu - \mu - \log k!) + \\
+      &n_{3,k}(\log \gamma + k \log \lambda - \lambda - \log k!).
+\end{split}
+$$<p>Anticipating taking $\frac{d \ell}{d \vec{\theta}}$ to solve for the maximum of
+the log-likelihood, we remove any terms that are not a function of $\vec{\theta}$,
+resulting in the kernel
+</p>
+$$
+  \ell(\vec{\theta} | \{n_{j,k}\}) = n_{1,0} \log \alpha +
+    \sum_{k=0}^{16} \left\{ n_{2,k}(\log \beta + k \log \mu - \mu) + n_{3,k}(\log \gamma + k \log \lambda - \lambda) \right\}.
+$$<h3 id="e-step-1">E-step</h3>
+<p>The conditional expectation to solve in the EM algorithm is given by
+</p>
+$$
+  Q(\vec{\theta} | \vec{\theta}^{(t)}) = E(\ell(\vec{\theta}))
+$$<p>
+where ${n_{k,j}}$ are random and ${n_j}$ and $\vec{\theta}^{(t)}$ are given.
+We rewrite this as
+</p>
+$$
+Q(\vec{\theta} | \vec{\theta}^{(t)}) = E
+  \left(
+      n_{1,0} \log \alpha +
+      \sum_{k=0}^{16} \left\{
+        n_{2,k}(\log \beta + k \log \mu - \mu) +
+        n_{3,k}(\log \gamma + k \log \lambda - \lambda)
+        \right\}
+  \right).
+$$<p>Using the linearity of expectations, we rewrite the above to
+</p>
+$$
+Q(\vec{\theta} | \vec{\theta}^{(t)}) = E(n_{1,0}) \log \alpha +
+  \sum_{k=0}^{16} \left\{
+    E(n_{2,k})(\log \beta + k \log \mu - \mu) +
+    E(n_{3,k})(\log \gamma + k \log \lambda - \lambda) \right\}
+$$<p>
+given ${n_j}$ and $\theta^{(t)}$.</p>
+<p>Consider $E!\left(n_{2,k} | {n_j}, \theta^{(t)}\right)$.
+To solve this expectation, we must first derive the distribution of $n_{2,k}$.</p>
+<p>Suppose $x_j = k$, then probability that the $j$-th person belongs to group $2$ is given by
+</p>
+$$
+  \Pr(Z_j = 2 | x_j = k) = \Pr(Z_j = 2) \Pr(x_j = k | Z_j = 2) / \Pr(x_j = k).
+$$<p>
+We note that $\Pr(x_j = k)$ is equivalent to $\pi_k(\vec{\theta})$, $\Pr(Z_j = 2)$ is the definition of $\beta$, and $\Pr(x_j = k | Z_j = 2)$ is
+$f_{X_j|Z_j}(k | Z_j=2) = \mathrm{Poi}(k | \mu)$.</p>
+<p>Making the substitutions yields the result
+</p>
+$$
+  t_k(\vec{\theta}) = \Pr(Z_j = 2 | x_j = k) = \beta \mathrm{Poi}(k | \mu) / \pi_k(\vec{\theta}).
+$$<p>Assuming ${X_i}$ are i.i.d., observe that $k \neq 0$, the distribution of $n_{2,k}$ given $n_k$, $\theta^{(t)}$ is binomial distributed with a probability of success $t_k(\vec{\theta}^{(t)})$.
+Thus,
+</p>
+$$
+  E(n_{2,k}) = n_k t_k(\vec{\theta}^{(t)}).
+$$<p>
+The same logic holds for $n_{3,k}$ and $n_{1,0}$, and thus
+</p>
+$$
+  E(n_{3,k}) = n_k p_k(\vec{\theta}^{(t)})
+$$<p>
+and
+</p>
+$$
+  E(n_{1,0}) = n_0 z_0(\vec{\theta}^{(t)}),
+$$<p>
+which means
+</p>
+$$
+Q(\vec{\theta} | \vec{\theta}^{(t)}) = n_0 z_0(\vec{\theta}^{(t)}) \log \alpha +
+  \sum_{k=0}^{16} \left\{
+    n_k t_k(\vec{\theta}^{(t)})(\log \beta + k \log \mu - \mu) +
+    n_k p_k(\vec{\theta}^{(t)})(\log \gamma + k \log \lambda - \lambda) \right\}
+$$<h3 id="m-step-1">M-step</h3>
+<p>We wish to solve
+</p>
+$$
+  \vec{\theta}^{(t+1)} = \argmax_{\vec{\theta}} Q(\vec{\theta} | \vec{\theta}^{(t)}).
+$$<p>
+by solving
+</p>
+$$
+  \nabla Q(\vec{\theta} | \vec{\theta}^{(t)})\Bigr|_{\vec{\theta}=\vec{\theta}^{(t+1)}} = \vec{0}.
+$$<p>We use the Lagrangian to impose the restriction $\alpha + \beta + \gamma = 1$, thus we seek to perform the constrained maximization of
+</p>
+$$
+  Q_l(\vec{\theta},c | \vec{\theta}^{(t)}) = Q(\vec{\theta} | \vec{\theta}^{(t)}) + c(1-\alpha-\beta-\gamma).
+$$<p>Thus, when we solve for $\alpha$,
+</p>
+$$
+  \frac{\partial Q_l}{\partial \alpha} = \frac{n_0 z_0(\theta^{(t)})}{\alpha} - c = 0,
+$$<p>
+we get the result
+</p>
+$$
+  \alpha^{(t+1)} = \frac{1}{c} n_0 z_0(\theta^{(t)}).
+$$<p>Similar results hold for $\beta$ and $\gamma$, obtaining
+</p>
+$$
+  \beta^{(t+1)} = \frac{1}{c} \sum_{k=0}^{16} n_k t_k(\theta^{(t)}).
+$$<p>
+and
+</p>
+$$
+  \gamma^{(t+1)} = \frac{1}{c} \sum_{k=0}^{16} n_k p_k(\theta^{(t)}).
+$$<p>This does not look too promising until we realize that
+</p>
+$$
+  n_0 z_0(\theta^{(t)}) + \sum_{k=0}^{16} n_k t_k(\theta^{(t)}) + \sum_{k=0}^{16} n_k p_k(\theta^{(t)}) = N.
+$$<p>Thus, $c (\alpha^{(t)}+\beta^{(t)}+\gamma^{(t)}) = N$, which means $c = N$ since $\alpha^{(t)}+\beta^{(t)}+\gamma^{(t)} = 1$.
+Making this substitution obtains the result
+</p>
+$$
+\begin{align*}
+  \alpha^{(t+1)}    &= \frac{1}{N} n_0 z_0(\theta^{(t)})\\
+  \beta^{(t+1)}     &= \frac{1}{N} \sum_{k=0}^{16} n_k t_k(\theta^{(t)})\\
+  \gamma^{(t+1)}    &= \frac{1}{N} \sum_{k=0}^{16} n_k p_k(\theta^{(t)}).
+\end{align*}
+$$<p>Solving an estimator for $\mu$ at iteration $(t+1)$,
+</p>
+$$
+\begin{align*}
+  \frac{\partial Q_l}{\partial \mu}\biggr|_{\mu=\mu^{(t+1}} &= 0\\
+  \sum_{k=0}^{16} n_k t_k(\theta^{(t)})(k/\mu^{(t+1)}-1)           &= 0\\
+  \frac{1}{\mu^{(t+1)}} \sum_{k=0}^{16} n_k t_k(\theta^{(t)}) k    &= \sum_{k=0}^{16} n_k t_k(\theta^{(t)})\\
+  \mu^{(t+1)} &= \frac{\sum_{k=0}^{16} k n_k t_k(\theta^{(t)})}{\sum_{k=0}^{16} n_k t_k(\theta^{(t)})}.
+\end{align*}
+$$<p>The same derivation essentially follows for $\lambda$, and thus
+</p>
+$$
+  \lambda^{(t+1)} = \frac{\sum_{k=0}^{16} k n_k p_k(\theta^{(t)})}{\sum_{k=0}^{16} n_k p_k(\theta^{(t)})}.
+$$<h2 id="part-b-1">Part (b)</h2>
+<p>Estimate the parameters of the model, using the observed data.</p>
+<h3 id="solution-5">Solution</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># we observe n = (n0,n1,...,n16)</span>
+</span></span><span class="line"><span class="cl"><span class="n">ns</span> <span class="o">&lt;-</span> <span class="nf">c</span><span class="p">(</span><span class="m">379</span><span class="p">,</span><span class="m">299</span><span class="p">,</span><span class="m">222</span><span class="p">,</span><span class="m">145</span><span class="p">,</span><span class="m">109</span><span class="p">,</span><span class="m">95</span><span class="p">,</span><span class="m">73</span><span class="p">,</span><span class="m">59</span><span class="p">,</span><span class="m">45</span><span class="p">,</span><span class="m">30</span><span class="p">,</span><span class="m">24</span><span class="p">,</span><span class="m">12</span><span class="p">,</span><span class="m">4</span><span class="p">,</span><span class="m">2</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">N</span> <span class="o">&lt;-</span> <span class="nf">sum</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># theta := (alpha, beta, mu, lambda)&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># note that there is an implicit parameter gamma s.t.</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># alpha + beta + gamma = 1</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># the initial value assumes each category z, t, or p</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># is equally probable, and so we let</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#     (alpha^(0),beta^(0)) = (1/3,1/3)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># and mu^(0) and lambda^(0) are just arbitrarily chosen to be 2 and 3,</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># with the insight that group 3 is more risky than group 2.</span>
+</span></span><span class="line"><span class="cl"><span class="n">theta</span> <span class="o">&lt;-</span> <span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="o">/</span><span class="m">3</span><span class="p">,</span><span class="m">1</span><span class="o">/</span><span class="m">3</span><span class="p">,</span><span class="m">2</span><span class="p">,</span><span class="m">3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># theta := (alpha, beta, mu, lambda)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Pi</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">res</span> <span class="o">&lt;-</span> <span class="n">theta[1]</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">&lt;-</span> <span class="n">res</span> <span class="o">+</span> <span class="n">theta[2]</span> <span class="o">*</span> <span class="n">theta[3]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[3]</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">&lt;-</span> <span class="n">res</span> <span class="o">+</span> <span class="p">(</span><span class="m">1</span> <span class="o">-</span> <span class="n">theta[1]</span> <span class="o">-</span> <span class="n">theta[2]</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta[4]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[4]</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">res</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">z0</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta[1]</span> <span class="o">/</span> <span class="nf">Pi</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">t</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta[2]</span> <span class="o">*</span> <span class="n">theta[3]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[3]</span><span class="p">)</span> <span class="o">/</span> <span class="nf">Pi</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">p</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="m">1</span><span class="o">-</span><span class="n">theta[1]</span> <span class="o">-</span> <span class="n">theta[2]</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta[4]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[4]</span><span class="p">)</span> <span class="o">/</span> <span class="nf">Pi</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># update algorithm, based on EM algorithm</span>
+</span></span><span class="line"><span class="cl"><span class="n">update</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="c1"># note: n0 := ns[1] instead of ns[0] since R does not use zero-based indexes</span>
+</span></span><span class="line"><span class="cl">  <span class="n">alpha</span> <span class="o">&lt;-</span> <span class="n">ns[1]</span> <span class="o">*</span> <span class="nf">z0</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">N</span>
+</span></span><span class="line"><span class="cl">  <span class="n">beta</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu_num</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu_denom</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">lam_num</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="n">lam_denom</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">0</span><span class="o">:</span><span class="m">16</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ti</span> <span class="o">&lt;-</span> <span class="nf">t</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="kc">pi</span> <span class="o">&lt;-</span> <span class="nf">p</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">beta</span> <span class="o">&lt;-</span> <span class="n">beta</span> <span class="o">+</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="n">ti</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">mu_num</span> <span class="o">&lt;-</span> <span class="n">mu_num</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="n">ti</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mu_denom</span> <span class="o">&lt;-</span> <span class="n">mu_denom</span> <span class="o">+</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="n">ti</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">lam_num</span> <span class="o">&lt;-</span> <span class="n">lam_num</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="kc">pi</span>
+</span></span><span class="line"><span class="cl">    <span class="n">lam_denom</span> <span class="o">&lt;-</span> <span class="n">lam_denom</span> <span class="o">+</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="kc">pi</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">beta</span> <span class="o">&lt;-</span> <span class="n">beta</span> <span class="o">/</span> <span class="n">N</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu</span> <span class="o">&lt;-</span> <span class="n">mu_num</span> <span class="o">/</span> <span class="n">mu_denom</span>
+</span></span><span class="line"><span class="cl">  <span class="n">lam</span> <span class="o">&lt;-</span> <span class="n">lam_num</span> <span class="o">/</span> <span class="n">lam_denom</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="nf">c</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span><span class="n">beta</span><span class="p">,</span><span class="n">mu</span><span class="p">,</span><span class="n">lam</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">em</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">,</span><span class="n">steps</span><span class="o">=</span><span class="m">10000</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span><span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="n">steps</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">theta</span> <span class="o">=</span> <span class="nf">update</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">debug</span><span class="o">==</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="kr">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">%%</span> <span class="m">1000</span> <span class="o">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span> <span class="nf">cat</span><span class="p">(</span><span class="s">&#34;iteration =&#34;</span><span class="p">,</span><span class="n">i</span><span class="p">,</span><span class="s">&#34; theta = (&#34;</span><span class="p">,</span><span class="n">theta</span><span class="p">,</span><span class="s">&#34;)&#39;\n&#34;</span><span class="p">)</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># solution theta = (alpha, beta, mu, lambda)</span>
+</span></span><span class="line"><span class="cl"><span class="n">sol</span> <span class="o">&lt;-</span> <span class="nf">em</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">,</span><span class="m">10000</span><span class="p">,</span><span class="bp">T</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## iteration = 1000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 2000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 3000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 4000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 5000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 6000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 7000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 8000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 9000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 10000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span></code></pre></div><p>We see that the solution is $0.1221661, 0.5625419, 1.4674746, 5.9388889$.</p>
+<h2 id="part-c-1">Part (c)</h2>
+<p>Estimate the standard errors and pairwise correlations of your parameters, using any available method.</p>
+<h3 id="solution-6">Solution</h3>
+<p>We have chosen to use the Bootstrap method.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># ns = (379,299,222,145,109,95,73,59,45,30,24,12,4,2,0,1,1)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 379 responded 0 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 299 responded 1 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 222 responded 2 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ...</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 1 responded 16 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># to resample, we resample from the data set that includes each</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># persons response, as determined by ns.</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">&lt;-</span> <span class="kc">NULL</span>
+</span></span><span class="line"><span class="cl"><span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">ns</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">data</span> <span class="o">&lt;-</span> <span class="nf">append</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="nf">rep</span><span class="p">((</span><span class="n">i</span><span class="m">-1</span><span class="p">),</span><span class="n">ns[i]</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">make_into_counts</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">ns</span> <span class="o">&lt;-</span> <span class="kc">NULL</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">0</span><span class="o">:</span><span class="m">16</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ni</span> <span class="o">&lt;-</span> <span class="n">data[data</span> <span class="o">==</span> <span class="n">i]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">l</span> <span class="o">&lt;-</span><span class="nf">length</span><span class="p">(</span><span class="n">ni</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ns</span> <span class="o">&lt;-</span> <span class="nf">append</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span><span class="n">l</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="n">ns</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">m</span> <span class="o">&lt;-</span> <span class="m">1000</span> <span class="c1"># bootstrap replicates</span>
+</span></span><span class="line"><span class="cl"><span class="n">em_steps</span> <span class="o">&lt;-</span> <span class="m">100</span>
+</span></span><span class="line"><span class="cl"><span class="n">theta.bs</span> <span class="o">&lt;-</span> <span class="nf">em</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">,</span><span class="n">em_steps</span><span class="p">,</span><span class="bp">F</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">thetas</span> <span class="o">&lt;-</span> <span class="nf">rbind</span><span class="p">(</span><span class="n">theta.bs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">2</span><span class="o">:</span><span class="n">m</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">indices</span> <span class="o">&lt;-</span> <span class="nf">sample</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="n">N</span><span class="p">,</span><span class="n">replace</span><span class="o">=</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">resampled</span> <span class="o">&lt;-</span> <span class="nf">make_into_counts</span><span class="p">(</span><span class="n">data[indices]</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta.bs</span> <span class="o">&lt;-</span> <span class="nf">em</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">resampled</span><span class="p">,</span><span class="n">em_steps</span><span class="p">,</span><span class="bp">F</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">thetas</span> <span class="o">&lt;-</span> <span class="nf">rbind</span><span class="p">(</span><span class="n">thetas</span><span class="p">,</span><span class="n">theta.bs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">%%</span> <span class="m">100</span> <span class="o">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">cat</span><span class="p">(</span><span class="s">&#34;iteration &#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">print</span><span class="p">(</span><span class="nf">cov</span><span class="p">(</span><span class="n">thetas</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## iteration  100 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0004197254 -0.0001718468 0.0017266699 0.001591205
+</span></span><span class="line"><span class="cl">## [2,] -0.0001718468  0.0005295261 0.0002895402 0.001980314
+</span></span><span class="line"><span class="cl">## [3,]  0.0017266699  0.0002895402 0.0131179548 0.015108087
+</span></span><span class="line"><span class="cl">## [4,]  0.0015912053  0.0019803141 0.0151080872 0.047009875
+</span></span><span class="line"><span class="cl">## iteration  200 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]       [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003864557 -1.678292e-04 1.590662e-03 0.00154358
+</span></span><span class="line"><span class="cl">## [2,] -0.0001678292  4.671077e-04 9.764038e-05 0.00133111
+</span></span><span class="line"><span class="cl">## [3,]  0.0015906622  9.764038e-05 1.228480e-02 0.01297749
+</span></span><span class="line"><span class="cl">## [4,]  0.0015435804  1.331110e-03 1.297749e-02 0.03894848
+</span></span><span class="line"><span class="cl">## iteration  300 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003735625 -1.785107e-04 1.479671e-03 0.001351610
+</span></span><span class="line"><span class="cl">## [2,] -0.0001785107  4.678372e-04 6.137843e-06 0.001259075
+</span></span><span class="line"><span class="cl">## [3,]  0.0014796708  6.137843e-06 1.123608e-02 0.011748534
+</span></span><span class="line"><span class="cl">## [4,]  0.0013516098  1.259075e-03 1.174853e-02 0.036388361
+</span></span><span class="line"><span class="cl">## iteration  400 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003625489 -0.0001755464 0.0014276201 0.001221715
+</span></span><span class="line"><span class="cl">## [2,] -0.0001755464  0.0004540625 0.0000184334 0.001288138
+</span></span><span class="line"><span class="cl">## [3,]  0.0014276201  0.0000184334 0.0110764497 0.010780774
+</span></span><span class="line"><span class="cl">## [4,]  0.0012217155  0.0012881380 0.0107807741 0.034067537
+</span></span><span class="line"><span class="cl">## iteration  500 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003718052 -0.0001842823 0.0014502414 0.001310802
+</span></span><span class="line"><span class="cl">## [2,] -0.0001842823  0.0004847405 0.0001080019 0.001398247
+</span></span><span class="line"><span class="cl">## [3,]  0.0014502414  0.0001080019 0.0114792580 0.011828494
+</span></span><span class="line"><span class="cl">## [4,]  0.0013108018  0.0013982467 0.0118284941 0.036489243
+</span></span><span class="line"><span class="cl">## iteration  600 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003791435 -1.814512e-04 1.497719e-03 0.001364054
+</span></span><span class="line"><span class="cl">## [2,] -0.0001814512  4.674232e-04 7.293112e-05 0.001410218
+</span></span><span class="line"><span class="cl">## [3,]  0.0014977193  7.293112e-05 1.157800e-02 0.011903853
+</span></span><span class="line"><span class="cl">## [4,]  0.0013640538  1.410218e-03 1.190385e-02 0.037292937
+</span></span><span class="line"><span class="cl">## iteration  700 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003819013 -1.782221e-04 1.521678e-03 0.001410964
+</span></span><span class="line"><span class="cl">## [2,] -0.0001782221  4.546723e-04 8.545081e-05 0.001405131
+</span></span><span class="line"><span class="cl">## [3,]  0.0015216781  8.545081e-05 1.178236e-02 0.012322621
+</span></span><span class="line"><span class="cl">## [4,]  0.0014109640  1.405131e-03 1.232262e-02 0.037738946
+</span></span><span class="line"><span class="cl">## iteration  800 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003730646 -0.0001676221 0.0015068905 0.001443218
+</span></span><span class="line"><span class="cl">## [2,] -0.0001676221  0.0004405397 0.0001354924 0.001470624
+</span></span><span class="line"><span class="cl">## [3,]  0.0015068905  0.0001354924 0.0118808619 0.012889971
+</span></span><span class="line"><span class="cl">## [4,]  0.0014432180  0.0014706239 0.0128899710 0.038858338
+</span></span><span class="line"><span class="cl">## iteration  900 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003676784 -0.0001699529 0.0014571801 0.001358486
+</span></span><span class="line"><span class="cl">## [2,] -0.0001699529  0.0004554077 0.0001823193 0.001590474
+</span></span><span class="line"><span class="cl">## [3,]  0.0014571801  0.0001823193 0.0117524614 0.012790632
+</span></span><span class="line"><span class="cl">## [4,]  0.0013584862  0.0015904740 0.0127906324 0.039055305
+</span></span><span class="line"><span class="cl">## iteration  1000 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003697739 -0.0001652985 0.0014912066 0.001367237
+</span></span><span class="line"><span class="cl">## [2,] -0.0001652985  0.0004523873 0.0002111503 0.001638727
+</span></span><span class="line"><span class="cl">## [3,]  0.0014912066  0.0002111503 0.0120934727 0.013311533
+</span></span><span class="line"><span class="cl">## [4,]  0.0013672372  0.0016387267 0.0133115328 0.039376614
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">cov.bs</span> <span class="o">&lt;-</span> <span class="nf">cov</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cor.bs</span> <span class="o">&lt;-</span> <span class="nf">cor</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>
+</span></span></code></pre></div><p>The Bootstrap estimator of the covariance matrix is given by</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003697739 -0.0001652985 0.0014912066 0.001367237
+</span></span><span class="line"><span class="cl">## [2,] -0.0001652985  0.0004523873 0.0002111503 0.001638727
+</span></span><span class="line"><span class="cl">## [3,]  0.0014912066  0.0002111503 0.0120934727 0.013311533
+</span></span><span class="line"><span class="cl">## [4,]  0.0013672372  0.0016387267 0.0133115328 0.039376614
+</span></span></code></pre></div><p>and the correlation matrix is given by</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">##            [,1]        [,2]       [,3]      [,4]
+</span></span><span class="line"><span class="cl">## [1,]  1.0000000 -0.40415269 0.70517057 0.3583080
+</span></span><span class="line"><span class="cl">## [2,] -0.4041527  1.00000000 0.09027364 0.3882685
+</span></span><span class="line"><span class="cl">## [3,]  0.7051706  0.09027364 1.00000000 0.6100050
+</span></span><span class="line"><span class="cl">## [4,]  0.3583080  0.38826847 0.61000496 1.0000000
+</span></span></code></pre></div><p>Let&rsquo;s try using the Hessian of the observed information matrix.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">numDeriv</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">loglike</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">s</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span> <span class="p">(</span><span class="n">x</span> <span class="kr">in</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">s</span> <span class="o">&lt;-</span> <span class="n">s</span> <span class="o">+</span> <span class="nf">log</span><span class="p">(</span><span class="n">theta[1]</span><span class="o">*</span><span class="nf">as.numeric</span><span class="p">(</span><span class="n">x</span><span class="o">==</span><span class="m">0</span><span class="p">)</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">theta[2]</span><span class="o">*</span><span class="nf">dpois</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">theta[3]</span><span class="p">)</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="p">(</span><span class="m">1</span><span class="o">-</span><span class="n">theta[1]</span><span class="o">-</span><span class="n">theta[2]</span><span class="p">)</span><span class="o">*</span><span class="nf">dpois</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">theta[4]</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="n">s</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">mle</span> <span class="o">&lt;-</span> <span class="nf">c</span><span class="p">(</span><span class="m">0.1221661</span><span class="p">,</span><span class="m">0.5625419</span><span class="p">,</span><span class="m">1.4674746</span><span class="p">,</span><span class="m">5.9388889</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">solve</span><span class="p">(</span><span class="o">-</span><span class="nf">hessian</span><span class="p">(</span><span class="n">loglike</span><span class="p">,</span><span class="n">mle</span><span class="p">))</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003799048 -1.909698e-04 1.438556e-03 0.001184057
+</span></span><span class="line"><span class="cl">## [2,] -0.0001909698  4.657702e-04 7.132638e-05 0.001417409
+</span></span><span class="line"><span class="cl">## [3,]  0.0014385560  7.132638e-05 1.111722e-02 0.011376017
+</span></span><span class="line"><span class="cl">## [4,]  0.0011840568  1.417409e-03 1.137602e-02 0.034664940
+</span></span></code></pre></div>]]></content:encoded><category>statistics</category><category>R</category><category>computation</category><category>EM algorithm</category><category>statistical inference</category></item><item><title>Review: A Symbolic Representation of Time Series, with Implications for Streaming Algorithms</title><link>https://queelius.github.io/post/2012-02-04-sax/cs584_sax_review/</link><pubDate>Sat, 30 Oct 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2012-02-04-sax/cs584_sax_review/</guid><description>In [1], the authors present a method for constructing a symbolic (nominal) representation for real-valued time series data. A symbolic representation is desirable because then it becomes possible to use many of the effective algorithms that require symbolic representation, like hashing and Markov models.
+The authors claim that one of the most useful time series operations is measuring the similarity between two time series data sets. To do this on the original time series, the Euclidean distance …</description><content:encoded><![CDATA[<p>In [1], the authors present a method for constructing a symbolic (nominal) representation for real-valued time series data. A symbolic representation is desirable because then it becomes possible to use many of the effective algorithms that require symbolic representation, like hashing and Markov models.</p>
+<p>The authors claim that one of the most useful time series operations is measuring the similarity between two time series data sets. To do this on the original time series, the Euclidean distance formula can be used. Therefore, for a time series transformation to be useful, distance measures applied to the corresponding transformations should provide some guaranteed lower bound on the <code>true</code> distance. This is a basic requirement for almost all time series algorithms in data mining. Non-symbolic transformations like Discrete Fourier Transform (DFT) and Piecewise Aggregate Approximation (PAA) models have this lower-bounding property. However, the authors claim no previously proposed symbolic representations do, which limits their usefulness.</p>
+<p>Additionally, the authors observe that most raw time series data sets have very high dimensionality. This is problematic because time series mining algorithms are $\mathcal{O}(cn)$, where n is the number of dimensions. Therefore, preferably any transformations on the original time series will reduce the dimensionality to a more manageable size. Unfortunately, the authors observe, previously proposed symbolic representations preserve the original time series dimensionality.</p>
+<p>Next, the authors present their symbolic representation, SAX (Symbolic Aggregate approXimation), which addresses each of the previously mentioned shortcomings of symbolic representations.</p>
+<p>SAX is unique in that it uses an intermediate transformation, PAA, and then nominalizes the PAA representation into a sequence of characters&rsquo;a string. By using the intermediate PAA representation, SAX enjoys two benefits:</p>
+<ol>
+<li>
+<p>It is able to exploit the dimensionality reducing properties of PAA, and</p>
+</li>
+<li>
+<p>It provably lower bounds PAA, and PAA provably lower bounds the original time series. Therefore, through the transitivity relationship, SAX provably lower bounds the original time series.</p>
+</li>
+</ol>
+<p>Having the SAX representation offers many benefits in addition to those mentioned previously. For instance, when extracting subsequences of size $n$ from the original time series $T$, a sliding window approach can be used. However, this means $|T| - n + 1$ subsequences must be stored. When working with the SAX representation, however, the symbolic representation generalizes many subsequences such that many subsequences that were distinct in the original time series are identical in SAX. This allows one to compress the subsequence data using techniques like run-length encoding. This compressed form may be quite advantageous, especially if memory constraints are a factor.</p>
+<p>To transform a time series into SAX, first the time series must be transformed into PAA. Next, an additional discretizing transformation is applied on the PAA. This is done in such a way as to make each discrete symbol appear with an equal probability in the string. This can be easily done if we observe that the original normalized time series has a normal distribution, therefore we simply need to partition the possible values in a time series into $a$ intervals ($a$ represents the number of discrete symbols in our alphabet&ndash;larger values of a correspond to more granular approximations), where the range of values in each interval has an equal probability of occurring (thus, for example, the interval containing the mean will likely be relatively small). Determining where the intervals begin and end can be easily done, since the time series has a normal distribution. Once the intervals are calculated, the PAA can be discretized into a string of symbols, ${a, b, c, \ldots}$, by assigning symbol $a$ to PAA coefficients that fall within the first interval, symbol $b$ to PAA coefficients that fall within the second interval, and so on until every PAA coefficient has been discretized. At this point, the original time series has been transformed into SAX.</p>
+<p>To show that the SAX distance measures can be made to lower bound the original time series, the authors first demonstrate distance measure for the PAA, which is similar to the Euclidean distance formula:</p>
+$$
+    \operatorname{DR}(\bar{Q},\bar{C}) = \sqrt{\frac{n}{w} \sum_{i=1}^w (\bar{q}_i-\bar{c}_i )^2}.
+$$<p>$\operatorname{DR}$ lower bounds the Euclidean distance formula for the original time series, where $\bar{Q}$ and $\bar{C}$ represent the PAA transformation of time series $Q$ and $C$. With this formula in mind, next they present the distance formula for SAX:</p>
+$$
+    \operatorname{MIN\_DIST}(\bar{Q},\bar{C})=\sqrt{\frac{n}{w} \sum_{i=1}^w (\operatorname{dist}(\hat{q}_i-\hat{c}_i))^2}
+$$<p>The authors observe that the above two formulas are identical, except for the presence of the inner <code>dist</code> function. Since $\operatorname{dist}(\hat{q} - \hat{c})$ lower-bounds $\bar{q}_i-\bar{c}_i$, $\operatorname{MIN_DIST}$ must lower bound $\operatorname{DR}$. And, by transitivity relation, $\operatorname{MIN_DIST}$ therefore lower-bounds the distance measure for the original time series.</p>
+<p>The authors then go on to show how the dist function can be a fast table lookup, where the table is the cross product of the symbols ${a, b, \ldots}$. Each cell in the table represents the distance between the row symbol and the column symbol, and its value can be calculated with a straightforward formula.</p>
+<p>Next, the authors conduct a number of experiments to empirically test the validity and performance of SAX when compared to the traditional Euclidean distance formula (on the original time series data) and other representations.</p>
+<p>For instance, they show the experimental results generated with hierarchical clustering. The results reveal that the clusters generated from the SAX representation (using MINDIST as the distance measure) are the same as the clusters generated from the original time series (using the classical Euclidean distance formula). Other symbolic representations performed poor by comparison, and the authors stipulate that the superior performance of SAX can be attributed to the smoothing effect caused by dimensionality reduction.</p>
+<p>They discuss the results of other experiments as well. In each case, SAX performs comparatively well, and in some cases it does better than the Euclidian distance measure on the original time series.</p>
+<p>Next, the authors demonstrate the advantages of having a symbolic representation of a time series. For instance, motif discovery�looking for subsequences with the same general pattern�can be accomplished by hashing (which requires discrete data) subsequences into buckets using a random subset of the subsequence as the key, then searching through the buckets. Note that since SAX provides a symbolic representation, it tends to be resilient to noise (it is not over-fitted to the noise) because the discrete values smooth out most of the variations caused by noise.</p>
+<p>Finally, the authors present their conclusion. They emphasize that their experimental results demonstrate that SAX is competitive or superior to other approaches on a variety of classification and clustering problems. Furthermore, they point out that the symbolic nature of SAX opens it up to other domains, like motif discovery which cannot be done on real-valued data. They close with a few remarks on future directions to pursue with SAX; notably, they are curious to see how well other data mining algorithms (that require discrete representations) do when paired with SAX.</p>
+<h1 id="analysis-and-critique">Analysis and Critique</h1>
+<p>The symbolic nature of SAX opens up the possibility of using many fast and efficient algorithms and data structures (that require discrete representations) developed in other disciplines which are unavailable to real-valued representations, like PAA or FFT. However, SAX does so while still providing a lower bound on the distance measures of the original time series, unlike other symbolic representations discussed in the paper. This suggests that SAX is offering a reasonable approximation (to whatever degree is required) of the original time series, which gives us confidence in its results. SAX allows us to use its simplified, dimensionally reduced transformation in memory constrained environments, reasonably confident that the results acquired on its reduced data set will be applicable to the larger, original data set. Since time series data sets tend to be quite large, this advantage should not be overlooked.</p>
+<p>However, I would argue the more important properties of SAX have more to do with its symbolic nature and less to do with its dimensionally reduced form. Since it offers an �accurate� (according to the MINDIST lower bounding property) symbolic representation, it is able to effectively generalize the time series data points, permitting more sophisticated analysis of time series that is resilient to noise. For instance, the motif discovery algorithm, PROJECTION [2], is quite promising, and has applicability to a wide range of domains. This algorithm is only possible if the time series has been discretized as required by the hashing function.</p>
+<p>Unfortunately, in parts the paper was more difficult to read than it needed to be. This is, of course, not uncommon. While I feel I was able to understand their work, at times I had to take a second, third, or even fourth look at the text to adequately grasp the material presented. In some cases, simple fixes like providing better examples would have sufficed. For instance, in their paper, much of the discussion in Section 3 was about how to construct a symbolic representation of a time series. For much of the discussion, they used an alpha size of three (such that there were only three possible values that a data point could have, a, b, or c). However, the first time they illustrate the dist table (Table 4) for facilitating �distance� measures between symbolic pairs, they use an alphabet of size four. In particular, Figure 5 used an alphabet of size three, and it would have been convenient to be able to compare it to Table 4.</p>
+<p>Also, they do not adequately address many of the topics mentioned in their abstract and introduction. For instance, they mention streaming in the title of their paper, and throughout the abstract, but then barely mention it again throughout the remainder of the paper. I strongly believe that SAX is amenable to streaming algorithms, but the authors could have did a better job at demonstrating this.</p>
+<h1 id="conclusion">Conclusion</h1>
+<p>Overall, despite my criticisms, the paper effectively conveys the main thrust of their accomplishment, SAX, and how it can be put to use. Furthermore, the authors seem to be addressing a rather urgent need (in 2003 and even today), especially in light of the exponentially growing volume of time series data being generated. As the saying goes, we are increasingly data rich but information poor. Thus, we need more effective ways to analyze and find patterns in these huge data sets. The authors of [1] make a convincing case that SAX will help us towards this end.</p>
+<h1 id="references">References</h1>
+<p>[1] Ramakrishnan Srikant and Rakesh Agrawal. A Symbolic Representation of Time Series, with Implications for Streaming Algorithms. In Proceedings of the 8th ACM SIGMOD workshop on Research issues in data mining and knowledge discovery (2003), pp. 2-11.</p>
+<p>[2] Tompa, M. &amp; Buhler, J. (2001). Finding Motifs Using Random Projections. In proceedings of the 5th Intel Conference on Computational Molecular Biology. Montreal, Canada, Apr 22-25. pp. 67-74.</p>
+]]></content:encoded><category>statistics</category><category>time series</category><category>computation</category><category>symbolic</category><category>data mining</category></item><item><title>dfr.dist: Specify the Hazard Function Directly</title><link>https://queelius.github.io/post/2024-05-20-dfr.dist/</link><pubDate>Fri, 20 Aug 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-20-dfr.dist/</guid><description>Most survival analysis forces you to pick from a catalog—Weibull, exponential, log-normal. dfr.dist flips this: you specify the hazard function directly, and it handles all the math.
+The Core Insight Instead of choosing Weibull(shape, scale), you write:
+h &lt;- function(t, x) exp(b0 + b1*x + b2*t) # Your hazard function model &lt;- dfr_dist(hazard = h) The package computes survival functions, cumulative hazards, quantiles, and sampling—all from your custom hazard.
+Why This Matters 1. No Distributional …</description><content:encoded><![CDATA[<p>Most survival analysis forces you to pick from a catalog—Weibull, exponential, log-normal. <strong>dfr.dist</strong> flips this: you specify the <strong>hazard function directly</strong>, and it handles all the math.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Instead of choosing <code>Weibull(shape, scale)</code>, you write:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">h</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="nf">exp</span><span class="p">(</span><span class="n">b0</span> <span class="o">+</span> <span class="n">b1</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="n">b2</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>  <span class="c1"># Your hazard function</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">dfr_dist</span><span class="p">(</span><span class="n">hazard</span> <span class="o">=</span> <span class="n">h</span><span class="p">)</span>
+</span></span></code></pre></div><p>The package computes survival functions, cumulative hazards, quantiles, and sampling—all from your custom hazard.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>1. No Distributional Constraints</strong></p>
+<p>Want a bathtub curve? Multiple peaks? Time-varying effects? Just write the hazard function. No need to force reality into exponential/Weibull boxes.</p>
+<p><strong>2. Covariate Flexibility</strong></p>
+<p>Your hazard can depend on <strong>any</strong> covariates:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">h</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">age</span><span class="p">,</span> <span class="n">treatment</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">baseline</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="n">beta_age</span><span class="o">*</span><span class="n">age</span> <span class="o">+</span> <span class="n">beta_tx</span><span class="o">*</span><span class="n">treatment</span> <span class="o">+</span> <span class="n">gamma</span><span class="o">*</span><span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>3. Integrates with MLE Stack</strong></p>
+<p>Works seamlessly with <code>algebraic.mle</code> for parameter estimation and <code>likelihood.model</code> for likelihood contributions.</p>
+<h2 id="two-probabilistic-constraints">Two Probabilistic Constraints</h2>
+<p>Your hazard just needs to satisfy:</p>
+<ol>
+<li><strong>Non-negative</strong>: <code>h(t, x) ≥ 0</code> for all t, x</li>
+<li><strong>Eventual failure</strong>: cumulative hazard → ∞ as t → ∞</li>
+</ol>
+<p>That&rsquo;s it. The package handles the rest.</p>
+<h2 id="connection-to-my-thesis">Connection to My Thesis</h2>
+<p>This generalizes my thesis work on masked failure data—where I used Weibull/exponential distributions. With <code>dfr.dist</code>, you&rsquo;re not limited to parametric families. You specify the <strong>true</strong> failure mechanism, and the math adapts.</p>
+<p><strong>R package</strong> • Works with <code>algebraic.mle</code> • <a href="/latex/dfr.dist/">Documentation</a> • <a href="https://github.com/queelius/dfr_dist">GitHub</a></p>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>survival analysis</category><category>dynamic failure rate</category></item><item><title>algebraic.mle: The Foundation of a Statistical Inference Ecosystem</title><link>https://queelius.github.io/post/2024-05-15-algebraic.mle/</link><pubDate>Sat, 15 May 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-15-algebraic.mle/</guid><description>An R package treating MLEs as first-class algebraic objects with composable statistical properties.</description><content:encoded><![CDATA[<p>Maximum likelihood estimators have rich mathematical structure—they&rsquo;re consistent, asymptotically normal, efficient. <strong><a href="https://github.com/queelius/algebraic.mle">algebraic.mle</a></strong> exposes this structure through an algebra where MLEs are objects you compose, transform, and query.</p>
+<h2 id="the-core-abstraction">The Core Abstraction</h2>
+<p>An MLE isn&rsquo;t just parameter estimates—it&rsquo;s a <strong>statistical object</strong> carrying:</p>
+<ul>
+<li>Point estimates \(\hat{\theta}\)</li>
+<li>Fisher Information matrix \(I(\hat{\theta})\)</li>
+<li>Variance-covariance matrix \(I^{-1}(\hat{\theta})\)</li>
+<li>Confidence intervals (Wald-type from asymptotic normality)</li>
+<li>Log-likelihood value</li>
+<li>Convergence diagnostics</li>
+</ul>
+<p>The package wraps all of this in a consistent interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">algebraic.mle</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">likelihood_model</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">coef</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>           <span class="c1"># Parameter estimates</span>
+</span></span><span class="line"><span class="cl"><span class="nf">vcov</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>           <span class="c1"># Variance-covariance matrix</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>        <span class="c1"># Confidence intervals</span>
+</span></span><span class="line"><span class="cl"><span class="nf">logLik</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>         <span class="c1"># Log-likelihood</span>
+</span></span><span class="line"><span class="cl"><span class="nf">aic</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>            <span class="c1"># Model selection</span>
+</span></span></code></pre></div><h2 id="algebraic-operations">Algebraic Operations</h2>
+<p>The real power: <strong>MLEs compose</strong>. Independent models combine:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">fit1</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">model1</span><span class="p">,</span> <span class="n">data1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit2</span> <span class="o">&lt;-</span> <span class="nf">mle</span><span class="p">(</span><span class="n">model2</span><span class="p">,</span> <span class="n">data2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">&lt;-</span> <span class="n">fit1</span> <span class="o">+</span> <span class="n">fit2</span>  <span class="c1"># Joint likelihood</span>
+</span></span></code></pre></div><p>The package handles the algebra—joint log-likelihood, block-diagonal Fisher Information, everything propagates correctly.</p>
+<h2 id="the-ecosystem">The Ecosystem</h2>
+<p><code>algebraic.mle</code> is the foundation for a family of packages:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Package</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/projects/likelihood.model/">likelihood.model</a></td>
+          <td>Compositional likelihood specification</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td>Masked failure data in series systems</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/mdrelax/">mdrelax</a></td>
+          <td>Relaxed masking conditions</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/algebraic.dist/">algebraic.dist</a></td>
+          <td>Distributions as algebraic objects</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/dfr_dist/">dfr.dist</a></td>
+          <td>Dynamic failure rate distributions</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/hypothesize/">hypothesize</a></td>
+          <td>Likelihood ratio tests on MLEs</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/numerical.mle/">numerical.mle</a></td>
+          <td>Numerical optimization backends</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="how-they-connect">How They Connect</h3>
+<p>The flow typically looks like:</p>
+<ol>
+<li><strong>Define distributions</strong> with <code>algebraic.dist</code></li>
+<li><strong>Specify likelihood contributions</strong> with <code>likelihood.model</code></li>
+<li><strong>Fit the model</strong> → get an <code>mle</code> object from <code>algebraic.mle</code></li>
+<li><strong>Query statistical properties</strong>: CIs, hypothesis tests, model selection</li>
+</ol>
+<p>For series systems with masked data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">likelihood.model.series.md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">algebraic.mle</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Specify masking model (C1-C2-C3 conditions)</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">md_likelihood_model</span><span class="p">(</span><span class="n">components</span> <span class="o">=</span> <span class="m">3</span><span class="p">,</span> <span class="n">masking</span> <span class="o">=</span> <span class="s">&#34;bernoulli&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fit → returns algebraic.mle object</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">masked_data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># All the standard MLE methods work</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">vcov</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">aic</span><span class="p">(</span><span class="n">fit</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>The asymptotic properties that <code>algebraic.mle</code> exploits come from classical MLE theory:</p>
+$$\sqrt{n}(\hat{\theta}_n - \theta^*) \xrightarrow{d} \mathcal{N}(0, I^{-1}(\theta^*))$$<p>The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for exponential series systems—this is exactly what <code>algebraic.mle</code> uses internally for variance estimation in that case.</p>
+<p>For more complex models (Weibull, relaxed conditions), we compute Fisher Information numerically via observed information:</p>
+$$\hat{I}(\hat{\theta}) = -\frac{\partial^2 \ell}{\partial \theta \partial \theta^T}\bigg|_{\theta=\hat{\theta}}$$<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>Separation of concerns</strong>: The likelihood specification (<code>likelihood.model</code>) is independent of the fitting algorithm (<code>numerical.mle</code>) and the result type (<code>algebraic.mle</code>). You can swap optimizers without changing downstream code.</p>
+<p><strong>Correctness by construction</strong>: Standard errors, confidence intervals, and hypothesis tests are computed from the Fisher Information—not ad-hoc formulas. If your likelihood is correct, statistical inference follows automatically.</p>
+<p><strong>Composability</strong>: Build complex models from simpler ones. The algebra ensures properties propagate correctly.</p>
+<h2 id="connection-to-my-thesis">Connection to My Thesis</h2>
+<p>This package directly supports the work in my <a href="/publications/math-proj/">master&rsquo;s thesis</a> on reliability estimation in series systems. The bootstrap confidence intervals, likelihood ratio tests, and model selection all use <code>algebraic.mle</code> objects.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/algebraic.mle">github.com/queelius/algebraic.mle</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/algebraic.mle/">queelius.github.io/algebraic.mle</a></li>
+<li><strong>Related paper</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+<li><strong>Companion package</strong>: <a href="/projects/algebraic.dist/">algebraic.dist</a> (distributions as algebraic objects)</li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>maximum likelihood</category><category>algebra</category><category>Fisher information</category></item><item><title>algebraic.dist: Treating Distributions as First-Class Algebraic Objects in R</title><link>https://queelius.github.io/post/2024-05-01-algebraic.dist/</link><pubDate>Mon, 01 Feb 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-05-01-algebraic.dist/</guid><description>Most statistical software treats probability distributions as static parameter sets you pass to sampling or density functions. algebraic.dist takes a different approach: distributions are algebraic objects that compose, transform, and combine using standard mathematical operations.
+The Core Idea Instead of writing:
+x &lt;- rnorm(1000, mean=5, sd=2) y &lt;- rnorm(1000, mean=3, sd=1) z &lt;- x + y # Just numeric vectors You write:
+X &lt;- Normal(mean=5, sd=2) Y &lt;- Normal(mean=3, sd=1) Z &lt;- X + Y # A new …</description><content:encoded><![CDATA[<p>Most statistical software treats probability distributions as <strong>static parameter sets</strong> you pass to sampling or density functions. <code>algebraic.dist</code> takes a different approach: <strong>distributions are algebraic objects</strong> that compose, transform, and combine using standard mathematical operations.</p>
+<h2 id="the-core-idea">The Core Idea</h2>
+<p>Instead of writing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">x</span> <span class="o">&lt;-</span> <span class="nf">rnorm</span><span class="p">(</span><span class="m">1000</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="m">5</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">y</span> <span class="o">&lt;-</span> <span class="nf">rnorm</span><span class="p">(</span><span class="m">1000</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="m">3</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">z</span> <span class="o">&lt;-</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>  <span class="c1"># Just numeric vectors</span>
+</span></span></code></pre></div><p>You write:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">X</span> <span class="o">&lt;-</span> <span class="nf">Normal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="m">5</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Y</span> <span class="o">&lt;-</span> <span class="nf">Normal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="m">3</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Z</span> <span class="o">&lt;-</span> <span class="n">X</span> <span class="o">+</span> <span class="n">Y</span>  <span class="c1"># A new distribution object!</span>
+</span></span><span class="line"><span class="cl"><span class="nf">sample</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="m">1000</span><span class="p">)</span>
+</span></span></code></pre></div><p>The sum <code>Z</code> <strong>knows</strong> it&rsquo;s <code>Normal(mean=8, sd=sqrt(5))</code> because the algebra works it out.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p><strong>1. Correctness Through Type Safety</strong></p>
+<p>When you add two normal distributions numerically, you get samples from the sum. But you lose the <strong>distributional structure</strong>. With <code>algebraic.dist</code>, the result is still a distribution object with proper parameters.</p>
+<p><strong>2. Symbolic Computation Before Sampling</strong></p>
+<p>You can build complex distributional expressions and simplify them algebraically before ever drawing a sample:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">portfolio</span> <span class="o">&lt;-</span> <span class="m">0.6</span><span class="o">*</span><span class="n">StockA</span> <span class="o">+</span> <span class="m">0.4</span><span class="o">*</span><span class="n">StockB</span>
+</span></span><span class="line"><span class="cl"><span class="n">risk</span> <span class="o">&lt;-</span> <span class="nf">sd</span><span class="p">(</span><span class="n">portfolio</span><span class="p">)</span>  <span class="c1"># Computed symbolically</span>
+</span></span></code></pre></div><p><strong>3. Monte Carlo Without the Monte Carlo</strong></p>
+<p>For distributions with known closed-form algebra (normal, exponential, certain mixtures), you don&rsquo;t need simulation—you just compute the exact answer.</p>
+<h2 id="compositional-statistics">Compositional Statistics</h2>
+<p>This is <strong>functional programming for probability theory</strong>. Distributions become composable building blocks:</p>
+<ul>
+<li><strong>Mixture models</strong>: <code>0.3*Normal(0,1) + 0.7*Normal(5,2)</code></li>
+<li><strong>Transformed distributions</strong>: <code>exp(Normal(0,1))</code> is lognormal</li>
+<li><strong>Conditional distributions</strong>: <code>X | (X &gt; 0)</code> for truncation</li>
+</ul>
+<h2 id="connection-to-my-research">Connection to My Research</h2>
+<p>This package embodies a core theme in my work: <strong>computation should mirror mathematical structure</strong>.</p>
+<p>Just as my oblivious computing research uses type theory to enforce privacy invariants, <code>algebraic.dist</code> uses algebraic types to enforce <strong>distributional invariants</strong>. The algebra tells you what operations are valid and what the results mean.</p>
+<p><strong>Related projects</strong>:</p>
+<ul>
+<li><strong>algebraic.mle</strong>: Maximum likelihood estimation with algebraic specification</li>
+<li><strong>numerical.mle</strong>: Numerical optimization for MLE when closed forms don&rsquo;t exist</li>
+<li><strong>likelihood.model</strong>: Likelihood-based inference with compositional model building</li>
+</ul>
+<h2 id="technical-details">Technical Details</h2>
+<ul>
+<li><strong>Language</strong>: R</li>
+<li><strong>Type system</strong>: S3 classes with method dispatch for operations</li>
+<li><strong>Closed-form operations</strong>: Normal, exponential, gamma families</li>
+<li><strong>Fallback</strong>: Monte Carlo for complex compositions</li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/algebraic.dist">github.com/queelius/algebraic.dist</a></li>
+</ul>
+<h2 id="the-bigger-picture">The Bigger Picture</h2>
+<p>Most statistical software is <strong>imperative</strong>: you tell the computer what to do step-by-step. <code>algebraic.dist</code> is <strong>declarative</strong>: you describe the distributional relationships, and the computer figures out what to compute.</p>
+<p>This mirrors the Unix philosophy: small composable pieces that do one thing well. Here, the &ldquo;one thing&rdquo; is: <strong>preserve distributional structure through transformations</strong>.</p>
+]]></content:encoded><category>statistics</category><category>probability</category><category>distributions</category><category>R</category><category>functional programming</category><category>algebra</category></item></channel></rss>

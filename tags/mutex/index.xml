@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Mutex on metafunctor</title><link>https://queelius.github.io/tags/mutex/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/mutex/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Multiprocessor synchronization: tournament-Peterson lock</title><link>https://queelius.github.io/post/2012-03-05-tournament-lock/tournament_lock/</link><pubDate>Sat, 30 Oct 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2012-03-05-tournament-lock/tournament_lock/</guid><description>Multiprocessor synchronization is a notoriously tricky subject matter. Unlike with a single thread of execution, in a shared-resource system, where resources are shared among multiple independent processors, we must think very hard about how the critical sections where such shared resources are accessed.
+Definition: Peterson’s algorithm is a concurrent programming algorithm for mutual exclusion that allows two or more processes to share a single-use resource without conflict, using only shared …</description><content:encoded><![CDATA[<p>Multiprocessor synchronization is a notoriously tricky subject matter.
+Unlike with a single thread of execution, in a shared-resource system, where
+resources are shared among multiple independent processors, we must think very
+hard about how the critical sections where such shared resources are accessed.</p>
+<p>Definition: Peterson&rsquo;s algorithm is a concurrent programming algorithm for mutual
+exclusion that allows two or more processes to share a single-use resource without
+conflict, using only shared memory for communication.</p>
+<p>In this post, we generalize the result and provide a Java-based solution.</p>
+<h2 id="generalization-to-a-power-of-2-locks">Generalization to a power of 2 locks</h2>
+<p>A way to generalize the two-thread Peterson lock is to arrange a number
+of 2-thread Peterson locks in a binary tree.
+Suppose $n$ is a power of two.
+Each thread is assigned a leaf lock which it shares with one other thread.
+Each lock treats one thread as thread 0 and the other as thread 1.
+In the tree-lock’s acquire method, the thread acquires every two-thread Peterson
+lock from that thread&rsquo;s leaf to the root.
+The tree-lock’s release method for the tree-lock unlocks each of the 2-thread
+Peterson locks that thread has acquired, from the root back to its leaf. At any
+time, a thread can be delayed for a finite duration.
+(In other words, threads can take naps, or even vacations, but they do not drop
+dead.)</p>
+<p>Theorem: The tournament-Peterson lock guarantees mutual exclusion.</p>
+<p>Proof: $n$ threads require a tree structure with $n-1$ nodes, $n/2$ of which will be
+leaf nodes.
+Each node represents a 2-thread Peterson lock, and each leaf node may serve as
+the first Peterson lock for two particular threads.
+If thread $A$ acquires the lock for the leaf node, it will be promoted to the
+next layer in the tree (and if said leaf node had another thread $B$ trying to
+acquire the lock, it will remain there; the state of this leaf node will at
+this point be: <code>flag[B] = true</code>, <code>flag[A] = true</code>, and <code>victim = B</code>.
+Therefore, thread <code>B</code> will not be promoted to the next level until thread A sets
+<code>flag[A] = false</code> or <code>victim = A</code>. Other threads $C, D, \ldots$ may also be
+trying to acquire their respective leaf node locks.
+Regardless, only half of the $n$ threads can acquire their respective leaf
+node locks (since each Peterson lock ensures mutual exclusion) to be promoted
+to the next layer.
+We repeat this process for all
+</p>
+$$
+    \lceil \log_2 n/2\rceil = \lceil log_2 n – 1 \rceil
+$$<p>
+layers, after which point only one thread can remain.
+Therefore, the root node represents the final lock, for which only two other
+threads may acquire access to at any given moment.
+Of these two threads, the thread that acquires this final lock will have
+effectively acquired the actual lock.</p>
+<p>Since each node is mutually exclusive for two threads, and the tree structure
+only allows 2 threads to reach each node, then each subtree must ensure mutual
+exclusion to its root node. Therefore, the root of the entire tree must also
+ensure mutual exclusion. ∎</p>
+<p>Theorem: The tournament-Peterson lock guarantees freedom from deadlock.</p>
+<p>Proof: When a thread A releases a lock, for each of the nodes in its path from the
+root to its leaf node, it sets the flag variable for each Peterson lock
+corresponding to it (<code>A</code>) to false.
+Thus, for each node that it visited in its path, the other node that &ldquo;lost&rdquo;
+must be able to progress since it’s no longer the case that</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="w">    </span><span class="n">flag</span><span class="o">[</span><span class="n">A</span><span class="o">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">victim</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">~</span><span class="n">A</span><span class="w">
+</span></span></span></code></pre></div><p>is true, therefore each one must escape the while loop and therefore be promoted
+to the next level.
+Therefore, it must be deadlock free. ∎</p>
+<p>Theorem: The tournament-Peterson lock guarantees freedom from starvation.</p>
+<p>Proof: Starvation freedom guarantees deadlock freedom, but it is not the case that
+deadlock freedom guarantees starvation freedom.
+So, in answer (4b) above, while we may have shown that deadlock is not
+possible, have we shown that starvation is also not possible?
+No. So, let’s consider this case separately.
+For something to be starvation free, each thread trying to acquire a lock must
+eventually acquire the lock.
+We know that for starvation to happen, a thread
+must be bypassed forever.
+Each Peterson lock itself is starvation free, so it cannot happen at the level
+of a single node.
+Immediately, then, we see that it simply cannot happen: at each layer in the
+tree, the thread to arrive earlier (such that it is not the victim) must be
+promoted.
+Recursively, then, we see that each subtree is starvation free, therefore the
+entire tree is starvation free. ∎</p>
+<h2 id="tournament-peterson-lock">Tournament-Peterson Lock</h2>
+<p>Here is the source code solution.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-java" data-lang="java"><span class="line"><span class="cl"><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @title   Tournament-Peterson lock
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @author  Alex Towell (lex@metafunctor.com)
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @file    TournamentPeterson.java
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @since   1.6
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @date    2/8/2011
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @course  CS 590-002 Multiprocessor Synchronization
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @desc    Implementation of an n-thread lock using a binary tree of 2-thread
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *          Peterson locks. The number of threads the lock correctly works with
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *          must be specified upon Tournament lock instantiation.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @require Lock.java, Peterson.java, ThreadID.java
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @precondition
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *          each thread must have a ThreadID in the range of 0 to threads-1,
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *          where threads is an integer passed to the constructor.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @note    I modified the Peterson lock slightly so that its constructor
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *          accepts a single int parameter for determining the flag-thread
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *          mapping.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="kn">package</span><span class="w"> </span><span class="nn">TournamentPetersonLock</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Tournament tree lock.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * 
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Tournament tree of Peterson locks to provide mutually exclusive access to
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * a critical section for n threads.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * Each Peterson lock is a 2-thread lock, so the Tournament tree is a binary
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * tree of such locks which only permits one thread from each of its left and
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * right subtrees to pass to it.
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @note            the number of threads the lock correctly works with must be
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *                  specified upon construction of the Tournament lock
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @precondition    each thread using the Tournament tree must have a unique
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *                  thread ID in the range of [0, threads-1]
+</span></span></span><span class="line"><span class="cl"><span class="cm"> *
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @see Lock
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @see Peterson
+</span></span></span><span class="line"><span class="cl"><span class="cm"> * @see ThreadID
+</span></span></span><span class="line"><span class="cl"><span class="cm"> */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="kd">class</span> <span class="nc">Tournament</span><span class="w"> </span><span class="kd">implements</span><span class="w"> </span><span class="n">Lock</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Construct a Tournament lock for the specified number of threads.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param threads   the number of threads to configure the lock for
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="nf">Tournament</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">threads</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="na">threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">threads</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">this</span><span class="p">.</span><span class="na">locks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Peterson</span><span class="o">[</span><span class="n">threads</span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="c1">// note: root will be at index 1,</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                                            </span><span class="c1">// so locks array size is locks+1</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c1">// instantiate and configure each Peterson lock</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="n">createLocks</span><span class="p">(</span><span class="n">1</span><span class="p">,</span><span class="w"> </span><span class="n">threads</span><span class="o">/</span><span class="n">2</span><span class="p">,</span><span class="w"> </span><span class="n">threads</span><span class="o">/</span><span class="n">2</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Used by current thread to request a lock on a critical section protected
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * by this Tournament lock.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @precondition    thread does not have the lock
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @postcondition   thread acquired the lock
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">lock</span><span class="p">()</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c1">// start at the leaf node lock for current thread</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getLeafLock</span><span class="p">();</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c1">// root is index 1, so exit the while loop when index 0 (index of</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="c1">// unitialized node lock) is reached.</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">0</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">locks</span><span class="o">[</span><span class="n">index</span><span class="o">]</span><span class="p">.</span><span class="na">lock</span><span class="p">();</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">index</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="n">2</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Release a lock on a critical section (releases each of the Peterson
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * locks a thread acquired).
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @precondition    thread has the lock
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @postcondition   thread released the lock
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @see #unlock(int)
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">public</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">unlock</span><span class="p">()</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="n">unlock</span><span class="p">(</span><span class="n">getLeafLock</span><span class="p">());</span><span class="w"> </span><span class="c1">// call unlock(int) on leaf node for thread</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Private method helper for unlock().
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param index
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      unlock all nodes along the path from the root to the leaf node
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      corresponding to current thread
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">unlock</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">0</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">unlock</span><span class="p">(</span><span class="n">index</span><span class="o">/</span><span class="n">2</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">locks</span><span class="o">[</span><span class="n">index</span><span class="o">]</span><span class="p">.</span><span class="na">unlock</span><span class="p">();</span><span class="w"> </span><span class="c1">// post-order: unlock after recursive call</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">                                   </span><span class="c1">// to unlock from root down to leaf</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Private helper function that creates Peterson locks for subtree rooted
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * at specified index.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Each Peterson lock is created such that when a thread calls lock() or
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * unlock(), it will be assigned the correct flag index into each of the
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Peterson nodal locks of the Tournament tree.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @precondition    index &gt; 0
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @postcondition   every lock in the subtree rooted at index will be
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *                  configured correctly
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * 
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param index
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      subtree&#39;s rooted index (array-based binary tree) to create locks
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      for
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param lessThan
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      if a thread arrives at this lock node, any thread ID &lt; lessThan
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      will be assigned to index 0 in the Peterson lock flag array,
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      otherwise it will be assigned to index 1
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param size
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      the size of left or right subtree of parent at specified index
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">createLocks</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">lessThan</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">size</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">threads</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="c1">// instantiate Peterson lock at specified node</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">locks</span><span class="o">[</span><span class="n">index</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">Peterson</span><span class="p">(</span><span class="n">lessThan</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="c1">// instantiate the left and right subtrees of this node</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">size</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="n">2</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">createLocks</span><span class="p">(</span><span class="n">getLeftChild</span><span class="p">(</span><span class="n">index</span><span class="p">),</span><span class="w"> </span><span class="n">lessThan</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">            </span><span class="n">createLocks</span><span class="p">(</span><span class="n">getRightChild</span><span class="p">(</span><span class="n">index</span><span class="p">),</span><span class="w"> </span><span class="n">lessThan</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="p">);</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Returns the index of the leaf node for current thread.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * This private helper method will map a ThreadID to the proper leaf
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * node index in the Tournament tree of Peterson locks.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">getLeafLock</span><span class="p">()</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="n">threads</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">ThreadID</span><span class="p">.</span><span class="na">get</span><span class="p">())</span><span class="o">/</span><span class="n">2</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Returns the index of the left child node of the parent node at
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * specified index.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param index index of parent node
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @return int
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      index of left child node, note that if return value is &gt;= threads
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      then node at index is a leaf
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kd">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">getLeftChild</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">2</span><span class="o">*</span><span class="n">index</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Returns the index of the right child node of the parent node at
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * specified index.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @param index index of parent node.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @return int
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      index of right child node, note that if return value is &gt;= threads
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *      then node at index is a leaf
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kd">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">getRightChild</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">index</span><span class="p">)</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">2</span><span class="o">*</span><span class="n">index</span><span class="o">+</span><span class="n">1</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * Array of 2-thread Peterson locks.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @see Peterson
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="n">Peterson</span><span class="o">[]</span><span class="w"> </span><span class="n">locks</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="cm">/**
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * The number of threads constructed to work with.
+</span></span></span><span class="line"><span class="cl"><span class="cm">     *
+</span></span></span><span class="line"><span class="cl"><span class="cm">     * @see #Tournament(int)
+</span></span></span><span class="line"><span class="cl"><span class="cm">     */</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">private</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">threads</span><span class="p">;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">}</span><span class="w">
+</span></span></span></code></pre></div>]]></content:encoded><category>computer science</category><category>multiprocessor synchronization</category><category>mutex</category></item></channel></rss>

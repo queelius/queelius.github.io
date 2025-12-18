@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Concurrency on metafunctor</title><link>https://queelius.github.io/tags/concurrency/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/concurrency/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>ZeroIPC: Transforming Shared Memory into an Active Computational Substrate</title><link>https://queelius.github.io/post/2025-01-zeroipc/</link><pubDate>Mon, 06 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-01-zeroipc/</guid><description>ZeroIPC transforms shared memory from passive storage into an active computational substrate, enabling functional and reactive programming paradigms across process boundaries with zero-copy performance.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/zeroipc">ZeroIPC</a></strong> reimagines inter-process communication by treating shared memory not as passive storage, but as an <strong>active computational substrate</strong>. It brings modern programming abstractions—futures, lazy evaluation, reactive streams, and CSP-style channels—to IPC with zero-copy performance.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Traditional IPC systems treat shared memory as a bucket for data. You serialize, copy, deserialize. Even &ldquo;zero-copy&rdquo; systems are often just optimized data containers.</p>
+<p><strong>ZeroIPC asks a different question</strong>: What if shared memory could hold not just data, but <em>computation itself</em>?</p>
+<p>This shift enables:</p>
+<ul>
+<li><strong>Futures</strong> that represent computations in progress across processes</li>
+<li><strong>Lazy values</strong> that defer expensive work and share cached results</li>
+<li><strong>Reactive streams</strong> with functional operators (map, filter, fold)</li>
+<li><strong>CSP channels</strong> for Go-style structured concurrency</li>
+</ul>
+<p>All with <strong>zero serialization overhead</strong> and <strong>language independence</strong>.</p>
+<h2 id="design-philosophy">Design Philosophy</h2>
+<h3 id="1-minimal-metadata">1. Minimal Metadata</h3>
+<p>ZeroIPC stores only three pieces of information per structure:</p>
+<ul>
+<li><strong>Name</strong>: For discovery</li>
+<li><strong>Offset</strong>: Where data starts</li>
+<li><strong>Size</strong>: How much memory is allocated</li>
+</ul>
+<p>No type information. No schema. No versioning metadata.</p>
+<p>This enables true language independence—Python and C++ can both create, read, and write structures. Type safety is enforced per-language (C++ templates, Python NumPy dtypes).</p>
+<h3 id="2-language-equality">2. Language Equality</h3>
+<p>There&rsquo;s no &ldquo;primary&rdquo; language. All implementations are first-class:</p>
+<p><strong>C++ Producer:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;zeroipc/memory.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;zeroipc/array.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/sensor_data&#34;</span><span class="p">,</span> <span class="mi">10</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Array</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span> <span class="n">temps</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;temperature&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">temps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">23.5f</span><span class="p">;</span>
+</span></span></code></pre></div><p><strong>Python Consumer:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">zeroipc</span> <span class="kn">import</span> <span class="n">Memory</span><span class="p">,</span> <span class="n">Array</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mem</span> <span class="o">=</span> <span class="n">Memory</span><span class="p">(</span><span class="s2">&#34;/sensor_data&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">temps</span> <span class="o">=</span> <span class="n">Array</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s2">&#34;temperature&#34;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">temps</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># 23.5</span>
+</span></span></code></pre></div><p>Same binary format. No bindings. No FFI. Pure implementations following the same <a href="https://github.com/queelius/zeroipc/blob/master/SPECIFICATION.md">specification</a>.</p>
+<h3 id="3-zero-dependencies">3. Zero Dependencies</h3>
+<p>Each implementation stands alone:</p>
+<ul>
+<li><strong>C</strong>: Pure C99, POSIX only</li>
+<li><strong>C++</strong>: Header-only, C++23</li>
+<li><strong>Python</strong>: Pure Python with NumPy</li>
+</ul>
+<p>No protobuf. No serialization libraries. Just direct memory access.</p>
+<h2 id="traditional-data-structures">Traditional Data Structures</h2>
+<p>ZeroIPC provides lock-free implementations of standard structures:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Structure</th>
+          <th>Description</th>
+          <th>Concurrency</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Array</strong></td>
+          <td>Fixed-size contiguous storage</td>
+          <td>Atomic operations</td>
+      </tr>
+      <tr>
+          <td><strong>Queue</strong></td>
+          <td>Circular MPMC buffer</td>
+          <td>Lock-free CAS</td>
+      </tr>
+      <tr>
+          <td><strong>Stack</strong></td>
+          <td>LIFO with ABA prevention</td>
+          <td>Lock-free CAS</td>
+      </tr>
+      <tr>
+          <td><strong>Map</strong></td>
+          <td>Hash map with linear probing</td>
+          <td>Lock-free</td>
+      </tr>
+      <tr>
+          <td><strong>Set</strong></td>
+          <td>Hash set for unique elements</td>
+          <td>Lock-free</td>
+      </tr>
+      <tr>
+          <td><strong>Pool</strong></td>
+          <td>Object pool with free list</td>
+          <td>Lock-free</td>
+      </tr>
+      <tr>
+          <td><strong>Ring</strong></td>
+          <td>High-performance streaming</td>
+          <td>Lock-free</td>
+      </tr>
+  </tbody>
+</table>
+<p>These are the foundation. The interesting part is what comes next.</p>
+<h2 id="codata-computation-as-first-class-structure">Codata: Computation as First-Class Structure</h2>
+<h3 id="data-vs-codata">Data vs Codata</h3>
+<p><strong>Data structures</strong> answer &ldquo;what values are stored?&rdquo;</p>
+<ul>
+<li>Array: collection of values</li>
+<li>Map: key-value associations</li>
+<li>Queue: FIFO buffer</li>
+</ul>
+<p><strong>Codata structures</strong> answer &ldquo;how are values computed?&rdquo;</p>
+<ul>
+<li>Future: value that will exist</li>
+<li>Lazy: computation deferred</li>
+<li>Stream: potentially infinite sequence</li>
+<li>Channel: communication process</li>
+</ul>
+<p>ZeroIPC is one of the first IPC systems to treat codata as first-class.</p>
+<h2 id="the-four-pillars-of-codata">The Four Pillars of Codata</h2>
+<h3 id="1-future-asynchronous-results">1. Future<T>: Asynchronous Results</h3>
+<p>Cross-process async/await:</p>
+<p><strong>Process A - Computation:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/compute&#34;</span><span class="p">,</span> <span class="mi">10</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Future</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">result</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;expensive_calc&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Perform expensive computation
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">value</span> <span class="o">=</span> <span class="n">run_simulation</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span><span class="p">.</span><span class="n">set_value</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+</span></span></code></pre></div><p><strong>Process B - Waiting:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/compute&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Future</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">result</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;expensive_calc&#34;</span><span class="p">,</span> <span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Wait with timeout
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">value</span> <span class="o">=</span> <span class="n">result</span><span class="p">.</span><span class="n">get_for</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">seconds</span><span class="p">(</span><span class="mi">5</span><span class="p">)))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process_result</span><span class="p">(</span><span class="o">*</span><span class="n">value</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">handle_timeout</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Mathematical model</strong>: \(\text{Future}\langle T \rangle \approx \text{Time} \to \text{Option}\langle T \rangle\)</p>
+<p><strong>Key properties</strong>:</p>
+<ul>
+<li>Single assignment (immutable once set)</li>
+<li>Multiple readers (many processes can wait)</li>
+<li>Error propagation (can set error state)</li>
+<li>Timeout support (prevent indefinite blocking)</li>
+</ul>
+<h3 id="2-lazy-deferred-computation-with-memoization">2. Lazy<T>: Deferred Computation with Memoization</h3>
+<p>Expensive computations cached and shared:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Process A: Define computation (not executed yet!)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/cache&#34;</span><span class="p">,</span> <span class="mi">50</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Lazy</span><span class="o">&lt;</span><span class="n">Matrix</span><span class="o">&gt;</span> <span class="n">inverse</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;matrix_inverse&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">inverse</span><span class="p">.</span><span class="n">set_computation</span><span class="p">([</span><span class="o">&amp;</span><span class="n">original</span><span class="p">]()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">compute_inverse</span><span class="p">(</span><span class="n">original</span><span class="p">);</span>  <span class="c1">// Expensive!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Process B: First access triggers computation
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">zeroipc</span><span class="o">::</span><span class="n">Lazy</span><span class="o">&lt;</span><span class="n">Matrix</span><span class="o">&gt;</span> <span class="n">inverse</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;matrix_inverse&#34;</span><span class="p">,</span> <span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">Matrix</span> <span class="n">m</span> <span class="o">=</span> <span class="n">inverse</span><span class="p">.</span><span class="n">get</span><span class="p">();</span>  <span class="c1">// Computes and caches
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Process C: Gets cached result instantly
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">Matrix</span> <span class="n">m2</span> <span class="o">=</span> <span class="n">inverse</span><span class="p">.</span><span class="n">get</span><span class="p">();</span>  <span class="c1">// Returns immediately
+</span></span></span></code></pre></div><p><strong>Mathematical model</strong>: \(\text{Lazy}\langle T \rangle \approx () \to T \text{ with memoization}\)</p>
+<p><strong>Use cases</strong>:</p>
+<ul>
+<li>Configuration values from complex logic</li>
+<li>Shared computation results across processes</li>
+<li>Derived data that might not be needed</li>
+</ul>
+<h3 id="3-stream-reactive-data-flows">3. Stream<T>: Reactive Data Flows</h3>
+<p>Functional reactive programming across processes:</p>
+<p><strong>Process A - Sensor Data:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/sensors&#34;</span><span class="p">,</span> <span class="mi">10</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Stream</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">temperature</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;temp_stream&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="n">running</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">temp</span> <span class="o">=</span> <span class="n">read_sensor</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">temperature</span><span class="p">.</span><span class="n">emit</span><span class="p">(</span><span class="n">temp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">this_thread</span><span class="o">::</span><span class="n">sleep_for</span><span class="p">(</span><span class="mi">100</span><span class="n">ms</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Process B - Stream Processing Pipeline:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/sensors&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Stream</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">temperature</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;temp_stream&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Functional transformation pipeline
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">fahrenheit</span> <span class="o">=</span> <span class="n">temperature</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;temp_f&#34;</span><span class="p">,</span> <span class="p">[](</span><span class="kt">double</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">9</span><span class="o">/</span><span class="mi">5</span> <span class="o">+</span> <span class="mi">32</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">});</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">warnings</span> <span class="o">=</span> <span class="n">fahrenheit</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">filter</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;warnings&#34;</span><span class="p">,</span> <span class="p">[](</span><span class="kt">double</span> <span class="n">f</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">100.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">})</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">window</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;5min&#34;</span><span class="p">,</span> <span class="mi">5</span><span class="n">min</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;avg&#34;</span><span class="p">,</span> <span class="p">[](</span><span class="k">auto</span> <span class="n">window</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">accumulate</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">window</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span> <span class="mf">0.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">               <span class="o">/</span> <span class="n">window</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">});</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">warnings</span><span class="p">.</span><span class="n">subscribe</span><span class="p">([](</span><span class="kt">double</span> <span class="n">avg_high_temp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">avg_high_temp</span> <span class="o">&gt;</span> <span class="mf">105.0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">trigger_emergency_cooling</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">});</span>
+</span></span></code></pre></div><p><strong>Stream operators</strong>:</p>
+<ul>
+<li><code>map</code>: Transform each element</li>
+<li><code>filter</code>: Keep matching elements</li>
+<li><code>fold</code>: Reduce to single value</li>
+<li><code>take</code>/<code>skip</code>: Limit/offset</li>
+<li><code>window</code>: Group into time/count windows</li>
+<li><code>merge</code>/<code>zip</code>: Combine streams</li>
+</ul>
+<p><strong>Mathematical model</strong>: \(\text{Stream}\langle T \rangle \approx \text{Time} \to \text{List}\langle T \rangle\)</p>
+<p><strong>Key properties</strong>:</p>
+<ul>
+<li>Backpressure (ring buffer prevents overwhelming consumers)</li>
+<li>Multi-cast (multiple consumers on same stream)</li>
+<li>Composable (operators chain functionally)</li>
+<li>Lazy subscription (processing only with subscribers)</li>
+</ul>
+<h3 id="4-channel-csp-style-communication">4. Channel<T>: CSP-Style Communication</h3>
+<p>Go-style channels for structured concurrency:</p>
+<p><strong>Worker Pool Pattern:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Memory</span> <span class="n">mem</span><span class="p">(</span><span class="s">&#34;/workers&#34;</span><span class="p">,</span> <span class="mi">50</span><span class="o">*</span><span class="mi">1024</span><span class="o">*</span><span class="mi">1024</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Buffered channels
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">zeroipc</span><span class="o">::</span><span class="n">Channel</span><span class="o">&lt;</span><span class="n">Task</span><span class="o">&gt;</span> <span class="n">tasks</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;task_queue&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeroipc</span><span class="o">::</span><span class="n">Channel</span><span class="o">&lt;</span><span class="n">Result</span><span class="o">&gt;</span> <span class="n">results</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;results&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Dispatcher process
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="nl">task</span> <span class="p">:</span> <span class="n">work_items</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tasks</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">task</span><span class="p">);</span>  <span class="c1">// Blocks if buffer full
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">tasks</span><span class="p">.</span><span class="n">close</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Worker processes (multiple instances)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">while</span> <span class="p">(</span><span class="k">auto</span> <span class="n">task</span> <span class="o">=</span> <span class="n">tasks</span><span class="p">.</span><span class="n">receive</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Result</span> <span class="n">r</span> <span class="o">=</span> <span class="n">process_task</span><span class="p">(</span><span class="o">*</span><span class="n">task</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">results</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Aggregator process
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Result</span><span class="o">&gt;</span> <span class="n">all_results</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">results</span><span class="p">.</span><span class="n">receive</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">all_results</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Channel types</strong>:</p>
+<ul>
+<li><strong>Unbuffered</strong>: Synchronous rendezvous</li>
+<li><strong>Buffered</strong>: Asynchronous up to capacity</li>
+<li><strong>Closing</strong>: Signal no more values</li>
+</ul>
+<p><strong>Mathematical model</strong>: \(\text{Channel}\langle T \rangle \approx \text{Process communication primitive}\)</p>
+<h2 id="real-world-applications">Real-World Applications</h2>
+<h3 id="high-frequency-trading">High-Frequency Trading</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">Stream</span><span class="o">&lt;</span><span class="n">MarketData</span><span class="o">&gt;</span> <span class="n">quotes</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;quotes&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">signals</span> <span class="o">=</span> <span class="n">quotes</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">window</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;1min&#34;</span><span class="p">,</span> <span class="n">duration</span><span class="p">(</span><span class="mi">1</span><span class="n">min</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;vwap&#34;</span><span class="p">,</span> <span class="n">calculate_vwap</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">filter</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;triggers&#34;</span><span class="p">,</span> <span class="n">is_trade_signal</span><span class="p">);</span>
+</span></span></code></pre></div><h3 id="iot-data-pipeline">IoT Data Pipeline</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">Stream</span><span class="o">&lt;</span><span class="n">SensorData</span><span class="o">&gt;</span> <span class="n">raw</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;raw_sensor&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">processed</span> <span class="o">=</span> <span class="n">raw</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">filter</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;valid&#34;</span><span class="p">,</span> <span class="n">validate</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;normalized&#34;</span><span class="p">,</span> <span class="n">normalize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">window</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;5min&#34;</span><span class="p">,</span> <span class="mi">5</span><span class="n">min</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;aggregated&#34;</span><span class="p">,</span> <span class="n">aggregate</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">.</span><span class="n">foreach</span><span class="p">(</span><span class="n">store_to_database</span><span class="p">);</span>
+</span></span></code></pre></div><h3 id="distributed-simulation">Distributed Simulation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">Future</span><span class="o">&lt;</span><span class="n">State</span><span class="o">&gt;</span> <span class="n">states</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">states</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">Future</span><span class="o">&lt;</span><span class="n">State</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;state_&#34;</span> <span class="o">+</span> <span class="n">std</span><span class="o">::</span><span class="n">to_string</span><span class="p">(</span><span class="n">i</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">final_state</span> <span class="o">=</span> <span class="n">Future</span><span class="o">&lt;</span><span class="n">State</span><span class="o">&gt;::</span><span class="n">all</span><span class="p">(</span><span class="n">states</span><span class="p">).</span><span class="n">map</span><span class="p">(</span><span class="n">combine_states</span><span class="p">);</span>
+</span></span></code></pre></div><h2 id="binary-format-specification">Binary Format Specification</h2>
+<p>The magic behind language independence is a <a href="https://github.com/queelius/zeroipc/blob/master/SPECIFICATION.md">simple binary format</a>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">[Table Header][Table Entries][Structure 1][Structure 2]...
+</span></span></code></pre></div><p><strong>Table Header (16 bytes)</strong>:</p>
+<ul>
+<li>Magic number: <code>0x5A49504D</code> (&lsquo;ZIPM&rsquo;)</li>
+<li>Version: Currently 1</li>
+<li>Entry count: Active entries</li>
+<li>Next offset: Allocation pointer</li>
+</ul>
+<p><strong>Table Entry (40 bytes)</strong>:</p>
+<ul>
+<li>Name: 32 bytes (null-terminated)</li>
+<li>Offset: 4 bytes</li>
+<li>Size: 4 bytes</li>
+</ul>
+<p><strong>Data structures</strong>: Raw binary, layout determined by structure type</p>
+<p>All implementations follow this spec exactly. Cross-language tests verify compatibility.</p>
+<h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<h3 id="category-theory-perspective">Category Theory Perspective</h3>
+<p>In category theory, data and codata are <strong>dual concepts</strong>:</p>
+<p><strong>Data</strong>: Initial algebras (constructed bottom-up)</p>
+<ul>
+<li>Built from constructors</li>
+<li>Pattern matching for destruction</li>
+<li>Example: <code>List = Nil | Cons(head, tail)</code></li>
+</ul>
+<p><strong>Codata</strong>: Final coalgebras (defined by observations)</p>
+<ul>
+<li>Defined by projections</li>
+<li>Copattern matching for construction</li>
+<li>Example: <code>Stream = {head: T, tail: Stream&lt;T&gt;}</code></li>
+</ul>
+<h3 id="coinduction">Coinduction</h3>
+<p>Streams demonstrate <strong>coinduction</strong>—defining infinite structures by observations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Infinite stream of Fibonacci numbers
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">Stream</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">fibonacci</span><span class="p">(</span><span class="n">Memory</span><span class="o">&amp;</span> <span class="n">mem</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">Stream</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">unfold</span><span class="p">(</span><span class="n">mem</span><span class="p">,</span> <span class="s">&#34;fib&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[](</span><span class="k">auto</span> <span class="n">state</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">auto</span> <span class="p">[</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="p">{</span><span class="n">a</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="p">{</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">}};</span>
+</span></span><span class="line"><span class="cl">        <span class="p">});</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="performance">Performance</h2>
+<ul>
+<li><strong>Array Access</strong>: Identical to native arrays (zero overhead)</li>
+<li><strong>Queue Operations</strong>: Lock-free with atomic CAS</li>
+<li><strong>Memory Allocation</strong>: O(1) bump allocation</li>
+<li><strong>Discovery</strong>: O(n) where n ≤ max_entries</li>
+<li><strong>Stream Processing</strong>: Backpressure prevents memory bloat</li>
+</ul>
+<h2 id="cli-tools">CLI Tools</h2>
+<p>The <code>zeroipc-inspect</code> tool provides comprehensive debugging:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># List all shared memory segments</span>
+</span></span><span class="line"><span class="cl">zeroipc-inspect list
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Show detailed information</span>
+</span></span><span class="line"><span class="cl">zeroipc-inspect show /sensor_data
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Monitor stream in real-time</span>
+</span></span><span class="line"><span class="cl">zeroipc-inspect monitor /sensors temperature_stream
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Dump raw memory</span>
+</span></span><span class="line"><span class="cl">zeroipc-inspect dump /compute --offset <span class="m">0</span> --size <span class="m">1024</span>
+</span></span></code></pre></div><h2 id="comparison-with-traditional-ipc">Comparison with Traditional IPC</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>Traditional IPC</th>
+          <th>ZeroIPC</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Model</strong></td>
+          <td>Message passing</td>
+          <td>Computational substrate</td>
+      </tr>
+      <tr>
+          <td><strong>Coupling</strong></td>
+          <td>Tight (sender/receiver)</td>
+          <td>Loose (producer/consumer)</td>
+      </tr>
+      <tr>
+          <td><strong>Timing</strong></td>
+          <td>Synchronous</td>
+          <td>Asynchronous/Reactive</td>
+      </tr>
+      <tr>
+          <td><strong>Composition</strong></td>
+          <td>Manual</td>
+          <td>Functional operators</td>
+      </tr>
+      <tr>
+          <td><strong>Patterns</strong></td>
+          <td>Request-response</td>
+          <td>Streams, futures, lazy</td>
+      </tr>
+      <tr>
+          <td><strong>Overhead</strong></td>
+          <td>Serialization</td>
+          <td>Zero-copy</td>
+      </tr>
+      <tr>
+          <td><strong>Types</strong></td>
+          <td>Schema-based</td>
+          <td>Duck typing / templates</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="what-zeroipc-is-good-for">What ZeroIPC Is Good For</h2>
+<p>✅ High-frequency sensor data sharing
+✅ Multi-process simulations
+✅ Real-time analytics pipelines
+✅ Cross-language scientific computing
+✅ Reactive event processing
+✅ Zero-copy producer-consumer patterns</p>
+<h2 id="what-zeroipc-is-not-for">What ZeroIPC Is Not For</h2>
+<p>❌ General-purpose memory allocation
+❌ Network-distributed systems
+❌ Persistent storage
+❌ Garbage collection</p>
+<h2 id="implementation-languages">Implementation Languages</h2>
+<h3 id="c-implementation-c">C Implementation (c/)</h3>
+<ul>
+<li>Pure C99 for portability</li>
+<li>Zero dependencies beyond POSIX</li>
+<li>Static library (<code>libzeroipc.a</code>)</li>
+<li>Minimal overhead</li>
+</ul>
+<h3 id="c-implementation-cpp">C++ Implementation (cpp/)</h3>
+<ul>
+<li>Template-based zero overhead</li>
+<li>Header-only library</li>
+<li>Modern C++23 features</li>
+<li>RAII resource management</li>
+</ul>
+<h3 id="python-implementation-python">Python Implementation (python/)</h3>
+<ul>
+<li>Pure Python, no compilation</li>
+<li>NumPy integration</li>
+<li>Duck typing flexibility</li>
+<li>mmap for direct memory access</li>
+</ul>
+<h2 id="cross-language-testing">Cross-Language Testing</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># C++ writes, Python reads</span>
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> interop <span class="o">&amp;&amp;</span> ./test_interop.sh
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Python writes, C++ reads</span>
+</span></span><span class="line"><span class="cl">./test_reverse_interop.sh
+</span></span></code></pre></div><p>All tests verify binary compatibility between implementations.</p>
+<h2 id="future-explorations">Future Explorations</h2>
+<p>The boundary between data and code continues to blur:</p>
+<ul>
+<li><strong>Persistent Data Structures</strong>: Immutable structures with structural sharing</li>
+<li><strong>Software Transactional Memory</strong>: ACID transactions in shared memory</li>
+<li><strong>Dataflow Programming</strong>: Computational graphs in shared memory</li>
+<li><strong>Actors</strong>: Message-passing actors with mailboxes</li>
+<li><strong>Continuations</strong>: Suspended computations for coroutines</li>
+</ul>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>ZeroIPC demonstrates that shared memory can be more than a data bucket. By treating <strong>computation as a first-class structure</strong>, we unlock patterns impossible in traditional IPC:</p>
+<ul>
+<li>Functional reactive programming across processes</li>
+<li>Lazy evaluation shared between languages</li>
+<li>Async/await without serialization</li>
+<li>CSP concurrency primitives in shared memory</li>
+</ul>
+<p>The key insight: <strong>Computation itself becomes structure</strong>.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/zeroipc">github.com/queelius/zeroipc</a></li>
+<li><strong>Binary Spec</strong>: <a href="https://github.com/queelius/zeroipc/blob/master/SPECIFICATION.md">SPECIFICATION.md</a></li>
+<li><strong>Codata Guide</strong>: <a href="https://github.com/queelius/zeroipc/blob/master/docs/codata_guide.md">docs/codata_guide.md</a></li>
+<li><strong>API Reference</strong>: <a href="https://github.com/queelius/zeroipc/blob/master/docs/api_reference.md">docs/api_reference.md</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+<hr>
+<p><em>Interested in IPC, functional programming, or systems design? ZeroIPC is actively developed and contributions are welcome. The project explores how far we can push modern programming abstractions into the traditionally low-level world of inter-process communication.</em></p>
+]]></content:encoded><category>C++</category><category>Python</category><category>IPC</category><category>shared-memory</category><category>zero-copy</category><category>functional-programming</category><category>reactive-programming</category><category>codata</category><category>concurrency</category><category>lock-free</category><category>systems-programming</category></item></channel></rss>

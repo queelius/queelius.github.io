@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Kolmogorov-Complexity on metafunctor</title><link>https://queelius.github.io/tags/kolmogorov-complexity/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/kolmogorov-complexity/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>The Beautiful Deception: How 256 Bits Pretend to be Infinity</title><link>https://queelius.github.io/post/2024-07-01-beautiful-deception/</link><pubDate>Mon, 01 Jul 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-07-01-beautiful-deception/</guid><description>How do you store infinity in 256 bits? An exploration of the fundamental deception at the heart of cryptography: using finite information to simulate infinite randomness.</description><content:encoded><![CDATA[<p><strong>How do you store infinity in 256 bits?</strong></p>
+<p>This paper explores a fundamental paradox in cryptography: cryptographic theory assumes random oracles that produce infinite sequences of random bits, yet we only have computers with finite memory. The answer? We can&rsquo;t implement true random oracles. Instead, we create an elaborate and beautiful deception.</p>
+<h2 id="the-impossible-oracle">The Impossible Oracle</h2>
+<p>Random oracles are functions that map any input to an infinite sequence of perfectly random bits. But trying to implement one (<code>OracleDigest</code>) fails catastrophically:</p>
+<ol>
+<li><strong>Memory Unboundedness</strong>: Each new query exhausts memory</li>
+<li><strong>Non-Serializability</strong>: Cannot save/restore state</li>
+<li><strong>Non-Reproducibility</strong>: Each instance generates different values</li>
+<li><strong>Non-Distributability</strong>: Cannot share across systems</li>
+</ol>
+<p>This isn&rsquo;t a bug—it&rsquo;s a <strong>constructive proof</strong> that true random oracles cannot exist in our computational universe.</p>
+<h2 id="the-beautiful-lie-lazydigest">The Beautiful Lie: LazyDigest</h2>
+<p>From this impossibility emerges something remarkable:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">LazyDigest</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="n">seed</span> <span class="o">||</span> <span class="n">index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span></span></code></pre></div><p>Just <strong>256 bits of entropy</strong> generating what appears to be an <strong>infinite random sequence</strong>.</p>
+<h3 id="the-core-deception">The Core Deception</h3>
+<ul>
+<li><strong>Appears</strong>: Infinite random sequence</li>
+<li><strong>Actually</strong>: Deterministic function with 256 bits of state</li>
+<li><strong>Information content</strong>: K(LazyDigest) = 256 bits + constant</li>
+<li><strong>Apparent information</strong>: Infinite</li>
+</ul>
+<p>We&rsquo;re achieving a compression ratio of <strong>infinity</strong>—representing unbounded data with bounded information.</p>
+<h2 id="why-the-deception-works">Why the Deception Works</h2>
+<p><strong>Computational indistinguishability</strong>: If <code>h</code> is a secure PRF, no polynomial-time distinguisher can tell LazyDigest apart from truly random output.</p>
+<p>We&rsquo;re not random—we&rsquo;re <strong>computationally hard to distinguish from random</strong>. This weaker guarantee is sufficient for cryptography.</p>
+<h3 id="the-inevitable-cycle">The Inevitable Cycle</h3>
+<p>Since LazyDigest has finite state, it must eventually repeat. After at most 2^256 queries, it will cycle.</p>
+<p><strong>But</strong> 2^128 (expected cycle length) ≈ 10^38. At one billion queries per second, it would take 10^21 years—<strong>far longer than the age of the universe</strong>.</p>
+<h2 id="advanced-constructions">Advanced Constructions</h2>
+<h3 id="hierarchical-seeding">Hierarchical Seeding</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">epoch_seed</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">master_seed</span> <span class="o">||</span> <span class="s2">&#34;epoch&#34;</span> <span class="o">||</span> <span class="n">epoch</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">chunk_seed</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">epoch_seed</span> <span class="o">||</span> <span class="s2">&#34;chunk&#34;</span> <span class="o">||</span> <span class="n">chunk</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">value</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">chunk_seed</span> <span class="o">||</span> <span class="n">position</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span></span></code></pre></div><p>Extends the effective period by structuring state hierarchically.</p>
+<h3 id="xor-multi-hash-defense-in-depth">XOR Multi-Hash (Defense in Depth)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">sha256</span><span class="p">(</span><span class="n">seed</span><span class="o">||</span><span class="n">index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="err">⊕</span> <span class="n">sha512</span><span class="p">(</span><span class="n">seed</span><span class="o">||</span><span class="n">index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="err">⊕</span>
+</span></span><span class="line"><span class="cl">         <span class="n">sha3_256</span><span class="p">(</span><span class="n">seed</span><span class="o">||</span><span class="n">index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="err">⊕</span> <span class="n">blake2b</span><span class="p">(</span><span class="n">seed</span><span class="o">||</span><span class="n">index</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span></span></code></pre></div><p>System remains secure if <strong>at least one</strong> hash function is secure. Hedges against:</p>
+<ul>
+<li>Future cryptanalysis breaking individual algorithms</li>
+<li>Quantum computing vulnerabilities</li>
+<li>Implementation bugs</li>
+</ul>
+<h3 id="sponge-construction">Sponge Construction</h3>
+<p>Reserves capacity bits that never leave the system, providing tunable security with 2^(capacity/2) collision resistance.</p>
+<h2 id="deep-connections">Deep Connections</h2>
+<h3 id="random-oracles-as-uncomputable-reals">Random Oracles as Uncomputable Reals</h3>
+<p>Most real numbers are <strong>uncomputable</strong>—they require infinite information to specify. A true random oracle is the cryptographic analog of an uncomputable real:</p>
+<ul>
+<li><strong>Computable reals</strong> (like π, e): Measure zero, finite programs</li>
+<li><strong>Uncomputable reals</strong>: Measure one, infinite information</li>
+<li><strong>LazyDigest</strong>: Computable, appears random</li>
+<li><strong>Random oracle</strong>: Uncomputable, truly random</li>
+</ul>
+<p>We&rsquo;re using computable functions to approximate uncomputable ones.</p>
+<h3 id="lazy-evaluation-and-mathematical-constants">Lazy Evaluation and Mathematical Constants</h3>
+<p>Consider π: we can compute any digit using a finite algorithm (Bailey-Borwein-Plouffe formula). This is lazy evaluation in its purest form:</p>
+<ul>
+<li><strong>Finite description</strong>: Algorithm is hundreds of bytes</li>
+<li><strong>Infinite output</strong>: Arbitrarily many digits</li>
+<li><strong>On-demand computation</strong>: Only compute what&rsquo;s observed</li>
+</ul>
+<p>LazyDigest parallels this exactly. The difference is semantic:</p>
+<ul>
+<li><strong>π</strong> encodes geometric relationships</li>
+<li><strong>LazyDigest</strong> encodes computational hardness</li>
+</ul>
+<p>Both achieve the same compression: <strong>finite program → infinite sequence</strong>.</p>
+<h2 id="randomness-as-computational-hardness">Randomness as Computational Hardness</h2>
+<p>We have two incompatible definitions of randomness:</p>
+<ol>
+<li><strong>Information-theoretic</strong>: High Kolmogorov complexity</li>
+<li><strong>Computational</strong>: Indistinguishable from random by efficient algorithms</li>
+</ol>
+<p>LazyDigest <strong>fails</strong> (1) catastrophically—it has tiny Kolmogorov complexity.
+LazyDigest <strong>passes</strong> (2) perfectly—assuming secure hash functions.</p>
+<p><strong>The profound insight</strong>: &ldquo;Randomness&rdquo; in cryptography is actually <strong>computational hardness</strong> in disguise.</p>
+<h2 id="entropy-times-arrow-and-laplaces-demon">Entropy, Time&rsquo;s Arrow, and Laplace&rsquo;s Demon</h2>
+<p>Consider a being with unlimited computational power (Laplace&rsquo;s demon):</p>
+<ul>
+<li>LazyDigest is trivially non-random—just compute <code>h(seed||i)</code></li>
+<li>No entropy exists—only deterministic evolution</li>
+<li>Past and future are equally accessible</li>
+</ul>
+<p>But <strong>we are computationally bounded</strong>, which creates our entire experience:</p>
+<ul>
+<li>Past is fixed (we remember it)</li>
+<li>Future is uncertain (cannot compute fast enough)</li>
+<li>Entropy increases (cannot invert dynamics)</li>
+<li><strong>Randomness exists</strong> (cannot distinguish from true random)</li>
+</ul>
+<p>A hash function is a &ldquo;fast-forward only&rdquo; time machine:</p>
+<ul>
+<li><strong>Forward</strong>: <code>h(x)</code> is easy</li>
+<li><strong>Backward</strong>: Finding <code>x</code> given <code>h(x)</code> is computationally infeasible</li>
+</ul>
+<h2 id="the-p--np-bet">The P ≠ NP Bet</h2>
+<p>Every use of LazyDigest implicitly bets that <strong>P ≠ NP</strong>. If P = NP, we could invert the hash function in polynomial time, distinguishing LazyDigest from random.</p>
+<p>We&rsquo;re not generating randomness—we&rsquo;re <strong>generating a computationally hard problem and hoping nobody can solve it</strong>.</p>
+<h2 id="applications">Applications</h2>
+<p><strong>Deterministic Test Data</strong>: Reproducible infinite test streams
+<strong>Memory-Hard KDF</strong>: Force memory access patterns for password hashing
+<strong>Blockchain PoW</strong>: Model mining as searching the output space</p>
+<h2 id="the-beautiful-paradox">The Beautiful Paradox</h2>
+<p>LazyDigest embodies a beautiful paradox:</p>
+<ul>
+<li><strong>Simple</strong>: Just hash seed concatenated with index</li>
+<li><strong>Complex</strong>: Output appears completely random</li>
+<li><strong>Finite</strong>: Only 256 bits of true information</li>
+<li><strong>Infinite</strong>: Can generate unbounded output</li>
+<li><strong>Deterministic</strong>: Same seed always gives same sequence</li>
+<li><strong>Unpredictable</strong>: Cannot predict next value without seed</li>
+</ul>
+<p>This paradox is <strong>the heart of modern cryptography</strong>: simple deterministic processes that appear complex and random to bounded observers.</p>
+<h2 id="a-constructivist-victory">A Constructivist Victory</h2>
+<p>Perhaps most profoundly, LazyDigest represents a victory for constructivism in mathematics. While classical mathematics struggles with incoherent infinities and uncomputable reals, we&rsquo;ve built something better: <strong>a finite, computable object that serves all practical purposes of an infinite random sequence</strong>.</p>
+<p>The &ldquo;deception&rdquo; is beautiful because it&rsquo;s <strong>honest</strong>:</p>
+<ul>
+<li>We don&rsquo;t claim infinite objects—we have finite programs generating unbounded output</li>
+<li>We don&rsquo;t pretend uncomputable things exist—we work with computable approximations</li>
+<li>We don&rsquo;t hide behind axioms—we build finite machines and study their behavior</li>
+</ul>
+<p>Cryptography forces us to be constructivists. The boundary of cryptographic possibility is precisely the boundary of computational constructibility.</p>
+<p>In a universe that may itself be computational, LazyDigest isn&rsquo;t approximating some &ldquo;true&rdquo; random oracle in a Platonic realm. <strong>It may be as real as randomness gets</strong>.</p>
+<p><a href="/latex/beautiful-deception/beautiful_deception.pdf">View the full paper (PDF)</a></p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ol>
+<li>True random oracles are <strong>impossible to implement</strong> (proven constructively)</li>
+<li>LazyDigest uses <strong>256 bits to simulate infinity</strong> through computational hardness</li>
+<li>&ldquo;Randomness&rdquo; in cryptography means <strong>computationally indistinguishable from random</strong></li>
+<li>The deception works because we&rsquo;re all <strong>computationally bounded observers</strong></li>
+<li>This represents a <strong>constructivist approach</strong> to mathematics and computation</li>
+</ol>
+]]></content:encoded><category>cryptography</category><category>hash-functions</category><category>randomness</category><category>information-theory</category><category>kolmogorov-complexity</category></item></channel></rss>

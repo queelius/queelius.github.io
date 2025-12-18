@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Projects on metafunctor</title><link>https://queelius.github.io/categories/projects/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/categories/projects/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>compositional.mle: SICP-Inspired Optimization</title><link>https://queelius.github.io/post/2025-12-17-compositional-mle/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-17-compositional-mle/</guid><description>An R package where solvers are first-class functions that compose through chaining, racing, and restarts.</description><content:encoded><![CDATA[<p>I&rsquo;ve recently updated <a href="https://github.com/queelius/compositional.mle">compositional.mle</a>, an R package for maximum likelihood estimation that takes seriously the idea that <strong>optimization strategies should compose</strong>.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Most optimization libraries treat solvers as monolithic procedures: you call <code>optim()</code>, pass some options, and hope for the best. If you want to try multiple methods, you write loops. If you want coarse-to-fine optimization, you manually wire the output of one solver to the input of another.</p>
+<p><code>compositional.mle</code> takes a different approach, inspired by SICP&rsquo;s treatment of procedures as first-class citizens. The package provides:</p>
+<ol>
+<li><strong>Primitive solvers</strong> - <code>gradient_ascent()</code>, <code>newton_raphson()</code>, <code>bfgs()</code>, <code>nelder_mead()</code></li>
+<li><strong>Composition operators</strong> - <code>%&gt;&gt;%</code> (sequential chaining), <code>%|%</code> (parallel racing), <code>with_restarts()</code></li>
+<li><strong>Closure property</strong> - Combining solvers yields a solver</li>
+</ol>
+<p>That last point is crucial. When you chain two solvers together, the result is itself a solver with the same interface. This means compositions can be further composed, stored in variables, passed to functions, or used anywhere a solver is expected.</p>
+<h2 id="what-this-looks-like">What This Looks Like</h2>
+<p>Define your problem once:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">problem</span> <span class="o">&lt;-</span> <span class="nf">mle_problem</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="n">loglike</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">theta[2]</span> <span class="o">&lt;=</span> <span class="m">0</span><span class="p">)</span> <span class="kr">return</span><span class="p">(</span><span class="o">-</span><span class="kc">Inf</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">sum</span><span class="p">(</span><span class="nf">dnorm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">theta[1]</span><span class="p">,</span> <span class="n">theta[2]</span><span class="p">,</span> <span class="n">log</span> <span class="o">=</span> <span class="kc">TRUE</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="n">score</span> <span class="o">=</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mu</span> <span class="o">&lt;-</span> <span class="n">theta[1]</span><span class="p">;</span> <span class="n">sigma</span> <span class="o">&lt;-</span> <span class="n">theta[2]</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">c</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma^2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="o">-</span><span class="n">n</span> <span class="o">/</span> <span class="n">sigma</span> <span class="o">+</span> <span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span><span class="n">^2</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma^3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Then compose strategies declaratively:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Global search -&gt; local refinement -&gt; final polish</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">grid_search</span><span class="p">(</span><span class="n">lower</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">-10</span><span class="p">,</span> <span class="m">0.5</span><span class="p">),</span> <span class="n">upper</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">10</span><span class="p">,</span> <span class="m">5</span><span class="p">),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">5</span><span class="p">)</span> <span class="o">%&gt;&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">gradient_ascent</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="m">50</span><span class="p">)</span> <span class="o">%&gt;&gt;%</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">newton_raphson</span><span class="p">(</span><span class="n">max_iter</span> <span class="o">=</span> <span class="m">20</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="m">1</span><span class="p">))</span>
+</span></span></code></pre></div><p>Or race multiple approaches:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Try all methods, keep the best</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">gradient_ascent</span><span class="p">()</span> <span class="o">%|%</span> <span class="nf">bfgs</span><span class="p">()</span> <span class="o">%|%</span> <span class="nf">nelder_mead</span><span class="p">()</span>
+</span></span></code></pre></div><p>Or handle multimodal landscapes:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Random restarts to escape local optima</span>
+</span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">with_restarts</span><span class="p">(</span><span class="nf">gradient_ascent</span><span class="p">(),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">sampler</span> <span class="o">=</span> <span class="nf">uniform_sampler</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="the-sicp-connection">The SICP Connection</h2>
+<p>This design directly applies lessons from <em>Structure and Interpretation of Computer Programs</em>:</p>
+<p><strong>Primitives</strong>: The base solvers are well-defined building blocks with clear contracts. <code>gradient_ascent()</code> returns a solver that uses steepest ascent. <code>nelder_mead()</code> returns a derivative-free simplex solver.</p>
+<p><strong>Means of Combination</strong>: The operators <code>%&gt;&gt;%</code>, <code>%|%</code>, and <code>with_restarts()</code> combine solvers into new solvers. Sequential chaining feeds the output of one solver as input to the next. Racing runs solvers in parallel and picks the winner.</p>
+<p><strong>Abstraction</strong>: Solver factories hide implementation details behind a consistent interface. Users work with the solver abstraction, not with specific algorithms.</p>
+<p><strong>Closure</strong>: The key insight. Because composition produces objects of the same type as the inputs, the language of solvers is <em>closed</em> under composition. You can build arbitrarily complex strategies from simple parts.</p>
+<h2 id="relationship-to-algebraicmle">Relationship to algebraic.mle</h2>
+<p>This package complements <a href="/projects/algebraic.mle/">algebraic.mle</a>, which provides algebraic operations on MLE <em>results</em>. Where <code>algebraic.mle</code> lets you compose likelihood functions and manipulate fitted models, <code>compositional.mle</code> focuses on the <em>process</em> of finding those estimates.</p>
+<p>The two work together:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># compositional.mle: find the estimate</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># algebraic.mle: work with the fitted model</span>
+</span></span><span class="line"><span class="cl"><span class="nf">confint</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">coef</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="try-it">Try It</h2>
+<p>Install from GitHub:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">devtools</span><span class="o">::</span><span class="nf">install_github</span><span class="p">(</span><span class="s">&#34;queelius/compositional.mle&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/compositional.mle/">queelius.github.io/compositional.mle</a>.</p>
+<p>The design philosophy here extends beyond statistics. Any domain with multiple solution strategies can benefit from composable primitives with closure under composition. The question is always: what are your primitives, and how should they combine?</p>
+]]></content:encoded><category>r-package</category><category>statistics</category><category>mle</category><category>optimization</category><category>sicp</category><category>functional-programming</category><category>dsl</category><category>api-design</category></item><item><title>The Long Echo Toolkit: Preserving Your Digital Life</title><link>https://queelius.github.io/post/2025-12-16-long-echo-toolkit/</link><pubDate>Tue, 16 Dec 2025 18:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-long-echo-toolkit/</guid><description>Three tools for preserving your digital intellectual life: conversations, bookmarks, and books. Built on the same resilient architecture with reading queues, semantic search, and LLM integration.</description><content:encoded><![CDATA[<p>Earlier this year I wrote about <a href="/post/2025-01-long-echo/">Long Echo</a>—a philosophy for preserving AI conversations in ways that remain accessible across decades. The core insight was <strong>graceful degradation</strong>: designing systems that fail progressively, not catastrophically.</p>
+<p>Since then, I&rsquo;ve built out a complete toolkit for preserving all personal digital content—not just conversations, but bookmarks (including videos, podcasts, articles) and books. These three tools form a coherent system for managing your intellectual life.</p>
+<h2 id="the-toolkit">The Toolkit</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Domain</th>
+          <th>Install</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong><a href="https://github.com/queelius/ctk">CTK</a></strong></td>
+          <td>AI Conversations</td>
+          <td><code>pip install conversation-tk</code></td>
+      </tr>
+      <tr>
+          <td><strong><a href="https://github.com/queelius/btk">BTK</a></strong></td>
+          <td>Bookmarks &amp; Media</td>
+          <td><code>pip install bookmark-tk</code></td>
+      </tr>
+      <tr>
+          <td><strong><a href="https://github.com/queelius/ebk">EBK</a></strong></td>
+          <td>eBooks &amp; Documents</td>
+          <td><code>pip install ebk</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>All three share a common architecture and philosophy, but each is deeply specialized for its domain.</p>
+<h2 id="shared-architecture">Shared Architecture</h2>
+<h3 id="sqlite-first-storage">SQLite-First Storage</h3>
+<p>Every tool uses local SQLite databases you own. No cloud dependency. Queryable with standard tools even if the CLI disappears:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Works even if the tools are gone</span>
+</span></span><span class="line"><span class="cl">sqlite3 conversations.db <span class="s2">&#34;SELECT title FROM conversations WHERE title LIKE &#39;%python%&#39;&#34;</span>
+</span></span><span class="line"><span class="cl">sqlite3 bookmarks.db <span class="s2">&#34;SELECT url, title FROM bookmarks WHERE stars = 1&#34;</span>
+</span></span><span class="line"><span class="cl">sqlite3 library.db <span class="s2">&#34;SELECT title, author FROM books WHERE favorite = 1&#34;</span>
+</span></span></code></pre></div><h3 id="interactive-shells-with-virtual-filesystems">Interactive Shells with Virtual Filesystems</h3>
+<p>Navigate your data like a Unix filesystem:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk shell
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming/python
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ ls
+</span></span><span class="line"><span class="cl"><span class="m">3298</span>  <span class="m">4095</span>  <span class="m">5124</span>  <span class="o">(</span>bookmark IDs<span class="o">)</span>
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ cat 4095/title
+</span></span><span class="line"><span class="cl">Advanced Python Techniques
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ ebk shell
+</span></span><span class="line"><span class="cl">ebk:/$ <span class="nb">cd</span> authors/Knuth
+</span></span><span class="line"><span class="cl">ebk:/authors/Knuth$ ls
+</span></span><span class="line"><span class="cl">The Art of Computer Programming Vol <span class="m">1</span>
+</span></span><span class="line"><span class="cl">The Art of Computer Programming Vol <span class="m">2</span>
+</span></span></code></pre></div><h3 id="reading-queues">Reading Queues</h3>
+<p>Track what you&rsquo;re reading, watching, or working through:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Bookmarks</span>
+</span></span><span class="line"><span class="cl">btk queue add <span class="m">42</span> --priority high
+</span></span><span class="line"><span class="cl">btk queue next
+</span></span><span class="line"><span class="cl">btk queue progress <span class="m">42</span> --percent <span class="m">75</span>
+</span></span><span class="line"><span class="cl">btk queue estimate-times  <span class="c1"># Auto-estimate from content length</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Books</span>
+</span></span><span class="line"><span class="cl">ebk queue add <span class="s2">&#34;Gödel, Escher, Bach&#34;</span>
+</span></span><span class="line"><span class="cl">ebk queue next
+</span></span><span class="line"><span class="cl">ebk queue list
+</span></span></code></pre></div><h3 id="llm-integration">LLM Integration</h3>
+<p>All three tools integrate with LLMs for intelligent features:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Auto-tag using content analysis</span>
+</span></span><span class="line"><span class="cl">btk content auto-tag --all
+</span></span><span class="line"><span class="cl">ctk auto-tag --model ollama/llama3
+</span></span><span class="line"><span class="cl">ebk enrich <span class="m">42</span>  <span class="c1"># Enhance metadata with LLM</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Natural language queries</span>
+</span></span><span class="line"><span class="cl">ctk say <span class="s2">&#34;summarize my conversations about Rust&#34;</span>
+</span></span><span class="line"><span class="cl">btk ask <span class="s2">&#34;find articles about distributed systems&#34;</span>
+</span></span><span class="line"><span class="cl">ebk similar <span class="s2">&#34;Gödel, Escher, Bach&#34;</span>  <span class="c1"># Semantic similarity</span>
+</span></span></code></pre></div><h3 id="network-analysis">Network Analysis</h3>
+<p>Discover relationships in your data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># CTK: Conversation networks</span>
+</span></span><span class="line"><span class="cl">ctk net embeddings --all
+</span></span><span class="line"><span class="cl">ctk net similar <span class="m">42</span>
+</span></span><span class="line"><span class="cl">ctk net clusters
+</span></span><span class="line"><span class="cl">ctk net central  <span class="c1"># Most connected conversations</span>
+</span></span><span class="line"><span class="cl">ctk net outliers  <span class="c1"># Isolated conversations</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># BTK: Bookmark graphs</span>
+</span></span><span class="line"><span class="cl">btk graph build
+</span></span><span class="line"><span class="cl">btk graph analyze
+</span></span></code></pre></div><h3 id="web-servers">Web Servers</h3>
+<p>Browse your archives in a web UI:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk serve  <span class="c1"># REST API + web interface</span>
+</span></span><span class="line"><span class="cl">ebk serve  <span class="c1"># Library browser</span>
+</span></span></code></pre></div><h2 id="btk-more-than-bookmarks">BTK: More Than Bookmarks</h2>
+<p>BTK evolved from a simple bookmark manager into a comprehensive media archive:</p>
+<h3 id="media-detection--import">Media Detection &amp; Import</h3>
+<p>Automatically identifies and handles different content types:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk media detect  <span class="c1"># Scan bookmarks for media URLs</span>
+</span></span><span class="line"><span class="cl">btk media list --type youtube
+</span></span><span class="line"><span class="cl">btk media import-playlist <span class="s2">&#34;https://youtube.com/playlist?list=...&#34;</span>
+</span></span><span class="line"><span class="cl">btk media import-channel <span class="s2">&#34;@3blue1brown&#34;</span>
+</span></span><span class="line"><span class="cl">btk media import-podcast <span class="s2">&#34;https://feed.example.com/rss&#34;</span>
+</span></span><span class="line"><span class="cl">btk media stats
+</span></span></code></pre></div><h3 id="content-caching">Content Caching</h3>
+<p>Stores local copies for offline access and full-text search:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk content refresh --all --workers <span class="m">50</span>  <span class="c1"># Cache all bookmarks</span>
+</span></span><span class="line"><span class="cl">btk content view <span class="m">42</span> --html  <span class="c1"># View cached content</span>
+</span></span><span class="line"><span class="cl">btk search <span class="s2">&#34;specific phrase&#34;</span> --in-content  <span class="c1"># Search cached text</span>
+</span></span></code></pre></div><p>Supports HTML pages, PDFs (with text extraction), and converts everything to searchable markdown.</p>
+<h3 id="smart-collections">Smart Collections</h3>
+<p>Auto-updating views of your bookmarks:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> /unread     <span class="c1"># Items in queue not yet started</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> /popular    <span class="c1"># Most visited</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> /broken     <span class="c1"># Dead links</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> /untagged   <span class="c1"># Need organization</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> /pdfs       <span class="c1"># PDF documents</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> /recent/added/week  <span class="c1"># Added this week</span>
+</span></span></code></pre></div><h2 id="ctk-conversation-intelligence">CTK: Conversation Intelligence</h2>
+<p>CTK manages AI conversations from any platform with sophisticated analysis:</p>
+<h3 id="universal-import">Universal Import</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk import chatgpt_export.json --format openai
+</span></span><span class="line"><span class="cl">ctk import claude_export.json --format anthropic
+</span></span><span class="line"><span class="cl">ctk import ~/.vscode/workspaceStorage --format copilot
+</span></span></code></pre></div><h3 id="tree-structure-preservation">Tree Structure Preservation</h3>
+<p>Conversations aren&rsquo;t linear—they branch. CTK preserves the full tree:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk tree <span class="m">42</span>  <span class="c1"># Visualize conversation structure</span>
+</span></span><span class="line"><span class="cl">ctk paths <span class="m">42</span>  <span class="c1"># List all paths through the tree</span>
+</span></span><span class="line"><span class="cl">ctk duplicate <span class="m">42</span>  <span class="c1"># Fork a conversation</span>
+</span></span></code></pre></div><h3 id="network-operations">Network Operations</h3>
+<p>Find patterns across your conversation history:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk net embeddings --all  <span class="c1"># Generate embeddings</span>
+</span></span><span class="line"><span class="cl">ctk net similar <span class="m">42</span>  <span class="c1"># Find related conversations</span>
+</span></span><span class="line"><span class="cl">ctk net clusters  <span class="c1"># Discover topic clusters</span>
+</span></span><span class="line"><span class="cl">ctk net path <span class="m">42</span> <span class="m">87</span>  <span class="c1"># Find connection between conversations</span>
+</span></span></code></pre></div><h2 id="ebk-library-management">EBK: Library Management</h2>
+<p>EBK handles ebooks with features for serious readers:</p>
+<h3 id="automatic-processing">Automatic Processing</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk import ~/Calibre<span class="se">\ </span>Library/  <span class="c1"># Import from Calibre</span>
+</span></span><span class="line"><span class="cl">ebk import ~/Downloads/*.pdf  <span class="c1"># Batch import PDFs</span>
+</span></span></code></pre></div><p>Automatically:</p>
+<ul>
+<li>Extracts text from PDFs and EPUBs</li>
+<li>Generates cover thumbnails</li>
+<li>Deduplicates by content hash</li>
+<li>Chunks text for semantic search</li>
+</ul>
+<h3 id="virtual-libraries">Virtual Libraries</h3>
+<p>Create collection views without moving files:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk vlib add <span class="s2">&#34;Machine Learning&#34;</span> <span class="m">42</span> <span class="m">43</span> <span class="m">44</span>
+</span></span><span class="line"><span class="cl">ebk vlib list <span class="s2">&#34;Machine Learning&#34;</span>
+</span></span></code></pre></div><h3 id="annotations">Annotations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk note add <span class="m">42</span> <span class="s2">&#34;Chapter 3 insight: ...&#34;</span>
+</span></span><span class="line"><span class="cl">ebk note list <span class="m">42</span>
+</span></span></code></pre></div><h3 id="semantic-search">Semantic Search</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk search <span class="s2">&#34;neural network architectures&#34;</span>
+</span></span><span class="line"><span class="cl">ebk similar <span class="m">42</span>  <span class="c1"># Find books like this one</span>
+</span></span></code></pre></div><h2 id="multi-format-export">Multi-Format Export</h2>
+<p>The key to long-term preservation—export in formats that will always be readable:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># CTK exports</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> conversations.jsonl --format jsonl
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> conversations/ --format markdown
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> index.html --format html5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># BTK exports</span>
+</span></span><span class="line"><span class="cl">btk <span class="nb">export</span> bookmarks.html html --hierarchical  <span class="c1"># Browser-compatible</span>
+</span></span><span class="line"><span class="cl">btk <span class="nb">export</span> bookmarks.json json
+</span></span><span class="line"><span class="cl">btk <span class="nb">export</span> bookmarks.md markdown
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># EBK exports</span>
+</span></span><span class="line"><span class="cl">ebk <span class="nb">export</span> catalog.html --format html
+</span></span><span class="line"><span class="cl">ebk <span class="nb">export</span> library.json --format json
+</span></span></code></pre></div><p>Each export level provides graceful degradation:</p>
+<ol>
+<li><strong>Full tool</strong> → Rich interactive features</li>
+<li><strong>SQLite queries</strong> → Direct database access</li>
+<li><strong>JSON/JSONL</strong> → Machine-readable, greppable</li>
+<li><strong>HTML</strong> → Browseable in any browser</li>
+<li><strong>Markdown/Text</strong> → Readable in notepad</li>
+</ol>
+<h2 id="a-complete-personal-archive">A Complete Personal Archive</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">archive</span><span class="o">/</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">START_HERE</span><span class="o">.</span><span class="n">txt</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">conversations</span><span class="o">/</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">conversations</span><span class="o">.</span><span class="n">db</span>      <span class="c1"># CTK database</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">conversations</span><span class="o">.</span><span class="n">jsonl</span>   <span class="c1"># Greppable</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">conversations</span><span class="o">/</span>        <span class="c1"># Markdown files</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">└──</span> <span class="n">index</span><span class="o">.</span><span class="n">html</span>            <span class="c1"># Browseable</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">bookmarks</span><span class="o">/</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">bookmarks</span><span class="o">.</span><span class="n">db</span>          <span class="c1"># BTK database</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">bookmarks</span><span class="o">.</span><span class="n">html</span>        <span class="c1"># Browser-importable</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">cached</span><span class="o">/</span>               <span class="c1"># Offline content</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">└──</span> <span class="n">media</span><span class="o">/</span>                <span class="c1"># Downloaded videos/podcasts</span>
+</span></span><span class="line"><span class="cl"><span class="err">├──</span> <span class="n">books</span><span class="o">/</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">library</span><span class="o">.</span><span class="n">db</span>            <span class="c1"># EBK database</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">catalog</span><span class="o">.</span><span class="n">html</span>          <span class="c1"># Browseable catalog</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">├──</span> <span class="n">texts</span><span class="o">/</span>                <span class="c1"># Extracted text</span>
+</span></span><span class="line"><span class="cl"><span class="err">│</span>   <span class="err">└──</span> <span class="n">covers</span><span class="o">/</span>               <span class="c1"># Thumbnails</span>
+</span></span><span class="line"><span class="cl"><span class="err">└──</span> <span class="n">RECOVERY</span><span class="o">.</span><span class="n">md</span>
+</span></span></code></pre></div><h2 id="why-this-matters">Why This Matters</h2>
+<p>Your intellectual life is worth preserving:</p>
+<ul>
+<li>The debugging session that saved a project</li>
+<li>The research trail that led to a breakthrough</li>
+<li>The books that shaped your thinking</li>
+<li>The videos that taught you a skill</li>
+</ul>
+<p>These deserve better than &ldquo;hope the cloud doesn&rsquo;t disappear.&rdquo;</p>
+<h2 id="links">Links</h2>
+<ul>
+<li><strong>CTK</strong>: <a href="https://github.com/queelius/ctk">github.com/queelius/ctk</a></li>
+<li><strong>BTK</strong>: <a href="https://github.com/queelius/btk">github.com/queelius/btk</a></li>
+<li><strong>EBK</strong>: <a href="https://github.com/queelius/ebk">github.com/queelius/ebk</a></li>
+<li><strong>Philosophy</strong>: <a href="/post/2025-01-long-echo/">Long Echo: Designing for Digital Resilience</a></li>
+</ul>
+<hr>
+<p><em>Your digital intellectual life is worth preserving. Not in fragile cloud services, but in formats that will still be readable when your grandchildren find that USB drive.</em></p>
+]]></content:encoded><category>long-term-thinking</category><category>data-preservation</category><category>cli</category><category>python</category><category>sqlite</category><category>personal-archival</category></item><item><title>Crier: Cross-Post Your Content Everywhere</title><link>https://queelius.github.io/post/2025-12-16-crier/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-crier/</guid><description>Crier is a CLI tool for cross-posting content to dev.to, Ghost, WordPress, Bluesky, Mastodon, and more. Now available on PyPI.</description><content:encoded><![CDATA[<p>I&rsquo;ve published <strong>crier</strong> to <a href="https://pypi.org/project/crier/">PyPI</a> - a command-line tool for cross-posting content to multiple platforms simultaneously.</p>
+<p>Like a town crier announcing news across the land, crier broadcasts your content to dev.to, Ghost, WordPress, Hashnode, Medium, Bluesky, Mastodon, Threads, Telegram, Discord, and more.</p>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install crier
+</span></span></code></pre></div><h2 id="the-problem">The Problem</h2>
+<p>If you maintain a blog and want to reach audiences on multiple platforms, you face tedious manual work: copy content to dev.to, create a Bluesky post with a link, toot on Mastodon, post to your Discord server, etc. Each platform has its own interface, API, and quirks.</p>
+<h2 id="the-solution">The Solution</h2>
+<p>Crier lets you publish once and distribute everywhere:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Publish to multiple platforms at once</span>
+</span></span><span class="line"><span class="cl">crier publish post.md --to devto --to bluesky --to mastodon --to discord
+</span></span></code></pre></div><p>That single command:</p>
+<ul>
+<li>Publishes the full article to dev.to</li>
+<li>Creates a Bluesky post with title, description, and link</li>
+<li>Toots on Mastodon with hashtags from your tags</li>
+<li>Posts an announcement embed to your Discord server</li>
+</ul>
+<h2 id="supported-platforms">Supported Platforms</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Platform</th>
+          <th>Type</th>
+          <th>Notes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dev.to</strong></td>
+          <td>Blog</td>
+          <td>Full article support</td>
+      </tr>
+      <tr>
+          <td><strong>Hashnode</strong></td>
+          <td>Blog</td>
+          <td>Full article support</td>
+      </tr>
+      <tr>
+          <td><strong>Medium</strong></td>
+          <td>Blog</td>
+          <td>Publish only</td>
+      </tr>
+      <tr>
+          <td><strong>Ghost</strong></td>
+          <td>Blog</td>
+          <td>Full article support</td>
+      </tr>
+      <tr>
+          <td><strong>WordPress</strong></td>
+          <td>Blog</td>
+          <td>Self-hosted or .com</td>
+      </tr>
+      <tr>
+          <td><strong>Buttondown</strong></td>
+          <td>Newsletter</td>
+          <td>Email subscribers</td>
+      </tr>
+      <tr>
+          <td><strong>Bluesky</strong></td>
+          <td>Social</td>
+          <td>Posts with link cards</td>
+      </tr>
+      <tr>
+          <td><strong>Mastodon</strong></td>
+          <td>Social</td>
+          <td>Toots with hashtags</td>
+      </tr>
+      <tr>
+          <td><strong>Threads</strong></td>
+          <td>Social</td>
+          <td>Short posts</td>
+      </tr>
+      <tr>
+          <td><strong>LinkedIn</strong></td>
+          <td>Social</td>
+          <td>Professional network</td>
+      </tr>
+      <tr>
+          <td><strong>Twitter/X</strong></td>
+          <td>Social</td>
+          <td>Copy-paste mode</td>
+      </tr>
+      <tr>
+          <td><strong>Telegram</strong></td>
+          <td>Channel</td>
+          <td>Bot posts</td>
+      </tr>
+      <tr>
+          <td><strong>Discord</strong></td>
+          <td>Channel</td>
+          <td>Webhook embeds</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="how-it-works">How It Works</h2>
+<p>Crier reads standard markdown with YAML front matter:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-markdown" data-lang="markdown"><span class="line"><span class="cl">---
+</span></span><span class="line"><span class="cl">title: &#34;My Post Title&#34;
+</span></span><span class="line"><span class="cl">description: &#34;A brief description&#34;
+</span></span><span class="line"><span class="cl">tags: [python, cli, automation]
+</span></span><span class="line"><span class="cl">canonical_url: https://myblog.com/my-post
+</span></span><span class="line"><span class="cl">---
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Your content here...
+</span></span></code></pre></div><p>For blog platforms, it publishes the full article. For social platforms, it creates short announcements with links back to your canonical URL.</p>
+<h2 id="github-actions-fully-automated-cross-posting">GitHub Actions: Fully Automated Cross-Posting</h2>
+<p>The real power comes from combining crier with GitHub Actions. Push a new post to your repo and it automatically gets cross-posted everywhere.</p>
+<h3 id="quick-setup">Quick Setup</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># In your content repository</span>
+</span></span><span class="line"><span class="cl">crier init-action
+</span></span></code></pre></div><p>This creates a workflow file and sets up your API keys as GitHub secrets automatically.</p>
+<h3 id="how-it-works-1">How It Works</h3>
+<ol>
+<li>You push a new markdown file to <code>posts/</code></li>
+<li>GitHub Action triggers</li>
+<li>Crier checks its registry for what&rsquo;s already published</li>
+<li>Crier publishes to any platforms that are missing</li>
+<li>The registry is committed back to your repo</li>
+</ol>
+<p>Here&rsquo;s what the workflow looks like:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">Cross-Post Content</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">on</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">push</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">branches</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="l">main]</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">paths</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="s1">&#39;posts/**/*.md&#39;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">jobs</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">crosspost</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l">ubuntu-latest</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">steps</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l">actions/checkout@v4</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l">actions/setup-python@v5</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">with</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">          </span><span class="nt">python-version</span><span class="p">:</span><span class="w"> </span><span class="s1">&#39;3.12&#39;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l">pip install crier</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">Cross-post to platforms</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">env</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">          </span><span class="nt">CRIER_DEVTO_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l">${{ secrets.CRIER_DEVTO_API_KEY }}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">          </span><span class="nt">CRIER_BLUESKY_API_KEY</span><span class="p">:</span><span class="w"> </span><span class="l">${{ secrets.CRIER_BLUESKY_API_KEY }}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p">|</span><span class="sd">
+</span></span></span><span class="line"><span class="cl"><span class="sd">          crier backfill ./posts --yes</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">Save publication state</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="p">|</span><span class="sd">
+</span></span></span><span class="line"><span class="cl"><span class="sd">          git config user.name &#34;github-actions[bot]&#34;
+</span></span></span><span class="line"><span class="cl"><span class="sd">          git add .crier/
+</span></span></span><span class="line"><span class="cl"><span class="sd">          git diff --staged --quiet || git commit -m &#34;Update publication registry&#34;
+</span></span></span><span class="line"><span class="cl"><span class="sd">          git push</span><span class="w">
+</span></span></span></code></pre></div><h3 id="the-registry">The Registry</h3>
+<p>Crier maintains a registry (<code>.crier/registry.yaml</code>) tracking what&rsquo;s been published:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">posts</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="s2">&#34;posts/my-article.md&#34;</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;My Article&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">publications</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">devto</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;12345&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l">https://dev.to/user/my-article</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">bluesky</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;abc123&#34;</span><span class="w">
+</span></span></span></code></pre></div><p>This means adding a new platform later will automatically backfill your existing content.</p>
+<h2 id="cli-commands">CLI Commands</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">crier publish FILE <span class="o">[</span>--to PLATFORM<span class="o">]</span>...  <span class="c1"># Publish to platform(s)</span>
+</span></span><span class="line"><span class="cl">crier backfill PATH <span class="o">[</span>--profile NAME<span class="o">]</span>   <span class="c1"># Publish missing content</span>
+</span></span><span class="line"><span class="cl">crier audit PATH                        <span class="c1"># Show what needs publishing</span>
+</span></span><span class="line"><span class="cl">crier list PLATFORM                     <span class="c1"># List your articles</span>
+</span></span><span class="line"><span class="cl">crier update PLATFORM ID --file FILE   <span class="c1"># Update existing</span>
+</span></span><span class="line"><span class="cl">crier platforms                         <span class="c1"># Show available platforms</span>
+</span></span><span class="line"><span class="cl">crier config <span class="nb">set</span> KEY VALUE              <span class="c1"># Configure API keys</span>
+</span></span><span class="line"><span class="cl">crier init-action                       <span class="c1"># Set up GitHub Actions</span>
+</span></span></code></pre></div><h2 id="configuration">Configuration</h2>
+<p>Set up API keys once:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">crier config <span class="nb">set</span> devto.api_key YOUR_DEV_TO_KEY
+</span></span><span class="line"><span class="cl">crier config <span class="nb">set</span> bluesky.api_key <span class="s2">&#34;handle.bsky.social:app-password&#34;</span>
+</span></span><span class="line"><span class="cl">crier config <span class="nb">set</span> mastodon.api_key <span class="s2">&#34;mastodon.social:access-token&#34;</span>
+</span></span></code></pre></div><p>Or define profiles for common workflows:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="c"># ~/.config/crier/config.yaml</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">profiles</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">blogs</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="l">devto, hashnode]</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">social</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="l">bluesky, mastodon]</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="l">blogs, social]</span><span class="w">
+</span></span></span></code></pre></div><p>Then use: <code>crier publish post.md --profile all</code></p>
+<h2 id="why-i-built-this">Why I Built This</h2>
+<p>I maintain content across several platforms and got tired of the manual copy-paste workflow. Crier automates the tedious parts while keeping you in control of what goes where.</p>
+<p>The GitHub Actions integration is the key feature: write once in your repo, push, and your content appears everywhere automatically.</p>
+<h2 id="links">Links</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/crier/">pypi.org/project/crier</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/crier">github.com/queelius/crier</a></li>
+<li><strong>Documentation</strong>: <a href="https://github.com/queelius/crier/tree/main/docs">github.com/queelius/crier/tree/main/docs</a></li>
+</ul>
+]]></content:encoded><category>python</category><category>cli</category><category>automation</category><category>opensource</category></item><item><title>repoindex: Collection Awareness for Your Git Repositories</title><link>https://queelius.github.io/post/2025-12-16-repoindex/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-repoindex/</guid><description>Introducing repoindex - a metadata index that gives LLM tools like Claude Code awareness of your entire repository collection.</description><content:encoded><![CDATA[<p>I&rsquo;ve been working on a tool called <a href="/projects/repoindex/">repoindex</a> that solves a problem I kept running into: when working with Claude Code on a project, the AI has deep knowledge of the <em>current</em> repository but no awareness of my other projects.</p>
+<p>Questions like &ldquo;which of my repos already has a fuzzy search implementation?&rdquo; or &ldquo;what other projects use this pattern?&rdquo; require manual searching. repoindex changes that.</p>
+<h2 id="the-philosophy">The Philosophy</h2>
+<p>The key insight is separation of concerns:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Claude Code (deep work on ONE repo)
+</span></span><span class="line"><span class="cl">         |
+</span></span><span class="line"><span class="cl">         |  &#34;What else do I have?&#34;
+</span></span><span class="line"><span class="cl">         |  &#34;Which repos need X?&#34;
+</span></span><span class="line"><span class="cl">         v
+</span></span><span class="line"><span class="cl">    repoindex (collection awareness)
+</span></span><span class="line"><span class="cl">         |
+</span></span><span class="line"><span class="cl">         +-- repo://...     -&gt; what exists
+</span></span><span class="line"><span class="cl">         +-- tags://...     -&gt; organization
+</span></span><span class="line"><span class="cl">         +-- stats://...    -&gt; aggregations
+</span></span><span class="line"><span class="cl">         +-- events://...   -&gt; what happened
+</span></span></code></pre></div><p>Claude Code works <em>inside</em> repositories - editing, generating, understanding code. repoindex knows <em>about</em> repositories - metadata, tags, status, relationships. Together they provide full portfolio awareness.</p>
+<h2 id="mcp-server-integration">MCP Server Integration</h2>
+<p>The most useful feature is the MCP (Model Context Protocol) server. Add it to your Claude Code configuration and suddenly the AI can query your repository collection:</p>
+<ul>
+<li>&ldquo;Which of my Python repos don&rsquo;t have a LICENSE file?&rdquo;</li>
+<li>&ldquo;What repos have I updated in the last week?&rdquo;</li>
+<li>&ldquo;Show me all projects tagged with <code>ml</code>&rdquo;</li>
+</ul>
+<p>The server exposes resources like <code>repo://</code>, <code>tags://</code>, <code>stats://</code>, and <code>events://</code> that Claude Code can read to understand your portfolio.</p>
+<h2 id="core-features">Core Features</h2>
+<p><strong>Tag-Based Organization</strong>: Hierarchical tags for categorizing repos. Tags can be explicit (<code>repoindex tag add myproject topic:ml</code>) or implicit (automatically derived from language, directory, features).</p>
+<p><strong>Query Language</strong>: Filter repos with expressions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">repoindex query <span class="s2">&#34;language == &#39;Python&#39; and &#39;ml&#39; in tags&#34;</span>
+</span></span><span class="line"><span class="cl">repoindex query <span class="s2">&#34;stars &gt; 10 and has:docs&#34;</span>
+</span></span></code></pre></div><p><strong>Event Tracking</strong>: Monitor what&rsquo;s happening across your collection:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">repoindex events --since 7d --pretty
+</span></span></code></pre></div><p>New releases, tags, PyPI publishes - all in one view.</p>
+<p><strong>JSONL Output</strong>: Every command outputs newline-delimited JSON by default, perfect for Unix pipelines:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">repoindex status <span class="p">|</span> jq <span class="s1">&#39;select(.status.clean == false)&#39;</span>
+</span></span></code></pre></div><h2 id="installation">Installation</h2>
+<p><strong>Now available on <a href="https://pypi.org/project/repoindex/">PyPI</a>!</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install repoindex
+</span></span></code></pre></div><p>Then configure your repository directories and start indexing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">repoindex config generate
+</span></span><span class="line"><span class="cl">repoindex list --pretty
+</span></span></code></pre></div><h2 id="why-the-rename">Why the Rename?</h2>
+<p>This project was previously called <code>ghops</code>. The new name better reflects what it actually does: it&rsquo;s an <em>index</em> of your <em>repositories</em>. The old name implied GitHub-specific operations, but the tool works with any git repository.</p>
+<p>See the <a href="/projects/repoindex/">project page</a> for full documentation.</p>
+]]></content:encoded><category>developer-tools</category><category>python</category><category>mcp</category><category>claude-code</category><category>git</category><category>devops</category></item><item><title>symlik: Symbolic Likelihood Models in Python</title><link>https://queelius.github.io/post/2025-12-16-symlik/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-symlik/</guid><description>Introducing symlik - define statistical models symbolically and automatically derive score functions, Hessians, and Fisher information.</description><content:encoded><![CDATA[<p>I&rsquo;ve released <a href="/projects/symlik/">symlik</a>, a Python library for symbolic likelihood models. The core idea: write your log-likelihood as a symbolic expression, and let the computer derive everything needed for inference.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Traditional statistical computing requires either:</p>
+<ol>
+<li><strong>Manual derivation</strong> - Work out score functions and information matrices by hand, then implement them</li>
+<li><strong>Numerical approximation</strong> - Use finite differences, which can be unstable and slow</li>
+</ol>
+<p>Both approaches have drawbacks. Manual derivation is error-prone and tedious. Numerical methods accumulate errors and don&rsquo;t give you the symbolic form.</p>
+<h2 id="the-solution">The Solution</h2>
+<p>symlik takes a third approach: symbolic differentiation. Define your model once, get exact derivatives automatically.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.distributions</span> <span class="kn">import</span> <span class="n">exponential</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">exponential</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">]}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mle</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mle</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;lambda&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="n">se</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">se</span><span class="p">(</span><span class="n">mle</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Rate: </span><span class="si">{</span><span class="n">mle</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> +/- </span><span class="si">{</span><span class="n">se</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Rate: 0.714 +/- 0.357</span>
+</span></span></code></pre></div><p>Behind the scenes, symlik:</p>
+<ol>
+<li>Symbolically differentiates the log-likelihood to get the score function</li>
+<li>Differentiates again for the Hessian</li>
+<li>Computes Fisher information from the Hessian</li>
+<li>Derives standard errors from the inverse information matrix</li>
+</ol>
+<p>All exact. No numerical approximation.</p>
+<h2 id="custom-models">Custom Models</h2>
+<p>The real power is defining custom models using s-expressions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">LikelihoodModel</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Exponential: l(lambda) = sum[log(lambda) - lambda*x_i]</span>
+</span></span><span class="line"><span class="cl"><span class="n">log_lik</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;sum&#39;</span><span class="p">,</span> <span class="s1">&#39;i&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;len&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">           <span class="p">[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;log&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;@&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;i&#39;</span><span class="p">]]]]]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">LikelihoodModel</span><span class="p">(</span><span class="n">log_lik</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;lambda&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Symbolic derivatives available</span>
+</span></span><span class="line"><span class="cl"><span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">()</span>       <span class="c1"># Gradient</span>
+</span></span><span class="line"><span class="cl"><span class="n">hess</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">hessian</span><span class="p">()</span>      <span class="c1"># Hessian matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">info</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">information</span><span class="p">()</span>  <span class="c1"># Fisher information</span>
+</span></span></code></pre></div><h2 id="heterogeneous-data">Heterogeneous Data</h2>
+<p>One of symlik&rsquo;s strengths is handling mixed observation types - exactly what you need for reliability analysis with censored data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">ContributionModel</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.contributions</span> <span class="kn">import</span> <span class="n">complete_exponential</span><span class="p">,</span> <span class="n">right_censored_exponential</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">ContributionModel</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;lambda&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">type_column</span><span class="o">=</span><span class="s2">&#34;status&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">contributions</span><span class="o">=</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;observed&#34;</span><span class="p">:</span> <span class="n">complete_exponential</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;censored&#34;</span><span class="p">:</span> <span class="n">right_censored_exponential</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;status&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;censored&#34;</span><span class="p">,</span> <span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;observed&#34;</span><span class="p">,</span> <span class="s2">&#34;censored&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;t&#34;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">2.1</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Each observation type contributes differently to the likelihood. symlik handles the bookkeeping.</p>
+<h2 id="connection-to-research">Connection to Research</h2>
+<p>symlik is the Python successor to my R package <a href="/projects/likelihood.model/">likelihood.model</a>. It implements the theoretical framework from my thesis work on likelihood-based inference for series systems.</p>
+<p>The <a href="/papers/reliability-series-sys-model-sel/">Weibull Series Model Selection</a> paper shows applications to reliability engineering - exactly the kind of complex likelihood that benefits from symbolic treatment.</p>
+<h2 id="powered-by-rerum">Powered by rerum</h2>
+<p>symlik uses <a href="/projects/rerum/">rerum</a> for symbolic differentiation. rerum is a pattern matching and term rewriting library that handles the calculus automatically. The separation means you can use rerum for other symbolic computation tasks beyond likelihood models.</p>
+<h2 id="installation">Installation</h2>
+<p><strong>Now available on <a href="https://pypi.org/project/symlik/">PyPI</a>!</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install symlik
+</span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/symlik/">queelius.github.io/symlik</a>.</p>
+<p>See the <a href="/projects/symlik/">project page</a> for more details.</p>
+]]></content:encoded><category>statistics</category><category>python</category><category>symbolic-computation</category><category>likelihood</category><category>mle</category><category>reliability</category></item></channel></rss>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Computer-Algebra on metafunctor</title><link>https://queelius.github.io/tags/computer-algebra/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/computer-algebra/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Rerum: A Pattern Matching and Term Rewriting Library</title><link>https://queelius.github.io/post/2025-12-16-rerum/</link><pubDate>Tue, 16 Dec 2025 06:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-12-16-rerum/</guid><description>Introducing rerum - a Python library for symbolic computation with a readable DSL, powerful pattern matching, and a security-conscious architecture that separates rules from computation.</description><content:encoded><![CDATA[<p><strong>Rerum</strong> (Rewriting Expressions via Rules Using Morphisms) is a Python library I&rsquo;ve been developing for pattern matching and term rewriting. It&rsquo;s designed to make symbolic computation accessible through a readable DSL while maintaining a security-conscious architecture.</p>
+<h2 id="the-problem-with-symbolic-computation">The Problem with Symbolic Computation</h2>
+<p>Traditional symbolic math systems often have two problems: either they&rsquo;re monolithic (like Mathematica) with everything built-in, or they require writing complex recursive traversals every time you want to transform an expression. What I wanted was something in between: a simple, extensible system where transformation rules are <em>data</em> that can be loaded, combined, and reasoned about.</p>
+<h2 id="a-readable-dsl">A Readable DSL</h2>
+<p>At the heart of rerum is a domain-specific language for defining rewrite rules:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># Algebraic simplification
+</span></span><span class="line"><span class="cl">@add-zero[100] &#34;x + 0 = x&#34;: (+ ?x 0) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-one[100]:  (* ?x 1) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-zero[100]: (* ?x 0) =&gt; 0
+</span></span></code></pre></div><p>Each rule has:</p>
+<ul>
+<li><strong>A name</strong>: <code>@add-zero</code> for debugging and tracing</li>
+<li><strong>Optional priority</strong>: <code>[100]</code> determines firing order when multiple rules match</li>
+<li><strong>Optional description</strong>: Human-readable explanation</li>
+<li><strong>A pattern</strong>: <code>(+ ?x 0)</code> matches addition with zero</li>
+<li><strong>A skeleton</strong>: <code>:x</code> is the replacement</li>
+</ul>
+<p>The pattern syntax is expressive:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Syntax</th>
+          <th>Meaning</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>?x</code></td>
+          <td>Match anything, bind to x</td>
+      </tr>
+      <tr>
+          <td><code>?x:const</code></td>
+          <td>Match only numbers</td>
+      </tr>
+      <tr>
+          <td><code>?x:var</code></td>
+          <td>Match only symbols</td>
+      </tr>
+      <tr>
+          <td><code>?x:free(v)</code></td>
+          <td>Match expressions not containing v</td>
+      </tr>
+      <tr>
+          <td><code>?x...</code></td>
+          <td>Variadic - capture remaining arguments</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="symbolic-differentiation-in-15-lines">Symbolic Differentiation in 15 Lines</h2>
+<p>Here&rsquo;s a calculus ruleset that computes symbolic derivatives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="p">[</span><span class="n">basic</span><span class="o">-</span><span class="n">derivatives</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">const</span><span class="p">[</span><span class="mi">100</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">c</span><span class="p">:</span><span class="k">const</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">var</span><span class="o">-</span><span class="n">same</span><span class="p">[</span><span class="mi">100</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">x</span><span class="p">:</span><span class="k">var</span> <span class="err">?</span><span class="n">x</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">var</span><span class="o">-</span><span class="n">diff</span><span class="p">[</span><span class="mi">90</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">y</span><span class="p">:</span><span class="k">var</span> <span class="err">?</span><span class="n">x</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="n">rules</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">sum</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">+</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">g</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">+</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">g</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">product</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">*</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">g</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">+</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span><span class="n">g</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span> <span class="p">:</span><span class="n">f</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">g</span> <span class="p">:</span><span class="n">v</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">power</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">^</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">n</span><span class="p">:</span><span class="k">const</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">:</span><span class="n">n</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="o">^</span> <span class="p">:</span><span class="n">f</span> <span class="p">(</span><span class="o">-</span> <span class="p">:</span><span class="n">n</span> <span class="mi">1</span><span class="p">))</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">exp</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">exp</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="nb">exp</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">log</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="n">ln</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">/</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">sin</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">sin</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="nb">cos</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">cos</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">cos</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="o">-</span> <span class="p">(</span><span class="nb">sin</span> <span class="p">:</span><span class="n">f</span><span class="p">))</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span></code></pre></div><p>With these rules loaded:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">E</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&#34;calculus.rules&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># d/dx(x^2) = 2x</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(dd (^ x 2) x)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; (* 2 (* (^ x 1) 1))</span>
+</span></span></code></pre></div><p>The result needs simplification (another ruleset), but the differentiation itself is completely declarative.</p>
+<h2 id="the-security-model-rules-vs-preludes">The Security Model: Rules vs. Preludes</h2>
+<p>A key architectural decision in rerum is the separation between <strong>rules</strong> (untrusted, serializable) and <strong>preludes</strong> (trusted Python code). Rules define structural transformations; they can reference operations via the <code>(! op args...)</code> compute form, but those operations must be explicitly provided by the host.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">ARITHMETIC_PRELUDE</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="p">(</span><span class="n">RuleEngine</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_prelude</span><span class="p">(</span><span class="n">ARITHMETIC_PRELUDE</span><span class="p">)</span>  <span class="c1"># Enables +, -, *, /, ^</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">load_dsl</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">        @fold-add: (+ ?a ?b) =&gt; (! + :a :b)
+</span></span></span><span class="line"><span class="cl"><span class="s1">                   when (! and (! const? :a) (! const? :b))
+</span></span></span><span class="line"><span class="cl"><span class="s1">    &#39;&#39;&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(+ 1 2)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; 3 (computed by prelude)</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(+ x 2)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; (+ x 2) (no change - x isn&#39;t const)</span>
+</span></span></code></pre></div><p>This means you can safely load rules from untrusted sources. They can only invoke operations you&rsquo;ve explicitly allowed. No arbitrary code execution.</p>
+<h2 id="conditional-guards">Conditional Guards</h2>
+<p>Rules can have guards - conditions that must be satisfied for the rule to fire:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">@abs-pos: (abs ?x) =&gt; :x when (! &gt; :x 0)
+</span></span><span class="line"><span class="cl">@abs-neg: (abs ?x) =&gt; (! - 0 :x) when (! &lt; :x 0)
+</span></span><span class="line"><span class="cl">@abs-zero: (abs ?x) =&gt; 0 when (! = :x 0)
+</span></span></code></pre></div><p>Guards use the same <code>(! ...)</code> compute syntax as skeletons, with access to predicates like <code>const?</code>, <code>var?</code>, <code>list?</code>, and comparison operators.</p>
+<h2 id="rewriting-strategies">Rewriting Strategies</h2>
+<p>Different problems need different traversal strategies:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># exhaustive (default): Apply rules until no more apply</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;exhaustive&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># once: Apply at most one rule anywhere</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;once&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># bottomup: Simplify children before parents</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;bottomup&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># topdown: Try parent before children</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;topdown&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="engine-composition">Engine Composition</h2>
+<p>Engines can be combined in various ways:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">expand</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_dsl</span><span class="p">(</span><span class="s2">&#34;@square: (square ?x) =&gt; (* :x :x)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">simplify</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&#34;algebra.rules&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sequence: expand first, then simplify</span>
+</span></span><span class="line"><span class="cl"><span class="n">normalize</span> <span class="o">=</span> <span class="n">expand</span> <span class="o">&gt;&gt;</span> <span class="n">simplify</span>
+</span></span><span class="line"><span class="cl"><span class="n">normalize</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(square 3)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; 9</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Union: combine all rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">=</span> <span class="n">algebra</span> <span class="o">|</span> <span class="n">calculus</span>
+</span></span></code></pre></div><h2 id="interactive-repl">Interactive REPL</h2>
+<p>The CLI includes an interactive mode for exploration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rerum
+</span></span><span class="line"><span class="cl">rerum&gt; @add-zero: <span class="o">(</span>+ ?x 0<span class="o">)</span> <span class="o">=</span>&gt; :x
+</span></span><span class="line"><span class="cl">Added <span class="m">1</span> rule<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">rerum&gt; <span class="o">(</span>+ y 0<span class="o">)</span>
+</span></span><span class="line"><span class="cl">y
+</span></span><span class="line"><span class="cl">rerum&gt; :load examples/calculus.rules
+</span></span><span class="line"><span class="cl">Loaded <span class="m">12</span> rule<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">rerum&gt; :trace on
+</span></span><span class="line"><span class="cl">rerum&gt; <span class="o">(</span>dd <span class="o">(</span>^ x 3<span class="o">)</span> x<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; <span class="o">(</span>* <span class="m">3</span> <span class="o">(</span>* <span class="o">(</span>^ x 2<span class="o">)</span> 1<span class="o">))</span>
+</span></span><span class="line"><span class="cl">Trace: dd-power
+</span></span></code></pre></div><p>Scripts can be run directly or piped:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rerum calc.rerum
+</span></span><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;(+ 1 2)&#34;</span> <span class="p">|</span> rerum -r algebra.rules -p full -q
+</span></span><span class="line"><span class="cl"><span class="m">3</span>
+</span></span></code></pre></div><h2 id="connection-to-other-projects">Connection to Other Projects</h2>
+<p>Rerum is part of a family of related projects:</p>
+<ul>
+<li><strong><a href="/projects/xtk/">xtk</a></strong> - Expression Toolkit with MCP server integration for Claude Code</li>
+<li><strong><a href="/projects/symlik/">symlik</a></strong> - Symbolic likelihood models using term rewriting for automatic differentiation of statistical models</li>
+<li><strong><a href="/projects/jsl/">jsl</a></strong> - A network-native language where code is JSON, using similar s-expression structure</li>
+</ul>
+<p>The common thread is treating symbolic expressions as first-class citizens that can be transformed, serialized, and reasoned about programmatically.</p>
+<h2 id="getting-started">Getting Started</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install rerum
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">E</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_dsl</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @add-zero: (+ ?x 0) =&gt; :x
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @mul-one: (* ?x 1) =&gt; :x
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @mul-zero: (* ?x 0) =&gt; 0
+</span></span></span><span class="line"><span class="cl"><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(* (+ x 0) 0)&#34;</span><span class="p">)))</span>  <span class="c1"># =&gt; 0</span>
+</span></span></code></pre></div><p>The full documentation is at the <a href="https://github.com/queelius/rerum">GitHub repository</a>. Check out the <code>examples/</code> directory for complete rulesets covering algebra, calculus, and number theory.</p>
+<h2 id="why-rerum">Why &ldquo;Rerum&rdquo;?</h2>
+<p>The name comes from the Latin phrase <em>&ldquo;rerum natura&rdquo;</em> (the nature of things) - Lucretius&rsquo;s famous work on atomic theory and natural philosophy. It felt fitting for a library about transforming the fundamental structure of expressions.</p>
+]]></content:encoded><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>dsl</category><category>python</category><category>computer-algebra</category><category>functional-programming</category></item></channel></rss>

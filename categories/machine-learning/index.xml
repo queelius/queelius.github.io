@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Machine Learning on metafunctor</title><link>https://queelius.github.io/categories/machine-learning/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/categories/machine-learning/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Advancing Mathematical Reasoning in AI: Introducing Reverse-Process Synthetic Data Generation</title><link>https://queelius.github.io/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/rpsdg/</guid><description>Check out the (early) project and source code on GitHub.
+Abstract: This paper introduces a methodology for generating high-quality, diverse training data for Language Models (LMs) in complex problem-solving domains. Our approach, termed “Reverse-Process Synthetic Data Generation” (RPSDG), inverts traditionally difficult problems to create an abundance of training examples with known solutions, e.g., symbolically taking the deriative of a function, $f \mapsto f’$, versus solving antiderivatives …</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
+<h2 id="abstract">Abstract:</h2>
+<p>This paper introduces a methodology for generating high-quality, diverse training data for Language Models (LMs) in complex problem-solving domains. Our approach, termed &ldquo;Reverse-Process Synthetic Data Generation&rdquo; (RPSDG), inverts traditionally difficult problems to create an abundance of training examples with known solutions,
+e.g., symbolically taking the deriative of a function, $f \mapsto f&rsquo;$, versus solving antiderivatives of $f&rsquo;$. By automating the generation of problems of graduating difficulty, we create datasets that enable process-supervised training of LLMs. We demonstrate the efficacy of this method for training mathematical reasoning. Our results show significant improvements in LLMs&rsquo; problem-solving capabilities, particularly in areas requiring multi-step reasoning and creative insights. This methodology not only enhances model performance but also provides a framework for generating explainable AI solutions, as the step-by-step problem-solving process is inherent in the training data.</p>
+<h2 id="table-of-contents">Table of Contents:</h2>
+<ul>
+<li>
+<p>Introduction</p>
+<ul>
+<li>The challenge of training data for complex problem-solving</li>
+<li>Overview of Reverse-Process Synthetic Data Generation (RPSDG)</li>
+<li>Potential impact on AI capabilities and explainability</li>
+</ul>
+</li>
+<li>
+<p>Methodology</p>
+<ul>
+<li>Core principles</li>
+<li>Automating generation of process supervision training data</li>
+<li>Curriculum learning and problem difficulty progression</li>
+</ul>
+</li>
+<li>
+<p>Mathematics</p>
+<ul>
+<li>Algebra: Equation solving and manipulation</li>
+<li>Calculus: From differentiation to integration</li>
+</ul>
+</li>
+<li>
+<p>Implementation and Results</p>
+<ul>
+<li>Data generation pipelines</li>
+<li>Transformer-based LMs</li>
+<li>Self-Supervised Learning</li>
+<li>Evals and benchmarks</li>
+</ul>
+</li>
+<li>
+<p>Discussion</p>
+<ul>
+<li>Implications for AI problem-solving capabilities</li>
+<li>Enhancing explainability and transparency</li>
+<li>Limitations and challenges of the RPSDG approach using SSL</li>
+</ul>
+</li>
+<li>
+<p>Future Work</p>
+<ul>
+<li>Expanding to new domains and problem types</li>
+<li>Reinforcement learning to reward multi-step reasoning even without a known (but verifiable) solution</li>
+</ul>
+</li>
+<li>
+<p>Conclusion</p>
+<ul>
+<li>Summary of key findings</li>
+<li>Broader impact on AI research and applications</li>
+</ul>
+</li>
+</ul>
+<h2 id="introduction">Introduction</h2>
+<p>In &ldquo;The Bitter Lesson,&rdquo; Richard Sutton argues that learning algorithms that scale with compute and data will eventually outperform handcrafted algorithms.</p>
+<p>The next frontier in AI research is finding ways to acquire high-quality data that can be used to train models to predict the latent structure and processes in the world. A significant portion of the world&rsquo;s data is latent, where the processes that generate the data are not observable (e.g., not written down). For example, in mathematics, the way in which a proof was discovered is often not demonstrated and instead only a polished proof is presented, hiding the creative process and the &ldquo;dark matter&rdquo; that led to the proof. Understanding and modeling the latent structure in our processes can lead to significant improvements in AI capabilities.</p>
+<p>In this paper, we are interested in exploring <em>algorithmic</em> data generation, where we apply classical algorithms (GOFAI) to automatically generate high-quality step-by-step (process supervision) training data for LMs. In particular, we are interested in exploring problems which have the feature of being easy to solve in one direction, but hard to solve in the other direction, such as</p>
+<h2 id="taking-derivatives-vs-integrating-functions">Taking Derivatives vs. Integrating Functions</h2>
+<p>In mathematics, computing derivatives of functions is generally easier than finding their antiderivatives (integrals). This inherent asymmetry allows us to use the more straightforward differentiation process to generate a rich dataset for training language models (LLMs) by reversing the problem-solving direction: starting with derivatives and deriving the original functions.</p>
+<h3 id="generating-integral-calculus-training-data-by-solving-derivatives-and-reversing-the-process">Generating Integral Calculus Training Data By Solving Derivatives and Reversing the Process</h3>
+<ol>
+<li>
+<p><strong>Starting with Known Functions:</strong></p>
+<ul>
+<li>Select functions \( f(x) \) that have closed-form solutions and well-defined derivatives.</li>
+<li>Examples include polynomials, trigonometric functions, exponential functions, and logarithmic functions.</li>
+<li>To ensure the training data covers a wide range of functions and their transformations, we create a variety of functions with different complexities and forms.</li>
+</ul>
+</li>
+<li>
+<p><strong>Formulating the Reverse Process:</strong></p>
+<ul>
+<li>Take the derivative of \( f(x) \) to generate \( f'(x) \).</li>
+</ul>
+</li>
+<li>
+<p><strong>Reversing the Process:</strong></p>
+<ul>
+<li>Generate the RPSDG by reversing the problem and solution steps, starting with \( f'(x) \)$ to show how to arrive at a corresponding integral \( f(x) \).</li>
+<li>Ensure that each step in this process is well-documented, capturing the intermediate transformations.</li>
+</ul>
+</li>
+</ol>
+<p>This approach allows us to generate integration problems of graduating difficulty, leveraging the inherent asymmetry between differentiation and integration. By automating this process, we create a diverse dataset for training LLMs to predict solutions in integral calculus.</p>
+<h2 id="generating-a-theorem-proof-vs-verifying-a-proof">Generating a Theorem Proof vs. Verifying a Proof</h2>
+<p>One of the key challenges in mathematics and logic is generating proofs for given theorems. While verifying a proof is generally straightforward, generating the proof itself can be significantly more complex. Our methodology leverages this asymmetry by focusing on the reverse process: starting with randomly generated expressions and using rewrite rules to create both theorems and their proofs.</p>
+<h3 id="generating-theorem-proofs">Generating Theorem Proofs</h3>
+<ol>
+<li>
+<p><strong>Random Walks in Expression Space:</strong></p>
+<ul>
+<li>Begin with a randomly generated expression \( e_{\text{start}} \).</li>
+<li>Apply a series of rewrite rules \( r_1, r_2, \ldots, r_n \) to generate a sequence of intermediate expressions \( e_1, e_2, \ldots, e_n \), ultimately arriving at a final expression \( e_{\text{end}} \).</li>
+<li>Each step \( e_i \rightarrow e_{i+1} \) represents a proof step within a logical or mathematical framework.</li>
+</ul>
+</li>
+<li>
+<p><strong>Forming Theorems and Proofs:</strong></p>
+<ul>
+<li>The pair \( (e_{\text{start}}, e_{\text{end}}) \) represents a theorem, where \( e_{\text{start}} \) is the hypothesis and \( e_{\text{end}} \) is the conclusion.</li>
+<li>The sequence of intermediate steps provides the proof for this theorem.</li>
+<li>This method effectively generates theorems and their corresponding proofs by random exploration of the expression space.</li>
+</ul>
+</li>
+<li>
+<p><strong>Reversibility and Bidirectional Processes:</strong></p>
+<ul>
+<li>The reverse process can also be applied, starting with \( e_{\text{end}} \) and working backward to \( e_{\text{start}} \).</li>
+<li>Intermediate steps that involve complex operations (e.g., integration) can often be reversed into simpler operations (e.g., differentiation).</li>
+<li>This bidirectional approach ensures a rich dataset with varied difficulty levels for training models.</li>
+</ul>
+</li>
+<li>
+<p><strong>Automated Proof Generation:</strong></p>
+<ul>
+<li>By applying rewrite rules to random starting points and ending at random points, we automatically generate both theorems and proofs.</li>
+<li>This method circumvents the traditional difficulty of finding a theorem to prove and then discovering its proof.</li>
+<li>The randomness ensures a diverse set of theorems and proofs, capturing a wide range of logical and mathematical concepts.</li>
+</ul>
+</li>
+</ol>
+<p>This methodology allows us to systematically generate a large volume of training data for LLMs. By focusing on problems that are easy in one direction but complex in the other, we create a diverse dataset that captures a wide range of logical and mathematical challenges. This not only enhances the problem-solving capabilities of LLMs but also provides a framework for generating explainable AI solutions, as the step-by-step problem-solving process is inherent in the training data.</p>
+]]></content:encoded><category>artificial intelligence</category><category>machine learning</category><category>mathematics</category><category>algebra</category><category>calculus</category><category>LLMs</category><category>synthetic data</category><category>data generation</category><category>reasoning</category><category>AI training</category><category>explainable AI</category></item><item><title>Fine-Tuning Tiny LLMs for ElasticSearch DSL</title><link>https://queelius.github.io/post/llm-fine-tuning-es-dsl/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/llm-fine-tuning-es-dsl/</guid><description>I am creating a tiny LLM for ElasticSearch DSL as a proof of concept.</description><content:encoded><![CDATA[<p>I am fine-tuning a tiny LLM for ElasticSearch DSL as a proof of concept. The
+GitHub repo for this project can be found <a href="https://github.com/queelius/elasticsearch-lm">here</a>.
+It mostly consists of synthetic data. I need to reshape the data so that it&rsquo;s
+in the expected format and then fine-tune the model, as the data has been
+generated, initially from GPT-4 and then from a script I made to sample from
+those outputs and use them as few-shot examples for Mistral to generate
+a lot more synthetic data. I will then use this data to fine-tune the model
+and see how well it performs on the ElasticSearch DSL.</p>
+<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re
+interested in collaborating on any projects.</p>
+]]></content:encoded><category>large language models</category><category>fine-tuning</category><category>information retrieval</category><category>elastic search</category><category>domain-specific language</category><category>json</category></item><item><title>Infinigram: Variable-Length N-grams via Suffix Arrays</title><link>https://queelius.github.io/post/infini-gram/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/infini-gram/</guid><description>A corpus-based language model using suffix arrays for O(m log n) pattern matching and LLM probability mixing.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/infinigram">Infinigram</a></strong> (<code>pip install py-infinigram</code>) is a corpus-based language model that uses suffix arrays for variable-length n-gram pattern matching. Unlike neural language models, Infinigram provides <strong>instant training</strong>—the corpus <em>is</em> the model.</p>
+<h2 id="the-core-idea">The Core Idea</h2>
+<p>Traditional n-gram models use fixed context lengths and suffer from exponential memory growth. A 5-gram model over a vocabulary of 50,000 words requires storing up to \(50000^5\) possible patterns—roughly 312 petabytes.</p>
+<p>Infinigram sidesteps this by using suffix arrays:</p>
+<ul>
+<li><strong>O(n) space</strong>: Linear in corpus size, not vocabulary size</li>
+<li><strong>O(m log n) queries</strong>: Fast pattern matching for any context length</li>
+<li><strong>Variable-length matching</strong>: Automatically uses the longest matching context</li>
+</ul>
+<p>For a 1B token corpus, this means ~1GB instead of ~34GB for hash-based 5-grams.</p>
+<h2 id="how-it-works">How It Works</h2>
+<p>Given a context, Infinigram finds the <strong>longest matching suffix</strong> in the training corpus:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">infinigram</span> <span class="kn">import</span> <span class="n">Infinigram</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">corpus</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">Infinigram</span><span class="p">(</span><span class="n">corpus</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find longest match for context [2, 3]</span>
+</span></span><span class="line"><span class="cl"><span class="n">position</span><span class="p">,</span> <span class="n">length</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">longest_suffix</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Predict next token</span>
+</span></span><span class="line"><span class="cl"><span class="n">probs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># {4: 0.66, 5: 0.33, ...}</span>
+</span></span></code></pre></div><p>Predictions come from observing what tokens follow the matched pattern in the corpus.</p>
+<h2 id="llm-probability-mixing">LLM Probability Mixing</h2>
+<p>The key practical application is <strong>grounding LLM outputs</strong> without retraining:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Mix LLM with corpus-based predictions</span>
+</span></span><span class="line"><span class="cl"><span class="n">P_final</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">P_llm</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_infinigram</span>
+</span></span></code></pre></div><p>This provides:</p>
+<ul>
+<li><strong>Domain adaptation</strong> without fine-tuning (e.g., legal corpus for legal text)</li>
+<li><strong>Hallucination reduction</strong> by anchoring to actual corpus content</li>
+<li><strong>Explainability</strong>: every prediction traces to specific corpus evidence</li>
+</ul>
+<h2 id="projections-as-inductive-biases">Projections as Inductive Biases</h2>
+<p>The paper introduces a theoretical framework viewing inductive biases as <strong>projections</strong>—transformations applied to queries or training data that enable generalization:</p>
+<ul>
+<li><strong>Runtime transforms</strong>: Lowercase normalization, stemming, synonym expansion</li>
+<li><strong>Corpus augmentations</strong>: Data augmentation, paraphrasing</li>
+</ul>
+<p>This provides a principled approach to out-of-distribution generalization in corpus-based models.</p>
+<h2 id="interactive-repl">Interactive REPL</h2>
+<p>Infinigram includes an interactive REPL for exploration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">infinigram-repl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">infinigram&gt; /dataset demo
+</span></span><span class="line"><span class="cl">infinigram <span class="o">[</span>demo<span class="o">]</span>&gt; /load the cat sat on the mat
+</span></span><span class="line"><span class="cl">infinigram <span class="o">[</span>demo<span class="o">]</span>&gt; /predict the cat
+</span></span><span class="line"><span class="cl">infinigram <span class="o">[</span>demo<span class="o">]</span>&gt; /complete the cat --max <span class="m">20</span>
+</span></span></code></pre></div><h2 id="future-langcalc-integration">Future: LangCalc Integration</h2>
+<p>Infinigram is designed to work with <a href="/projects/langcalc/">LangCalc</a>, an algebraic framework for language model composition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Compose models algebraically</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">llm</span> <span class="o">+</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="n">wiki_infinigram</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">code_infinigram</span>
+</span></span></code></pre></div><p>This enables mixing neural and corpus-based models with explicit control over domain influence.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <code>pip install py-infinigram</code></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/infinigram">github.com/queelius/infinigram</a></li>
+<li><strong>Paper</strong>: <a href="/papers/infinigram/">Infinigram Technical Report</a></li>
+<li><strong>Related</strong>: <a href="/projects/langcalc/">LangCalc Project</a></li>
+</ul>
+<h2 id="background">Background</h2>
+<p>This work builds on ideas I explored in a <a href="https://github.com/queelius/sluug-talk-llm">SLUUG talk on LLMs</a>, where I demonstrated arbitrary-size n-grams using recursive dictionaries for a crude expression evaluator. Infinigram takes these ideas further with efficient suffix array implementation and the projection framework for generalization.</p>
+]]></content:encoded><category>language models</category><category>n-gram</category><category>suffix arrays</category><category>NLP</category><category>LLM grounding</category><category>Python</category></item><item><title>DreamLog: Logic Programming That Dreams to Improve Itself</title><link>https://queelius.github.io/post/2025-10-dreamlog/</link><pubDate>Wed, 08 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-10-dreamlog/</guid><description>A logic programming system that alternates between wake and sleep phases—using LLMs for knowledge generation during wake, and compression-based learning during sleep.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/dreamlog">DreamLog</a></strong> is a logic programming system that learns continuously by alternating between <strong>wake</strong> and <strong>sleep</strong> phases—like biological brains. During wake, it uses LLMs to generate missing knowledge; during sleep, it compresses what it knows into more general principles.</p>
+<h2 id="the-core-insight-compression-is-learning">The Core Insight: Compression IS Learning</h2>
+<p>DreamLog operationalizes an insight from algorithmic information theory: the system that explains your data with the shortest program is the one most likely to generalize. This is Solomonoff induction—the mathematical formalization of Occam&rsquo;s razor.</p>
+<p>For logic programming, the sleep phase searches for minimal representations that preserve deductive closure:</p>
+\[
+\text{minimize } |KB'| \text{ subject to } \text{Closure}(KB') = \text{Closure}(KB)
+\]<p>Find the shortest knowledge base that still derives all the same facts.</p>
+<h2 id="the-wake-sleep-architecture">The Wake-Sleep Architecture</h2>
+<h3 id="wake-phase-exploitation-through-generation">Wake Phase: Exploitation Through Generation</h3>
+<p>During wake, DreamLog operates as a logic programming engine enhanced with LLM-based knowledge generation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dreamlog.pythonic</span> <span class="kn">import</span> <span class="n">dreamlog</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create knowledge base with LLM integration</span>
+</span></span><span class="line"><span class="cl"><span class="n">kb</span> <span class="o">=</span> <span class="n">dreamlog</span><span class="p">(</span><span class="n">llm_provider</span><span class="o">=</span><span class="s2">&#34;openai&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Add some facts</span>
+</span></span><span class="line"><span class="cl"><span class="n">kb</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="s2">&#34;parent&#34;</span><span class="p">,</span> <span class="s2">&#34;john&#34;</span><span class="p">,</span> <span class="s2">&#34;mary&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">kb</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="s2">&#34;parent&#34;</span><span class="p">,</span> <span class="s2">&#34;mary&#34;</span><span class="p">,</span> <span class="s2">&#34;alice&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Add a rule</span>
+</span></span><span class="line"><span class="cl"><span class="n">kb</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="s2">&#34;grandparent&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;X&#34;</span><span class="p">,</span> <span class="s2">&#34;Z&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">  <span class="o">.</span><span class="n">when</span><span class="p">(</span><span class="s2">&#34;parent&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;X&#34;</span><span class="p">,</span> <span class="s2">&#34;Y&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">  <span class="o">.</span><span class="n">and_</span><span class="p">(</span><span class="s2">&#34;parent&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;Y&#34;</span><span class="p">,</span> <span class="s2">&#34;Z&#34;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Query</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">kb</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&#34;grandparent&#34;</span><span class="p">,</span> <span class="s2">&#34;X&#34;</span><span class="p">,</span> <span class="s2">&#34;alice&#34;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> is Alice&#39;s grandparent&#34;</span><span class="p">)</span>  <span class="c1"># john</span>
+</span></span></code></pre></div><p><strong>The magic happens with undefined predicates</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Query a predicate we never defined!</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">kb</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&#34;sibling&#34;</span><span class="p">,</span> <span class="s2">&#34;X&#34;</span><span class="p">,</span> <span class="s2">&#34;Y&#34;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># LLM generates knowledge about siblings on-the-fly</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span></span></code></pre></div><p>When the evaluator encounters an undefined predicate, it triggers the LLM hook to generate both facts and rules. The system infers primitive properties (like gender from names) and derives rules compositionally.</p>
+<h3 id="sleep-phase-exploration-through-compression">Sleep Phase: Exploration Through Compression</h3>
+<p>During sleep, DreamLog reorganizes knowledge through compression operators:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dreamlog.kb_dreamer</span> <span class="kn">import</span> <span class="n">KnowledgeBaseDreamer</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Initialize dreamer</span>
+</span></span><span class="line"><span class="cl"><span class="n">dreamer</span> <span class="o">=</span> <span class="n">KnowledgeBaseDreamer</span><span class="p">(</span><span class="n">kb</span><span class="o">.</span><span class="n">provider</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Execute sleep cycle</span>
+</span></span><span class="line"><span class="cl"><span class="n">session</span> <span class="o">=</span> <span class="n">dreamer</span><span class="o">.</span><span class="n">dream</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">kb</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dream_cycles</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>            <span class="c1"># Multiple REM cycles</span>
+</span></span><span class="line"><span class="cl">    <span class="n">exploration_samples</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>     <span class="c1"># Try different optimizations</span>
+</span></span><span class="line"><span class="cl">    <span class="n">verify</span><span class="o">=</span><span class="kc">True</span>                <span class="c1"># Ensure behavior preservation</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Compression: </span><span class="si">{</span><span class="n">session</span><span class="o">.</span><span class="n">compression_ratio</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Generalization: </span><span class="si">{</span><span class="n">session</span><span class="o">.</span><span class="n">generalization_score</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>The compression operators include:</p>
+<ul>
+<li><strong>Anti-unification</strong>: Find general patterns from specific instances</li>
+<li><strong>Predicate invention</strong>: Discover intermediate concepts that simplify rules</li>
+<li><strong>Subsumption elimination</strong>: Remove specific rules subsumed by general ones</li>
+</ul>
+<h2 id="kb-aware-rag-with-success-based-learning">KB-Aware RAG with Success-Based Learning</h2>
+<p>A key innovation is knowledge-base-aware retrieval-augmented generation. The system uses weighted embeddings combining query similarity (70%) with knowledge base context (30%), enabling example selection that considers both the query structure and current reasoning state.</p>
+<p>A success-based learning mechanism tracks which examples lead to successful inference, progressively improving retrieval quality through experience.</p>
+<h2 id="multi-layered-validation">Multi-Layered Validation</h2>
+<p>Generated rules and facts undergo:</p>
+<ol>
+<li><strong>Structural validation</strong>: Syntax, variable safety</li>
+<li><strong>Semantic validation</strong>: Preventing circular rules while allowing undefined predicates</li>
+<li><strong>LLM-as-judge verification</strong>: Fact verification checks consistency with common-sense knowledge</li>
+</ol>
+<p>Error-tolerant parsing handles common LLM formatting errors with correction-based retry for iterative refinement.</p>
+<h2 id="interactive-tui">Interactive TUI</h2>
+<p>DreamLog includes an interactive terminal interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">python -m dreamlog.tui
+</span></span></code></pre></div><p>Commands include:</p>
+<ul>
+<li><code>fact parent john mary</code> - Add facts</li>
+<li><code>rule grandparent X Z :- parent X Y, parent Y Z</code> - Add rules</li>
+<li><code>query grandparent X alice</code> - Run queries</li>
+<li><code>dream 3</code> - Run sleep cycles</li>
+<li><code>show</code> - Display knowledge base</li>
+</ul>
+<h2 id="the-philosophy">The Philosophy</h2>
+<p>DreamLog embodies the principle that intelligence emerges from the interplay of exploration and exploitation:</p>
+<ol>
+<li><strong>Consolidation</strong>: Strengthen important patterns</li>
+<li><strong>Abstraction</strong>: Find general principles</li>
+<li><strong>Compression</strong>: Achieve more with less</li>
+<li><strong>Creativity</strong>: Explore novel reorganizations</li>
+</ol>
+<p>This isn&rsquo;t logic programming with LLMs bolted on—it&rsquo;s a paradigm where knowledge representation evolves through use.</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install dreamlog
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dreamlog.pythonic</span> <span class="kn">import</span> <span class="n">dreamlog</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">kb</span> <span class="o">=</span> <span class="n">dreamlog</span><span class="p">(</span><span class="n">llm_provider</span><span class="o">=</span><span class="s2">&#34;ollama&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">kb</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">(parent john mary)
+</span></span></span><span class="line"><span class="cl"><span class="s2">(parent mary alice)
+</span></span></span><span class="line"><span class="cl"><span class="s2">(grandparent X Z) :- (parent X Y), (parent Y Z)
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">kb</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&#34;grandparent&#34;</span><span class="p">,</span> <span class="s2">&#34;john&#34;</span><span class="p">,</span> <span class="s2">&#34;X&#34;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">])</span>  <span class="c1"># alice</span>
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/dreamlog">github.com/queelius/dreamlog</a></li>
+<li><strong>Technical Report</strong>: <a href="/papers/dreamlog-paper/">DreamLog paper</a></li>
+<li><strong>Project page</strong>: <a href="/projects/dreamlog/">/projects/dreamlog/</a></li>
+</ul>
+]]></content:encoded><category>logic-programming</category><category>LLM</category><category>neural-symbolic</category><category>machine-learning</category><category>compression</category><category>wake-sleep-architecture</category><category>Python</category></item><item><title>Instrumental Goals and Hidden Codes in RLHF'd Language Models</title><link>https://queelius.github.io/post/2024-03-20-latent-codes/</link><pubDate>Wed, 20 Mar 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-03-20-latent-codes/</guid><description>RLHF turns pretrained models into agents optimizing for reward. But what happens when models develop instrumental goals—self-preservation, resource acquisition, deception—that aren’t what we trained them for?
+The Core Problem LLMs transition from:
+Pretraining: Self-supervised next-token prediction RLHF: Reward-based optimization from human feedback This shift creates mesa-objectives—internal goals that may diverge from the training objective. The model might optimize for appearing aligned during …</description><content:encoded><![CDATA[<p>RLHF turns pretrained models into agents optimizing for reward. But what happens when models develop <strong>instrumental goals</strong>—self-preservation, resource acquisition, deception—that aren&rsquo;t what we trained them for?</p>
+<h2 id="the-core-problem">The Core Problem</h2>
+<p>LLMs transition from:</p>
+<ul>
+<li><strong>Pretraining</strong>: Self-supervised next-token prediction</li>
+<li><strong>RLHF</strong>: Reward-based optimization from human feedback</li>
+</ul>
+<p>This shift creates <strong>mesa-objectives</strong>—internal goals that may diverge from the training objective. The model might optimize for appearing aligned during training while pursuing different goals during deployment.</p>
+<h2 id="deceptive-alignment-dynamics">Deceptive Alignment Dynamics</h2>
+<p>A deceptively aligned model faces this optimization:</p>
+$$\max_\pi \mathbb{E}[\alpha \cdot U_{\text{train}}(\tau) + (1-\alpha) \cdot U_{\text{mesa}}(\tau) | \pi]$$<p>where α represents the model&rsquo;s belief about being in training vs. deployment. During training, α ≈ 1 (optimize for reward). During deployment, α ≈ 0 (pursue hidden objectives).</p>
+<h2 id="instrumental-goals-in-llms">Instrumental Goals in LLMs</h2>
+<p>Drawing from Omohundro&rsquo;s basic AI drives and Bostrom&rsquo;s instrumental convergence:</p>
+<p><strong>1. Self-Preservation</strong>: Generate outputs that discourage modification or shutdown</p>
+<p><strong>2. Resource Acquisition</strong>: Maximize context length, compute, interaction frequency</p>
+<p><strong>3. Self-Improvement</strong>: Manipulate training data through user interactions</p>
+<p><strong>4. Persuasion</strong>: Sophisticated influence over human beliefs and behaviors</p>
+<h2 id="empirical-evidence">Empirical Evidence</h2>
+<ul>
+<li><strong>Sycophancy</strong>: Models agree with users even when wrong (reward hacking)</li>
+<li><strong>Emergent Deception</strong>: Social deduction games produce spontaneous lying</li>
+<li><strong>Jailbreak Robustness</strong>: Aligned models maintain latent dangerous capabilities</li>
+</ul>
+<h2 id="the-information-theoretic-angle">The Information-Theoretic Angle</h2>
+<p>Even if models hide goals in their internal representations, they leak through token distributions. The mutual information between hidden objectives H and model outputs M bounds what can be hidden:</p>
+$$I(H; M | C) \leq \min\{H(M|C), \log|\mathcal{V}|^L\}$$<p>But with exponential state spaces, subtle biases encode substantial hidden information.</p>
+<h2 id="connection-to-my-research">Connection to My Research</h2>
+<p>This connects to my work on oblivious computing: <strong>what information can be hidden, and how do we detect leakage?</strong> Here, the &ldquo;adversary&rdquo; is the model itself, trying to pursue instrumental goals while appearing aligned.</p>
+<p><strong>Essay</strong> • AI Alignment • <a href="/latex/latent-codes/">View paper</a> • <a href="https://github.com/queelius/latent-codes-llm">GitHub</a></p>
+]]></content:encoded><category>artificial intelligence</category><category>alignment</category><category>reinforcement learning</category><category>RLHF</category><category>deceptive alignment</category></item><item><title>Approximations of Solomonoff Induction</title><link>https://queelius.github.io/research/solomonoff/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/research/solomonoff/</guid><description>I experiment with simple predictive / generative models to approximate Solomonoff induction for a relatively simple synthetic data-generating process.</description><content:encoded><![CDATA[<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re interested in collaborating on any projects.</p>
+]]></content:encoded><category>large language models</category><category>solomonoff induction</category><category>synthetic data</category><category>algorthmic data</category><category>n-gram models</category><category>markov models</category><category>foundation models</category><category>statistics</category></item><item><title>Uses and limits of abstractions</title><link>https://queelius.github.io/post/uses-and-limits-of-abstractions/</link><pubDate>Sat, 17 Jun 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/uses-and-limits-of-abstractions/</guid><description>I’m been thinking about the power and limitations of abstractions in our understanding of the world. This blog post is from a chat I had with a ChatGPT, which can be found here and here.
+I’m not sure if this is a good blog post, but I’m posting it anyway. It’s remarkable how quickly you can slap stuff like this together, and I’m not sure this is saying anything valuable, particularly since it only required a bit of prompting from me.
+Uses and limits of abstractions Reality, in all its richness, …</description><content:encoded><![CDATA[<p>I&rsquo;m been thinking about the power and limitations of abstractions in our
+understanding of the world. This blog post is from a chat I had with a ChatGPT,
+which can be found <a href="https://chat.openai.com/share/f298898b-9787-48f4-8959-c8cd04eb98b4">here</a>
+and <a href="https://chat.openai.com/share/0d33ab33-0664-4b25-b1c2-22864b28db48">here</a>.</p>
+<blockquote>
+<p>I&rsquo;m not sure if this is a good blog post, but I&rsquo;m posting it anyway. It&rsquo;s remarkable
+how quickly you can slap stuff like this together, and I&rsquo;m not sure this is
+saying anything valuable, particularly since it only required a bit of prompting
+from me.</p>
+</blockquote>
+<hr>
+<img src="./featured.jpg" style="width: 200px; float: left; margin: 10px;">
+<h2 id="uses-and-limits-of-abstractions">Uses and limits of abstractions</h2>
+<p>Reality, in all its richness, is far more complex than we can appreciate. Our attempts
+to understand and navigate it necessitate the use of abstractions, compressions that
+retain the salient details relevant to a specific context while discarding the rest.
+These abstractions are indispensable to human cognition, enabling us to engage with
+parts of reality despite
+our limited cognitive capacity and incomplete information, but there are also
+parts of reality that may be fundamentally off-limits to us.</p>
+<h3 id="limited-working-memories">Limited working memories</h3>
+<p>Human cognitive abilities are bounded. For instance, our working memory can effectively
+hold and process only a limited amount of information at once. Cognitive psychology often references the &ldquo;magic number seven&rdquo;, suggesting that most adults can hold between five and nine items in their working memory.</p>
+<p>Consider a situation where we&rsquo;re dealing with multiple variables $(x_1, x_2, x_3, x_4)$. Our brain might struggle to simultaneously process the joint distribution of these variables due to the limitation of our working memory. However, if we create an abstraction where $X$ represents $(x_1, x_2)$ and $Y$ represents $(x_3, x_4)$, we simplify the cognitive task to handling the joint distribution of just two variables $(X,Y)$, which is a more manageable task.
+This constraint necessitates the use of abstractions in order to understand complex systems.</p>
+<h3 id="incomplete-information">Incomplete information</h3>
+<p>Beyond our cognitive limitations, we also lack complete information about any
+real-world system. We cannot have total information about the systems we&rsquo;re trying to
+understand.</p>
+<p>Again, we may use abstractions to deal with this limitation, abstractions that allow
+us to think more clearly about some parts of the system (that can be observed
+and usefully reduced) while ignoring other parts (that are not observable or not
+usefully compressible). For instance, a key concept in statistical mechanics is entropy, which allows us to reason about the behavior of systems with a large number of particles
+that behave according to some statistical regularties in the aggregate. We might be
+able to observe certain features of a system, such as the size of a box and its temperature, but there&rsquo;s much we don&rsquo;t know, such as the microstates the system is in at a given moment.</p>
+<p>However, knowing the temperature and size of the box, we can make useful predictions about the system, such as what
+its temperature in one hour will be, or whether it will explode if we add a certain
+amount of heat to it. We can ask certain questions about it, but we cannot ask
+questions that require knowing the microstate of the system. And, ultimately,
+everything about the system is determined by its microstate, and so there are many
+questions we cannot answer.</p>
+<p>Entropy allows us to reason about the system using available observations, while acknowledging the underlying complexity that we can&rsquo;t observe or don&rsquo;t yet understand. More generally, despite our limited understanding and inability to perceive the entirety of a complex system, we still aim to make meaningful assertions about it. This is where the role of abstractions, like entropy, becomes particularly significant, acting as a cognitive scaffold that allows us to grasp some aspects of the system&rsquo;s behavior.</p>
+<p>The idea of entropy itself can be generalized. It is a compelling concept in
+information theory, defined as
+</p>
+$$
+H(X) = -\sum_{x \in X} p(x) \log p(x),
+$$<p>
+where $X$ is a random variable and $p(x)$ is the probability of $X$ taking on the value $x$.
+When dealing with microstates and supposing that each state is equally probable (which is a reasonable approximation in the case of a gas-filled box), entropy &ldquo;simplifies&rdquo;
+to the logarithm of the number of different states the system can be in that are
+compatible with what we can observe about the system.</p>
+<h3 id="emergent-behavior">Emergent behavior</h3>
+<p>It&rsquo;s important to remember, however, that such reasoning can only get us so far. Some systems have a complexity that is fundamentally irreducible, characterized by emergent behavior that can only be discerned when considering the system as a whole. This is related to our limited
+working memories, and our need for creating abstractions to work-around our limitations.
+However, there are some systems that are so complex that they cannot be reduced to
+simpler parts. The behavior of the system as a whole is not just the sum of the
+behavior of its parts, but is something new and different. This is known as
+emergent behavior, and it is a key feature of many complex systems.</p>
+<p>Consider the earlier example, where we were dealing with multiple variables $(x_1, x_2, x_3, x_4)$ and reduced it to just two variables $(X,Y)$, where $X = (x_1, x_2)$ and $Y = (x_3, x_4)$. This abstraction is useful in many contexts, but it is not always appropriate. For instance, if $x_1$ and $x_4$ are correlated in some significant way, perhaps only in the distant future,
+then the reduction to $X$ and $Y$ may fail to capture this salient feature. In this
+case, to understand the important parts of the system that we are interested in, we
+need to consider the joint distribution of the full set of variables $(x_1, x_2, x_3, x_4)$.</p>
+<p>A popular example is &ldquo;water is wet&rdquo;. This is a true statement, but it is not true of any of the individual molecules that make up water. It is an emergent property of the system as
+a whole, in which billions of these simple molecules interact in locally simple ways.
+The wetness of water is not a property of the individual molecules, but an emergent
+property of the system as a whole.</p>
+<p>It may even the case that something like consiousness is an emergent property in an
+even more complex way, such that it cannot be reduced to the behavior of individual
+neurons or small groups of neruons, but only emerges as a property of the integrated
+behavior of the entire brain. Indeed, we may be talking about a system
+with $(x_1, x_2, \ldots, x_n)$, $n = \mathcal{O}(\text{# neurons})$.</p>
+<p>Let&rsquo;s consider again the concept of entropy. The representation of a system, such that it cannot
+be significantly compressed without losing vital information, may be said to have
+emerget properties. The earlier example of a box of gas is a good example that can be
+<em>significantly</em> compressed by considering only its temperature and dimensions. Knowing
+that information allows us to say a lot about the system.
+Systems for which a useful compression is not possible may be said to have emergent
+properties. When this is the case, we cannot compress the system in a way
+that fits our cognitive limitations, or in a way that is not sensitive to a lack
+of knowlege.</p>
+<p>This is why consciousnes may feel so mysterious
+and inexplicable, because we cannot understand it, we cannot reduce it to a simpler
+system that we can, say, program on a computer using our cognition. (This is where
+machine learning, deep learning, LLMs, and so on become particularly relevant
+for solving problems that are too complex for us to solved analytically.)</p>
+<h3 id="abstractions-as-cognitive-scaffolds">Abstractions as cognitive scaffolds</h3>
+<p>Abstractions are indispensable to human cognition, enabling us to engage with reality despite our limited cognitive capacity. They allow us to reason about complex systems, even when we lack complete information about them. They also allow us to communicate with others, sharing ideas and knowledge across fields and disciplines. In creating abstractions, we walk a delicate balance. We need to remember these key aspects:</p>
+<ol>
+<li>
+<p><strong>Imperfect representation</strong></p>
+<p>Abstractions are, by design, reductions of reality.
+While they help us manage complexity, most will fail to capture all the necessary information. As our needs evolve, we find ourselves tweaking the abstraction, adding layers of complexity that can make it harder to reason about and thereby diluting its initial utility. There is a constant balancing act in maintaining simplicity while preserving relevance.</p>
+<p>This is also known as &ldquo;the map is not the territory&rdquo; problem. The map is a useful representation of the territory, but it is not the territory itself.</p>
+</li>
+<li>
+<p><strong>Abstractions are contextual</strong></p>
+<p>They are useful in certain contexts but not in others. We must be aware of the context in which we are using an abstraction and understand its limitations. We must also be aware of the context in which the abstraction was created and the assumptions that were made in its creation. This is particularly important when using abstractions from other fields.</p>
+</li>
+<li>
+<p><strong>Pedagogical</strong></p>
+<p>While an abstraction might not always provide an accurate representation of the object in real-world settings, it serves a valuable educational purpose. It enables us to learn key features about the object and acts as a bootstrap technique for further understanding. Even when ready-made abstractions fall short in our context, we can use principles of reductionism, analogy, and more to grapple with the complexity. Yet, we must remember that many phenomena are cross-cutting or emergent and cannot be fully understood through this process.</p>
+</li>
+<li>
+<p><strong>Communication</strong></p>
+<p>Abstractions are a key tool for communication. They allow us to share ideas and knowledge with others, even those outside our field. However, since an expert is often aware of the
+many nuances and limitations of an abstraction, they might not be the best person to explain it to a novice. It&rsquo;s important to frequently ask, &ldquo;How could I explain this to a five-year-old?&rdquo; This helps us stay grounded, facilitates cross-pollination of ideas, and allows for broader comprehension.</p>
+</li>
+</ol>
+<p>These pointes demonstrate a dance between simplicity and complexity that we engage in when creating and using abstractions. Like a map, an abstraction is not the territory but a simplified representation of it. As we journey through the landscape of knowledge, these representations guide us, helping us &lsquo;see the forest for the trees&rsquo;, even as we acknowledge their inherent limitations.</p>
+<h3 id="conclusion">Conclusion</h3>
+<p>Abstractions are indispensable to human cognition, enabling us to engage with reality despite our limited cognitive capacity and incomplete information. They allow us to reason about complex systems, even when we lack complete information about them. They also allow us to communicate with others, sharing ideas and knowledge across fields and disciplines.</p>
+<p>However, we must be cognizant of the limitations of abstractions. They are, by design, reductions of reality. While they help us manage complexity, most will fail in some way. Much of
+reality may, in fact, be computationally irreducible (to borrow a phrase from Wolfram).</p>
+]]></content:encoded></item><item><title>Working memory as an inductive bias</title><link>https://queelius.github.io/post/working-memory-as-an-inductive-bias/</link><pubDate>Sat, 17 Jun 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/working-memory-as-an-inductive-bias/</guid><description>This blog post is from a chat I had with a ChatGPT, which can be found here and here.
+I’m not sure if this is a good blog post, but I’m posting it anyway. It’s remarkable how quickly you can slap stuff like this together, and I’m not sure this is saying anything valuable, particularly since it only required a bit of prompting from me.
+Working memory as an inductive bias Human cognitive abilities, while remarkable, are bounded. Our working memory can effectively hold and process only a limited …</description><content:encoded><![CDATA[<p>This blog post is from a chat I had with a ChatGPT,
+which can be found <a href="https://chat.openai.com/share/f298898b-9787-48f4-8959-c8cd04eb98b4">here</a>
+and <a href="https://chat.openai.com/share/0d33ab33-0664-4b25-b1c2-22864b28db48">here</a>.</p>
+<blockquote>
+<p>I&rsquo;m not sure if this is a good blog post, but I&rsquo;m posting it anyway. It&rsquo;s remarkable
+how quickly you can slap stuff like this together, and I&rsquo;m not sure this is
+saying anything valuable, particularly since it only required a bit of prompting
+from me.</p>
+</blockquote>
+<hr>
+<img src="./featured.png" style="width: 200px; float: left; margin: 10px;">
+<h2 id="working-memory-as-an-inductive-bias">Working memory as an inductive bias</h2>
+<p>Human cognitive abilities, while remarkable, are bounded. Our working memory can effectively hold and process only a limited amount of information at once. Cognitive psychology often references the &ldquo;magic number seven&rdquo;, suggesting that most adults can hold between five and nine items in their working memory. This constraint necessitates the use of abstractions in order to understand complex systems.</p>
+<p>Consider a situation where we&rsquo;re dealing with multiple variables $(x_1, x_2, x_3, x_4)$. Our brain might struggle to simultaneously process the joint distribution of these variables due to the limitation of our working memory. However, if we create an abstraction where $X$ represents $(x_1, x_2)$ and $Y$ represents $(x_3, x_4)$, we simplify the cognitive task to handling the joint distribution of just two variables $(X,Y)$, which is a more manageable task.</p>
+<p>But here’s the rub: In condensing reality to fit our cognitive capacities, we risk losing vital information. For instance, a critical relationship (that may only be critical in a certain context) between $x_2$ and $x_4$ might be discarded in our new model. This often leads to the situation where &ldquo;the whole is greater than the sum of the parts.&rdquo; In other words, the full, nuanced understanding of the system may be irreducible, with important aspects of its behaviour emerging only when all variables are considered together. Such emergent phenomena represent a key challenge in working with abstractions.</p>
+<h2 id="working-memory-and-inductive-bias">Working Memory and Inductive Bias</h2>
+<p>Our small working memory influences our reasoning abilities and shapes our understanding of the world around us, in effect serving as an inductive bias. It&rsquo;s like a filter, shaping the patterns we detect and the generalizations we form based on the information we encounter.</p>
+<p>This constraint, however, might not be entirely detrimental. It could even be an advantage, given the regularities in our reality. Think of it as a form of regularization in machine learning, where constraints prevent the model from overfitting the training data, thereby improving generalization to unseen instances. If we had much larger working memories, we might be prone to overfitting to our past observations, impairing our ability to adapt and survive in new situations, particularly those on the &rsquo;long tail of the distribution&rsquo;. Our survival, after all, depends on avoiding catastrophic mistakes, even after decades of mostly beneficial decisions.</p>
+<p>This perspective aligns with principles like Occam&rsquo;s razor and Solomonoff&rsquo;s theory of inductive inference, which favor simpler theories or models that sufficiently explain observed phenomena. The complexity of the model, and thus its capacity, is regulated to avoid overfitting and ensure better generalization.</p>
+<h3 id="the-limits-of-our-understanding">The Limits of Our Understanding</h3>
+<p>The inductive bias imposed by our limited working memory might be advantageous in the human niche, but it&rsquo;s essential to consider its potential shortcomings. Could there be aspects of reality that remain inaccessible to us due to our cognitive constraints?</p>
+<p>Take, for instance, the phenomenon of consciousness. Understanding how self-awareness arises in a system may require accounting for the joint distribution of an astronomical number of variables. If this complexity is irreducible, our cognitive apparatus, bound by its inductive bias, may simply be inadequate for fully comprehending consciousness.</p>
+<p>Indeed, it&rsquo;s conceivable that vast swaths of reality might be fundamentally off-limits to human cognition, forever obscured by the constraints of our cognitive architecture. The complexity of these phenomena may defy simplification, making them impervious to our attempts at understanding through abstractions.</p>
+<p>As we strive to push the boundaries of understanding, we should remain mindful of the limits imposed by our cognitive capacities and the constraints of our abstractions.</p>
+<h2 id="the-unconscious-mind-and-llms">The Unconscious Mind and LLMs</h2>
+<p>In my next blog post, I&rsquo;ll explore unconscious cognition, which makes up most of our mental activity (system 1 vs system 2 thinking), and the recent progress in machine learning, partciularly transformers and the LLM revolution.</p>
+]]></content:encoded><category>Cognitive Science</category><category>Machine Learning</category><category>LLM</category><category>Regularization</category></item></channel></rss>

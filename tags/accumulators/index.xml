@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Accumulators on metafunctor</title><link>https://queelius.github.io/tags/accumulators/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/accumulators/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>Accumux: Compositional Online Statistical Reductions in C++</title><link>https://queelius.github.io/post/2024-03-01-accumux/</link><pubDate>Fri, 01 Mar 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-03-01-accumux/</guid><description>A modern C++20 library for compositional online data reductions with numerically stable algorithms and algebraic composition.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/accumux">Accumux</a></strong> provides a framework for combining statistical accumulators using algebraic composition. Built on solid mathematical foundations (monoids, homomorphisms), it enables single-pass computation of complex statistical measures with optimal numerical stability.</p>
+<h2 id="the-problem-multi-statistic-computation">The Problem: Multi-Statistic Computation</h2>
+<p>Computing multiple statistics over large datasets typically requires:</p>
+<ul>
+<li>Multiple passes over the data, or</li>
+<li>Hand-rolled code combining different algorithms, or</li>
+<li>Numerical instability from naive implementations</li>
+</ul>
+<p>Accumux solves this with <strong>compositional accumulators</strong>: combine any accumulators with <code>+</code>, process data once, extract all results.</p>
+<h2 id="quick-example">Quick Example</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/kbn_sum.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/welford.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/core/composition.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="k">namespace</span> <span class="n">accumux</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Compose accumulators with +
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Single pass through data
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">value</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">stats</span> <span class="o">+=</span> <span class="n">value</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Extract all results
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">get_first</span><span class="p">().</span><span class="n">eval</span><span class="p">();</span>           <span class="c1">// 15.0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">mean</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">mean</span><span class="p">();</span>         <span class="c1">// 3.0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">variance</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">sample_variance</span><span class="p">();</span>  <span class="c1">// 2.5
+</span></span></span></code></pre></div><h2 id="numerically-stable-algorithms">Numerically Stable Algorithms</h2>
+<p>Accumux uses proven algorithms that maintain accuracy even with ill-conditioned data:</p>
+<h3 id="kahan-babuška-neumaier-summation">Kahan-Babuška-Neumaier Summation</h3>
+<p>Standard floating-point summation loses precision:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Naive sum fails on this
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1e100</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e100</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Naive: 0.0 (wrong!)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// KBN:   2.0 (correct!)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">summer</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">values</span><span class="p">)</span> <span class="n">summer</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">summer</span><span class="p">.</span><span class="n">eval</span><span class="p">();</span>  <span class="c1">// 2.0
+</span></span></span></code></pre></div><h3 id="welfords-online-algorithm">Welford&rsquo;s Online Algorithm</h3>
+<p>Computes mean and variance in a single pass without catastrophic cancellation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">welford</span> <span class="o">=</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span> <span class="n">welford</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">welford</span><span class="p">.</span><span class="n">count</span><span class="p">();</span>           <span class="c1">// Number of samples
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">welford</span><span class="p">.</span><span class="n">mean</span><span class="p">();</span>            <span class="c1">// Running mean
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">welford</span><span class="p">.</span><span class="n">sample_variance</span><span class="p">();</span> <span class="c1">// Unbiased variance
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">welford</span><span class="p">.</span><span class="n">sample_std_dev</span><span class="p">();</span>  <span class="c1">// Standard deviation
+</span></span></span></code></pre></div><h3 id="minmax-tracking">Min/Max Tracking</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">minmax</span> <span class="o">=</span> <span class="n">minmax_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span> <span class="n">minmax</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">minmax</span><span class="p">.</span><span class="n">min</span><span class="p">();</span>  <span class="c1">// Minimum value
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">minmax</span><span class="p">.</span><span class="n">max</span><span class="p">();</span>  <span class="c1">// Maximum value
+</span></span></span></code></pre></div><h2 id="algebraic-composition">Algebraic Composition</h2>
+<p>The key insight: accumulators form a <strong>monoid</strong> under composition.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compose arbitrarily many accumulators
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">financial</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">minmax_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">returns</span> <span class="o">=</span> <span class="p">{</span><span class="mf">0.05</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.04</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">ret</span> <span class="p">:</span> <span class="n">returns</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">financial</span> <span class="o">+=</span> <span class="n">ret</span><span class="p">;</span>  <span class="c1">// All three update simultaneously
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Extract nested results
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">total</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_first</span><span class="p">().</span><span class="n">eval</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">mean</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">mean</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">volatility</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">sample_std_dev</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">worst</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">get_second</span><span class="p">().</span><span class="n">min</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">best</span> <span class="o">=</span> <span class="n">financial</span><span class="p">.</span><span class="n">get_second</span><span class="p">().</span><span class="n">get_second</span><span class="p">().</span><span class="n">max</span><span class="p">();</span>
+</span></span></code></pre></div><h2 id="mathematical-foundation">Mathematical Foundation</h2>
+<h3 id="monoid-structure">Monoid Structure</h3>
+<p>Each accumulator type <code>A</code> forms a monoid:</p>
+<ul>
+<li><strong>Identity</strong>: Empty accumulator with no observations</li>
+<li><strong>Binary operation</strong>: Merge two accumulators (combine their observations)</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">a</span> <span class="o">=</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">b</span> <span class="o">=</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Process different data
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data1</span><span class="p">)</span> <span class="n">a</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data2</span><span class="p">)</span> <span class="n">b</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Merge results
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">combined</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Equivalent to processing data1 ++ data2
+</span></span></span></code></pre></div><h3 id="homomorphism-property">Homomorphism Property</h3>
+<p>The composition operation preserves structure:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(a + b).process(x) = a.process(x) + b.process(x)
+</span></span></code></pre></div><p>This enables parallel processing: split data, accumulate in parallel, merge results.</p>
+<h2 id="type-safety-with-c20-concepts">Type Safety with C++20 Concepts</h2>
+<p>Invalid compositions fail at compile-time:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compile error: can&#39;t add incompatible accumulators
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">invalid</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">();</span>  <span class="c1">// Type mismatch!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// OK: compatible types compose
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">valid</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">()</span> <span class="o">+</span> <span class="n">welford_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Financial Analysis</strong>: Track returns, volatility, drawdowns in one pass</li>
+<li><strong>Scientific Computing</strong>: Online statistics for streaming sensor data</li>
+<li><strong>Machine Learning</strong>: Feature statistics during data preprocessing</li>
+<li><strong>Monitoring Systems</strong>: Real-time metrics aggregation</li>
+</ul>
+<h2 id="performance">Performance</h2>
+<ul>
+<li><strong>O(1) space</strong> per accumulator (constant memory regardless of data size)</li>
+<li><strong>O(n) time</strong> for n data points (single pass)</li>
+<li><strong>Zero allocations</strong> during accumulation</li>
+<li><strong>Header-only</strong>: No linking, no dependencies</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>Header-only—just include:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/kbn_sum.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/accumulators/welford.hpp&#34;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&#34;accumux/core/composition.hpp&#34;</span><span class="cp">
+</span></span></span></code></pre></div><p>Or with CMake:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">accumux</span><span class="p">)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">accumux::accumux</span><span class="p">)</span><span class="err">
+</span></span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/accumux">github.com/queelius/accumux</a></li>
+<li><strong>Paper</strong>: <a href="/papers/accumux/">AccuMux Technical Report</a></li>
+</ul>
+<hr>
+<p><em>Accumux: Compose your statistics, compute in one pass, trust the math.</em></p>
+]]></content:encoded><category>C++</category><category>statistics</category><category>numerical-computing</category><category>accumulators</category><category>functional-programming</category><category>header-only</category></item></channel></rss>

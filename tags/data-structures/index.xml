@@ -1,0 +1,1227 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Data-Structures on metafunctor</title><link>https://queelius.github.io/tags/data-structures/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/data-structures/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>AlgoGraph: Immutable Graph Library with Functional Transformers</title><link>https://queelius.github.io/post/2025-11-30-algograph/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-algograph/</guid><description>AlgoGraph brings functional programming elegance to graph algorithms with immutable data structures, pipe-based transformers, declarative selectors, and lazy views.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/AlgoGraph/">AlgoGraph</a></strong> is an immutable graph library for Python that brings functional programming elegance to graph algorithms. Version 2.0.0 introduces pipe-based transformers, declarative selectors, and lazy views—achieving ~90% code reduction for common operations.</p>
+<h2 id="why-immutability-for-graphs">Why Immutability for Graphs?</h2>
+<p>Mutable graph libraries like NetworkX are powerful but come with hidden costs:</p>
+<ul>
+<li><strong>Side effects</strong>: Modifying a graph can break other code holding references</li>
+<li><strong>Debugging difficulty</strong>: Hard to track when/where a graph changed</li>
+<li><strong>Thread unsafety</strong>: Concurrent modifications cause subtle bugs</li>
+</ul>
+<p>AlgoGraph takes a different approach: <strong>all operations return new graph objects</strong>. The original is never modified.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">g1</span> <span class="o">=</span> <span class="n">Graph</span><span class="o">.</span><span class="n">from_edges</span><span class="p">((</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">g2</span> <span class="o">=</span> <span class="n">g1</span><span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;D&#39;</span><span class="p">)</span>  <span class="c1"># g1 unchanged, g2 is new graph</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">g1</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">in</span> <span class="n">g2</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="pipe-based-transformers">Pipe-Based Transformers</h2>
+<p>The killer feature of v2.0.0 is the transformer pipeline using Python&rsquo;s <code>|</code> operator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">largest_component</span><span class="p">,</span> <span class="n">stats</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compose operations declaratively</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">graph</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">largest_component</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">stats</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># result: {&#39;vertex_count&#39;: 42, &#39;edge_count&#39;: 156, &#39;density&#39;: 0.18, ...}</span>
+</span></span></code></pre></div><p>This replaces verbose imperative code:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Old way (NetworkX-style)</span>
+</span></span><span class="line"><span class="cl"><span class="n">active</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">subgraph</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">)])</span>
+</span></span><span class="line"><span class="cl"><span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">connected_components</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">largest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">subgraph</span> <span class="o">=</span> <span class="n">active</span><span class="o">.</span><span class="n">subgraph</span><span class="p">(</span><span class="n">largest</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stats</span> <span class="o">=</span> <span class="n">compute_stats</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Available transformers:</strong></p>
+<ul>
+<li><code>filter_vertices(pred)</code>, <code>filter_edges(pred)</code> — Filter by predicate</li>
+<li><code>map_vertices(fn)</code>, <code>map_edges(fn)</code> — Transform attributes</li>
+<li><code>reverse()</code>, <code>to_undirected()</code> — Structure transformations</li>
+<li><code>largest_component()</code>, <code>minimum_spanning_tree()</code> — Algorithm-based</li>
+<li><code>to_dict()</code>, <code>to_adjacency_list()</code>, <code>stats()</code> — Export operations</li>
+</ul>
+<h2 id="declarative-selectors">Declarative Selectors</h2>
+<p>Query vertices and edges with logical operators instead of filtering lambdas:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.graph_selectors</span> <span class="kn">import</span> <span class="n">vertex</span> <span class="k">as</span> <span class="n">v</span><span class="p">,</span> <span class="n">edge</span> <span class="k">as</span> <span class="n">e</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find active users with high degree</span>
+</span></span><span class="line"><span class="cl"><span class="n">power_users</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find heavy edges from admin nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">admin_edges</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_edges</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;admin&#39;</span><span class="p">))</span> <span class="o">&amp;</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span><span class="p">(</span><span class="n">min_weight</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Complex queries with OR, NOT, XOR</span>
+</span></span><span class="line"><span class="cl"><span class="n">special</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">vip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">|</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">50</span><span class="p">))</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">banned</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>This is <strong>declarative</strong>: you specify <em>what</em> you want, not <em>how</em> to find it.</p>
+<h2 id="lazy-views">Lazy Views</h2>
+<p>Views provide efficient filtering without copying data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.views</span> <span class="kn">import</span> <span class="n">filtered_view</span><span class="p">,</span> <span class="n">neighborhood_view</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create view without copying (O(1) space)</span>
+</span></span><span class="line"><span class="cl"><span class="n">view</span> <span class="o">=</span> <span class="n">filtered_view</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">large_graph</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">vertex_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">edge_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span> <span class="o">&gt;</span> <span class="mf">5.0</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Iterate lazily</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="n">view</span><span class="o">.</span><span class="n">vertices</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">vertex</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Materialize only when needed</span>
+</span></span><span class="line"><span class="cl"><span class="n">small_graph</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">materialize</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Explore k-hop neighborhood</span>
+</span></span><span class="line"><span class="cl"><span class="n">local</span> <span class="o">=</span> <span class="n">neighborhood_view</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="s1">&#39;Alice&#39;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>View types:</strong></p>
+<ul>
+<li><code>filtered_view()</code> — Filter vertices/edges</li>
+<li><code>subgraph_view()</code> — View specific vertices</li>
+<li><code>reversed_view()</code> — Reverse edge directions</li>
+<li><code>undirected_view()</code> — View as undirected</li>
+<li><code>neighborhood_view()</code> — k-hop neighborhood</li>
+</ul>
+<h2 id="56-algorithms">56+ Algorithms</h2>
+<p>AlgoGraph includes comprehensive algorithm coverage:</p>
+<h3 id="traversal">Traversal</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dfs</span><span class="p">,</span> <span class="n">bfs</span><span class="p">,</span> <span class="n">topological_sort</span><span class="p">,</span> <span class="n">find_path</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">visited</span> <span class="o">=</span> <span class="n">dfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">levels</span> <span class="o">=</span> <span class="n">bfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">order</span> <span class="o">=</span> <span class="n">topological_sort</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># DAG only</span>
+</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">find_path</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="shortest-paths">Shortest Paths</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">bellman_ford</span><span class="p">,</span> <span class="n">floyd_warshall</span><span class="p">,</span> <span class="n">a_star</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">bellman_ford</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>  <span class="c1"># Handles negative weights</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_pairs</span> <span class="o">=</span> <span class="n">floyd_warshall</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">a_star</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">,</span> <span class="n">heuristic</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="centrality">Centrality</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">pagerank</span><span class="p">,</span> <span class="n">betweenness_centrality</span><span class="p">,</span> <span class="n">closeness_centrality</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">social_network</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">bc</span> <span class="o">=</span> <span class="n">betweenness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cc</span> <span class="o">=</span> <span class="n">closeness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="flow-networks">Flow Networks</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">max_flow</span><span class="p">,</span> <span class="n">min_cut</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">flow_value</span> <span class="o">=</span> <span class="n">max_flow</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cut_value</span><span class="p">,</span> <span class="n">source_set</span><span class="p">,</span> <span class="n">sink_set</span> <span class="o">=</span> <span class="n">min_cut</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="matching">Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">hopcroft_karp</span><span class="p">,</span> <span class="n">maximum_bipartite_matching</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matching</span> <span class="o">=</span> <span class="n">hopcroft_karp</span><span class="p">(</span><span class="n">bipartite_graph</span><span class="p">,</span> <span class="n">left_set</span><span class="p">,</span> <span class="n">right_set</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">max_matching</span> <span class="o">=</span> <span class="n">maximum_bipartite_matching</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="graph-coloring">Graph Coloring</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">welsh_powell</span><span class="p">,</span> <span class="n">chromatic_number</span><span class="p">,</span> <span class="n">dsatur</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">welsh_powell</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">num_colors</span> <span class="o">=</span> <span class="n">chromatic_number</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">dsatur</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># Often better than greedy</span>
+</span></span></code></pre></div><h2 id="interactive-shell">Interactive Shell</h2>
+<p>Explore graphs with a filesystem-like interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
+</span></span><span class="line"><span class="cl">algograph network.json
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">graph(5v):/$ ls
+</span></span><span class="line"><span class="cl">Alice/  [2 neighbors]
+</span></span><span class="line"><span class="cl">Bob/    [3 neighbors]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">graph(5v):/$ cd Alice
+</span></span><span class="line"><span class="cl">graph(5v):/Alice$ ls
+</span></span><span class="line"><span class="cl">Attributes:
+</span></span><span class="line"><span class="cl">  age = 30
+</span></span><span class="line"><span class="cl">neighbors/  [2 vertices]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">graph(5v):/Alice$ path Bob Eve
+</span></span><span class="line"><span class="cl">Path found: Alice -&gt; Bob -&gt; Diana -&gt; Eve
+</span></span></code></pre></div><h2 id="relationship-to-algotree">Relationship to AlgoTree</h2>
+<p>AlgoGraph and <a href="/post/algotree-post/">AlgoTree</a> share the same design philosophy:</p>
+<ul>
+<li>Immutable data structures</li>
+<li>Pipe-based transformers</li>
+<li>Declarative selectors</li>
+<li>Lazy views</li>
+</ul>
+<p>They also interoperate:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Tree</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">tree_to_graph</span><span class="p">,</span> <span class="n">graph_to_tree</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Tree to Graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Graph to Tree (extracts spanning tree)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">graph_to_tree</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s1">&#39;root&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">pagerank</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">stats</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build a graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">Graph</span><span class="o">.</span><span class="n">builder</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">build</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Run algorithms</span>
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Transform with pipes</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">g</span> <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">)</span> <span class="o">|</span> <span class="n">stats</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/AlgoGraph/">pypi.org/project/AlgoGraph/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoGraph">github.com/queelius/AlgoGraph</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoGraph/">queelius.github.io/AlgoGraph/</a></li>
+</ul>
+<hr>
+<p><em>AlgoGraph: Functional programming meets graph algorithms. Immutable, composable, and elegant.</em></p>
+]]></content:encoded><category>Python</category><category>graphs</category><category>algorithms</category><category>functional-programming</category><category>data-structures</category><category>immutability</category></item><item><title>libdis: Disjoint Interval Sets as a Complete Boolean Algebra</title><link>https://queelius.github.io/post/2025-11-30-libdis/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2025-11-30-libdis/</guid><description>A modern C++ header-only library implementing disjoint interval sets as first-class mathematical objects with rigorous Boolean algebra operations.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/disjoint_interval_set">libdis</a></strong> is a C++17/20/23 header-only library that treats interval sets as first-class mathematical objects forming a complete Boolean algebra. Unlike libraries that merely provide interval containers, libdis gives you the full power of set-theoretic operations with mathematical rigor.</p>
+<h2 id="why-disjoint-interval-sets">Why Disjoint Interval Sets?</h2>
+<p>Working with intervals is fundamental in many domains—scheduling, computational geometry, range queries. But most implementations treat intervals as data containers rather than mathematical objects.</p>
+<p>libdis takes a different approach:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;dis/disjoint_interval_set.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">dis</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">disjoint_interval_set</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">a</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">|</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>  <span class="c1">// [1,5] ∪ [10,15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">dis</span> <span class="n">b</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">);</span>                        <span class="c1">// [3,12]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">intersection</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span><span class="p">;</span>   <span class="c1">// [3,5] ∪ [10,12]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">union_set</span> <span class="o">=</span> <span class="n">a</span> <span class="o">|</span> <span class="n">b</span><span class="p">;</span>      <span class="c1">// [1,15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">difference</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">;</span>     <span class="c1">// [1,3) ∪ (12,15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">complement</span> <span class="o">=</span> <span class="o">~</span><span class="n">a</span><span class="p">;</span>        <span class="c1">// (-∞,1) ∪ (5,10) ∪ (15,+∞)
+</span></span></span></code></pre></div><h2 id="boolean-algebra-axioms">Boolean Algebra Axioms</h2>
+<p>libdis rigorously implements Boolean algebra. These aren&rsquo;t just convenient operators—they satisfy mathematical laws:</p>
+<p><strong>Associativity</strong>: <code>(a | b) | c == a | (b | c)</code></p>
+<p><strong>Commutativity</strong>: <code>a &amp; b == b &amp; a</code></p>
+<p><strong>Distributivity</strong>: <code>a &amp; (b | c) == (a &amp; b) | (a &amp; c)</code></p>
+<p><strong>Identity</strong>: <code>a | ∅ == a</code>, <code>a &amp; U == a</code></p>
+<p><strong>Complement</strong>: <code>a | ~a == U</code>, <code>a &amp; ~a == ∅</code></p>
+<p><strong>De Morgan&rsquo;s Laws</strong>: <code>~(a &amp; b) == ~a | ~b</code></p>
+<p>All 94 test cases verify these algebraic properties.</p>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>Mathematical Elegance</strong>: Operations follow Boolean algebra axioms rigorously</li>
+<li><strong>Intuitive API</strong>: Express complex set operations naturally with operators</li>
+<li><strong>Zero-Cost Abstractions</strong>: Compile-time interval validation with no runtime overhead</li>
+<li><strong>STL Compatibility</strong>: Full alignment with C++ Standard Library conventions</li>
+<li><strong>Production Ready</strong>: 97.46% test coverage on core implementation</li>
+</ul>
+<h2 id="interval-types">Interval Types</h2>
+<p>Create intervals with different boundary conditions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">closed</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>      <span class="c1">// [1, 5]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">open</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">open</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>          <span class="c1">// (1, 5)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">left_open</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">left_open</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span>   <span class="c1">// (1, 5]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">right_open</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">right_open</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">);</span> <span class="c1">// [1, 5)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Unbounded intervals
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">from</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">from</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>             <span class="c1">// [5, +∞)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">until</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">until</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>           <span class="c1">// (-∞, 5]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">everything</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">all</span><span class="p">();</span>         <span class="c1">// (-∞, +∞)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">nothing</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">empty</span><span class="p">();</span>          <span class="c1">// ∅
+</span></span></span></code></pre></div><h2 id="set-operations">Set Operations</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">a</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">b</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Union
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">u</span> <span class="o">=</span> <span class="n">a</span> <span class="o">|</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [0, 15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Intersection
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">i</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [5, 10]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Difference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">d</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [0, 5)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Symmetric difference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">s</span> <span class="o">=</span> <span class="n">a</span> <span class="o">^</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// [0, 5) ∪ (10, 15]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Complement
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">c</span> <span class="o">=</span> <span class="o">~</span><span class="n">a</span><span class="p">;</span>     <span class="c1">// (-∞, 0) ∪ (10, +∞)
+</span></span></span></code></pre></div><h2 id="querying">Querying</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">intervals</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">|</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Point containment
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>   <span class="c1">// true
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">7</span><span class="p">);</span>   <span class="c1">// false
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Interval containment
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">));</span>   <span class="c1">// true
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">12</span><span class="p">));</span>  <span class="c1">// false
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Overlap detection
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">overlaps</span><span class="p">(</span><span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">));</span>  <span class="c1">// true
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Iteration
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">interval</span> <span class="p">:</span> <span class="n">intervals</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">interval</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="stl-conformance">STL Conformance</h2>
+<p>libdis v1.1.0 brings full STL container conformance:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dis</span> <span class="n">intervals</span> <span class="o">=</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">|</span> <span class="n">dis</span><span class="o">::</span><span class="n">closed</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// STL-style access
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>     <span class="c1">// Number of disjoint intervals
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">empty</span><span class="p">();</span>    <span class="c1">// Check if empty
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>    <span class="c1">// Iterator to first interval
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">intervals</span><span class="p">.</span><span class="n">end</span><span class="p">();</span>      <span class="c1">// Past-the-end iterator
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Range-based for
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">iv</span> <span class="p">:</span> <span class="n">intervals</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">iv</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Algorithms
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">find_if</span><span class="p">(</span><span class="n">intervals</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">intervals</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">iv</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">iv</span><span class="p">.</span><span class="n">length</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">;</span> <span class="p">});</span>
+</span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Scheduling</strong>: Find available time slots, detect conflicts</li>
+<li><strong>Memory Management</strong>: Track allocated/free regions</li>
+<li><strong>Database Queries</strong>: Range predicates, temporal queries</li>
+<li><strong>Network ACLs</strong>: IP range matching, port ranges</li>
+<li><strong>Computational Geometry</strong>: 1D intersection problems</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>Header-only—just include:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;dis/disjoint_interval_set.hpp&gt;</span><span class="cp">
+</span></span></span></code></pre></div><p>Or with CMake:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">libdis</span><span class="p">)</span><span class="err">
+</span></span></span><span class="line"><span class="cl"><span class="err"></span><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">dis::dis</span><span class="p">)</span><span class="err">
+</span></span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/disjoint_interval_set">github.com/queelius/disjoint_interval_set</a></li>
+</ul>
+<hr>
+<p><em>libdis: When intervals become first-class mathematical citizens, set operations become trivial.</em></p>
+]]></content:encoded><category>C++</category><category>data-structures</category><category>intervals</category><category>boolean-algebra</category><category>header-only</category><category>STL</category></item><item><title>Algebraic Composition for Streaming Data Reduction: A Type-Safe Framework with Numerical Stability</title><link>https://queelius.github.io/papers/accumux/</link><pubDate>Wed, 01 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/accumux/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/accumux/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/accumux/accumux_paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/accumux/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>c++</category><category>streaming</category><category>data structures</category><category>library</category><category>numerical stability</category></item><item><title>Cryptographic perfect hash functions: A theoretical analysis on space efficiency, time complexity, and entropy</title><link>https://queelius.github.io/papers/crypto-perf-hash/</link><pubDate>Wed, 01 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/crypto-perf-hash/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/crypto-perf-hash/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/crypto-perf-hash/paper.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/crypto-perf-hash/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>cryptography</category><category>performance</category><category>hash functions</category><category>data structures</category><category>c++</category><category>library</category></item><item><title>maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage</title><link>https://queelius.github.io/papers/maph/</link><pubDate>Wed, 01 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/maph/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/maph/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/maph/maph_technical_report.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/maph/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>hash functions</category><category>data structures</category><category>c++</category><category>library</category><category>perfect hashing</category><category>key-value storage</category></item><item><title>The Dot Ecosystem: From Simple Paths to Data Algebras</title><link>https://queelius.github.io/post/2024-12-dotsuite/</link><pubDate>Sun, 15 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-12-dotsuite/</guid><description>A mathematically grounded ecosystem of composable tools for manipulating nested data structures. From simple helper functions to sophisticated data algebras, guided by purity, pedagogy, and the principle of least power.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/dotsuite">dotsuite</a></strong> is a suite of composable tools for working with nested data structures like JSON, YAML, and Python dictionaries. What began as a single helper function evolved into a complete, mathematically grounded ecosystem—a journey in API design guided by purity, pedagogy, and the Unix philosophy.</p>
+<h2 id="the-origin-story">The Origin Story</h2>
+<p>It always starts with a simple problem. You have a nested dictionary or JSON payload, and you need to get a value buried deep inside:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Brittle code that crashes on missing keys</span>
+</span></span><span class="line"><span class="cl"><span class="n">email</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;contacts&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>  <span class="c1"># KeyError? IndexError?</span>
+</span></span></code></pre></div><p>The first, obvious solution is a helper function:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># The essence of dotget - simple enough to copy</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">segment</span><span class="p">)]</span> <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">else</span> <span class="n">data</span><span class="p">[</span><span class="n">segment</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">data</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">default</span>
+</span></span></code></pre></div><p><strong>This is where the story begins</strong>. What started as this single, humble function evolved through a series of questions and insights into a complete, coherent ecosystem for data manipulation.</p>
+<h2 id="the-three-pillars">The Three Pillars</h2>
+<p>The ecosystem is built on three fundamental pillars, each answering a core question about data:</p>
+<h3 id="-depth-pillar--where-is-the-data">🎯 Depth Pillar — &ldquo;Where is the data?&rdquo;</h3>
+<p>Tools for finding and extracting values from within documents.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+          <th>Complexity</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotget</strong></td>
+          <td>Simple exact paths</td>
+          <td><code>get(data, &quot;user.name&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotstar</strong></td>
+          <td>Wildcard patterns</td>
+          <td><code>search(data, &quot;users.*.name&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotselect</strong></td>
+          <td>Advanced selection with predicates</td>
+          <td><code>find_first(data, &quot;users[role=admin].name&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotpath</strong></td>
+          <td>Extensible path engine</td>
+          <td>Powers all other tools, Turing-complete</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Mathematical foundation</strong>: The addressing layer forms a <em>free algebra on selectors</em>, with operators being morphisms in the Kleisli category of the powerset monad. This ensures compositional reasoning: <code>dotstar ∘ dotselect</code> still yields a well-defined set of values.</p>
+<h3 id="-truth-pillar--is-this-assertion-true">✅ Truth Pillar — &ldquo;Is this assertion true?&rdquo;</h3>
+<p>Tools for asking boolean questions and validating data.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+          <th>Logic</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotexists</strong></td>
+          <td>Path existence</td>
+          <td><code>check(data, &quot;user.email&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotany</strong></td>
+          <td>Existential quantifier</td>
+          <td><code>any_match(data, &quot;users.*.role&quot;, &quot;admin&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotall</strong></td>
+          <td>Universal quantifier</td>
+          <td><code>all_match(data, &quot;users.*.status&quot;, &quot;active&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotquery</strong></td>
+          <td>Compositional logic engine</td>
+          <td><code>Query(&quot;any equals role admin&quot;).check(data)</code></td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Mathematical foundation</strong>: Predicates form a Boolean algebra under ∧, ∨, ¬ that is <em>homomorphic</em> to set algebra on result subsets (intersection, union, complement). This enables short-circuit evaluation and distributive laws.</p>
+<h3 id="-shape-pillar--how-should-the-data-be-transformed">🔄 Shape Pillar — &ldquo;How should the data be transformed?&rdquo;</h3>
+<p>Tools for reshaping and modifying data structures.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+          <th>Type</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotmod</strong></td>
+          <td>Surgical modifications</td>
+          <td><code>set_(data, &quot;user.status&quot;, &quot;inactive&quot;)</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotbatch</strong></td>
+          <td>Atomic transactions</td>
+          <td>Apply multiple changes safely</td>
+      </tr>
+      <tr>
+          <td><strong>dotpipe</strong></td>
+          <td>Data transformation pipelines</td>
+          <td>Reshape documents into new forms</td>
+      </tr>
+      <tr>
+          <td><strong>dotpluck</strong></td>
+          <td>Value extraction</td>
+          <td>Create new structures from selections</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Mathematical foundation</strong>: Transformations are endofunctors on document spaces with monoid composition. <code>dotmod</code> implements lenses with put-get laws, while <code>dotpipe</code> provides Kleisli composition of pure functions.</p>
+<h2 id="the-pedagogical-gradient">The Pedagogical Gradient</h2>
+<p>The ecosystem is designed as a learning journey:</p>
+<p><strong>1. Hello World</strong> — O(1) mental load</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotget.core</span> <span class="kn">import</span> <span class="n">get</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotexists.core</span> <span class="kn">import</span> <span class="n">check</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;users&#34;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">}]}</span>
+</span></span><span class="line"><span class="cl"><span class="n">name</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.name&#34;</span><span class="p">)</span>  <span class="c1"># &#34;Alice&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="n">exists</span> <span class="o">=</span> <span class="n">check</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.email&#34;</span><span class="p">)</span>  <span class="c1"># False</span>
+</span></span></code></pre></div><p><strong>2. Pattern Phase</strong> — Wildcards and basic changes</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotmod.core</span> <span class="kn">import</span> <span class="n">set_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">all_names</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.*.name&#34;</span><span class="p">)</span>  <span class="c1"># [&#34;Alice&#34;]</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_data</span> <span class="o">=</span> <span class="n">set_</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">)</span>  <span class="c1"># Immutable!</span>
+</span></span></code></pre></div><p><strong>3. Power User</strong> — Complex operations</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compositional boolean logic</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin and greater login_count 10&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="p">[</span><span class="n">user</span> <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">users</span> <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">user</span><span class="p">)]</span>
+</span></span></code></pre></div><p><strong>4. Expert</strong> — Extensible engines</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotpath.core</span> <span class="kn">import</span> <span class="n">PathEngine</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Custom selector primitives</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">PathEngine</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="o">.</span><span class="n">register_selector</span><span class="p">(</span><span class="n">FuzzyKeySelector</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relational operations</span>
+</span></span><span class="line"><span class="cl"><span class="n">enriched</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Each stage builds on the previous, with no tool becoming obsolete. A <code>dotget</code> call is still the right choice when you know the exact path.</p>
+<h2 id="the-steal-this-code-philosophy">The &ldquo;Steal This Code&rdquo; Philosophy</h2>
+<p>Many tools are intentionally simple enough that you can copy their core logic rather than add a dependency:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># The entire essence of dotget</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">segment</span><span class="p">)]</span> <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span><span class="p">[</span><span class="n">segment</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">data</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">default</span>
+</span></span></code></pre></div><p>This embodies the Unix philosophy: <strong>Make each program do one thing so well that its implementation becomes obvious</strong>.</p>
+<h2 id="lifting-to-collections">Lifting to Collections</h2>
+<p>Once you have operations on single documents, you can <em>lift</em> them to collections:</p>
+<h3 id="boolean-wing--filtering">Boolean Wing — Filtering</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotfilter.core</span> <span class="kn">import</span> <span class="n">filter_collection</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter documents matching a predicate</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="n">filter_collection</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">users</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Boolean algebra on collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">active_admins</span> <span class="o">=</span> <span class="n">filter_collection</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">admins</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals status active&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Mathematical property</strong>: Every collection operator is a <em>monoid homomorphism</em> with respect to multiset union, enabling parallelization and streaming.</p>
+<h3 id="relational-wing--joining-and-transforming">Relational Wing — Joining and Transforming</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">project</span><span class="p">,</span> <span class="n">union</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relational algebra on document collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">user_orders</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">how</span><span class="o">=</span><span class="s2">&#34;left&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Project to specific fields</span>
+</span></span><span class="line"><span class="cl"><span class="n">summary</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">user_orders</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;name&#34;</span><span class="p">,</span> <span class="s2">&#34;total_spent&#34;</span><span class="p">])</span>
+</span></span></code></pre></div><p>This mirrors database theory: single-document logic ≈ tuple calculus; <code>dotrelate</code> ≈ relational algebra.</p>
+<h2 id="command-line-first">Command-Line First</h2>
+<p>Every tool works from the command line, making them perfect for shell scripts and data pipelines:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Check if any user is an admin</span>
+</span></span><span class="line"><span class="cl">cat users.json <span class="p">|</span> dotquery <span class="s2">&#34;any equals role admin&#34;</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Admin found&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract all email addresses</span>
+</span></span><span class="line"><span class="cl">cat contacts.json <span class="p">|</span> dotstar <span class="s2">&#34;contacts.*.email&#34;</span> &gt; emails.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join users with their orders</span>
+</span></span><span class="line"><span class="cl">dotrelate join --on<span class="o">=</span><span class="s2">&#34;user_id&#34;</span> users.jsonl orders.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter pipeline</span>
+</span></span><span class="line"><span class="cl">cat books.json <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  <span class="p">|</span> dotquery <span class="s2">&#34;less price 10 or equals author &#39;Tolkien&#39;&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  <span class="p">|</span> dotquery and <span class="s2">&#34;equals in_stock true&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  <span class="p">|</span> dotquery resolve
+</span></span></code></pre></div><h2 id="dual-apis-programmatic-and-declarative">Dual APIs: Programmatic and Declarative</h2>
+<p>Many tools offer both Python APIs and serializable query formats:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Programmatic (Python API)</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.primitives</span> <span class="kn">import</span> <span class="n">equals</span><span class="p">,</span> <span class="n">greater</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">equals</span><span class="p">(</span><span class="s1">&#39;role&#39;</span><span class="p">,</span> <span class="s1">&#39;admin&#39;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">greater</span><span class="p">(</span><span class="s1">&#39;login_count&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Declarative (string DSL)</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin and greater login_count 10&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Both produce the same AST</span>
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="n">query</span><span class="o">.</span><span class="n">ast</span> <span class="o">==</span> <span class="n">other_query</span><span class="o">.</span><span class="n">ast</span>
+</span></span></code></pre></div><p>This enables:</p>
+<ul>
+<li><strong>Serialization</strong>: Save queries to JSON/YAML</li>
+<li><strong>Network transmission</strong>: Send queries over REST APIs</li>
+<li><strong>Version control</strong>: Track query logic in git</li>
+<li><strong>CLI usage</strong>: Complex logic from command line</li>
+</ul>
+<h2 id="mathematical-foundation">Mathematical Foundation</h2>
+<p>The ecosystem is built on solid mathematical principles:</p>
+<h3 id="type-signatures">Type Signatures</h3>
+<p><strong>Depth Pillar</strong> (Addressing):
+</p>
+\[
+\text{dotget}: \mathcal{D} \times \text{Path}_{\text{exact}} \to V \cup \{\emptyset\}
+\]<p>
+</p>
+\[
+\text{dotstar}: \mathcal{D} \times \text{Path}_{*} \to V^{*}
+\]<p>
+</p>
+\[
+\text{dotpath}: \text{Free algebra on selectors (Turing-complete)}
+\]<p><strong>Truth Pillar</strong> (Predicates):
+</p>
+\[
+\text{dotexists}: \mathcal{D} \times P \to \mathbb{B}
+\]<p>
+</p>
+\[
+\text{dotquery}: \mathcal{D} \times \mathcal{L}_{\text{BOOL}}(\varphi_i) \to \mathbb{B}
+\]<p><strong>Shape Pillar</strong> (Transformations):
+</p>
+\[
+\text{dotmod}: \mathcal{D} \times \delta \to \mathcal{D} \quad \text{(lens with put-get law)}
+\]<p>
+</p>
+\[
+\text{dotpipe}: \mathcal{D} \times F^{*} \to \mathcal{D} \quad \text{(Kleisli composition)}
+\]<h3 id="functorial-lifting">Functorial Lifting</h3>
+<p>Operations lift to collections via functors:</p>
+\[
+\text{map}: (\mathcal{D} \to X) \to (C \to X^{*})
+\]<p>
+</p>
+\[
+\text{filter}: (\mathcal{D} \to \mathbb{B}) \to (C \to C)
+\]<p>Where \(C \subseteq \mathcal{D}\) is a finite multiset (collection).</p>
+<h3 id="key-properties">Key Properties</h3>
+<ol>
+<li><strong>Compositionality</strong>: Operators form algebras (Boolean, monoidal, Kleisli) guaranteeing local reasoning</li>
+<li><strong>Purity</strong>: Functions are referentially transparent—concurrency is trivial</li>
+<li><strong>Totality</strong>: Missing paths yield ∅ rather than exceptions</li>
+<li><strong>Orthogonality</strong>: No operator belongs to multiple pillars</li>
+<li><strong>Homomorphism</strong>: Collection operators preserve structure under union</li>
+</ol>
+<h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="data-pipeline-processing">Data Pipeline Processing</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotpipe.core</span> <span class="kn">import</span> <span class="n">pipe</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract → Filter → Transform pipeline</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">doc</span><span class="p">:</span> <span class="n">search</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="s2">&#34;transactions.*.amount&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">amounts</span><span class="p">:</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">amounts</span> <span class="k">if</span> <span class="n">a</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">large</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">large</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">total_large_transactions</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">financial_data</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="etl-with-relational-operations">ETL with Relational Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">project</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join users with orders</span>
+</span></span><span class="line"><span class="cl"><span class="n">user_orders</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;customer_id&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join with products</span>
+</span></span><span class="line"><span class="cl"><span class="n">full_data</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">user_orders</span><span class="p">,</span> <span class="n">products</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;product_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Project to summary</span>
+</span></span><span class="line"><span class="cl"><span class="n">summary</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">full_data</span><span class="p">,</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;user.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;order.date&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;product.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;order.total&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span></code></pre></div><h3 id="complex-boolean-logic">Complex Boolean Logic</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find books that are:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Either cheap (&lt;$10) OR by Tolkien</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - AND in stock</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - AND have good reviews (&gt;4 stars)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    (less price 10 or equals author &#39;Tolkien&#39;)
+</span></span></span><span class="line"><span class="cl"><span class="s2">    and equals in_stock true
+</span></span></span><span class="line"><span class="cl"><span class="s2">    and greater rating 4.0
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matching_books</span> <span class="o">=</span> <span class="p">[</span><span class="n">book</span> <span class="k">for</span> <span class="n">book</span> <span class="ow">in</span> <span class="n">catalog</span> <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">book</span><span class="p">)]</span>
+</span></span></code></pre></div><h2 id="design-principles">Design Principles</h2>
+<p><strong>🧩 Compositionality</strong>: Every tool composes cleanly with others</p>
+<p><strong>🔒 Immutability</strong>: Original data is never modified</p>
+<p><strong>📚 Pedagogical</strong>: Simple tools graduate to powerful ones</p>
+<p><strong>🎯 Single Purpose</strong>: Each tool has one clear responsibility</p>
+<p><strong>🔗 Interoperability</strong>: Common patterns work across all tools</p>
+<p><strong>⚡ Performance</strong>: Lazy evaluation and efficient algorithms</p>
+<p><strong>🛡️ Safety</strong>: Graceful handling of missing paths and malformed data</p>
+<h2 id="comparison-dotsuite-vs-jaf">Comparison: dotsuite vs JAF</h2>
+<p>For production use cases requiring advanced features, consider <a href="https://github.com/realazthat/jaf">JAF (Just Another Flow)</a>:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Feature</th>
+          <th>dotsuite</th>
+          <th>JAF</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Philosophy</strong></td>
+          <td>Pedagogy, simplicity</td>
+          <td>Production-ready, feature-complete</td>
+      </tr>
+      <tr>
+          <td><strong>Streaming</strong></td>
+          <td>Planned</td>
+          <td>✅ Lazy streaming</td>
+      </tr>
+      <tr>
+          <td><strong>Path System</strong></td>
+          <td>JSONPath-inspired</td>
+          <td>✅ Regex, fuzzy, wildcards</td>
+      </tr>
+      <tr>
+          <td><strong>Query Language</strong></td>
+          <td>Boolean DSL</td>
+          <td>✅ S-expressions</td>
+      </tr>
+      <tr>
+          <td><strong>Set Operations</strong></td>
+          <td>Planned</td>
+          <td>✅ Index-preserving results</td>
+      </tr>
+      <tr>
+          <td><strong>Data Sources</strong></td>
+          <td>Files</td>
+          <td>✅ Files, directories, stdin, compressed</td>
+      </tr>
+      <tr>
+          <td><strong>Target Audience</strong></td>
+          <td>Learners, scripters</td>
+          <td>Production systems</td>
+      </tr>
+  </tbody>
+</table>
+<p>Think of dotsuite as the &ldquo;learn by building&rdquo; approach and JAF as the &ldquo;battle-tested solution&rdquo;—both valuable for different purposes.</p>
+<h2 id="the-unix-philosophy-in-action">The Unix Philosophy in Action</h2>
+<p>Each tool embodies the Unix philosophy:</p>
+<ol>
+<li>
+<p><strong>Make each program do one thing well</strong></p>
+<ul>
+<li><code>dotget</code> only gets values</li>
+<li><code>dotexists</code> only checks existence</li>
+<li><code>dotmod</code> only modifies documents</li>
+</ul>
+</li>
+<li>
+<p><strong>Expect the output of every program to become the input to another</strong></p>
+<ul>
+<li>All tools accept/produce JSON</li>
+<li>Composable via pipes: <code>dotstar | dotquery | dotrelate</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Write programs to work together</strong></p>
+<ul>
+<li>Common interfaces (paths, predicates, documents)</li>
+<li>Shared semantics across tools</li>
+</ul>
+</li>
+<li>
+<p><strong>Write programs to handle text streams</strong></p>
+<ul>
+<li>JSONL for collections</li>
+<li>Streaming evaluation where possible</li>
+</ul>
+</li>
+</ol>
+<h2 id="category-theory-for-the-curious">Category Theory for the Curious</h2>
+<p>For those interested in the theoretical foundations:</p>
+<p><strong>Paths as Optics</strong>: The addressing layer implements <em>lenses</em> and <em>prisms</em> from optics theory, providing composable getters and setters.</p>
+<p><strong>Predicates as Subobjects</strong>: Boolean queries correspond to subobjects in the topos of sets, with ∧/∨/¬ being categorical limits/colimits/exponentials.</p>
+<p><strong>Transformations as Endofunctors</strong>: Shape operations are endofunctors on the category of documents, with natural transformations providing the composition structure.</p>
+<p><strong>Collections as Functorial Lift</strong>: The map/filter operations on collections are functors from the category of single-document operations to the category of collection operations, preserving algebraic structure.</p>
+<p>This isn&rsquo;t just mathematical window dressing—these properties <strong>guarantee</strong> that composition behaves predictably and that parallel evaluation is always safe.</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install from PyPI (once published)</span>
+</span></span><span class="line"><span class="cl">pip install dotsuite
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Or install from source</span>
+</span></span><span class="line"><span class="cl">git clone https://github.com/queelius/dotsuite.git
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> dotsuite
+</span></span><span class="line"><span class="cl">pip install -e .
+</span></span></code></pre></div><p><strong>Basic usage</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotget.core</span> <span class="kn">import</span> <span class="n">get</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotmod.core</span> <span class="kn">import</span> <span class="n">set_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Simple addressing</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;users&#34;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">,</span> <span class="s2">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;admin&#34;</span><span class="p">}]}</span>
+</span></span><span class="line"><span class="cl"><span class="n">name</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.name&#34;</span><span class="p">)</span>  <span class="c1"># &#34;Alice&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pattern matching</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_names</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.*.name&#34;</span><span class="p">)</span>  <span class="c1"># [&#34;Alice&#34;]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Boolean queries</span>
+</span></span><span class="line"><span class="cl"><span class="n">is_admin</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&#34;users&#34;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># True</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Immutable modifications</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_data</span> <span class="o">=</span> <span class="n">set_</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="the-journey-continues">The Journey Continues</h2>
+<p>The dot ecosystem demonstrates that good API design is about more than convenience—it&rsquo;s about <strong>mathematical coherence</strong>, <strong>pedagogical progression</strong>, and <strong>compositional guarantees</strong>.</p>
+<p>What began as a simple <code>dotget</code> function revealed a complete algebra for data manipulation, where:</p>
+<ul>
+<li>Every operation has a clear mathematical meaning</li>
+<li>Composition is guaranteed to work</li>
+<li>Parallelization is safe by construction</li>
+<li>Learning proceeds from simple to sophisticated without abandoning earlier tools</li>
+</ul>
+<p>This is software design as mathematics, pedagogy, and philosophy working together.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/dotsuite">github.com/queelius/dotsuite</a></li>
+<li><strong>Philosophy</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/philosophy.md">docs/philosophy.md</a></li>
+<li><strong>Formal Spec</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/dot-formalism.md">docs/dot-formalism.md</a></li>
+<li><strong>Tool Docs</strong>: Individual README for each tool</li>
+<li><strong>JAF Comparison</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/jaf-comparison.md">docs/jaf-comparison.md</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+<hr>
+<p><em>The dot ecosystem: from simple paths to sophisticated data algebras, one tool at a time. A journey in API design guided by purity, pedagogy, and the principle of least power.</em></p>
+]]></content:encoded><category>Python</category><category>data-structures</category><category>JSON</category><category>functional-programming</category><category>API-design</category><category>category-theory</category><category>compositionality</category><category>Unix-philosophy</category></item><item><title>AlgoTree: Immutable Tree Structures with Functional Transformers</title><link>https://queelius.github.io/post/algotree/</link><pubDate>Fri, 21 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/algotree/</guid><description>A powerful, immutable-by-default tree manipulation library for Python with functional programming patterns, composable transformations, and advanced pattern matching.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/AlgoTree/">AlgoTree</a></strong> provides a modern, functional approach to working with tree structures in Python. Version 2.0 is a complete redesign built on immutable-by-default principles with composable transformers and pattern-matching selectors.</p>
+<h2 id="why-immutable-trees">Why Immutable Trees?</h2>
+<p>Mutable tree libraries have hidden costs:</p>
+<ul>
+<li><strong>Side effects</strong>: Modifying a tree can break other code holding references</li>
+<li><strong>Debugging difficulty</strong>: Hard to track when/where a tree changed</li>
+<li><strong>Thread unsafety</strong>: Concurrent modifications cause subtle bugs</li>
+</ul>
+<p>AlgoTree takes a different approach: <strong>all operations return new tree objects</strong>. The original is never modified.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Node</span><span class="p">,</span> <span class="n">node</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build a tree</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">node</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child1&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child2&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># All operations return new trees</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree2</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="s2">&#34;new_root&#34;</span><span class="p">)</span>  <span class="c1"># tree unchanged</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree3</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">with_child</span><span class="p">(</span><span class="n">Node</span><span class="p">(</span><span class="s2">&#34;child3&#34;</span><span class="p">))</span>  <span class="c1"># tree unchanged</span>
+</span></span></code></pre></div><h2 id="building-trees">Building Trees</h2>
+<p>Multiple construction styles for different use cases:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Node</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">TreeBuilder</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Simple construction with Node</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">Node</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Node</span><span class="p">(</span><span class="s2">&#34;child1&#34;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;value&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Node</span><span class="p">(</span><span class="s2">&#34;child2&#34;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;value&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Convenience function (auto-converts strings)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">node</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child1&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;child2&#34;</span><span class="p">,</span>  <span class="c1"># Strings auto-convert to nodes</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child3&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;grandchild1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;grandchild2&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fluent builder API</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="p">(</span><span class="n">TreeBuilder</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;container&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;src&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;main.py&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;file&#34;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;utils.py&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;file&#34;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">up</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;docs&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;README.md&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;file&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">build</span><span class="p">())</span>
+</span></span></code></pre></div><h2 id="functional-transformations">Functional Transformations</h2>
+<p>Apply functional operations across entire trees:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Map: transform all nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">doubled</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">with_attrs</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">value</span><span class="o">=</span><span class="n">n</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;value&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl"><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter: keep nodes matching predicate</span>
+</span></span><span class="line"><span class="cl"><span class="n">filtered</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;value&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find: locate specific nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">nodes</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="composable-selectors">Composable Selectors</h2>
+<p>Pattern matching with wildcards and composition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">name</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="n">leaf</span><span class="p">,</span> <span class="n">type_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pattern matching with wildcards</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">name</span><span class="p">(</span><span class="s2">&#34;*.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Attribute matching with predicates</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">attrs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Logical composition with operators</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">type_</span><span class="p">(</span><span class="s2">&#34;file&#34;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">leaf</span><span class="p">()</span>  <span class="c1"># Files that aren&#39;t leaves</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Structural selectors</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">type_</span><span class="p">(</span><span class="s2">&#34;file&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">child_of</span><span class="p">(</span><span class="n">name</span><span class="p">(</span><span class="s2">&#34;src&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">leaf</span><span class="p">()</span><span class="o">.</span><span class="n">at_depth</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Use selectors with trees</span>
+</span></span><span class="line"><span class="cl"><span class="n">matching_nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">selector</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">tree</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="pipe-based-transformers">Pipe-Based Transformers</h2>
+<p>Build transformation pipelines with the <code>&gt;&gt;</code> operator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">map_</span><span class="p">,</span> <span class="n">filter_</span><span class="p">,</span> <span class="n">prune</span><span class="p">,</span> <span class="n">normalize</span><span class="p">,</span> <span class="n">extract</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build transformation pipelines</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">map_</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="p">{</span><span class="s2">&#34;processed&#34;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span> <span class="o">&gt;&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">filter_</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;active&#34;</span><span class="p">))</span> <span class="o">&gt;&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">normalize</span><span class="p">(</span><span class="n">sort_children</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">&gt;&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">extract</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Apply pipeline to tree</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="export-formats">Export Formats</h2>
+<p>Rich export capabilities:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># JSON export</span>
+</span></span><span class="line"><span class="cl"><span class="n">json_str</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># GraphViz for visualization</span>
+</span></span><span class="line"><span class="cl"><span class="n">dot_str</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_graphviz</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Mermaid diagrams</span>
+</span></span><span class="line"><span class="cl"><span class="n">mermaid_str</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_mermaid</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Path listings</span>
+</span></span><span class="line"><span class="cl"><span class="n">paths</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_paths</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="relationship-to-algograph">Relationship to AlgoGraph</h2>
+<p>AlgoTree and <a href="/post/2025-11-30-algograph/">AlgoGraph</a> share the same design philosophy:</p>
+<ul>
+<li>Immutable data structures</li>
+<li>Pipe-based transformers</li>
+<li>Declarative selectors</li>
+<li>Lazy views</li>
+</ul>
+<p>They also interoperate:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Tree</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">tree_to_graph</span><span class="p">,</span> <span class="n">graph_to_tree</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Tree to Graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Graph to Tree (extracts spanning tree)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">graph_to_tree</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s1">&#39;root&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoTree
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/AlgoTree/">pypi.org/project/AlgoTree/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoTree">github.com/queelius/AlgoTree</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoTree/">queelius.github.io/AlgoTree/</a></li>
+</ul>
+<hr>
+<p><em>AlgoTree: Functional programming meets tree structures. Immutable, composable, and elegant.</em></p>
+]]></content:encoded><category>Python</category><category>data-structures</category><category>trees</category><category>functional-programming</category><category>immutability</category><category>pattern-matching</category></item></channel></rss>

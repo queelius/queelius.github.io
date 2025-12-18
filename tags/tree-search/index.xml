@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Tree-Search on metafunctor</title><link>https://queelius.github.io/tags/tree-search/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 18 Dec 2025 00:31:57 -0600</lastBuildDate><atom:link href="https://queelius.github.io/tags/tree-search/" rel="self" type="application/rss+xml"/><image><url>https://queelius.github.io/images/og-image.jpg</url><title>metafunctor</title><link>https://queelius.github.io/</link></image><item><title>MCTS-Reasoning: A Canonical Specification of Monte Carlo Tree Search for LLM Reasoning</title><link>https://queelius.github.io/papers/mcts-reasoning/</link><pubDate>Mon, 01 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/papers/mcts-reasoning/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+.iframe-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.iframe-wrap iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  min-height: 120vh;
+}
+.action-bar {
+  margin: 0 0 1rem 0;
+  padding: 0 1rem;
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.action-bar a {
+  text-decoration: none;
+  padding: .5rem .75rem;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: .4rem;
+  display: inline-block;
+  color: var(--color-accent-primary, #007acc);
+}
+.action-bar a:hover {
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+</style>
+<div class="action-bar">
+  <a href="/latex/mcts-reasoning/index.html" target="_blank" rel="noopener">Open full page</a>
+  <a href="/latex/mcts-reasoning/main.pdf" download>Download PDF</a>
+</div>
+<div class="iframe-wrap">
+  <iframe id="ltx" src="/latex/mcts-reasoning/index.html" loading="lazy" scrolling="no"></iframe>
+</div>
+<script>
+(function () {
+  const iframe = document.getElementById('ltx');
+
+  if (location.hash) {
+    const u = new URL(iframe.src, location.origin);
+    u.hash = location.hash;
+    iframe.src = u.toString();
+  }
+
+  let lastScrollHeight = 0;
+
+  function setHeight(h) {
+    const newH = Math.ceil(h);
+    if (newH > lastScrollHeight + 5) {
+      iframe.style.height = newH + 'px';
+      lastScrollHeight = newH;
+    }
+  }
+
+  function measure(doc) {
+    const h = Math.max(
+      doc.body?.scrollHeight || 0,
+      doc.documentElement?.scrollHeight || 0
+    );
+    if (h > 0) setHeight(h);
+  }
+
+  iframe.addEventListener('load', () => {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    if (!doc) return;
+
+    setTimeout(() => measure(doc), 100);
+    setTimeout(() => measure(doc), 500);
+
+    doc.fonts?.ready?.then(() => {
+      setTimeout(() => measure(doc), 50);
+    }).catch(() => {});
+
+    const images = Array.from(doc.images || []);
+    if (images.length > 0) {
+      let loadedCount = 0;
+      images.forEach(img => {
+        if (img.complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === images.length) {
+              setTimeout(() => measure(doc), 50);
+            }
+          }, { once: true });
+        }
+      });
+    }
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        lastScrollHeight = 0;
+        measure(doc);
+      }, 300);
+    });
+  });
+})();
+</script>
+]]></content:encoded><category>MCTS</category><category>Monte Carlo Tree Search</category><category>LLM reasoning</category><category>tree search</category><category>UCB1</category><category>machine learning</category><category>artificial intelligence</category></item><item><title>MCTS-Reasoning: Tree Search for LLM Reasoning</title><link>https://queelius.github.io/post/2024-12-01-mcts-reasoning/</link><pubDate>Sun, 01 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2024-12-01-mcts-reasoning/</guid><description>Applying Monte Carlo Tree Search to large language model reasoning with a rigorous formal specification.</description><content:encoded><![CDATA[<p>I&rsquo;ve been working on a project that applies Monte Carlo Tree Search (MCTS) to LLM-based reasoning. The core insight is that multi-step reasoning can be modeled as a sequential decision problem where MCTS can systematically explore different reasoning paths.</p>
+<h2 id="the-problem-with-single-shot-reasoning">The Problem with Single-Shot Reasoning</h2>
+<p>When you ask an LLM a complex question, it generates a single response. If that response goes down a wrong path, there&rsquo;s no recovery. The model commits to its initial approach and follows it to completion, even if better alternatives existed.</p>
+<p>MCTS addresses this by building a tree of reasoning paths and using the UCB1 bandit algorithm to balance exploration of new paths with exploitation of promising ones.</p>
+<h2 id="how-it-works">How It Works</h2>
+<p>The system treats reasoning as:</p>
+<ul>
+<li><strong>States</strong>: Partial reasoning traces (what&rsquo;s been written so far)</li>
+<li><strong>Actions</strong>: Reasoning continuations (the next step)</li>
+<li><strong>Terminal states</strong>: Complete solutions with final answers</li>
+<li><strong>Rewards</strong>: Quality assessments of final answers</li>
+</ul>
+<p>Each MCTS simulation runs through four phases:</p>
+<ol>
+<li><strong>Selection</strong>: Traverse the tree using UCB1 to pick promising paths</li>
+<li><strong>Expansion</strong>: Add a new reasoning step via LLM generation</li>
+<li><strong>Rollout</strong>: Continue reasoning until reaching a terminal state</li>
+<li><strong>Backpropagation</strong>: Update statistics back up the tree</li>
+</ol>
+<h3 id="tree-building-rollouts">Tree-Building Rollouts</h3>
+<p>A key design choice is using <strong>tree-building rollouts</strong>. Unlike game-playing MCTS that uses a fast random policy without storing nodes, we add every rollout node to the tree. This preserves the full reasoning trace and allows reuse of reasoning steps in future simulations.</p>
+<h3 id="terminal-only-evaluation">Terminal-Only Evaluation</h3>
+<p>The evaluator is invoked only on terminal states. Intermediate reasoning states aren&rsquo;t evaluated, reducing computational cost. LLM-as-judge calls happen only when a complete answer is produced.</p>
+<h2 id="the-technical-report">The Technical Report</h2>
+<p>I&rsquo;ve written a <a href="/papers/mcts-reasoning/">formal specification</a> that provides rigorous definitions for all components:</p>
+<ul>
+<li>Formal definitions of states, actions, nodes, and the search tree</li>
+<li>Precise pseudocode for all four MCTS phases</li>
+<li>Clear interfaces for Generator and Evaluator components</li>
+<li>Complexity analysis showing O(KD) tree operations for K simulations with max depth D</li>
+</ul>
+<p>The goal was to establish a canonical reference that authentically captures MCTS while adapting it for LLM reasoning.</p>
+<h2 id="usage">Usage</h2>
+<p>The library provides both a fluent API and an interactive shell:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">mcts_reasoning</span> <span class="kn">import</span> <span class="n">ReasoningMCTS</span><span class="p">,</span> <span class="n">get_llm</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mcts</span> <span class="o">=</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ReasoningMCTS</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_llm</span><span class="p">(</span><span class="n">get_llm</span><span class="p">(</span><span class="s2">&#34;anthropic&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_question</span><span class="p">(</span><span class="s2">&#34;What is the optimal sorting algorithm for 1M integers?&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_exploration</span><span class="p">(</span><span class="mf">1.414</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_max_rollout_depth</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mcts</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&#34;Let&#39;s think step by step...&#34;</span><span class="p">,</span> <span class="n">simulations</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Solution: </span><span class="si">{</span><span class="n">mcts</span><span class="o">.</span><span class="n">solution</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Confidence: </span><span class="si">{</span><span class="n">mcts</span><span class="o">.</span><span class="n">best_value</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Or interactively:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">mcts-shell
+</span></span><span class="line"><span class="cl">&gt; ask What is the sum of primes less than 100?
+</span></span><span class="line"><span class="cl">&gt; search <span class="m">50</span>
+</span></span><span class="line"><span class="cl">&gt; solution
+</span></span><span class="line"><span class="cl">&gt; sample <span class="m">5</span>  <span class="c1"># Get diverse reasoning paths</span>
+</span></span><span class="line"><span class="cl">&gt; consistency <span class="m">20</span>  <span class="c1"># Check solution consistency</span>
+</span></span></code></pre></div><h2 id="extensions">Extensions</h2>
+<p>The tech report discusses several extensions under consideration:</p>
+<ul>
+<li><strong>Extended action spaces</strong>: Compress (for long traces), Verify, ToolCall, Backtrack</li>
+<li><strong>Algorithm variants</strong>: Progressive widening, RAVE, parallel MCTS</li>
+<li><strong>Graph-based reasoning</strong>: DAG structures for problem decomposition and critique-revision cycles</li>
+</ul>
+<p>The code is available at <a href="https://github.com/queelius/mcts-reasoning">github.com/queelius/mcts-reasoning</a> and the technical report is on the <a href="/papers/mcts-reasoning/">papers page</a>.</p>
+]]></content:encoded><category>MCTS</category><category>LLM</category><category>machine-learning</category><category>reasoning</category><category>tree-search</category><category>Python</category></item></channel></rss>
