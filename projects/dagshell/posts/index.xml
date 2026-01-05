@@ -1,0 +1,815 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Posts on metafunctor</title>
+    <link>http://localhost:1313/projects/dagshell/posts/</link>
+    <description>In-depth articles and discussions.</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 04 Jan 2026 07:50:28 -0600</lastBuildDate>
+    <atom:link href="http://localhost:1313/projects/dagshell/posts/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>http://localhost:1313/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>http://localhost:1313/</link>
+    </image>
+    
+    <item>
+      <title>Building an Immutable, Content-Addressed Filesystem in Python</title>
+      <link>http://localhost:1313/projects/dagshell/posts/01-immutable-content-addressed-filesystem/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/projects/dagshell/posts/01-immutable-content-addressed-filesystem/</guid>
+      <description>How Git-style content addressing creates elegant, functional data structures</description>
+      <content:encoded><![CDATA[<p>When you run <code>git commit</code>, something interesting happens: Git doesn&rsquo;t store your files by name. Instead, it computes a SHA-1 hash of each file&rsquo;s content and stores the file under that hash. The filename is just a pointer to the hash. This is <strong>content addressing</strong>—identifying data by what it contains rather than where it lives.</p>
+<p>This seemingly simple idea has profound implications. In this post, I&rsquo;ll show how to build a content-addressed virtual filesystem in Python, exploring how immutability and content addressing work together to create elegant, functional data structures.</p>
+<h2 id="why-content-addressing">Why Content Addressing?</h2>
+<p>Consider a traditional filesystem. When you modify a file, the system overwrites the old content. The file&rsquo;s identity (its path) stays the same, but its content changes. This mutable approach has problems:</p>
+<ol>
+<li><strong>No automatic history</strong>: Once you overwrite, the old data is gone</li>
+<li><strong>No deduplication</strong>: Two identical files take up twice the space</li>
+<li><strong>No integrity verification</strong>: Corruption can go undetected</li>
+</ol>
+<p>Content addressing solves all three. If a file&rsquo;s identity <em>is</em> its content (via a hash), then:</p>
+<ol>
+<li><strong>History is preserved</strong>: Changing content creates a new hash, so the old version still exists</li>
+<li><strong>Deduplication is automatic</strong>: Identical content has identical hashes—stored once</li>
+<li><strong>Integrity is built-in</strong>: If the content doesn&rsquo;t match the hash, you know something&rsquo;s wrong</li>
+</ol>
+<h2 id="the-node-hierarchy">The Node Hierarchy</h2>
+<p>Let&rsquo;s build this. First, we define our filesystem nodes using Python&rsquo;s frozen dataclasses:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">hashlib</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">json</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Node</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Base class for all filesystem nodes.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mode</span><span class="p">:</span> <span class="nb">int</span>
+</span></span><span class="line"><span class="cl">    <span class="n">uid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mtime</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">compute_hash</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Compute SHA256 hash of this node including all metadata.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+</span></span></code></pre></div><p>The <code>frozen=True</code> parameter is crucial. It makes instances immutable—you cannot modify a Node after creation. Any &ldquo;change&rdquo; requires creating a new Node.</p>
+<p>We then specialize for different node types:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">FileNode</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Regular file node.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">content</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DirNode</span><span class="p">(</span><span class="n">Node</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Directory node containing references to child nodes.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">children</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>  <span class="c1"># name -&gt; hash</span>
+</span></span></code></pre></div><p>Notice that <code>DirNode.children</code> maps names to <em>hashes</em>, not to Node objects directly. This is the key insight: directories don&rsquo;t contain files; they contain <em>references</em> to file hashes. The actual nodes live in a separate store.</p>
+<h2 id="the-dag-structure">The DAG Structure</h2>
+<p>This reference-based approach creates a Directed Acyclic Graph (DAG):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">FileSystem</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Content-addressable virtual filesystem.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># The DAG: hash -&gt; Node</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Node</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Path index: absolute path -&gt; hash</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">_add_node</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Add a node to the DAG, returning its hash.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">node_hash</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">compute_hash</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">node_hash</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">node_hash</span><span class="p">]</span> <span class="o">=</span> <span class="n">node</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">node_hash</span>
+</span></span></code></pre></div><p>When we add a node, we compute its hash and store the mapping <code>hash → node</code>. If an identical node already exists (same hash), we don&rsquo;t duplicate it—we just return the existing hash. <strong>Deduplication is automatic.</strong></p>
+<h2 id="immutable-updates">Immutable Updates</h2>
+<p>Here&rsquo;s where immutability shines. When we write to a file, we don&rsquo;t modify anything. Instead, we:</p>
+<ol>
+<li>Create a new FileNode with the new content</li>
+<li>Create a new DirNode for the parent, pointing to the new file hash</li>
+<li>Update the path index</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Write content to a file.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parent_path</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_parent_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parent_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">parent_path</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">parent_hash</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Create new file node</span>
+</span></span><span class="line"><span class="cl">    <span class="n">file_node</span> <span class="o">=</span> <span class="n">FileNode</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">file_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_node</span><span class="p">(</span><span class="n">file_node</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Create new parent directory with updated child reference</span>
+</span></span><span class="line"><span class="cl">    <span class="n">new_children</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">new_children</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_hash</span>
+</span></span><span class="line"><span class="cl">    <span class="n">new_parent</span> <span class="o">=</span> <span class="n">DirNode</span><span class="p">(</span><span class="n">children</span><span class="o">=</span><span class="n">new_children</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">new_parent_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_node</span><span class="p">(</span><span class="n">new_parent</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Update path index</span>
+</span></span><span class="line"><span class="cl">    <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">parent_path</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_parent_hash</span>
+</span></span><span class="line"><span class="cl">    <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_hash</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="kc">True</span>
+</span></span></code></pre></div><p>The old FileNode still exists in <code>self.nodes</code>. The old DirNode still exists too. We&rsquo;ve just created new versions and updated where the path points. This is <strong>structural sharing</strong>—unchanged parts of the tree are shared between versions.</p>
+<h2 id="visualizing-the-dag">Visualizing the DAG</h2>
+<p>Let&rsquo;s trace through an example:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">fs</span> <span class="o">=</span> <span class="n">FileSystem</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">fs</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&#34;/project/main.py&#34;</span><span class="p">,</span> <span class="sa">b</span><span class="s2">&#34;print(&#39;hello&#39;)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&#34;/project/main.py&#34;</span><span class="p">,</span> <span class="sa">b</span><span class="s2">&#34;print(&#39;world&#39;)&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>After these operations, our DAG contains:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Hash: a1b2c3... → DirNode(children={})           # original /project
+</span></span><span class="line"><span class="cl">Hash: d4e5f6... → FileNode(&#34;print(&#39;hello&#39;)&#34;)     # first version
+</span></span><span class="line"><span class="cl">Hash: g7h8i9... → DirNode(children={&#34;main.py&#34;: &#34;d4e5f6...&#34;})
+</span></span><span class="line"><span class="cl">Hash: j0k1l2... → FileNode(&#34;print(&#39;world&#39;)&#34;)     # second version
+</span></span><span class="line"><span class="cl">Hash: m3n4o5... → DirNode(children={&#34;main.py&#34;: &#34;j0k1l2...&#34;})
+</span></span></code></pre></div><p>Both versions of <code>main.py</code> exist. The path <code>/project/main.py</code> points to the latest hash (<code>j0k1l2...</code>), but we could easily restore the old version if we tracked which hashes corresponded to which versions.</p>
+<h2 id="benefits-in-practice">Benefits in Practice</h2>
+<p>This design enables powerful features almost for free:</p>
+<p><strong>Snapshots</strong>: Save the current <code>paths</code> dictionary. Restore it later to go back in time.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Create a snapshot of the current filesystem state.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Restore filesystem to a previous snapshot.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="bp">self</span><span class="o">.</span><span class="n">paths</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">snapshot</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Deduplication</strong>: Multiple paths can point to the same hash.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># These might share the same underlying node if content is identical</span>
+</span></span><span class="line"><span class="cl"><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&#34;/file1.txt&#34;</span><span class="p">,</span> <span class="sa">b</span><span class="s2">&#34;hello&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&#34;/file2.txt&#34;</span><span class="p">,</span> <span class="sa">b</span><span class="s2">&#34;hello&#34;</span><span class="p">)</span>  <span class="c1"># Same hash, no new storage</span>
+</span></span></code></pre></div><p><strong>Integrity checking</strong>: If someone asks for a file, we can verify it.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">verify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Verify a file&#39;s integrity.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node_hash</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">paths</span><span class="p">[</span><span class="n">path</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">node_hash</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">compute_hash</span><span class="p">()</span> <span class="o">==</span> <span class="n">node_hash</span>
+</span></span></code></pre></div><h2 id="the-functional-programming-connection">The Functional Programming Connection</h2>
+<p>This approach is deeply connected to functional programming. In FP:</p>
+<ul>
+<li>Data is immutable</li>
+<li>&ldquo;Changes&rdquo; create new values</li>
+<li>Sharing is safe because nothing mutates</li>
+</ul>
+<p>Our filesystem follows these principles exactly. Nodes are frozen. &ldquo;Writing&rdquo; creates new nodes. Multiple paths can safely share nodes because nodes never change.</p>
+<p>This is why Clojure&rsquo;s persistent data structures, Haskell&rsquo;s pure values, and Git&rsquo;s object store all use similar ideas. <strong>Content addressing + immutability = safe, efficient, verifiable data.</strong></p>
+<h2 id="trade-offs">Trade-offs</h2>
+<p>Nothing is free. This approach has costs:</p>
+<ol>
+<li>
+<p><strong>Memory</strong>: Old versions accumulate. You need garbage collection to reclaim space from unreachable nodes.</p>
+</li>
+<li>
+<p><strong>Performance</strong>: Creating new nodes for every change can be slower than in-place mutation for write-heavy workloads.</p>
+</li>
+<li>
+<p><strong>Complexity</strong>: Path resolution requires extra indirection through the hash table.</p>
+</li>
+</ol>
+<p>For many use cases—especially those valuing history, integrity, and safe concurrency—these trade-offs are worthwhile.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Content addressing transforms how we think about data. Instead of &ldquo;where is this file?&rdquo; we ask &ldquo;what is this content&rsquo;s identity?&rdquo; Instead of destructive updates, we create new versions while sharing unchanged structure.</p>
+<p>This pattern appears everywhere: Git, IPFS, Nix, Docker layers, and many database internals. Understanding it opens doors to building robust, elegant systems.</p>
+<p>The full implementation in <a href="https://github.com/queelius/dagshell">DagShell</a> extends these ideas with a complete POSIX-like interface, demonstrating how content addressing can underpin a full virtual filesystem.</p>
+<hr>
+<p><em>Next in this series: <a href="../02-unix-philosophy-python/">Unix Philosophy in Python</a> — building composable commands with method chaining.</em></p>
+]]></content:encoded>
+      
+      
+      
+    </item>
+    
+    <item>
+      <title>Unix Philosophy in Python: Composable Commands with Method Chaining</title>
+      <link>http://localhost:1313/projects/dagshell/posts/02-unix-philosophy-python/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/projects/dagshell/posts/02-unix-philosophy-python/</guid>
+      <description>How to build pipeable, chainable interfaces that do one thing well</description>
+      <content:encoded><![CDATA[<p>The Unix philosophy, articulated by Doug McIlroy, can be summarized as:</p>
+<blockquote>
+<p>Write programs that do one thing and do it well. Write programs to work together. Write programs to handle text streams, because that is a universal interface.</p>
+</blockquote>
+<p>This philosophy gave us pipes (<code>|</code>), small focused utilities (<code>cat</code>, <code>grep</code>, <code>sort</code>), and the ability to compose complex operations from simple parts:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">cat access.log <span class="p">|</span> grep <span class="s2">&#34;404&#34;</span> <span class="p">|</span> cut -d<span class="s1">&#39; &#39;</span> -f1 <span class="p">|</span> sort <span class="p">|</span> uniq -c <span class="p">|</span> sort -rn
+</span></span></code></pre></div><p>Can we bring this composability to Python? Not just subprocess calls, but native Python objects that pipe and chain as naturally as Unix commands? Let&rsquo;s build it.</p>
+<h2 id="the-problem-with-methods">The Problem with Methods</h2>
+<p>Standard Python methods have a composition problem. Consider:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># We want to: read a file, filter lines, count words</span>
+</span></span><span class="line"><span class="cl"><span class="n">content</span> <span class="o">=</span> <span class="n">read_file</span><span class="p">(</span><span class="s2">&#34;/data/log.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">filtered</span> <span class="o">=</span> <span class="n">grep</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="s2">&#34;ERROR&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">count</span> <span class="o">=</span> <span class="n">wc</span><span class="p">(</span><span class="n">filtered</span><span class="p">)</span>
+</span></span></code></pre></div><p>This works, but it&rsquo;s inside-out compared to how we think about it. We think &ldquo;read, then filter, then count&rdquo;—a left-to-right pipeline. But we write it bottom-up with intermediate variables.</p>
+<p>Method chaining helps:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">read_file</span><span class="p">(</span><span class="s2">&#34;/data/log.txt&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="s2">&#34;ERROR&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">wc</span><span class="p">()</span>
+</span></span></code></pre></div><p>Now it flows left-to-right. But how do we make arbitrary operations chainable?</p>
+<h2 id="the-commandresult-pattern">The CommandResult Pattern</h2>
+<p>The key insight is wrapping every result in a chainable container:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Wrapper that enables method chaining.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">data</span><span class="p">:</span> <span class="n">Any</span>           <span class="c1"># The actual result data</span>
+</span></span><span class="line"><span class="cl">    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>    <span class="c1"># Text representation</span>
+</span></span><span class="line"><span class="cl">    <span class="n">exit_code</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Unix-style exit code</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_shell</span><span class="p">:</span> <span class="s1">&#39;DagShell&#39;</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Reference back to the shell</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+</span></span></code></pre></div><p>Every command returns a <code>CommandResult</code>. The result carries the data <em>and</em> a reference to the shell that produced it. This reference enables chaining—we can call more methods through it.</p>
+<h2 id="making-commands-chainable">Making Commands Chainable</h2>
+<p>Here&rsquo;s a simple command implementation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DagShell</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">echo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Echo arguments to output.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">CommandResult</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">exit_code</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_shell</span><span class="o">=</span><span class="bp">self</span>
+</span></span><span class="line"><span class="cl">        <span class="p">)</span>
+</span></span></code></pre></div><p>The magic happens in <code>CommandResult</code>. We add methods that delegate back to the shell:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ... fields as before ...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">grep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;CommandResult&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Filter lines matching pattern.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shell</span><span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">input_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">wc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">flags</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;CommandResult&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Count lines, words, or characters.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shell</span><span class="o">.</span><span class="n">wc</span><span class="p">(</span><span class="o">*</span><span class="n">flags</span><span class="p">,</span> <span class="n">input_data</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;CommandResult&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Redirect output to a file.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_shell</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span>
+</span></span></code></pre></div><p>Now we can chain:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;hello world&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">wc</span><span class="p">(</span><span class="s2">&#34;-w&#34;</span><span class="p">)</span>  <span class="c1"># Returns: 2</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/data/log.txt&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="s2">&#34;ERROR&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">wc</span><span class="p">(</span><span class="s2">&#34;-l&#34;</span><span class="p">)</span>  <span class="c1"># Count error lines</span>
+</span></span></code></pre></div><h2 id="the-dual-nature-objects-and-files">The Dual Nature: Objects and Files</h2>
+<p>Unix commands have a superpower: the same output can go to the screen, a file, or another command. We can replicate this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Chain more commands</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/data/log.txt&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="s2">&#34;ERROR&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Get as Python object</span>
+</span></span><span class="line"><span class="cl"><span class="n">lines</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">lines</span><span class="p">()</span>  <span class="c1"># List[str]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Or redirect to a file</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;/data/errors.txt&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>The <code>CommandResult</code> is simultaneously:</p>
+<ol>
+<li>A Python object you can inspect and manipulate</li>
+<li>A text stream you can redirect to files</li>
+<li>An input source for the next command in a pipeline</li>
+</ol>
+<p>This dual nature—structured data <em>and</em> text stream—bridges the gap between Unix philosophy and Python&rsquo;s object orientation.</p>
+<h2 id="implementing-piping">Implementing Piping</h2>
+<p>True Unix pipes pass data between processes. We simulate this with a &ldquo;last result&rdquo; mechanism:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DagShell</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CommandResult</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Return the last command&#39;s result (like $? or $_).&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">CommandResult</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">exit_code</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">_shell</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_result</span>
+</span></span></code></pre></div><p>Now we can build pipelines:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/data/log.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">_</span><span class="p">()</span><span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="s2">&#34;ERROR&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">_</span><span class="p">()</span><span class="o">.</span><span class="n">wc</span><span class="p">(</span><span class="s2">&#34;-l&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Or more elegantly, commands can accept piped input:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">grep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">input_data</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Filter lines matching pattern.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">input_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">input_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_result</span><span class="o">.</span><span class="n">data</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_result</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">lines</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="n">matching</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span> <span class="k">if</span> <span class="n">pattern</span> <span class="ow">in</span> <span class="n">line</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">result</span> <span class="o">=</span> <span class="n">CommandResult</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">data</span><span class="o">=</span><span class="n">matching</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">text</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">matching</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exit_code</span><span class="o">=</span><span class="mi">0</span> <span class="k">if</span> <span class="n">matching</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_shell</span><span class="o">=</span><span class="bp">self</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="bp">self</span><span class="o">.</span><span class="n">_last_result</span> <span class="o">=</span> <span class="n">result</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span>
+</span></span></code></pre></div><h2 id="method-chaining-in-action">Method Chaining in Action</h2>
+<p>Let&rsquo;s build something real—a log analysis pipeline:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Create a shell and some test data</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span> <span class="o">=</span> <span class="n">DagShell</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/logs&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">2024-01-15 10:30:00 INFO  User login: alice
+</span></span></span><span class="line"><span class="cl"><span class="s2">2024-01-15 10:31:00 ERROR Database connection failed
+</span></span></span><span class="line"><span class="cl"><span class="s2">2024-01-15 10:32:00 INFO  User login: bob
+</span></span></span><span class="line"><span class="cl"><span class="s2">2024-01-15 10:33:00 ERROR Timeout waiting for response
+</span></span></span><span class="line"><span class="cl"><span class="s2">2024-01-15 10:34:00 WARN  High memory usage
+</span></span></span><span class="line"><span class="cl"><span class="s2">2024-01-15 10:35:00 ERROR Disk space low
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;&#34;</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;/logs/app.log&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pipeline: find errors, extract timestamps, save to file</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="n">shell</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/logs/app.log&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="s2">&#34;ERROR&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">cut</span><span class="p">(</span><span class="n">delimiter</span><span class="o">=</span><span class="s2">&#34; &#34;</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="s2">&#34;1,2&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;/logs/error_times.txt&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Read the result</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/logs/error_times.txt&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Output:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 2024-01-15 10:31:00</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 2024-01-15 10:33:00</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 2024-01-15 10:35:00</span>
+</span></span></code></pre></div><p>Each step does one thing. The chain composes them into a useful operation. The data flows left-to-right, just like our mental model.</p>
+<h2 id="directory-navigation-with-a-stack">Directory Navigation with a Stack</h2>
+<p>Unix has <code>cd</code>, but shells also have <code>pushd</code> and <code>popd</code> for directory stacks. We implement this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DagShell</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_cwd</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_dir_stack</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">pushd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Push current directory and change to new one.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_dir_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cwd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">popd</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Pop directory from stack and change to it.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dir_stack</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">CommandResult</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s1">&#39;popd: directory stack empty&#39;</span><span class="p">,</span> <span class="n">exit_code</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">old_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dir_stack</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="n">old_dir</span><span class="p">)</span>
+</span></span></code></pre></div><p>Now we can navigate without losing our place:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">pushd</span><span class="p">(</span><span class="s2">&#34;/project/src&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ... work in src ...</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">pushd</span><span class="p">(</span><span class="s2">&#34;tests&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ... work in tests ...</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">popd</span><span class="p">()</span>  <span class="c1"># back to /project/src</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">popd</span><span class="p">()</span>  <span class="c1"># back to original directory</span>
+</span></span></code></pre></div><h2 id="exit-codes-success-and-failure">Exit Codes: Success and Failure</h2>
+<p>Unix commands return exit codes: 0 for success, non-zero for failure. We include this in <code>CommandResult</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">grep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CommandResult</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ... filtering logic ...</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">CommandResult</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">data</span><span class="o">=</span><span class="n">matching</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">text</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">matching</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exit_code</span><span class="o">=</span><span class="mi">0</span> <span class="k">if</span> <span class="n">matching</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># 1 if no matches</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_shell</span><span class="o">=</span><span class="bp">self</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span></code></pre></div><p>This enables conditional logic:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">grep</span><span class="p">(</span><span class="s2">&#34;pattern&#34;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="s2">&#34;/data/log.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">lines</span><span class="p">())</span><span class="si">}</span><span class="s2"> matches&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;No matches found&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="the-philosophy-applied">The Philosophy Applied</h2>
+<p>Let&rsquo;s revisit McIlroy&rsquo;s principles and see how we&rsquo;ve applied them:</p>
+<p><strong>&ldquo;Do one thing well&rdquo;</strong>: Each method (<code>cat</code>, <code>grep</code>, <code>wc</code>, <code>cut</code>) does exactly one thing.</p>
+<p><strong>&ldquo;Work together&rdquo;</strong>: <code>CommandResult</code> enables any command to connect to any other.</p>
+<p><strong>&ldquo;Text streams as universal interface&rdquo;</strong>: Every result has a text representation via <code>__str__</code>, making it redirectable and pipeable.</p>
+<p>We&rsquo;ve also added Python-specific benefits:</p>
+<ul>
+<li><strong>Type safety</strong>: Results carry structured <code>data</code>, not just text</li>
+<li><strong>Introspection</strong>: <code>result.lines()</code>, <code>result.data</code>, etc.</li>
+<li><strong>Chaining</strong>: Method chains read left-to-right like pipelines</li>
+</ul>
+<h2 id="the-fluent-pattern">The Fluent Pattern</h2>
+<p>This is an instance of the <strong>Fluent Interface</strong> pattern, where methods return <code>self</code> (or a related object) to enable chaining. Martin Fowler described it in 2005, but the idea is older—Smalltalk embraced it from the beginning.</p>
+<p>The key is designing methods that:</p>
+<ol>
+<li>Perform their action</li>
+<li>Return something chainable</li>
+<li>Maintain enough context for the next operation</li>
+</ol>
+<p>When done well, code reads almost like prose:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="p">(</span><span class="n">shell</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="s2">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;# My Project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;README.md&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;def main(): pass&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;main.py&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="s2">&#34;-la&#34;</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="trade-offs">Trade-offs</h2>
+<p>This approach isn&rsquo;t free:</p>
+<ol>
+<li><strong>Wrapper overhead</strong>: Every result is wrapped in <code>CommandResult</code></li>
+<li><strong>Learning curve</strong>: Users must understand the chaining pattern</li>
+<li><strong>Debugging</strong>: Long chains can be hard to debug—where did it fail?</li>
+</ol>
+<p>For scripting and exploratory work, the expressiveness outweighs these costs. For performance-critical code, you might unwrap to raw operations.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>The Unix philosophy isn&rsquo;t about Unix—it&rsquo;s about composability. Small, focused operations that connect through a universal interface create systems greater than the sum of their parts.</p>
+<p>In Python, we achieve this with:</p>
+<ul>
+<li><strong>Wrapper types</strong> that carry data and context</li>
+<li><strong>Method chaining</strong> for left-to-right flow</li>
+<li><strong>Dual representations</strong> as objects and text streams</li>
+<li><strong>Exit codes</strong> for success/failure signaling</li>
+</ul>
+<p>The result is a fluent interface where complex operations emerge from simple, composable parts—Unix philosophy, realized in Python.</p>
+<hr>
+<p><em>See the full implementation in <a href="https://github.com/queelius/dagshell">DagShell</a>, which builds a complete virtual filesystem with this fluent pattern.</em></p>
+<p><em>Next in this series: <a href="../03-embedding-scheme-interpreter/">Embedding a Scheme Interpreter</a> — adding a DSL for filesystem scripting.</em></p>
+]]></content:encoded>
+      
+      
+      
+    </item>
+    
+    <item>
+      <title>Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations</title>
+      <link>http://localhost:1313/projects/dagshell/posts/03-embedding-scheme-interpreter/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/projects/dagshell/posts/03-embedding-scheme-interpreter/</guid>
+      <description>How to implement a minimal Scheme and integrate it with your application</description>
+      <content:encoded><![CDATA[<p>Every sufficiently complex application eventually grows a scripting language. Emacs has Elisp. AutoCAD has AutoLISP. Blender has Python. The pattern is clear: users need programmability beyond what a fixed UI provides.</p>
+<p>But embedding a full language runtime is heavy. What if we just need something small—variables, functions, conditionals, loops? A Lisp-family language is perfect for this: the syntax is trivial to parse, the semantics are clean, and it&rsquo;s powerful enough for real scripting.</p>
+<p>In this post, I&rsquo;ll walk through building a minimal Scheme interpreter in Python and integrating it with a virtual filesystem. We&rsquo;ll cover the complete pipeline: tokenization, parsing, evaluation, and extension with custom primitives.</p>
+<h2 id="why-scheme">Why Scheme?</h2>
+<p>Scheme is a minimalist Lisp dialect. Its syntax is just parentheses and atoms:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-scheme" data-lang="scheme"><span class="line"><span class="cl"><span class="p">(</span><span class="k">define </span><span class="nv">x</span> <span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">+ </span><span class="nv">x</span> <span class="p">(</span><span class="nb">* </span><span class="mi">2</span> <span class="mi">3</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nb">&gt; </span><span class="nv">x</span> <span class="mi">5</span><span class="p">)</span> <span class="s">&#34;big&#34;</span> <span class="s">&#34;small&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>This uniformity makes parsing trivial. There&rsquo;s no operator precedence, no complex grammar—just:</p>
+<ol>
+<li>Atoms: numbers, strings, symbols</li>
+<li>Lists: <code>(thing thing thing ...)</code></li>
+</ol>
+<p>That&rsquo;s it. The entire parser can be written in under 50 lines.</p>
+<h2 id="step-1-tokenization">Step 1: Tokenization</h2>
+<p>First, we convert source code into tokens. Scheme&rsquo;s tokenization is simple: split on whitespace, but respect strings and parentheses.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Convert Scheme code into tokens.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># Handle comments (lines starting with ;)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">lines</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Add spaces around parens for easy splitting</span>
+</span></span><span class="line"><span class="cl">    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">,</span> <span class="s1">&#39; ( &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;)&#39;</span><span class="p">,</span> <span class="s1">&#39; ) &#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Split, handling string literals</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tokens</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">in_string</span> <span class="o">=</span> <span class="kc">False</span>
+</span></span><span class="line"><span class="cl">    <span class="n">current</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">char</span> <span class="o">==</span> <span class="s1">&#39;&#34;&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">in_string</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">in_string</span>
+</span></span><span class="line"><span class="cl">            <span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="n">in_string</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="n">char</span><span class="o">.</span><span class="n">isspace</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">current</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">current</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">                <span class="n">current</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">current</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">current</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">tokens</span>
+</span></span></code></pre></div><p>Input: <code>(define x (+ 1 2))</code>
+Output: <code>['(', 'define', 'x', '(', '+', '1', '2', ')', ')']</code></p>
+<h2 id="step-2-parsing">Step 2: Parsing</h2>
+<p>Parsing converts tokens into an Abstract Syntax Tree (AST). In Scheme, the AST is just nested Python lists:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Symbol</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Represents a Scheme symbol.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Parse tokens into an AST.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">parse_expr</span><span class="p">(</span><span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">token</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;(&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># Parse a list</span>
+</span></span><span class="line"><span class="cl">            <span class="n">lst</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">            <span class="k">while</span> <span class="n">tokens</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;)&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="n">expr</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">parse_expr</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="n">lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">lst</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;)&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s2">&#34;Unexpected )&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># Parse an atom</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">parse_atom</span><span class="p">(</span><span class="n">token</span><span class="p">),</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">expr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">parse_expr</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">expr</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse_atom</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Parse a single atom.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># Try integer</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">pass</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Try float</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">pass</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># String literal</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&#34;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&#34;&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Boolean</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;#t&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">True</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;#f&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">False</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Symbol</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">Symbol</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+</span></span></code></pre></div><p>Input tokens: <code>['(', 'define', 'x', '(', '+', '1', '2', ')', ')']</code>
+Output AST: <code>[Symbol('define'), Symbol('x'), [Symbol('+'), 1, 2]]</code></p>
+<p>The beauty of Lisp: the AST <em>is</em> the syntax. There&rsquo;s no separate tree structure—it&rsquo;s just lists of symbols and values.</p>
+<h2 id="step-3-the-environment">Step 3: The Environment</h2>
+<p>Before evaluation, we need an environment to track variable bindings. This is where lexical scoping lives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Environment</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Lexical environment for variable bindings.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;Environment&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">define</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Define a new binding in this environment.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Look up a binding, checking parent scopes.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Undefined variable: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Update an existing binding.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Undefined variable: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Each function call creates a new Environment with the current one as its parent. This chain enables closures—inner functions that remember their enclosing scope.</p>
+<h2 id="step-4-evaluation">Step 4: Evaluation</h2>
+<p>The evaluator is the heart of the interpreter. It walks the AST and computes values:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Environment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Evaluate an expression in an environment.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Self-evaluating: numbers, strings, booleans</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">))):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">expr</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Variable lookup</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Must be a list (function call or special form)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">expr</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">expr</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">op</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Special forms</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;quote&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;define&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">name</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="n">value</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">value</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;if&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">condition</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">condition</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;lambda&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">params</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="n">body</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">Procedure</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Function application</span>
+</span></span><span class="line"><span class="cl">    <span class="n">func</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">evaluate</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+</span></span></code></pre></div><p>Special forms (<code>define</code>, <code>if</code>, <code>lambda</code>, etc.) have custom evaluation rules. Everything else is a function call: evaluate the operator, evaluate the arguments, call the function.</p>
+<h2 id="step-5-user-defined-functions">Step 5: User-Defined Functions</h2>
+<p>The <code>lambda</code> form creates procedures. A Procedure captures its parameters, body, and defining environment:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Procedure</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;A user-defined function.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">body</span><span class="p">:</span> <span class="n">Any</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="p">:</span> <span class="n">Environment</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># Create a new environment for the call</span>
+</span></span><span class="line"><span class="cl">        <span class="n">local_env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span><span class="n">parent</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Bind parameters to arguments</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">local_env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1"># Evaluate the body in this new environment</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">local_env</span><span class="p">)</span>
+</span></span></code></pre></div><p>When called, a Procedure:</p>
+<ol>
+<li>Creates a new environment with its defining environment as parent (closure!)</li>
+<li>Binds parameters to the passed arguments</li>
+<li>Evaluates its body in this new environment</li>
+</ol>
+<p>This simple structure gives us closures, higher-order functions, and lexical scoping.</p>
+<h2 id="step-6-built-in-primitives">Step 6: Built-in Primitives</h2>
+<p>The global environment provides built-in functions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">create_global_env</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Environment</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Create environment with built-in primitives.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Arithmetic</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="kc">None</span><span class="p">:</span> <span class="o">-</span><span class="n">a</span> <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">/</span> <span class="n">b</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Comparison</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">==</span> <span class="n">b</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># List operations</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;car&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">lst</span><span class="p">:</span> <span class="n">lst</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cdr&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">lst</span><span class="p">:</span> <span class="n">lst</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cons&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;null?&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">lst</span><span class="p">:</span> <span class="n">lst</span> <span class="o">==</span> <span class="p">[])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Higher-order functions</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;map&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lst</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;filter&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">:</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lst</span> <span class="k">if</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)])</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;reduce&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">,</span> <span class="n">init</span><span class="p">:</span> <span class="n">reduce</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">,</span> <span class="n">init</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">env</span>
+</span></span></code></pre></div><p>Each primitive is just a Python function. The interpreter treats them identically to user-defined procedures.</p>
+<h2 id="step-7-filesystem-integration">Step 7: Filesystem Integration</h2>
+<p>Now the interesting part: extending Scheme with filesystem primitives.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">create_global_env</span><span class="p">(</span><span class="n">shell</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Environment</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># ... standard primitives ...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Filesystem primitives (if shell provided)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">shell</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;ls&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">lines</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cat&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;mkdir&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;write&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">shell</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span> <span class="ow">and</span> <span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;exists?&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cd&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;pwd&#39;</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">_cwd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">env</span>
+</span></span></code></pre></div><p>Now Scheme can script filesystem operations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-scheme" data-lang="scheme"><span class="line"><span class="cl"><span class="c1">; Create a project structure</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project/src&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project/tests&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">write </span><span class="s">&#34;/project/README.md&#34;</span> <span class="s">&#34;# My Project\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">write </span><span class="s">&#34;/project/src/main.py&#34;</span> <span class="s">&#34;def main(): pass\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; List files</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">ls</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1">; =&gt; (&#34;README.md&#34; &#34;src&#34; &#34;tests&#34;)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; Check existence</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nf">exists?</span> <span class="s">&#34;/project/README.md&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;Found it!&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="s">&#34;Not found&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="step-8-the-repl">Step 8: The REPL</h2>
+<p>A Read-Eval-Print Loop ties it together:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SchemeREPL</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">create_global_env</span><span class="p">(</span><span class="n">shell</span><span class="o">=</span><span class="n">shell</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">eval_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Evaluate a string of Scheme code.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tokens</span> <span class="o">=</span> <span class="n">tokenize</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="ow">not</span> <span class="n">tokens</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">        <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">expr</span><span class="p">,</span> <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_one</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Interactive REPL.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Scheme REPL (type &#39;quit&#39; to exit)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="n">code</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&#34;scheme&gt; &#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="n">code</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;quit&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                    <span class="k">break</span>
+</span></span><span class="line"><span class="cl">                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_string</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                    <span class="nb">print</span><span class="p">(</span><span class="n">format_value</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="example-session">Example Session</h2>
+<p>Here&rsquo;s what a session looks like:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">scheme&gt; (define double (lambda (x) (* x 2)))
+</span></span><span class="line"><span class="cl">scheme&gt; (double 21)
+</span></span><span class="line"><span class="cl">42
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">scheme&gt; (map double (list 1 2 3 4 5))
+</span></span><span class="line"><span class="cl">(2 4 6 8 10)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">scheme&gt; (mkdir &#34;/data&#34;)
+</span></span><span class="line"><span class="cl">&#34;/data&#34;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">scheme&gt; (write &#34;/data/numbers.txt&#34; &#34;1\n2\n3\n&#34;)
+</span></span><span class="line"><span class="cl">&#34;/data/numbers.txt&#34;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">scheme&gt; (cat &#34;/data/numbers.txt&#34;)
+</span></span><span class="line"><span class="cl">&#34;1\n2\n3\n&#34;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">scheme&gt; (filter (lambda (x) (&gt; x 1))
+</span></span><span class="line"><span class="cl">               (map (lambda (s) (string-&gt;number s))
+</span></span><span class="line"><span class="cl">                    (string-split (cat &#34;/data/numbers.txt&#34;) &#34;\n&#34;)))
+</span></span><span class="line"><span class="cl">(2 3)
+</span></span></code></pre></div><p>We&rsquo;ve built a scriptable filesystem with a dozen lines of primitives!</p>
+<h2 id="design-patterns">Design Patterns</h2>
+<p>Several patterns make this work:</p>
+<p><strong>Homoiconicity</strong>: Code is data. The AST is just lists, so we can generate and manipulate code programmatically.</p>
+<p><strong>Closures</strong>: Functions capture their environment, enabling powerful patterns like partial application and callbacks.</p>
+<p><strong>Extension via primitives</strong>: Adding features is just adding functions to the global environment. No interpreter changes needed.</p>
+<p><strong>Separation of concerns</strong>: Tokenizing, parsing, and evaluating are distinct phases with clean interfaces.</p>
+<h2 id="trade-offs">Trade-offs</h2>
+<p>This simple interpreter has limitations:</p>
+<ol>
+<li><strong>No tail-call optimization</strong>: Deep recursion will overflow the Python stack.</li>
+<li><strong>No macros</strong>: We can&rsquo;t extend the language&rsquo;s syntax.</li>
+<li><strong>Error messages are basic</strong>: Line numbers would require more tracking.</li>
+<li><strong>Performance</strong>: Pure interpretation is slow for heavy computation.</li>
+</ol>
+<p>For a DSL extending an application, these trade-offs are often acceptable. The simplicity enables understanding and modification.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Embedding a language isn&rsquo;t black magic. At its core:</p>
+<ol>
+<li><strong>Tokenize</strong>: Break text into tokens</li>
+<li><strong>Parse</strong>: Build an AST (for Lisp, just nested lists)</li>
+<li><strong>Evaluate</strong>: Walk the AST, computing values</li>
+<li><strong>Extend</strong>: Add primitives that call into your application</li>
+</ol>
+<p>Scheme&rsquo;s minimal syntax makes this especially tractable. In a few hundred lines, we get variables, functions, closures, conditionals, recursion, and extensibility.</p>
+<p>The result is a scriptable application where users can automate, experiment, and build beyond what the core interface provides—exactly what we want from a DSL.</p>
+<hr>
+<p><em>The complete implementation is in <a href="https://github.com/queelius/dagshell">DagShell</a>, demonstrating Scheme as a filesystem scripting language alongside Python&rsquo;s fluent API.</em></p>
+<p><em>This is the final post in the series. Previous posts: <a href="../01-immutable-content-addressed-filesystem/">Immutable Content-Addressed Filesystems</a> and <a href="../02-unix-philosophy-python/">Unix Philosophy in Python</a>.</em></p>
+]]></content:encoded>
+      
+      
+      
+    </item>
+    
+  </channel>
+</rss>

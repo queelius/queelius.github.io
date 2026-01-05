@@ -1,357 +1,1885 @@
-<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>Everything is a File: Applying Unix Philosophy to Modern Data Management | metafunctor</title><meta name=title content="Everything is a File: Applying Unix Philosophy to Modern Data Management | metafunctor"><meta name=description content="How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems"><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/post/2025-10-20-vfs-cli-tools/><link rel=alternate hreflang=en href=https://metafunctor.com/post/2025-10-20-vfs-cli-tools/><link rel=alternate hreflang=x-default href=https://metafunctor.com/post/2025-10-20-vfs-cli-tools/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/post/2025-10-20-vfs-cli-tools/"><meta property="og:title" content="Everything is a File: Applying Unix Philosophy to Modern Data Management"><meta property="og:description" content="How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems"><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:published_time" content="2025-10-20T00:00:00Z"><meta property="article:modified_time" content="2026-01-02T23:49:23-06:00"><meta property="article:tag" content="unix-philosophy"><meta property="article:tag" content="cli-tools"><meta property="article:tag" content="python"><meta property="article:tag" content="data-management"><meta property="article:tag" content="virtual-filesystem"><meta property="article:tag" content="software-design"><meta property="article:tag" content="open-source"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/post/2025-10-20-vfs-cli-tools/"><meta name=twitter:title content="Everything is a File: Applying Unix Philosophy to Modern Data Management"><meta name=twitter:description content="How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems"><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https:\/\/metafunctor.com\/post\/2025-10-20-vfs-cli-tools\/#primaryContent","headline":"Everything is a File: Applying Unix Philosophy to Modern Data Management","description":"How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems","url":"https:\/\/metafunctor.com\/post\/2025-10-20-vfs-cli-tools\/","inLanguage":"en-US","datePublished":"2025-10-20T00:00:00Z","dateModified":"2026-01-02T23:49:23-06:00","wordCount":2694,"timeRequired":"PT13M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}},"keywords":["unix-philosophy","cli-tools","python","data-management","virtual-filesystem","software-design","open-source"]},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/post\/2025-10-20-vfs-cli-tools\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"News","item":"https:\/\/metafunctor.com\/post\/"},{"@type":"ListItem","position":3,"name":"Everything is a File: Applying Unix Philosophy to Modern Data Management","item":"https:\/\/metafunctor.com\/post\/2025-10-20-vfs-cli-tools\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=/css/refined-elegant.css><link rel=stylesheet href=/css/micro-interactions.css><link rel=stylesheet href=/css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=/css/custom.css><link rel=stylesheet href=/css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.152.2"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
-<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
-<span></span>
-<span></span>
-<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/projects/>Projects</a></li><li><a href=https://metafunctor.com/post/ class=active aria-current=page>Posts</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Work <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li></ul></li><li><a href=https://metafunctor.com/media/>Media</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
-</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<a itemprop=item href=https://metafunctor.com/post/><span itemprop=name>News</span>
-</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<span itemprop=name aria-current=page>Everything is a File: Applying Unix Philosophy to Modern Data Management</span>
-<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><div class=main-container><div class=single-post-layout><aside class=post-sidebar><aside class=toc-wrapper aria-label="Table of contents"><nav class=table-of-contents><h2 class=toc-title>Table of Contents</h2><div class=toc-content><nav id=TableOfContents><ul><li><a href=#the-problem-clis-that-dont-scale-with-complexity>The Problem: CLIs That Don&rsquo;t Scale With Complexity</a></li><li><a href=#the-unix-revelation-everything-is-a-file>The Unix Revelation: Everything is a File</a></li><li><a href=#the-pattern-virtual-filesystems--posix-commands>The Pattern: Virtual Filesystems + POSIX Commands</a></li><li><a href=#live-session-navigating-10000-bookmarks>Live Session: Navigating 10,000 Bookmarks</a><ul><li><a href=#traditional-approach-crud-cli>Traditional Approach (CRUD CLI)</a></li><li><a href=#vfs-approach-interactive-shell>VFS Approach (Interactive Shell)</a></li></ul></li><li><a href=#the-same-pattern-different-data>The Same Pattern, Different Data</a><ul><li><a href=#managing-ebooks-ebk>Managing Ebooks (ebk)</a></li><li><a href=#exploring-chat-history-ctk>Exploring Chat History (ctk)</a></li><li><a href=#managing-git-repositories-ghops>Managing Git Repositories (ghops)</a></li></ul></li><li><a href=#design-principles-what-makes-this-work>Design Principles: What Makes This Work</a><ul><li><a href=#1-local-first-stateless-cli--stateful-shell>1. <strong>Local-First, Stateless CLI + Stateful Shell</strong></a></li><li><a href=#2-everything-is-a-file-even-dynamic-data>2. <strong>Everything is a File, Even Dynamic Data</strong></a></li><li><a href=#3-context-aware-commands>3. <strong>Context-Aware Commands</strong></a></li><li><a href=#4-jsonl-by-default-pretty-on-demand>4. <strong>JSONL by Default, Pretty on Demand</strong></a></li><li><a href=#5-hierarchical-tags--navigable-directories>5. <strong>Hierarchical Tags = Navigable Directories</strong></a></li><li><a href=#6-smart-collections-dynamic-virtual-directories>6. <strong>Smart Collections: Dynamic Virtual Directories</strong></a></li><li><a href=#7-time-based-navigation>7. <strong>Time-Based Navigation</strong></a></li></ul></li><li><a href=#implementation-how-its-built>Implementation: How It&rsquo;s Built</a><ul><li><a href=#core-components>Core Components</a></li><li><a href=#example-context-detection-in-btk>Example: Context Detection in BTK</a></li></ul></li><li><a href=#beyond-these-six-the-pattern-scales>Beyond These Six: The Pattern Scales</a></li><li><a href=#why-this-matters-cognitive-fit>Why This Matters: Cognitive Fit</a></li><li><a href=#the-unix-philosophy-lives>The Unix Philosophy Lives</a></li><li><a href=#getting-started-build-your-own>Getting Started: Build Your Own</a><ul><li><a href=#1-identify-your-hierarchies>1. Identify Your Hierarchies</a></li><li><a href=#2-design-your-vfs-root>2. Design Your VFS Root</a></li><li><a href=#3-implement-context-detection>3. Implement Context Detection</a></li><li><a href=#4-add-posix-commands>4. Add POSIX Commands</a></li><li><a href=#5-provide-both-interfaces>5. Provide Both Interfaces</a></li><li><a href=#6-output-jsonl-by-default>6. Output JSONL by Default</a></li></ul></li><li><a href=#real-world-benefits-what-ive-gained>Real-World Benefits: What I&rsquo;ve Gained</a></li><li><a href=#the-repository>The Repository</a></li><li><a href=#call-to-action-join-the-movement>Call to Action: Join the Movement</a></li><li><a href=#technical-notes>Technical Notes</a><ul><li><a href=#on-recording-shell-sessions>On Recording Shell Sessions</a></li><li><a href=#on-jsonl-vs-pretty-printing>On JSONL vs. Pretty Printing</a></li><li><a href=#on-test-coverage>On Test Coverage</a></li></ul></li><li><a href=#conclusion-the-future-is-navigable>Conclusion: The Future is Navigable</a></li></ul></nav></div></nav></aside><style>.toc-wrapper{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;padding:var(--space-lg);background:var(--paper-dark);border:var(--border-width)solid var(--border-color);border-radius:var(--radius-lg);margin-bottom:var(--space-xl)}.toc-title{font-size:1rem;font-weight:600;color:var(--ink);margin:0 0 var(--space-md);text-transform:uppercase;letter-spacing:.05em;font-size:.875rem}.toc-content{font-size:.9rem}.toc-content ul{list-style:none;padding-left:0;margin:0}.toc-content>ul{border-left:2px solid var(--border-color);padding-left:var(--space-md)}.toc-content li{margin-bottom:var(--space-sm)}.toc-content a{color:var(--ink-light);text-decoration:none;transition:color var(--transition-fast);display:block;padding:var(--space-xs)0}.toc-content a:hover{color:var(--accent)}.toc-content ul ul{margin-top:var(--space-sm);padding-left:var(--space-md)}@media(max-width:1024px){.toc-wrapper{position:relative;top:0;max-height:none}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".toc-content a"),n=Array.from(e).map(e=>{const t=e.getAttribute("href").substring(1);return document.getElementById(t)}).filter(e=>e!==null);function t(){let t="";n.forEach(e=>{const n=e.offsetTop,s=window.scrollY+100;s>=n&&(t=e.getAttribute("id"))}),e.forEach(e=>{e.classList.remove("active"),e.getAttribute("href")==="#"+t?(e.classList.add("active"),e.style.color="var(--accent)",e.style.fontWeight="600"):(e.style.color="",e.style.fontWeight="")})}window.addEventListener("scroll",t),t()})</script></aside><article class=single-post itemscope itemtype=https://schema.org/Article><header class=post-header><h1 class=post-title itemprop=headline>Everything is a File: Applying Unix Philosophy to Modern Data Management</h1><div class=post-meta><span class=post-date><i class="far fa-calendar" aria-hidden=true></i>
-<time datetime=2025-10-20T00:00:00Z itemprop=datePublished>October 20, 2025
-</time></span><span class=post-reading-time><i class="far fa-clock" aria-hidden=true></i>
-13 min read
-</span><span class=post-updated><i class="far fa-edit" aria-hidden=true></i>
-Updated: <time datetime=2026-01-02T23:49:23-06:00 itemprop=dateModified>January 2, 2026</time></span></div><div class=tags role=list><a href=https://metafunctor.com/tags/unix-philosophy/ class=tag role=listitem>unix-philosophy</a>
-<a href=https://metafunctor.com/tags/cli-tools/ class=tag role=listitem>cli-tools</a>
-<a href=https://metafunctor.com/tags/python/ class=tag role=listitem>python</a>
-<a href=https://metafunctor.com/tags/data-management/ class=tag role=listitem>data-management</a>
-<a href=https://metafunctor.com/tags/virtual-filesystem/ class=tag role=listitem>virtual-filesystem</a>
-<a href=https://metafunctor.com/tags/software-design/ class=tag role=listitem>software-design</a>
-<a href=https://metafunctor.com/tags/open-source/ class=tag role=listitem>open-source</a></div></header><div class=content itemprop=articleBody><p><em>How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems</em></p><h2 id=the-problem-clis-that-dont-scale-with-complexity>The Problem: CLIs That Don&rsquo;t Scale With Complexity</h2><p>I had a bookmark manager. Then an ebook library manager. Then a chat history manager. Each started simple:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Traditional CRUD approach</span>
-</span></span><span class=line><span class=cl>btk add https://example.com --tags python,tutorial
-</span></span><span class=line><span class=cl>btk list --tag python
-</span></span><span class=line><span class=cl>btk search <span class=s2>&#34;async&#34;</span>
-</span></span><span class=line><span class=cl>btk delete <span class=m>1234</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk import book.pdf --author <span class=s2>&#34;Knuth&#34;</span>
-</span></span><span class=line><span class=cl>ebk list --author Knuth
-</span></span><span class=line><span class=cl>ebk search <span class=s2>&#34;algorithms&#34;</span>
-</span></span></code></pre></div><p>This works fine&mldr; until it doesn&rsquo;t.</p><p><strong>The breaking point:</strong> I had 10,000+ bookmarks organized with hierarchical tags like <code>programming/python/async</code>, <code>research/ml/transformers</code>, <code>work/clients/acme</code>. My ebook library had similar structure. My exported chat conversations from Claude, ChatGPT, and Copilot were piling up.</p><p>Traditional CRUD commands became unwieldy:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Getting specific without a VFS</span>
-</span></span><span class=line><span class=cl>btk list --tag programming/python/async/io --format json <span class=p>|</span> jq <span class=s1>&#39;.[].title&#39;</span>
-</span></span><span class=line><span class=cl>ebk list --category <span class=s2>&#34;Computer Science/Algorithms/Graph Theory&#34;</span> --limit <span class=m>50</span>
-</span></span><span class=line><span class=cl>ctk search <span class=s2>&#34;machine learning&#34;</span> --source ChatGPT --date-from 2024-01-01
-</span></span></code></pre></div><p>Each command required precise arguments. Each tool had different flag conventions. I couldn&rsquo;t <em>navigate</em> my data—I could only <em>query</em> it. And queries require knowing exactly what you&rsquo;re looking for.</p><h2 id=the-unix-revelation-everything-is-a-file>The Unix Revelation: Everything is a File</h2><p>The insight came from an unlikely place: managing files on my system.</p><p>When I have thousands of source files organized in directories, I don&rsquo;t run:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>list-files --path /src/components/auth --extension .tsx
-</span></span></code></pre></div><p>I run:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=nb>cd</span> src/components/auth
-</span></span><span class=line><span class=cl>ls *.tsx
-</span></span></code></pre></div><p><strong>The difference is profound:</strong> With a filesystem, I can:</p><ul><li><strong>Navigate incrementally</strong>: <code>cd</code> from general to specific</li><li><strong>Explore</strong>: <code>ls</code> to see what&rsquo;s there</li><li><strong>Compose</strong>: <code>cat file | grep pattern | wc -l</code></li><li><strong>Use familiar tools</strong>: <code>find</code>, <code>grep</code>, <code>xargs</code>, pipes, redirection</li></ul><p>What if my bookmarks, ebooks, and chat histories were filesystems?</p><h2 id=the-pattern-virtual-filesystems--posix-commands>The Pattern: Virtual Filesystems + POSIX Commands</h2><p>Over the past year, I&rsquo;ve built six Python tools that all follow the same architectural pattern:</p><table><thead><tr><th>Tool</th><th>Domain</th><th>VFS Root Structure</th></tr></thead><tbody><tr><td><strong>btk</strong></td><td>Bookmarks</td><td><code>/bookmarks/</code>, <code>/tags/</code>, <code>/recent/</code>, <code>/domains/</code>, <code>/unread/</code>, <code>/popular/</code></td></tr><tr><td><strong>ebk</strong></td><td>Ebook library</td><td><code>/books/</code>, <code>/authors/</code>, <code>/series/</code>, <code>/subjects/</code>, <code>/recent/</code>, <code>/unread/</code></td></tr><tr><td><strong>ctk</strong></td><td>Chat conversations</td><td><code>/conversations/</code>, <code>/sources/</code>, <code>/topics/</code>, <code>/starred/</code>, <code>/recent/</code></td></tr><tr><td><strong>ghops</strong></td><td>Git repositories</td><td><code>/repos/</code>, <code>/languages/</code>, <code>/topics/</code>, <code>/stars/</code>, <code>/recent/</code></td></tr><tr><td><strong>infinigram</strong></td><td>N-gram models</td><td><code>/datasets/</code>, <code>/models/</code>, <code>/corpora/</code></td></tr><tr><td><strong>AlgoTree</strong></td><td>Tree structures</td><td><code>/nodes/</code>, <code>/paths/</code>, <code>/subtrees/</code></td></tr></tbody></table><p>Each tool provides:</p><ol><li><strong>A stateless CLI</strong> for scriptability: <code>btk bookmark add URL</code>, <code>ebk import book.pdf</code></li><li><strong>An interactive shell</strong> with a virtual filesystem: <code>btk shell</code>, <code>ebk shell</code>, <code>ctk chat</code></li><li><strong>POSIX-like commands</strong>: <code>cd</code>, <code>ls</code>, <code>pwd</code>, <code>cat</code>, <code>mv</code>, <code>cp</code>, <code>rm</code>, <code>find</code>, <code>grep</code></li><li><strong>Unix pipeline support</strong>: Most commands output JSONL by default for piping</li></ol><p>The magic is in the shell. Let me show you.</p><h2 id=live-session-navigating-10000-bookmarks>Live Session: Navigating 10,000 Bookmarks</h2><p><strong>Watch the shell in action:</strong></p><link rel=stylesheet type=text/css href=https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.css><script src=https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.js></script><div id=btk-demo></div><script>AsciinemaPlayer.create("btk.cast",document.getElementById("btk-demo"),{cols:94,rows:49,speed:1,idleTimeLimit:2,theme:"monokai",poster:"npt:0:06"})</script><p><em>This is a live recording captured with <a href=https://asciinema.org/>asciinema</a>. You can pause, copy text, and replay. The entire recording is just 78KB of text.</em></p><h3 id=traditional-approach-crud-cli>Traditional Approach (CRUD CLI)</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ btk search <span class=s2>&#34;python async&#34;</span> --tag programming --limit <span class=m>10</span>
-</span></span><span class=line><span class=cl><span class=c1># Returns JSON blob... now what?</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>$ btk list --tag <span class=s2>&#34;programming/python/async&#34;</span>
-</span></span><span class=line><span class=cl><span class=c1># Hope I remembered the exact tag path</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>$ btk bookmark get <span class=m>4095</span> --format json <span class=p>|</span> jq <span class=s1>&#39;.tags&#39;</span>
-</span></span><span class=line><span class=cl><span class=c1># One bookmark at a time, verbose</span>
-</span></span></code></pre></div><h3 id=vfs-approach-interactive-shell>VFS Approach (Interactive Shell)</h3><p>The recording above shows the shell in action. Here&rsquo;s what&rsquo;s happening:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ btk shell
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>      __    __  __
-</span></span><span class=line><span class=cl>     / /_  / /_/ /__
-</span></span><span class=line><span class=cl>    / __ <span class=se>\/</span> __/ //_/
-</span></span><span class=line><span class=cl>   / /_/ / /_/ ,&lt;
-</span></span><span class=line><span class=cl>  /_.___/<span class=se>\_</span>_/_/<span class=p>|</span>_<span class=p>|</span>  v0.7.1
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>  Bookmark Toolkit - Virtual Filesystem Shell
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/$ ls
-</span></span><span class=line><span class=cl>bookmarks/    <span class=o>(</span>10,247<span class=o>)</span>    All bookmarks
-</span></span><span class=line><span class=cl>tags/                    Tag hierarchy
-</span></span><span class=line><span class=cl>recent/                  Time-based navigation
-</span></span><span class=line><span class=cl>domains/                 Browse by domain
-</span></span><span class=line><span class=cl>unread/       <span class=o>(</span>2,431<span class=o>)</span>    Never visited
-</span></span><span class=line><span class=cl>popular/      <span class=o>(</span>100<span class=o>)</span>      Most visited
-</span></span><span class=line><span class=cl>broken/       <span class=o>(</span>14<span class=o>)</span>       Dead links
-</span></span><span class=line><span class=cl>starred/      <span class=o>(</span>156<span class=o>)</span>      Starred bookmarks
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/$ <span class=nb>cd</span> tags/programming/python
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python$ ls
-</span></span><span class=line><span class=cl>async/        <span class=o>(</span>87<span class=o>)</span>
-</span></span><span class=line><span class=cl>web/          <span class=o>(</span>124<span class=o>)</span>
-</span></span><span class=line><span class=cl>data/         <span class=o>(</span>156<span class=o>)</span>
-</span></span><span class=line><span class=cl>ml/           <span class=o>(</span>89<span class=o>)</span>
-</span></span><span class=line><span class=cl>testing/      <span class=o>(</span>45<span class=o>)</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python/async$ ls <span class=p>|</span> head -5
-</span></span><span class=line><span class=cl><span class=m>4095</span>  <span class=m>5234</span>  <span class=m>6012</span>  <span class=m>6891</span>  <span class=m>7234</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python/async$ cat 4095/title
-</span></span><span class=line><span class=cl>Real Python - Async IO in Python: A Complete Walkthrough
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python/async$ cat 4095/url
-</span></span><span class=line><span class=cl>https://realpython.com/async-io-python/
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python/async$ star <span class=m>4095</span>
-</span></span><span class=line><span class=cl>★ Starred bookmark <span class=c1>#4095</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python/async$ <span class=nb>cd</span> /recent/today/added
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/recent/today/added$ ls
-</span></span><span class=line><span class=cl><span class=m>8901</span>  <span class=m>8902</span>  <span class=m>8903</span>  <span class=m>8904</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/recent/today/added$ tag <span class=m>8901</span> <span class=m>8902</span> <span class=m>8903</span> todo
-</span></span><span class=line><span class=cl>✓ Tagged <span class=m>3</span> bookmarks
-</span></span></code></pre></div><p><strong>Notice what just happened:</strong></p><ul><li><strong>No flag memorization</strong>: Just <code>cd</code> and <code>ls</code></li><li><strong>Incremental exploration</strong>: Narrow down step by step</li><li><strong>Context-aware commands</strong>: <code>tag</code> and <code>star</code> work on IDs in current directory</li><li><strong>Familiar mental model</strong>: It&rsquo;s just directories and files</li></ul><h2 id=the-same-pattern-different-data>The Same Pattern, Different Data</h2><p>This pattern works beautifully across domains:</p><h3 id=managing-ebooks-ebk>Managing Ebooks (ebk)</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>ebk:/$ <span class=nb>cd</span> subjects/Computer<span class=se>\ </span>Science/Algorithms
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk:/subjects/Computer Science/Algorithms$ ls
-</span></span><span class=line><span class=cl>Introduction to Algorithms.pdf
-</span></span><span class=line><span class=cl>The Algorithm Design Manual.pdf
-</span></span><span class=line><span class=cl>Algorithms <span class=o>(</span>Sedgewick<span class=o>)</span>.pdf
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk:/subjects/Computer Science/Algorithms$ cat <span class=s2>&#34;Introduction to Algorithms.pdf&#34;</span>/metadata
-</span></span><span class=line><span class=cl>Title: Introduction to Algorithms
-</span></span><span class=line><span class=cl>Authors: Cormen, Leiserson, Rivest, Stein
-</span></span><span class=line><span class=cl>ISBN: 978-0262033848
-</span></span><span class=line><span class=cl>Pages: <span class=m>1312</span>
-</span></span><span class=line><span class=cl>Rating: 5/5
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk:/subjects/Computer Science/Algorithms$ rate * <span class=m>5</span>
-</span></span><span class=line><span class=cl>✓ Rated <span class=m>3</span> books
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk:/subjects/Computer Science/Algorithms$ <span class=nb>cd</span> /recent/this-week/added
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk:/recent/this-week/added$ ls
-</span></span><span class=line><span class=cl>Advanced Programming in the Unix Environment.pdf
-</span></span><span class=line><span class=cl>Designing Data-Intensive Applications.pdf
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ebk:/recent/this-week/added$ tag * must-read
-</span></span><span class=line><span class=cl>✓ Tagged <span class=m>2</span> books
-</span></span></code></pre></div><h3 id=exploring-chat-history-ctk>Exploring Chat History (ctk)</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>ctk:/$ <span class=nb>cd</span> sources/ChatGPT
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/sources/ChatGPT$ ls <span class=p>|</span> wc -l
-</span></span><span class=line><span class=cl><span class=m>423</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/sources/ChatGPT$ <span class=nb>cd</span> /topics/machine-learning
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/topics/machine-learning$ ls
-</span></span><span class=line><span class=cl>conv_a1b2c3  conv_d4e5f6  conv_g7h8i9
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/topics/machine-learning$ show conv_a1b2c3
-</span></span><span class=line><span class=cl><span class=o>[</span>Shows conversation tree with messages<span class=o>]</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/topics/machine-learning$ star conv_a1b2c3
-</span></span><span class=line><span class=cl>★ Starred conversation
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/topics/machine-learning$ <span class=nb>cd</span> /starred
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ctk:/starred$ <span class=nb>export</span> --format markdown &gt; starred_ml_convos.md
-</span></span><span class=line><span class=cl>✓ Exported <span class=m>5</span> starred conversations to starred_ml_convos.md
-</span></span></code></pre></div><h3 id=managing-git-repositories-ghops>Managing Git Repositories (ghops)</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>ghops:/$ <span class=nb>cd</span> languages/Python
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ghops:/languages/Python$ ls
-</span></span><span class=line><span class=cl>btk/  ebk/  ctk/  ghops/  infinigram/  AlgoTree/
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ghops:/languages/Python$ <span class=nb>cd</span> btk
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ghops:/languages/Python/btk$ status
-</span></span><span class=line><span class=cl>Branch: master
-</span></span><span class=line><span class=cl>Commits ahead: <span class=m>0</span>
-</span></span><span class=line><span class=cl>Uncommitted changes: <span class=m>0</span>
-</span></span><span class=line><span class=cl>Last commit: Release v0.7.1 <span class=o>(</span><span class=m>2</span> days ago<span class=o>)</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ghops:/languages/Python/btk$ <span class=nb>cd</span> /topics/cli-tools
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ghops:/topics/cli-tools$ ls
-</span></span><span class=line><span class=cl>btk/  ebk/  ctk/  ghops/
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>ghops:/topics/cli-tools$ audit all --fix
-</span></span><span class=line><span class=cl>✓ Added .gitignore to <span class=m>2</span> repositories
-</span></span><span class=line><span class=cl>✓ Added LICENSE to <span class=m>1</span> repository
-</span></span><span class=line><span class=cl>✓ Updated README badges in <span class=m>4</span> repositories
-</span></span></code></pre></div><h2 id=design-principles-what-makes-this-work>Design Principles: What Makes This Work</h2><p>After building six of these tools, clear patterns emerged:</p><h3 id=1-local-first-stateless-cli--stateful-shell>1. <strong>Local-First, Stateless CLI + Stateful Shell</strong></h3><p>Every tool offers two interfaces:</p><p><strong>CLI (stateless, scriptable):</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>btk bookmark add https://example.com --tags python,tutorial
-</span></span><span class=line><span class=cl>ebk import book.pdf --author <span class=s2>&#34;Knuth&#34;</span>
-</span></span><span class=line><span class=cl>ctk <span class=nb>export</span> --format jsonl &gt; training.jsonl
-</span></span></code></pre></div><p><strong>Shell (stateful, exploratory):</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>btk shell
-</span></span><span class=line><span class=cl><span class=nb>cd</span> tags/python
-</span></span><span class=line><span class=cl>star *
-</span></span></code></pre></div><p>The CLI is for automation and scripting. The shell is for humans.</p><h3 id=2-everything-is-a-file-even-dynamic-data>2. <strong>Everything is a File, Even Dynamic Data</strong></h3><p>Traditional filesystems are static. Our VFS exposes dynamic, computed views:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>btk:/$ ls
-</span></span><span class=line><span class=cl>unread/       <span class=o>(</span>2,431<span class=o>)</span>    <span class=c1># SELECT * WHERE visit_count = 0</span>
-</span></span><span class=line><span class=cl>popular/      <span class=o>(</span>100<span class=o>)</span>      <span class=c1># SELECT * ORDER BY visit_count DESC LIMIT 100</span>
-</span></span><span class=line><span class=cl>broken/       <span class=o>(</span>14<span class=o>)</span>       <span class=c1># SELECT * WHERE reachable = false</span>
-</span></span><span class=line><span class=cl>recent/today/added/      <span class=c1># SELECT * WHERE added &gt;= TODAY</span>
-</span></span></code></pre></div><p>These &ldquo;directories&rdquo; don&rsquo;t exist on disk—they&rsquo;re computed queries. But they <em>feel</em> like directories.</p><h3 id=3-context-aware-commands>3. <strong>Context-Aware Commands</strong></h3><p>Commands understand where you are:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>btk:/bookmarks/4095$ cat title
-</span></span><span class=line><span class=cl><span class=c1># Shows title of bookmark 4095</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/python$ star *
-</span></span><span class=line><span class=cl><span class=c1># Stars all Python-tagged bookmarks</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/recent/today/added$ tag * review
-</span></span><span class=line><span class=cl><span class=c1># Tags today&#39;s additions</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/broken$ rm *
-</span></span><span class=line><span class=cl><span class=c1># Removes all broken bookmarks</span>
-</span></span></code></pre></div><p>The current path becomes implicit context. No need to repeat IDs or filters.</p><h3 id=4-jsonl-by-default-pretty-on-demand>4. <strong>JSONL by Default, Pretty on Demand</strong></h3><p>All commands output newline-delimited JSON (JSONL) by default:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Pipe to jq, grep, awk, any Unix tool</span>
-</span></span><span class=line><span class=cl>btk list <span class=p>|</span> jq <span class=s1>&#39;select(.stars == true)&#39;</span>
-</span></span><span class=line><span class=cl>ebk status <span class=p>|</span> grep <span class=s2>&#34;rating: 5&#34;</span>
-</span></span><span class=line><span class=cl>ctk search <span class=s2>&#34;python&#34;</span> <span class=p>|</span> jq <span class=s1>&#39;.id&#39;</span> <span class=p>|</span> xargs ctk <span class=nb>export</span> --ids
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># Pretty-print for humans</span>
-</span></span><span class=line><span class=cl>btk list --pretty
-</span></span><span class=line><span class=cl>ebk status --pretty
-</span></span></code></pre></div><p>This makes tools composable with the Unix ecosystem.</p><h3 id=5-hierarchical-tags--navigable-directories>5. <strong>Hierarchical Tags = Navigable Directories</strong></h3><p>The killer feature: hierarchical tags map directly to filesystem paths.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Tag with hierarchy</span>
-</span></span><span class=line><span class=cl>btk tag <span class=m>4095</span> programming/python/async/io
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># Navigate the hierarchy</span>
-</span></span><span class=line><span class=cl>btk:/$ <span class=nb>cd</span> tags/programming
-</span></span><span class=line><span class=cl>btk:/tags/programming$ ls
-</span></span><span class=line><span class=cl>python/  javascript/  rust/  go/
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/tags/programming$ <span class=nb>cd</span> python/async
-</span></span><span class=line><span class=cl>btk:/tags/programming/python/async$ ls
-</span></span><span class=line><span class=cl>io/  frameworks/  patterns/
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># Bulk operations on a hierarchy</span>
-</span></span><span class=line><span class=cl>btk:/tags/programming/python$ star */advanced/*
-</span></span><span class=line><span class=cl><span class=c1># Stars all bookmarks under any advanced subtag</span>
-</span></span></code></pre></div><p><strong>Compare with flat tags:</strong></p><ul><li>Flat: <code>python</code>, <code>python-async</code>, <code>python-async-io</code>, <code>python-web</code>, <code>python-web-django</code></li><li>Hierarchical: <code>python/async/io</code>, <code>python/web/django</code></li></ul><p>Hierarchical tags give you free navigation and organization.</p><h3 id=6-smart-collections-dynamic-virtual-directories>6. <strong>Smart Collections: Dynamic Virtual Directories</strong></h3><p>Beyond tags, we can expose any query as a &ldquo;directory&rdquo;:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>btk:/$ <span class=nb>cd</span> unread
-</span></span><span class=line><span class=cl>btk:/unread$ ls <span class=p>|</span> wc -l
-</span></span><span class=line><span class=cl><span class=m>2431</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># Visit one, it disappears from /unread</span>
-</span></span><span class=line><span class=cl>btk:/unread$ visit <span class=m>5234</span>
-</span></span><span class=line><span class=cl>✓ Opened bookmark <span class=m>5234</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/unread$ ls <span class=p>|</span> wc -l
-</span></span><span class=line><span class=cl><span class=m>2430</span>
-</span></span></code></pre></div><p>Collections auto-update based on state changes. It&rsquo;s like smart playlists for data.</p><h3 id=7-time-based-navigation>7. <strong>Time-Based Navigation</strong></h3><p>Recency is a dimension worth navigating:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>btk:/$ <span class=nb>cd</span> recent/today/visited
-</span></span><span class=line><span class=cl>btk:/recent/today/visited$ ls
-</span></span><span class=line><span class=cl><span class=m>5001</span>  <span class=m>4987</span>  <span class=m>4923</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/$ <span class=nb>cd</span> recent/this-week/added
-</span></span><span class=line><span class=cl>btk:/recent/this-week/added$ tag * weekly-review
-</span></span><span class=line><span class=cl>✓ Tagged <span class=m>47</span> bookmarks
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>btk:/$ <span class=nb>cd</span> recent/last-month/starred
-</span></span><span class=line><span class=cl>btk:/recent/last-month/starred$ <span class=nb>export</span> &gt; highlights.md
-</span></span></code></pre></div><p>This beats remembering exact date ranges in queries.</p><h2 id=implementation-how-its-built>Implementation: How It&rsquo;s Built</h2><p>Each tool shares a similar architecture:</p><h3 id=core-components>Core Components</h3><ol><li><p><strong>Database Layer</strong> (SQLAlchemy + SQLite)</p><ul><li>Normalized schema for entities (bookmarks, books, conversations)</li><li>Full-text search with FTS5</li><li>Efficient indexing for common queries</li></ul></li><li><p><strong>VFS Layer</strong> (Python <code>cmd.Cmd</code>)</p><ul><li>Path parsing: <code>/tags/programming/python</code> → context</li><li>Context detection: &ldquo;Where am I? What objects are here?&rdquo;</li><li>Command routing: context + command → appropriate handler</li></ul></li><li><p><strong>Command Layer</strong></p><ul><li>Context-aware implementations: <code>do_ls()</code>, <code>do_cd()</code>, <code>do_cat()</code>, etc.</li><li>Smart defaults based on current path</li><li>Pretty printing vs. JSONL output</li></ul></li><li><p><strong>CLI Layer</strong> (Typer/argparse)</p><ul><li>Stateless commands for scripting</li><li>Output as JSONL for Unix pipes</li><li>Shares same database as shell</li></ul></li></ol><h3 id=example-context-detection-in-btk>Example: Context Detection in BTK</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>_get_context</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Determine what &#39;directory&#39; we&#39;re in.&#34;&#34;&#34;</span>
-</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>current_path</span> <span class=o>==</span> <span class=s2>&#34;/&#34;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>{</span><span class=s1>&#39;type&#39;</span><span class=p>:</span> <span class=s1>&#39;root&#39;</span><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=n>parts</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>current_path</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>parts</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;tags&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=c1># /tags/programming/python</span>
-</span></span><span class=line><span class=cl>        <span class=n>tag_path</span> <span class=o>=</span> <span class=s1>&#39;/&#39;</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>parts</span><span class=p>[</span><span class=mi>1</span><span class=p>:])</span>
-</span></span><span class=line><span class=cl>        <span class=n>bookmarks</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>db</span><span class=o>.</span><span class=n>filter_by_tag_prefix</span><span class=p>(</span><span class=n>tag_path</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>{</span><span class=s1>&#39;type&#39;</span><span class=p>:</span> <span class=s1>&#39;tag&#39;</span><span class=p>,</span> <span class=s1>&#39;tag&#39;</span><span class=p>:</span> <span class=n>tag_path</span><span class=p>,</span> <span class=s1>&#39;bookmarks&#39;</span><span class=p>:</span> <span class=n>bookmarks</span><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>parts</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;recent&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=c1># /recent/today/added</span>
-</span></span><span class=line><span class=cl>        <span class=n>period</span> <span class=o>=</span> <span class=n>parts</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>  <span class=c1># &#39;today&#39;</span>
-</span></span><span class=line><span class=cl>        <span class=n>activity</span> <span class=o>=</span> <span class=n>parts</span><span class=p>[</span><span class=mi>2</span><span class=p>]</span> <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=n>parts</span><span class=p>)</span> <span class=o>&gt;</span> <span class=mi>2</span> <span class=k>else</span> <span class=s1>&#39;visited&#39;</span>
-</span></span><span class=line><span class=cl>        <span class=n>bookmarks</span> <span class=o>=</span> <span class=n>filter_by_time_and_activity</span><span class=p>(</span><span class=n>period</span><span class=p>,</span> <span class=n>activity</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>{</span><span class=s1>&#39;type&#39;</span><span class=p>:</span> <span class=s1>&#39;recent_activity&#39;</span><span class=p>,</span> <span class=s1>&#39;period&#39;</span><span class=p>:</span> <span class=n>period</span><span class=p>,</span>
-</span></span><span class=line><span class=cl>                <span class=s1>&#39;activity&#39;</span><span class=p>:</span> <span class=n>activity</span><span class=p>,</span> <span class=s1>&#39;bookmarks&#39;</span><span class=p>:</span> <span class=n>bookmarks</span><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>parts</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;unread&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=c1># /unread - smart collection</span>
-</span></span><span class=line><span class=cl>        <span class=n>bookmarks</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>db</span><span class=o>.</span><span class=n>filter</span><span class=p>(</span><span class=n>visit_count</span><span class=o>=</span><span class=mi>0</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>{</span><span class=s1>&#39;type&#39;</span><span class=p>:</span> <span class=s1>&#39;smart_collection&#39;</span><span class=p>,</span> <span class=s1>&#39;name&#39;</span><span class=p>:</span> <span class=s1>&#39;unread&#39;</span><span class=p>,</span>
-</span></span><span class=line><span class=cl>                <span class=s1>&#39;bookmarks&#39;</span><span class=p>:</span> <span class=n>bookmarks</span><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>parts</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;bookmarks&#39;</span> <span class=ow>and</span> <span class=nb>len</span><span class=p>(</span><span class=n>parts</span><span class=p>)</span> <span class=o>==</span> <span class=mi>2</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=c1># /bookmarks/4095</span>
-</span></span><span class=line><span class=cl>        <span class=n>bookmark_id</span> <span class=o>=</span> <span class=nb>int</span><span class=p>(</span><span class=n>parts</span><span class=p>[</span><span class=mi>1</span><span class=p>])</span>
-</span></span><span class=line><span class=cl>        <span class=n>bookmark</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>db</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>bookmark_id</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>{</span><span class=s1>&#39;type&#39;</span><span class=p>:</span> <span class=s1>&#39;bookmark&#39;</span><span class=p>,</span> <span class=s1>&#39;bookmark_id&#39;</span><span class=p>:</span> <span class=n>bookmark_id</span><span class=p>,</span>
-</span></span><span class=line><span class=cl>                <span class=s1>&#39;bookmark&#39;</span><span class=p>:</span> <span class=n>bookmark</span><span class=p>}</span>
-</span></span></code></pre></div><p>Once we know the context, commands adapt:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>do_ls</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>args</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;List items in current directory.&#34;&#34;&#34;</span>
-</span></span><span class=line><span class=cl>    <span class=n>context</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_get_context</span><span class=p>()</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;type&#39;</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;root&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_ls_root</span><span class=p>()</span>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;type&#39;</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;tag&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_ls_tag</span><span class=p>(</span><span class=n>context</span><span class=p>[</span><span class=s1>&#39;tag&#39;</span><span class=p>],</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;bookmarks&#39;</span><span class=p>])</span>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;type&#39;</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;recent_activity&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_ls_bookmarks</span><span class=p>(</span><span class=n>context</span><span class=p>[</span><span class=s1>&#39;bookmarks&#39;</span><span class=p>])</span>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;type&#39;</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;smart_collection&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_ls_collection</span><span class=p>(</span><span class=n>context</span><span class=p>[</span><span class=s1>&#39;name&#39;</span><span class=p>],</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;bookmarks&#39;</span><span class=p>])</span>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>context</span><span class=p>[</span><span class=s1>&#39;type&#39;</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;bookmark&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>_ls_bookmark</span><span class=p>(</span><span class=n>context</span><span class=p>[</span><span class=s1>&#39;bookmark&#39;</span><span class=p>])</span>
-</span></span></code></pre></div><p>This pattern—<strong>context detection + polymorphic commands</strong>—is the secret sauce.</p><h2 id=beyond-these-six-the-pattern-scales>Beyond These Six: The Pattern Scales</h2><p>The VFS + POSIX pattern isn&rsquo;t limited to these tools. I&rsquo;ve applied it to:</p><ul><li><p><strong>json-algebra</strong>: Navigate and manipulate JSON structures as filesystems</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>json:/$ <span class=nb>cd</span> users/<span class=o>[</span>0<span class=o>]</span>/posts/<span class=o>[</span>2<span class=o>]</span>
-</span></span><span class=line><span class=cl>json:/users/<span class=o>[</span>0<span class=o>]</span>/posts/<span class=o>[</span>2<span class=o>]</span>$ cat title
-</span></span><span class=line><span class=cl><span class=s2>&#34;My First Post&#34;</span>
-</span></span></code></pre></div></li><li><p><strong>log-analyzer</strong>: Navigate structured logs as directories</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>logs:/$ <span class=nb>cd</span> errors/2024-01/
-</span></span><span class=line><span class=cl>logs:/errors/2024-01$ group-by level
-</span></span></code></pre></div></li><li><p><strong>api-explorer</strong>: Explore REST APIs as navigable resources</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>api:/$ <span class=nb>cd</span> users/123/posts
-</span></span><span class=line><span class=cl>api:/users/123/posts$ ls
-</span></span><span class=line><span class=cl>post_456  post_789  post_012
-</span></span></code></pre></div></li></ul><p>The pattern is <strong>universally applicable to hierarchical data</strong>.</p><h2 id=why-this-matters-cognitive-fit>Why This Matters: Cognitive Fit</h2><p>Traditional CLIs force you to:</p><ol><li><strong>Remember exact syntax</strong>: <code>--filter-by-tag</code>, <code>--limit</code>, <code>--format</code></li><li><strong>Construct precise queries</strong>: Get it wrong, start over</li><li><strong>Process JSON blobs</strong>: Pipe to <code>jq</code> for every operation</li></ol><p>VFS interfaces let you:</p><ol><li><strong>Explore incrementally</strong>: <code>cd</code> → <code>ls</code> → <code>cd</code> → <code>ls</code></li><li><strong>Discover what exists</strong>: See tags/categories you forgot about</li><li><strong>Operate on context</strong>: &ldquo;Star everything here&rdquo; not &ldquo;Star IDs 1,2,3,&mldr;&rdquo;</li></ol><p>It matches how humans think: <strong>spatial navigation</strong> over <strong>query construction</strong>.</p><p>We already know filesystems. We already know <code>cd</code>, <code>ls</code>, <code>grep</code>, <code>find</code>. Why not leverage that knowledge?</p><h2 id=the-unix-philosophy-lives>The Unix Philosophy Lives</h2><p>Doug McIlroy&rsquo;s Unix philosophy (1978):</p><blockquote><ol><li>Make each program do one thing well.</li><li>Expect the output of every program to become the input to another.</li><li>Design and build software to be tried early.</li></ol></blockquote><p>We&rsquo;ve applied this to data:</p><ol><li><strong>One thing well</strong>: Each tool manages one domain (bookmarks, ebooks, chats)</li><li><strong>Composable output</strong>: JSONL everywhere, pipe to jq/grep/awk</li><li><strong>Interactive experimentation</strong>: Shell for exploration, CLI for automation</li></ol><p>And we&rsquo;ve extended it:</p><ol start=4><li><strong>Everything is a file</strong>: Even dynamic queries and computed collections</li><li><strong>Navigation over query</strong>: <code>cd</code> to context before operating</li><li><strong>Context is king</strong>: Current directory implies scope</li></ol><h2 id=getting-started-build-your-own>Getting Started: Build Your Own</h2><p>Want to apply this pattern to your data? Here&rsquo;s the recipe:</p><h3 id=1-identify-your-hierarchies>1. Identify Your Hierarchies</h3><p>What natural hierarchies exist in your domain?</p><ul><li><strong>Bookmarks</strong>: Tags, domains, time</li><li><strong>Ebooks</strong>: Authors, subjects, series</li><li><strong>Chats</strong>: Sources, topics, time</li><li><strong>Your domain</strong>: ?</li></ul><h3 id=2-design-your-vfs-root>2. Design Your VFS Root</h3><p>What &ldquo;directories&rdquo; should exist at the top level?</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>/
-</span></span><span class=line><span class=cl>├── &lt;primary-entities&gt;/    # /bookmarks, /books, /conversations
-</span></span><span class=line><span class=cl>├── &lt;hierarchy-1&gt;/          # /tags, /authors, /sources
-</span></span><span class=line><span class=cl>├── &lt;hierarchy-2&gt;/          # /domains, /subjects, /topics
-</span></span><span class=line><span class=cl>├── &lt;time-based&gt;/           # /recent/today, /recent/this-week
-</span></span><span class=line><span class=cl>└── &lt;smart-collections&gt;/    # /unread, /starred, /popular
-</span></span></code></pre></div><h3 id=3-implement-context-detection>3. Implement Context Detection</h3><p>Map paths to database queries:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>parse_path</span><span class=p>(</span><span class=n>path</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=n>parts</span> <span class=o>=</span> <span class=n>path</span><span class=o>.</span><span class=n>strip</span><span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>parts</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;tags&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>Tag</span><span class=o>.</span><span class=n>query</span><span class=o>.</span><span class=n>filter_by_prefix</span><span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>parts</span><span class=p>[</span><span class=mi>1</span><span class=p>:]))</span>
-</span></span><span class=line><span class=cl>    <span class=k>elif</span> <span class=n>parts</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span> <span class=o>==</span> <span class=s1>&#39;recent&#39;</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>Recent</span><span class=o>.</span><span class=n>query</span><span class=o>.</span><span class=n>filter_by_time</span><span class=p>(</span><span class=n>parts</span><span class=p>[</span><span class=mi>1</span><span class=p>])</span>
-</span></span><span class=line><span class=cl>    <span class=c1># ... etc</span>
-</span></span></code></pre></div><h3 id=4-add-posix-commands>4. Add POSIX Commands</h3><p>Start with the essentials:</p><ul><li><code>cd</code> - Change context</li><li><code>ls</code> - List items in context</li><li><code>pwd</code> - Show current path</li><li><code>cat</code> - Show item details</li><li><code>find</code> - Search within subtree</li><li><code>grep</code> - Filter items</li></ul><p>Then add domain-specific commands:</p><ul><li>Bookmarks: <code>visit</code>, <code>star</code>, <code>tag</code></li><li>Ebooks: <code>rate</code>, <code>read</code>, <code>export</code></li><li>Your domain: ?</li></ul><h3 id=5-provide-both-interfaces>5. Provide Both Interfaces</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># Shell (stateful, cmd.Cmd-based)</span>
-</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>DataShell</span><span class=p>(</span><span class=n>cmd</span><span class=o>.</span><span class=n>Cmd</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>do_cd</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>path</span><span class=p>):</span> <span class=o>...</span>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>do_ls</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>args</span><span class=p>):</span> <span class=o>...</span>
-</span></span><span class=line><span class=cl>    <span class=c1># ...</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># CLI (stateless, Typer/argparse-based)</span>
-</span></span><span class=line><span class=cl><span class=nd>@app.command</span><span class=p>()</span>
-</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>add</span><span class=p>(</span><span class=n>url</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>tags</span><span class=p>:</span> <span class=n>List</span><span class=p>[</span><span class=nb>str</span><span class=p>]):</span> <span class=o>...</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=nd>@app.command</span><span class=p>()</span>
-</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>list</span><span class=p>(</span><span class=n>tag</span><span class=p>:</span> <span class=nb>str</span> <span class=o>=</span> <span class=kc>None</span><span class=p>):</span> <span class=o>...</span>
-</span></span></code></pre></div><p>Users choose based on use case:</p><ul><li><strong>Automation</strong>: Use CLI with pipes</li><li><strong>Exploration</strong>: Use shell with <code>cd</code>/<code>ls</code></li></ul><h3 id=6-output-jsonl-by-default>6. Output JSONL by Default</h3><p>Every command should output newline-delimited JSON unless <code>--pretty</code> is specified:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>output</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=n>pretty</span><span class=o>=</span><span class=kc>False</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>pretty</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=n>print_table</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>  <span class=c1># Rich table</span>
-</span></span><span class=line><span class=cl>    <span class=k>else</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>item</span> <span class=ow>in</span> <span class=n>data</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>            <span class=nb>print</span><span class=p>(</span><span class=n>json</span><span class=o>.</span><span class=n>dumps</span><span class=p>(</span><span class=n>item</span><span class=p>))</span>  <span class=c1># JSONL</span>
-</span></span></code></pre></div><p>This makes your tool a first-class Unix citizen.</p><h2 id=real-world-benefits-what-ive-gained>Real-World Benefits: What I&rsquo;ve Gained</h2><p>Since building these tools, I&rsquo;ve:</p><ol><li><strong>Found forgotten treasures</strong>: Exploring <code>/tags/</code> revealed bookmark categories I&rsquo;d forgotten</li><li><strong>Automated workflows</strong>: <code>cd /recent/this-week/added && tag * weekly-review</code></li><li><strong>Composed with Unix tools</strong>: <code>btk list | jq '.url' | xargs -I {} curl -I {}</code></li><li><strong>Reduced cognitive load</strong>: No memorizing flags; just <code>cd</code> and <code>ls</code></li><li><strong>Built faster</strong>: New tools reuse the same VFS pattern</li></ol><p>Most importantly: <strong>I actually use these tools daily.</strong> They&rsquo;re not abandoned side projects—they&rsquo;re integral to my workflow.</p><h2 id=the-repository>The Repository</h2><p>All six tools are open source:</p><ul><li><strong>btk</strong> (Bookmark Toolkit): <a href=https://github.com/queelius/btk>github.com/queelius/btk</a></li><li><strong>ebk</strong> (eBook Manager): <a href=https://github.com/queelius/ebk>github.com/queelius/ebk</a></li><li><strong>ctk</strong> (Conversation Toolkit): <a href=https://github.com/queelius/ctk>github.com/queelius/ctk</a></li><li><strong>ghops</strong> (Git Repository Manager): <a href=https://github.com/queelius/ghops>github.com/queelius/ghops</a></li><li><strong>infinigram</strong> (N-gram Models): <a href=https://github.com/queelius/infinigram>github.com/queelius/infinigram</a></li><li><strong>AlgoTree</strong> (Tree Structures): <a href=https://github.com/queelius/AlgoTree>github.com/queelius/AlgoTree</a></li></ul><p>Each is on PyPI, fully documented, and well-tested.</p><h2 id=call-to-action-join-the-movement>Call to Action: Join the Movement</h2><p><strong>If you build CLI tools for hierarchical data:</strong></p><p>Consider the VFS pattern. Your users already know <code>cd</code> and <code>ls</code>. Why make them learn 47 flags?</p><p><strong>If you maintain complex data:</strong></p><p>Try one of these tools. Install with <code>pip install btk</code> or <code>pip install ebk</code>. See if the VFS interface clicks.</p><p><strong>If you want to contribute:</strong></p><p>All six projects welcome contributors. The pattern is proven; the features are endless. Pick your domain (bookmarks, ebooks, chats, repos) and add:</p><ul><li>New smart collections</li><li>New commands</li><li>Better visualizations</li><li>MCP integrations</li><li>Browser extensions</li></ul><p><strong>If you&rsquo;re just here for the philosophy:</strong></p><p>Spread the word. The Unix philosophy isn&rsquo;t dead—it&rsquo;s <em>evolving</em>. We&rsquo;ve gone from &ldquo;everything is a file&rdquo; to &ldquo;everything <em>can be presented as</em> a file.&rdquo;</p><p>Your data deserves to be navigable. Make it a filesystem.</p><hr><h2 id=technical-notes>Technical Notes</h2><h3 id=on-recording-shell-sessions>On Recording Shell Sessions</h3><p>The interactive shell demo at the top of this post is a real <a href=https://asciinema.org/>asciinema</a> recording (78KB):</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>asciinema rec btk-demo.cast
-</span></span><span class=line><span class=cl>btk shell
-</span></span><span class=line><span class=cl><span class=c1># ... do your demo ...</span>
-</span></span><span class=line><span class=cl><span class=nb>exit</span>
-</span></span></code></pre></div><p>The resulting <code>.cast</code> file is pure text (JSON), usually just a few KB. Benefits:</p><ul><li><strong>Embeddable</strong>: Use <a href=https://github.com/asciinema/asciinema-player>asciinema-player</a> for interactive playback</li><li><strong>Copy-pasteable</strong>: Viewers can copy text directly from the recording</li><li><strong>Lightweight</strong>: 78KB for several minutes of demo vs. megabytes for video/GIF</li><li><strong>Shareable</strong>: Host on asciinema.org for free or self-host</li></ul><p>This is <em>way</em> better than GIFs or videos for terminal demos. The player works in all modern browsers and supports pause/resume, speed control, and text selection.</p><h3 id=on-jsonl-vs-pretty-printing>On JSONL vs. Pretty Printing</h3><p>JSONL (newline-delimited JSON) is crucial for Unix composability:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Each line is valid JSON</span>
-</span></span><span class=line><span class=cl>btk list <span class=p>|</span> jq <span class=s1>&#39;select(.stars == true)&#39;</span> <span class=p>|</span> jq <span class=s1>&#39;.title&#39;</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># vs. array JSON (breaks streaming)</span>
-</span></span><span class=line><span class=cl>btk list --format json <span class=p>|</span> jq <span class=s1>&#39;.[] | select(.stars == true) | .title&#39;</span>
-</span></span></code></pre></div><p>JSONL is:</p><ul><li><strong>Streamable</strong>: Process line-by-line, no need to load entire array</li><li><strong>Appendable</strong>: <code>echo '{"new":"item"}' >> data.jsonl</code></li><li><strong>Grepable</strong>: <code>grep '"stars":true' data.jsonl</code></li><li><strong>Robust</strong>: One malformed record doesn&rsquo;t break the entire file</li></ul><p>Make it your default. Provide <code>--pretty</code> for humans.</p><h3 id=on-test-coverage>On Test Coverage</h3><p>All six tools have comprehensive test suites:</p><ul><li><strong>btk</strong>: 515 tests (53% shell coverage, 23% CLI coverage)</li><li><strong>ebk</strong>: Similar architecture, similar coverage</li><li><strong>ctk</strong>: Extensive integration tests with multiple LLM providers</li><li><strong>ghops</strong>: 138 tests, 86% coverage</li><li><strong>infinigram</strong>: 36 tests with benchmarks</li><li><strong>AlgoTree</strong>: 197 tests, 86% coverage</li></ul><p>The VFS pattern is <em>highly testable</em>:</p><ol><li>Mock database queries</li><li>Test path parsing</li><li>Test context detection</li><li>Test command handlers</li></ol><p>Each component is isolated and pure.</p><hr><h2 id=conclusion-the-future-is-navigable>Conclusion: The Future is Navigable</h2><p>We&rsquo;ve spent 50 years making filesystems fast, reliable, and ubiquitous. Every operating system has them. Every programmer understands them.</p><p>Why build new mental models for every data domain?</p><p><strong>Make your data navigable. Make it a filesystem.</strong></p><p>The tools are here. The pattern is proven. The Unix philosophy endures.</p><p>Now go forth and <code>cd</code> into your data.</p><hr><p><em>Alex Towell builds tools at the intersection of systems programming, language models, and data wrangling. Find more at <a href=https://metafunctor.com>metafunctor.com</a> or follow the projects on <a href=https://github.com/queelius>GitHub</a>.</em></p></div><nav class=post-navigation><a href=/post/orientation-under-pressure/ class=nav-prev><span class=nav-label>← Previous</span>
-<span class=nav-title>Orientation Under Pressure: Notes on a Life Lived Deliberately</span>
-</a><a href=/post/2025-10-26-networks-of-thought/ class=nav-next><span class=nav-label>Next →</span>
-<span class=nav-title>Networks of Thought: Finding Your Research Niche in the Age of LLMs</span></a></nav><section class=related-posts><h2 class=related-posts-title>Related Posts</h2><div class=related-posts-grid><article class=related-post-card><a href=/post/2025-10-ebk/ class=related-post-link><h3 class=related-post-title>EBK: A Modern eBook Management System with AI-Powered Features</h3><p class=related-post-excerpt><p>Managing a large eBook collection can quickly become overwhelming. Different formats, inconsistent metadata, duplicate …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Oct 13, 2025
-</span><span class=related-post-tags><span class=mini-tag>Python</span>
-<span class=mini-tag>ebook-manager</span></span></div></a></article><article class=related-post-card><a href=/post/2024-08-15-dagshell/ class=related-post-link><h3 class=related-post-title>DagShell: A Content-Addressable Virtual Filesystem</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/dagshell>DagShell</a></strong> implements a complete virtual filesystem using a content-addressable directed acyclic graph (DAG) structure. …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Oct 12, 2025
-</span><span class=related-post-tags><span class=mini-tag>Python</span>
-<span class=mini-tag>filesystem</span></span></div></a></article><article class=related-post-card><a href=/post/2024-12-jsonl-algebra/ class=related-post-link><h3 class=related-post-title>jsonl-algebra: Production-Grade Relational Algebra for Nested JSON</h3><p class=related-post-excerpt><p><strong><a href=https://pypi.org/project/jsonl-algebra/>jsonl-algebra</a></strong> (command: <code>ja</code>) is a production-grade implementation of relational algebra for JSONL data. It&rsquo;s the …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Dec 18, 2024
-</span><span class=related-post-tags><span class=mini-tag>Python</span>
-<span class=mini-tag>JSON</span></span></div></a></article><article class=related-post-card><a href=/post/2024-12-dotsuite/ class=related-post-link><h3 class=related-post-title>The Dot Ecosystem: From Simple Paths to Data Algebras</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/dotsuite>dotsuite</a></strong> is a suite of composable tools for working with nested data structures like JSON, YAML, and Python …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Dec 15, 2024
-</span><span class=related-post-tags><span class=mini-tag>Python</span>
-<span class=mini-tag>data-structures</span></span></div></a></article><article class=related-post-card><a href=/post/2024-11-open-source-legacy/ class=related-post-link><h3 class=related-post-title>Why I Build Comprehensively in Open Source</h3><p class=related-post-excerpt><p>I maintain 50+ open source repositories. Every one has documentation, tests, examples, and clear architecture.</p><p>People …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Nov 15, 2024
-</span><span class=related-post-tags><span class=mini-tag>open-source</span>
-<span class=mini-tag>legacy</span></span></div></a></article></div></section><style>.related-posts{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.related-posts-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.related-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem}.related-post-card{background:var(--paper,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:1.5rem;transition:all .3s ease}.related-post-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);border-color:var(--accent,#667eea)}.related-post-link{text-decoration:none;color:inherit;display:block}.related-post-title{font-size:1.125rem;font-weight:600;margin-bottom:.75rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif;line-height:1.4}.related-post-card:hover .related-post-title{color:var(--accent,#667eea)}.related-post-excerpt{font-size:.9rem;color:var(--ink-light,#666);line-height:1.6;margin-bottom:1rem}.related-post-meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.8rem;color:var(--ink-light,#999)}.related-post-date i{margin-right:.25rem}.related-post-tags{display:flex;gap:.5rem}.related-post-tags .mini-tag{background:var(--paper-dark,#f5f5f5);padding:.25rem .5rem;border-radius:4px;font-size:.7rem;color:var(--ink,#1a1a1a)}[data-theme=dark] .related-posts{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .related-posts-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-card{background:var(--paper-dark,#222);border-color:rgba(255,255,255,.1)}[data-theme=dark] .related-post-card:hover{border-color:var(--accent,#667eea)}[data-theme=dark] .related-post-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-tags .mini-tag{background:rgba(255,255,255,5%);color:var(--ink,#e8e8e8)}</style><section class=comments-section><h2 class=comments-title>Discussion</h2><div class=giscus-container></div><script src=https://giscus.app/client.js data-repo=queelius/metafunctor data-repo-id=R_kgDONbcL1g data-category=General data-category-id=DIC_kwDONbcL1s4CwFJ7 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=preferred_color_scheme data-lang=en crossorigin=anonymous async></script></section></article></div><style>.comments-section{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.comments-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.giscus-container{margin-top:1rem}[data-theme=dark] .comments-section{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .comments-title{color:var(--ink,#e8e8e8)}</style><script>function updateGiscusTheme(){const t=document.documentElement.getAttribute("data-theme")||"light",n=t==="dark"?"dark":"light",e=document.querySelector("iframe.giscus-frame");e&&e.contentWindow.postMessage({giscus:{setConfig:{theme:n}}},"https://giscus.app")}const observer=new MutationObserver(updateGiscusTheme);observer.observe(document.documentElement,{attributes:!0,attributeFilter:["data-theme"]}),setTimeout(updateGiscusTheme,1e3)</script></div></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
-</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
-</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
-</a><a href=/index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
-</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
-</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
-</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
-</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
-</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-research><h4 id=footer-research>Research</h4><div class=footer-links><a href=https://metafunctor.com/publications/>Publications</a>
-<a href=https://metafunctor.com/research/>Research Areas</a>
-<a href=https://metafunctor.com/featured/>Featured Work</a></div></nav><nav class=footer-section aria-labelledby=footer-development><h4 id=footer-development>Development</h4><div class=footer-links><a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
-<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a>
-<a href=https://metafunctor.com/projects/>Projects</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
-<a href=mailto:lex@metafunctor.com>Contact</a>
-<a href=https://metafunctor.com/archive/>Archive</a>
-<a href=https://metafunctor.com/sitemap.xml>Sitemap</a>
-<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=/js/performance-optimizations.js defer></script><script src=/js/performance-enhancements.js defer></script><script src=/js/mobile-menu.js defer></script><script src=/js/modern-interactions.js defer></script><script src=/js/search.js defer></script><script src=/js/reading-progress.js defer></script><script src=/js/copy-code.js defer></script><script src=/js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
-<i class="fas fa-arrow-up"></i>
-</button>
-<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
+<!DOCTYPE html>
+<html lang="en-us" prefix="og: https://ogp.me/ns#">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  
+  <title>Everything is a File: Applying Unix Philosophy to Modern Data Management | metafunctor</title>
+  <meta name="title" content="Everything is a File: Applying Unix Philosophy to Modern Data Management | metafunctor">
+  <meta name="description" content="How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems">
+
+  
+  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
+  <meta name="author" content="Alex Towell">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="http://localhost:1313/post/2025-10-20-vfs-cli-tools/">
+
+  
+  
+
+  
+  <link rel="alternate" hreflang="en" href="http://localhost:1313/post/2025-10-20-vfs-cli-tools/">
+  <link rel="alternate" hreflang="x-default" href="http://localhost:1313/post/2025-10-20-vfs-cli-tools/">
+
+  
+  
+<style>
+ 
+
+ 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+ 
+.elegant-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(254, 254, 254, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  text-decoration: none;
+}
+
+.nav-primary ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-primary a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a4a4a;
+  text-decoration: none;
+}
+
+ 
+.hero-elegant {
+  padding: 5rem 2rem;
+  text-align: center;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #4a4a4a;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+
+ 
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0050a0;
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+ 
+.preload * {
+  transition: none !important;
+}
+</style>
+
+
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="http://localhost:1313/post/2025-10-20-vfs-cli-tools/">
+  <meta property="og:title" content="Everything is a File: Applying Unix Philosophy to Modern Data Management">
+  <meta property="og:description" content="How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems">
+  <meta property="og:image" content="http://localhost:1313/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="metafunctor">
+  <meta property="og:locale" content="en_US">
+  
+  <meta property="article:author" content="Alex Towell">
+  <meta property="article:published_time" content="2025-10-20T00:00:00Z">
+  <meta property="article:modified_time" content="2026-01-02T23:49:23-06:00">
+  
+  <meta property="article:tag" content="unix-philosophy"><meta property="article:tag" content="cli-tools"><meta property="article:tag" content="python"><meta property="article:tag" content="data-management"><meta property="article:tag" content="virtual-filesystem"><meta property="article:tag" content="software-design"><meta property="article:tag" content="open-source">
+  
+
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="http://localhost:1313/post/2025-10-20-vfs-cli-tools/">
+  <meta name="twitter:title" content="Everything is a File: Applying Unix Philosophy to Modern Data Management">
+  <meta name="twitter:description" content="How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems">
+  <meta name="twitter:image" content="http://localhost:1313/images/og-image.jpg">
+  <meta name="twitter:site" content="@queelius">
+  <meta name="twitter:creator" content="@queelius">
+
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": "http:\/\/localhost:1313\/post\/2025-10-20-vfs-cli-tools\/#primaryContent",
+        
+        "headline": "Everything is a File: Applying Unix Philosophy to Modern Data Management",
+        "description": "How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems",
+        "url": "http:\/\/localhost:1313\/post\/2025-10-20-vfs-cli-tools\/",
+        "inLanguage": "en-US",
+        "datePublished": "2025-10-20T00:00:00Z",
+        "dateModified": "2026-01-02T23:49:23-06:00",
+        "wordCount":  2694 ,
+        "timeRequired": "PT13M",
+        "author": {
+          "@type": "Person",
+          "@id": "http:\/\/localhost:1313\/#author",
+          "name": "Alex Towell",
+          "url": "http:\/\/localhost:1313\/about/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "@id": "http:\/\/localhost:1313\/#organization",
+          "name": "metafunctor",
+          "url": "http:\/\/localhost:1313\/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "http:\/\/localhost:1313\/images\/og-image.jpg"
+          }
+        },
+        "keywords": ["unix-philosophy", "cli-tools", "python", "data-management", "virtual-filesystem", "software-design", "open-source"]
+        
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "http:\/\/localhost:1313\/post\/2025-10-20-vfs-cli-tools\/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "http:\/\/localhost:1313\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "News",
+            "item": "http:\/\/localhost:1313\/post\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Everything is a File: Applying Unix Philosophy to Modern Data Management",
+            "item": "http:\/\/localhost:1313\/post\/2025-10-20-vfs-cli-tools\/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+  
+  <link rel="stylesheet" href="/css/refined-elegant.css">
+
+  
+  <link rel="stylesheet" href="/css/micro-interactions.css">
+
+  
+  <link rel="stylesheet" href="/css/elegant.css" media="print" onload="this.media='all'">
+
+  
+  <link rel="stylesheet" href="/css/custom.css">
+
+  
+  <link rel="stylesheet" href="/css/beautify.css">
+
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  
+  
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "\\[", right: "\\]", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false}
+        ]
+      });
+    });
+  </script>
+  
+
+  
+  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+
+  
+  
+
+
+
+
+
+  
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E08ZXTFTTY');
+        }
+      </script>
+  <meta name="generator" content="Hugo 0.152.2">
+</head>
+<body>
+  
+  <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+  <header class="elegant-header" role="banner">
+  <div class="header-inner">
+    <div class="site-identity">
+      <a href="http://localhost:1313/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
+      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
+    </div>
+    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
+      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul role="list">
+        <li><a href="http://localhost:1313/" >Home</a></li>
+        <li><a href="http://localhost:1313/projects/" >Projects</a></li>
+        <li><a href="http://localhost:1313/post/" class="active" aria-current="page">Posts</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Work <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="http://localhost:1313/research/" >Research</a></li>
+            <li role="menuitem"><a href="http://localhost:1313/papers/" >Papers</a></li>
+            <li role="menuitem"><a href="http://localhost:1313/publications/" >Publications</a></li>
+            <li role="menuitem"><a href="http://localhost:1313/writing/" >Writing</a></li>
+          </ul>
+        </li>
+        <li><a href="http://localhost:1313/media/" >Media</a></li>
+        <li><a href="http://localhost:1313/about/" >About</a></li>
+        <li><a href="http://localhost:1313/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+ 
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+  list-style: none;
+}
+
+.nav-dropdown.open .dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+}
+
+ 
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #fff;
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.nav-dropdown .dropdown-menu a {
+  display: block !important;
+  padding: 0.6rem 1.25rem !important;
+  color: #4a4a4a !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown .dropdown-menu a:hover {
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
+}
+
+.nav-dropdown .dropdown-menu a.active {
+  color: #4f46e5 !important;
+}
+
+ 
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.2s ease;
+  }
+
+  .dropdown-menu::before {
+    display: none;
+  }
+
+  .nav-dropdown.open .dropdown-menu {
+    max-height: 300px;
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-menu a {
+    padding: 0.5rem 1.5rem 0.5rem 2rem;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+  dropdowns.forEach(dropdown => {
+    const toggle = dropdown.querySelector('.dropdown-toggle');
+
+    
+    toggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasOpen = dropdown.classList.contains('open');
+
+      
+      dropdowns.forEach(d => d.classList.remove('open'));
+
+      
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+      }
+    });
+  });
+
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-dropdown')) {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+});
+</script>
+
+
+  
+  
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="http://localhost:1313/">
+          <span itemprop="name">Home</span>
+        </a>
+        <meta itemprop="position" content="1" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <a itemprop="item" href="http://localhost:1313/post/">
+          <span itemprop="name">News</span>
+        </a>
+        <meta itemprop="position" content="2" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <span itemprop="name" aria-current="page">Everything is a File: Applying Unix Philosophy to Modern Data Management</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
+  
+
+  <main id="main-content" role="main" aria-label="Main content">
+    
+<div class="main-container">
+  <div class="single-post-layout">
+    
+    
+    <aside class="post-sidebar">
+      
+<aside class="toc-wrapper" aria-label="Table of contents">
+  <nav class="table-of-contents">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-content">
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#the-problem-clis-that-dont-scale-with-complexity">The Problem: CLIs That Don&rsquo;t Scale With Complexity</a></li>
+    <li><a href="#the-unix-revelation-everything-is-a-file">The Unix Revelation: Everything is a File</a></li>
+    <li><a href="#the-pattern-virtual-filesystems--posix-commands">The Pattern: Virtual Filesystems + POSIX Commands</a></li>
+    <li><a href="#live-session-navigating-10000-bookmarks">Live Session: Navigating 10,000 Bookmarks</a>
+      <ul>
+        <li><a href="#traditional-approach-crud-cli">Traditional Approach (CRUD CLI)</a></li>
+        <li><a href="#vfs-approach-interactive-shell">VFS Approach (Interactive Shell)</a></li>
+      </ul>
+    </li>
+    <li><a href="#the-same-pattern-different-data">The Same Pattern, Different Data</a>
+      <ul>
+        <li><a href="#managing-ebooks-ebk">Managing Ebooks (ebk)</a></li>
+        <li><a href="#exploring-chat-history-ctk">Exploring Chat History (ctk)</a></li>
+        <li><a href="#managing-git-repositories-ghops">Managing Git Repositories (ghops)</a></li>
+      </ul>
+    </li>
+    <li><a href="#design-principles-what-makes-this-work">Design Principles: What Makes This Work</a>
+      <ul>
+        <li><a href="#1-local-first-stateless-cli--stateful-shell">1. <strong>Local-First, Stateless CLI + Stateful Shell</strong></a></li>
+        <li><a href="#2-everything-is-a-file-even-dynamic-data">2. <strong>Everything is a File, Even Dynamic Data</strong></a></li>
+        <li><a href="#3-context-aware-commands">3. <strong>Context-Aware Commands</strong></a></li>
+        <li><a href="#4-jsonl-by-default-pretty-on-demand">4. <strong>JSONL by Default, Pretty on Demand</strong></a></li>
+        <li><a href="#5-hierarchical-tags--navigable-directories">5. <strong>Hierarchical Tags = Navigable Directories</strong></a></li>
+        <li><a href="#6-smart-collections-dynamic-virtual-directories">6. <strong>Smart Collections: Dynamic Virtual Directories</strong></a></li>
+        <li><a href="#7-time-based-navigation">7. <strong>Time-Based Navigation</strong></a></li>
+      </ul>
+    </li>
+    <li><a href="#implementation-how-its-built">Implementation: How It&rsquo;s Built</a>
+      <ul>
+        <li><a href="#core-components">Core Components</a></li>
+        <li><a href="#example-context-detection-in-btk">Example: Context Detection in BTK</a></li>
+      </ul>
+    </li>
+    <li><a href="#beyond-these-six-the-pattern-scales">Beyond These Six: The Pattern Scales</a></li>
+    <li><a href="#why-this-matters-cognitive-fit">Why This Matters: Cognitive Fit</a></li>
+    <li><a href="#the-unix-philosophy-lives">The Unix Philosophy Lives</a></li>
+    <li><a href="#getting-started-build-your-own">Getting Started: Build Your Own</a>
+      <ul>
+        <li><a href="#1-identify-your-hierarchies">1. Identify Your Hierarchies</a></li>
+        <li><a href="#2-design-your-vfs-root">2. Design Your VFS Root</a></li>
+        <li><a href="#3-implement-context-detection">3. Implement Context Detection</a></li>
+        <li><a href="#4-add-posix-commands">4. Add POSIX Commands</a></li>
+        <li><a href="#5-provide-both-interfaces">5. Provide Both Interfaces</a></li>
+        <li><a href="#6-output-jsonl-by-default">6. Output JSONL by Default</a></li>
+      </ul>
+    </li>
+    <li><a href="#real-world-benefits-what-ive-gained">Real-World Benefits: What I&rsquo;ve Gained</a></li>
+    <li><a href="#the-repository">The Repository</a></li>
+    <li><a href="#call-to-action-join-the-movement">Call to Action: Join the Movement</a></li>
+    <li><a href="#technical-notes">Technical Notes</a>
+      <ul>
+        <li><a href="#on-recording-shell-sessions">On Recording Shell Sessions</a></li>
+        <li><a href="#on-jsonl-vs-pretty-printing">On JSONL vs. Pretty Printing</a></li>
+        <li><a href="#on-test-coverage">On Test Coverage</a></li>
+      </ul>
+    </li>
+    <li><a href="#conclusion-the-future-is-navigable">Conclusion: The Future is Navigable</a></li>
+  </ul>
+</nav>
+    </div>
+  </nav>
+</aside>
+
+<style>
+.toc-wrapper {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.toc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.toc-content {
+  font-size: 0.9rem;
+}
+
+.toc-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-content > ul {
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--space-md);
+}
+
+.toc-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.toc-content a {
+  color: var(--ink-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+  padding: var(--space-xs) 0;
+}
+
+.toc-content a:hover {
+  color: var(--accent);
+}
+
+.toc-content ul ul {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+ 
+@media (max-width: 1024px) {
+  .toc-wrapper {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
+</style>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tocLinks = document.querySelectorAll('.toc-content a');
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').substring(1);
+    return document.getElementById(id);
+  }).filter(section => section !== null);
+
+  function highlightTOC() {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const scrollPosition = window.scrollY + 100;
+      if (scrollPosition >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    tocLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+        link.style.color = 'var(--accent)';
+        link.style.fontWeight = '600';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
+
+  window.addEventListener('scroll', highlightTOC);
+  highlightTOC();
+});
+</script>
+
+    </aside>
+    
+
+    
+    <article class="single-post" itemscope itemtype="https://schema.org/Article">
+      <header class="post-header">
+        <h1 class="post-title" itemprop="headline">Everything is a File: Applying Unix Philosophy to Modern Data Management</h1>
+        <div class="post-meta">
+          
+          <span class="post-date">
+            <i class="far fa-calendar" aria-hidden="true"></i>
+            <time datetime="2025-10-20T00:00:00Z" itemprop="datePublished">
+              October 20, 2025
+            </time>
+          </span>
+          
+          
+          <span class="post-reading-time">
+            <i class="far fa-clock" aria-hidden="true"></i>
+            13 min read
+          </span>
+          
+          
+          <span class="post-updated">
+            <i class="far fa-edit" aria-hidden="true"></i>
+            Updated: <time datetime="2026-01-02T23:49:23-06:00" itemprop="dateModified">
+              January 2, 2026
+            </time>
+          </span>
+          
+          
+        </div>
+        
+        <div class="tags" role="list">
+          
+          <a href="http://localhost:1313/tags/unix-philosophy/" class="tag" role="listitem">unix-philosophy</a>
+          
+          <a href="http://localhost:1313/tags/cli-tools/" class="tag" role="listitem">cli-tools</a>
+          
+          <a href="http://localhost:1313/tags/python/" class="tag" role="listitem">python</a>
+          
+          <a href="http://localhost:1313/tags/data-management/" class="tag" role="listitem">data-management</a>
+          
+          <a href="http://localhost:1313/tags/virtual-filesystem/" class="tag" role="listitem">virtual-filesystem</a>
+          
+          <a href="http://localhost:1313/tags/software-design/" class="tag" role="listitem">software-design</a>
+          
+          <a href="http://localhost:1313/tags/open-source/" class="tag" role="listitem">open-source</a>
+          
+        </div>
+        
+      </header>
+
+      <div class="content" itemprop="articleBody">
+        <p><em>How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems</em></p>
+<h2 id="the-problem-clis-that-dont-scale-with-complexity">The Problem: CLIs That Don&rsquo;t Scale With Complexity</h2>
+<p>I had a bookmark manager. Then an ebook library manager. Then a chat history manager. Each started simple:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Traditional CRUD approach</span>
+</span></span><span class="line"><span class="cl">btk add https://example.com --tags python,tutorial
+</span></span><span class="line"><span class="cl">btk list --tag python
+</span></span><span class="line"><span class="cl">btk search <span class="s2">&#34;async&#34;</span>
+</span></span><span class="line"><span class="cl">btk delete <span class="m">1234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
+</span></span><span class="line"><span class="cl">ebk list --author Knuth
+</span></span><span class="line"><span class="cl">ebk search <span class="s2">&#34;algorithms&#34;</span>
+</span></span></code></pre></div><p>This works fine&hellip; until it doesn&rsquo;t.</p>
+<p><strong>The breaking point:</strong> I had 10,000+ bookmarks organized with hierarchical tags like <code>programming/python/async</code>, <code>research/ml/transformers</code>, <code>work/clients/acme</code>. My ebook library had similar structure. My exported chat conversations from Claude, ChatGPT, and Copilot were piling up.</p>
+<p>Traditional CRUD commands became unwieldy:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Getting specific without a VFS</span>
+</span></span><span class="line"><span class="cl">btk list --tag programming/python/async/io --format json <span class="p">|</span> jq <span class="s1">&#39;.[].title&#39;</span>
+</span></span><span class="line"><span class="cl">ebk list --category <span class="s2">&#34;Computer Science/Algorithms/Graph Theory&#34;</span> --limit <span class="m">50</span>
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;machine learning&#34;</span> --source ChatGPT --date-from 2024-01-01
+</span></span></code></pre></div><p>Each command required precise arguments. Each tool had different flag conventions. I couldn&rsquo;t <em>navigate</em> my data—I could only <em>query</em> it. And queries require knowing exactly what you&rsquo;re looking for.</p>
+<h2 id="the-unix-revelation-everything-is-a-file">The Unix Revelation: Everything is a File</h2>
+<p>The insight came from an unlikely place: managing files on my system.</p>
+<p>When I have thousands of source files organized in directories, I don&rsquo;t run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">list-files --path /src/components/auth --extension .tsx
+</span></span></code></pre></div><p>I run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> src/components/auth
+</span></span><span class="line"><span class="cl">ls *.tsx
+</span></span></code></pre></div><p><strong>The difference is profound:</strong> With a filesystem, I can:</p>
+<ul>
+<li><strong>Navigate incrementally</strong>: <code>cd</code> from general to specific</li>
+<li><strong>Explore</strong>: <code>ls</code> to see what&rsquo;s there</li>
+<li><strong>Compose</strong>: <code>cat file | grep pattern | wc -l</code></li>
+<li><strong>Use familiar tools</strong>: <code>find</code>, <code>grep</code>, <code>xargs</code>, pipes, redirection</li>
+</ul>
+<p>What if my bookmarks, ebooks, and chat histories were filesystems?</p>
+<h2 id="the-pattern-virtual-filesystems--posix-commands">The Pattern: Virtual Filesystems + POSIX Commands</h2>
+<p>Over the past year, I&rsquo;ve built six Python tools that all follow the same architectural pattern:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Domain</th>
+          <th>VFS Root Structure</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>btk</strong></td>
+          <td>Bookmarks</td>
+          <td><code>/bookmarks/</code>, <code>/tags/</code>, <code>/recent/</code>, <code>/domains/</code>, <code>/unread/</code>, <code>/popular/</code></td>
+      </tr>
+      <tr>
+          <td><strong>ebk</strong></td>
+          <td>Ebook library</td>
+          <td><code>/books/</code>, <code>/authors/</code>, <code>/series/</code>, <code>/subjects/</code>, <code>/recent/</code>, <code>/unread/</code></td>
+      </tr>
+      <tr>
+          <td><strong>ctk</strong></td>
+          <td>Chat conversations</td>
+          <td><code>/conversations/</code>, <code>/sources/</code>, <code>/topics/</code>, <code>/starred/</code>, <code>/recent/</code></td>
+      </tr>
+      <tr>
+          <td><strong>ghops</strong></td>
+          <td>Git repositories</td>
+          <td><code>/repos/</code>, <code>/languages/</code>, <code>/topics/</code>, <code>/stars/</code>, <code>/recent/</code></td>
+      </tr>
+      <tr>
+          <td><strong>infinigram</strong></td>
+          <td>N-gram models</td>
+          <td><code>/datasets/</code>, <code>/models/</code>, <code>/corpora/</code></td>
+      </tr>
+      <tr>
+          <td><strong>AlgoTree</strong></td>
+          <td>Tree structures</td>
+          <td><code>/nodes/</code>, <code>/paths/</code>, <code>/subtrees/</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>Each tool provides:</p>
+<ol>
+<li><strong>A stateless CLI</strong> for scriptability: <code>btk bookmark add URL</code>, <code>ebk import book.pdf</code></li>
+<li><strong>An interactive shell</strong> with a virtual filesystem: <code>btk shell</code>, <code>ebk shell</code>, <code>ctk chat</code></li>
+<li><strong>POSIX-like commands</strong>: <code>cd</code>, <code>ls</code>, <code>pwd</code>, <code>cat</code>, <code>mv</code>, <code>cp</code>, <code>rm</code>, <code>find</code>, <code>grep</code></li>
+<li><strong>Unix pipeline support</strong>: Most commands output JSONL by default for piping</li>
+</ol>
+<p>The magic is in the shell. Let me show you.</p>
+<h2 id="live-session-navigating-10000-bookmarks">Live Session: Navigating 10,000 Bookmarks</h2>
+<p><strong>Watch the shell in action:</strong></p>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.js"></script>
+<div id="btk-demo"></div>
+<script>
+AsciinemaPlayer.create('btk.cast', document.getElementById('btk-demo'), {
+  cols: 94,
+  rows: 49,
+  speed: 1,
+  idleTimeLimit: 2,
+  theme: 'monokai',
+  poster: 'npt:0:06'
+});
+</script>
+<p><em>This is a live recording captured with <a href="https://asciinema.org/">asciinema</a>. You can pause, copy text, and replay. The entire recording is just 78KB of text.</em></p>
+<h3 id="traditional-approach-crud-cli">Traditional Approach (CRUD CLI)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk search <span class="s2">&#34;python async&#34;</span> --tag programming --limit <span class="m">10</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Returns JSON blob... now what?</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ btk list --tag <span class="s2">&#34;programming/python/async&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Hope I remembered the exact tag path</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ btk bookmark get <span class="m">4095</span> --format json <span class="p">|</span> jq <span class="s1">&#39;.tags&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># One bookmark at a time, verbose</span>
+</span></span></code></pre></div><h3 id="vfs-approach-interactive-shell">VFS Approach (Interactive Shell)</h3>
+<p>The recording above shows the shell in action. Here&rsquo;s what&rsquo;s happening:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk shell
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">      __    __  __
+</span></span><span class="line"><span class="cl">     / /_  / /_/ /__
+</span></span><span class="line"><span class="cl">    / __ <span class="se">\/</span> __/ //_/
+</span></span><span class="line"><span class="cl">   / /_/ / /_/ ,&lt;
+</span></span><span class="line"><span class="cl">  /_.___/<span class="se">\_</span>_/_/<span class="p">|</span>_<span class="p">|</span>  v0.7.1
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  Bookmark Toolkit - Virtual Filesystem Shell
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ ls
+</span></span><span class="line"><span class="cl">bookmarks/    <span class="o">(</span>10,247<span class="o">)</span>    All bookmarks
+</span></span><span class="line"><span class="cl">tags/                    Tag hierarchy
+</span></span><span class="line"><span class="cl">recent/                  Time-based navigation
+</span></span><span class="line"><span class="cl">domains/                 Browse by domain
+</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    Never visited
+</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      Most visited
+</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       Dead links
+</span></span><span class="line"><span class="cl">starred/      <span class="o">(</span>156<span class="o">)</span>      Starred bookmarks
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming/python
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ ls
+</span></span><span class="line"><span class="cl">async/        <span class="o">(</span>87<span class="o">)</span>
+</span></span><span class="line"><span class="cl">web/          <span class="o">(</span>124<span class="o">)</span>
+</span></span><span class="line"><span class="cl">data/         <span class="o">(</span>156<span class="o">)</span>
+</span></span><span class="line"><span class="cl">ml/           <span class="o">(</span>89<span class="o">)</span>
+</span></span><span class="line"><span class="cl">testing/      <span class="o">(</span>45<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls <span class="p">|</span> head -5
+</span></span><span class="line"><span class="cl"><span class="m">4095</span>  <span class="m">5234</span>  <span class="m">6012</span>  <span class="m">6891</span>  <span class="m">7234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/title
+</span></span><span class="line"><span class="cl">Real Python - Async IO in Python: A Complete Walkthrough
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/url
+</span></span><span class="line"><span class="cl">https://realpython.com/async-io-python/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ star <span class="m">4095</span>
+</span></span><span class="line"><span class="cl">★ Starred bookmark <span class="c1">#4095</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ <span class="nb">cd</span> /recent/today/added
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ ls
+</span></span><span class="line"><span class="cl"><span class="m">8901</span>  <span class="m">8902</span>  <span class="m">8903</span>  <span class="m">8904</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag <span class="m">8901</span> <span class="m">8902</span> <span class="m">8903</span> todo
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">3</span> bookmarks
+</span></span></code></pre></div><p><strong>Notice what just happened:</strong></p>
+<ul>
+<li><strong>No flag memorization</strong>: Just <code>cd</code> and <code>ls</code></li>
+<li><strong>Incremental exploration</strong>: Narrow down step by step</li>
+<li><strong>Context-aware commands</strong>: <code>tag</code> and <code>star</code> work on IDs in current directory</li>
+<li><strong>Familiar mental model</strong>: It&rsquo;s just directories and files</li>
+</ul>
+<h2 id="the-same-pattern-different-data">The Same Pattern, Different Data</h2>
+<p>This pattern works beautifully across domains:</p>
+<h3 id="managing-ebooks-ebk">Managing Ebooks (ebk)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk:/$ <span class="nb">cd</span> subjects/Computer<span class="se">\ </span>Science/Algorithms
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ ls
+</span></span><span class="line"><span class="cl">Introduction to Algorithms.pdf
+</span></span><span class="line"><span class="cl">The Algorithm Design Manual.pdf
+</span></span><span class="line"><span class="cl">Algorithms <span class="o">(</span>Sedgewick<span class="o">)</span>.pdf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ cat <span class="s2">&#34;Introduction to Algorithms.pdf&#34;</span>/metadata
+</span></span><span class="line"><span class="cl">Title: Introduction to Algorithms
+</span></span><span class="line"><span class="cl">Authors: Cormen, Leiserson, Rivest, Stein
+</span></span><span class="line"><span class="cl">ISBN: 978-0262033848
+</span></span><span class="line"><span class="cl">Pages: <span class="m">1312</span>
+</span></span><span class="line"><span class="cl">Rating: 5/5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ rate * <span class="m">5</span>
+</span></span><span class="line"><span class="cl">✓ Rated <span class="m">3</span> books
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ <span class="nb">cd</span> /recent/this-week/added
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/recent/this-week/added$ ls
+</span></span><span class="line"><span class="cl">Advanced Programming in the Unix Environment.pdf
+</span></span><span class="line"><span class="cl">Designing Data-Intensive Applications.pdf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/recent/this-week/added$ tag * must-read
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">2</span> books
+</span></span></code></pre></div><h3 id="exploring-chat-history-ctk">Exploring Chat History (ctk)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk:/$ <span class="nb">cd</span> sources/ChatGPT
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">423</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ <span class="nb">cd</span> /topics/machine-learning
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ ls
+</span></span><span class="line"><span class="cl">conv_a1b2c3  conv_d4e5f6  conv_g7h8i9
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ show conv_a1b2c3
+</span></span><span class="line"><span class="cl"><span class="o">[</span>Shows conversation tree with messages<span class="o">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ star conv_a1b2c3
+</span></span><span class="line"><span class="cl">★ Starred conversation
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ <span class="nb">cd</span> /starred
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/starred$ <span class="nb">export</span> --format markdown &gt; starred_ml_convos.md
+</span></span><span class="line"><span class="cl">✓ Exported <span class="m">5</span> starred conversations to starred_ml_convos.md
+</span></span></code></pre></div><h3 id="managing-git-repositories-ghops">Managing Git Repositories (ghops)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ghops:/$ <span class="nb">cd</span> languages/Python
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python$ ls
+</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/  infinigram/  AlgoTree/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python$ <span class="nb">cd</span> btk
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ status
+</span></span><span class="line"><span class="cl">Branch: master
+</span></span><span class="line"><span class="cl">Commits ahead: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">Uncommitted changes: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">Last commit: Release v0.7.1 <span class="o">(</span><span class="m">2</span> days ago<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ <span class="nb">cd</span> /topics/cli-tools
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/topics/cli-tools$ ls
+</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/topics/cli-tools$ audit all --fix
+</span></span><span class="line"><span class="cl">✓ Added .gitignore to <span class="m">2</span> repositories
+</span></span><span class="line"><span class="cl">✓ Added LICENSE to <span class="m">1</span> repository
+</span></span><span class="line"><span class="cl">✓ Updated README badges in <span class="m">4</span> repositories
+</span></span></code></pre></div><h2 id="design-principles-what-makes-this-work">Design Principles: What Makes This Work</h2>
+<p>After building six of these tools, clear patterns emerged:</p>
+<h3 id="1-local-first-stateless-cli--stateful-shell">1. <strong>Local-First, Stateless CLI + Stateful Shell</strong></h3>
+<p>Every tool offers two interfaces:</p>
+<p><strong>CLI (stateless, scriptable):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk bookmark add https://example.com --tags python,tutorial
+</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> --format jsonl &gt; training.jsonl
+</span></span></code></pre></div><p><strong>Shell (stateful, exploratory):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk shell
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> tags/python
+</span></span><span class="line"><span class="cl">star *
+</span></span></code></pre></div><p>The CLI is for automation and scripting. The shell is for humans.</p>
+<h3 id="2-everything-is-a-file-even-dynamic-data">2. <strong>Everything is a File, Even Dynamic Data</strong></h3>
+<p>Traditional filesystems are static. Our VFS exposes dynamic, computed views:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ ls
+</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    <span class="c1"># SELECT * WHERE visit_count = 0</span>
+</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      <span class="c1"># SELECT * ORDER BY visit_count DESC LIMIT 100</span>
+</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       <span class="c1"># SELECT * WHERE reachable = false</span>
+</span></span><span class="line"><span class="cl">recent/today/added/      <span class="c1"># SELECT * WHERE added &gt;= TODAY</span>
+</span></span></code></pre></div><p>These &ldquo;directories&rdquo; don&rsquo;t exist on disk—they&rsquo;re computed queries. But they <em>feel</em> like directories.</p>
+<h3 id="3-context-aware-commands">3. <strong>Context-Aware Commands</strong></h3>
+<p>Commands understand where you are:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/bookmarks/4095$ cat title
+</span></span><span class="line"><span class="cl"><span class="c1"># Shows title of bookmark 4095</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/python$ star *
+</span></span><span class="line"><span class="cl"><span class="c1"># Stars all Python-tagged bookmarks</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag * review
+</span></span><span class="line"><span class="cl"><span class="c1"># Tags today&#39;s additions</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/broken$ rm *
+</span></span><span class="line"><span class="cl"><span class="c1"># Removes all broken bookmarks</span>
+</span></span></code></pre></div><p>The current path becomes implicit context. No need to repeat IDs or filters.</p>
+<h3 id="4-jsonl-by-default-pretty-on-demand">4. <strong>JSONL by Default, Pretty on Demand</strong></h3>
+<p>All commands output newline-delimited JSON (JSONL) by default:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Pipe to jq, grep, awk, any Unix tool</span>
+</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span>
+</span></span><span class="line"><span class="cl">ebk status <span class="p">|</span> grep <span class="s2">&#34;rating: 5&#34;</span>
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;python&#34;</span> <span class="p">|</span> jq <span class="s1">&#39;.id&#39;</span> <span class="p">|</span> xargs ctk <span class="nb">export</span> --ids
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pretty-print for humans</span>
+</span></span><span class="line"><span class="cl">btk list --pretty
+</span></span><span class="line"><span class="cl">ebk status --pretty
+</span></span></code></pre></div><p>This makes tools composable with the Unix ecosystem.</p>
+<h3 id="5-hierarchical-tags--navigable-directories">5. <strong>Hierarchical Tags = Navigable Directories</strong></h3>
+<p>The killer feature: hierarchical tags map directly to filesystem paths.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Tag with hierarchy</span>
+</span></span><span class="line"><span class="cl">btk tag <span class="m">4095</span> programming/python/async/io
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Navigate the hierarchy</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming
+</span></span><span class="line"><span class="cl">btk:/tags/programming$ ls
+</span></span><span class="line"><span class="cl">python/  javascript/  rust/  go/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming$ <span class="nb">cd</span> python/async
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls
+</span></span><span class="line"><span class="cl">io/  frameworks/  patterns/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Bulk operations on a hierarchy</span>
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ star */advanced/*
+</span></span><span class="line"><span class="cl"><span class="c1"># Stars all bookmarks under any advanced subtag</span>
+</span></span></code></pre></div><p><strong>Compare with flat tags:</strong></p>
+<ul>
+<li>Flat: <code>python</code>, <code>python-async</code>, <code>python-async-io</code>, <code>python-web</code>, <code>python-web-django</code></li>
+<li>Hierarchical: <code>python/async/io</code>, <code>python/web/django</code></li>
+</ul>
+<p>Hierarchical tags give you free navigation and organization.</p>
+<h3 id="6-smart-collections-dynamic-virtual-directories">6. <strong>Smart Collections: Dynamic Virtual Directories</strong></h3>
+<p>Beyond tags, we can expose any query as a &ldquo;directory&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> unread
+</span></span><span class="line"><span class="cl">btk:/unread$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">2431</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Visit one, it disappears from /unread</span>
+</span></span><span class="line"><span class="cl">btk:/unread$ visit <span class="m">5234</span>
+</span></span><span class="line"><span class="cl">✓ Opened bookmark <span class="m">5234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/unread$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">2430</span>
+</span></span></code></pre></div><p>Collections auto-update based on state changes. It&rsquo;s like smart playlists for data.</p>
+<h3 id="7-time-based-navigation">7. <strong>Time-Based Navigation</strong></h3>
+<p>Recency is a dimension worth navigating:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/today/visited
+</span></span><span class="line"><span class="cl">btk:/recent/today/visited$ ls
+</span></span><span class="line"><span class="cl"><span class="m">5001</span>  <span class="m">4987</span>  <span class="m">4923</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/this-week/added
+</span></span><span class="line"><span class="cl">btk:/recent/this-week/added$ tag * weekly-review
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">47</span> bookmarks
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/last-month/starred
+</span></span><span class="line"><span class="cl">btk:/recent/last-month/starred$ <span class="nb">export</span> &gt; highlights.md
+</span></span></code></pre></div><p>This beats remembering exact date ranges in queries.</p>
+<h2 id="implementation-how-its-built">Implementation: How It&rsquo;s Built</h2>
+<p>Each tool shares a similar architecture:</p>
+<h3 id="core-components">Core Components</h3>
+<ol>
+<li>
+<p><strong>Database Layer</strong> (SQLAlchemy + SQLite)</p>
+<ul>
+<li>Normalized schema for entities (bookmarks, books, conversations)</li>
+<li>Full-text search with FTS5</li>
+<li>Efficient indexing for common queries</li>
+</ul>
+</li>
+<li>
+<p><strong>VFS Layer</strong> (Python <code>cmd.Cmd</code>)</p>
+<ul>
+<li>Path parsing: <code>/tags/programming/python</code> → context</li>
+<li>Context detection: &ldquo;Where am I? What objects are here?&rdquo;</li>
+<li>Command routing: context + command → appropriate handler</li>
+</ul>
+</li>
+<li>
+<p><strong>Command Layer</strong></p>
+<ul>
+<li>Context-aware implementations: <code>do_ls()</code>, <code>do_cd()</code>, <code>do_cat()</code>, etc.</li>
+<li>Smart defaults based on current path</li>
+<li>Pretty printing vs. JSONL output</li>
+</ul>
+</li>
+<li>
+<p><strong>CLI Layer</strong> (Typer/argparse)</p>
+<ul>
+<li>Stateless commands for scripting</li>
+<li>Output as JSONL for Unix pipes</li>
+<li>Shares same database as shell</li>
+</ul>
+</li>
+</ol>
+<h3 id="example-context-detection-in-btk">Example: Context Detection in BTK</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">_get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Determine what &#39;directory&#39; we&#39;re in.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span> <span class="o">==</span> <span class="s2">&#34;/&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;root&#39;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /tags/programming/python</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tag_path</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter_by_tag_prefix</span><span class="p">(</span><span class="n">tag_path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tag&#39;</span><span class="p">,</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="n">tag_path</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /recent/today/added</span>
+</span></span><span class="line"><span class="cl">        <span class="n">period</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># &#39;today&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">activity</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;visited&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="n">filter_by_time_and_activity</span><span class="p">(</span><span class="n">period</span><span class="p">,</span> <span class="n">activity</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">,</span> <span class="s1">&#39;period&#39;</span><span class="p">:</span> <span class="n">period</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;activity&#39;</span><span class="p">:</span> <span class="n">activity</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;unread&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /unread - smart collection</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">visit_count</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;unread&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmarks&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /bookmarks/4095</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmark_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmark</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bookmark_id</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">,</span> <span class="s1">&#39;bookmark_id&#39;</span><span class="p">:</span> <span class="n">bookmark_id</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span> <span class="n">bookmark</span><span class="p">}</span>
+</span></span></code></pre></div><p>Once we know the context, commands adapt:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;List items in current directory.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_context</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;root&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_root</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_tag</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;tag&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmarks</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_collection</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmark</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmark&#39;</span><span class="p">])</span>
+</span></span></code></pre></div><p>This pattern—<strong>context detection + polymorphic commands</strong>—is the secret sauce.</p>
+<h2 id="beyond-these-six-the-pattern-scales">Beyond These Six: The Pattern Scales</h2>
+<p>The VFS + POSIX pattern isn&rsquo;t limited to these tools. I&rsquo;ve applied it to:</p>
+<ul>
+<li>
+<p><strong>json-algebra</strong>: Navigate and manipulate JSON structures as filesystems</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">json:/$ <span class="nb">cd</span> users/<span class="o">[</span>0<span class="o">]</span>/posts/<span class="o">[</span>2<span class="o">]</span>
+</span></span><span class="line"><span class="cl">json:/users/<span class="o">[</span>0<span class="o">]</span>/posts/<span class="o">[</span>2<span class="o">]</span>$ cat title
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;My First Post&#34;</span>
+</span></span></code></pre></div></li>
+<li>
+<p><strong>log-analyzer</strong>: Navigate structured logs as directories</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logs:/$ <span class="nb">cd</span> errors/2024-01/
+</span></span><span class="line"><span class="cl">logs:/errors/2024-01$ group-by level
+</span></span></code></pre></div></li>
+<li>
+<p><strong>api-explorer</strong>: Explore REST APIs as navigable resources</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">api:/$ <span class="nb">cd</span> users/123/posts
+</span></span><span class="line"><span class="cl">api:/users/123/posts$ ls
+</span></span><span class="line"><span class="cl">post_456  post_789  post_012
+</span></span></code></pre></div></li>
+</ul>
+<p>The pattern is <strong>universally applicable to hierarchical data</strong>.</p>
+<h2 id="why-this-matters-cognitive-fit">Why This Matters: Cognitive Fit</h2>
+<p>Traditional CLIs force you to:</p>
+<ol>
+<li><strong>Remember exact syntax</strong>: <code>--filter-by-tag</code>, <code>--limit</code>, <code>--format</code></li>
+<li><strong>Construct precise queries</strong>: Get it wrong, start over</li>
+<li><strong>Process JSON blobs</strong>: Pipe to <code>jq</code> for every operation</li>
+</ol>
+<p>VFS interfaces let you:</p>
+<ol>
+<li><strong>Explore incrementally</strong>: <code>cd</code> → <code>ls</code> → <code>cd</code> → <code>ls</code></li>
+<li><strong>Discover what exists</strong>: See tags/categories you forgot about</li>
+<li><strong>Operate on context</strong>: &ldquo;Star everything here&rdquo; not &ldquo;Star IDs 1,2,3,&hellip;&rdquo;</li>
+</ol>
+<p>It matches how humans think: <strong>spatial navigation</strong> over <strong>query construction</strong>.</p>
+<p>We already know filesystems. We already know <code>cd</code>, <code>ls</code>, <code>grep</code>, <code>find</code>. Why not leverage that knowledge?</p>
+<h2 id="the-unix-philosophy-lives">The Unix Philosophy Lives</h2>
+<p>Doug McIlroy&rsquo;s Unix philosophy (1978):</p>
+<blockquote>
+<ol>
+<li>Make each program do one thing well.</li>
+<li>Expect the output of every program to become the input to another.</li>
+<li>Design and build software to be tried early.</li>
+</ol>
+</blockquote>
+<p>We&rsquo;ve applied this to data:</p>
+<ol>
+<li><strong>One thing well</strong>: Each tool manages one domain (bookmarks, ebooks, chats)</li>
+<li><strong>Composable output</strong>: JSONL everywhere, pipe to jq/grep/awk</li>
+<li><strong>Interactive experimentation</strong>: Shell for exploration, CLI for automation</li>
+</ol>
+<p>And we&rsquo;ve extended it:</p>
+<ol start="4">
+<li><strong>Everything is a file</strong>: Even dynamic queries and computed collections</li>
+<li><strong>Navigation over query</strong>: <code>cd</code> to context before operating</li>
+<li><strong>Context is king</strong>: Current directory implies scope</li>
+</ol>
+<h2 id="getting-started-build-your-own">Getting Started: Build Your Own</h2>
+<p>Want to apply this pattern to your data? Here&rsquo;s the recipe:</p>
+<h3 id="1-identify-your-hierarchies">1. Identify Your Hierarchies</h3>
+<p>What natural hierarchies exist in your domain?</p>
+<ul>
+<li><strong>Bookmarks</strong>: Tags, domains, time</li>
+<li><strong>Ebooks</strong>: Authors, subjects, series</li>
+<li><strong>Chats</strong>: Sources, topics, time</li>
+<li><strong>Your domain</strong>: ?</li>
+</ul>
+<h3 id="2-design-your-vfs-root">2. Design Your VFS Root</h3>
+<p>What &ldquo;directories&rdquo; should exist at the top level?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">/
+</span></span><span class="line"><span class="cl">├── &lt;primary-entities&gt;/    # /bookmarks, /books, /conversations
+</span></span><span class="line"><span class="cl">├── &lt;hierarchy-1&gt;/          # /tags, /authors, /sources
+</span></span><span class="line"><span class="cl">├── &lt;hierarchy-2&gt;/          # /domains, /subjects, /topics
+</span></span><span class="line"><span class="cl">├── &lt;time-based&gt;/           # /recent/today, /recent/this-week
+</span></span><span class="line"><span class="cl">└── &lt;smart-collections&gt;/    # /unread, /starred, /popular
+</span></span></code></pre></div><h3 id="3-implement-context-detection">3. Implement Context Detection</h3>
+<p>Map paths to database queries:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Tag</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by_prefix</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Recent</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by_time</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ... etc</span>
+</span></span></code></pre></div><h3 id="4-add-posix-commands">4. Add POSIX Commands</h3>
+<p>Start with the essentials:</p>
+<ul>
+<li><code>cd</code> - Change context</li>
+<li><code>ls</code> - List items in context</li>
+<li><code>pwd</code> - Show current path</li>
+<li><code>cat</code> - Show item details</li>
+<li><code>find</code> - Search within subtree</li>
+<li><code>grep</code> - Filter items</li>
+</ul>
+<p>Then add domain-specific commands:</p>
+<ul>
+<li>Bookmarks: <code>visit</code>, <code>star</code>, <code>tag</code></li>
+<li>Ebooks: <code>rate</code>, <code>read</code>, <code>export</code></li>
+<li>Your domain: ?</li>
+</ul>
+<h3 id="5-provide-both-interfaces">5. Provide Both Interfaces</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Shell (stateful, cmd.Cmd-based)</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DataShell</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Cmd</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">do_cd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># CLI (stateless, Typer/argparse-based)</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@app.command</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span> <span class="o">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nd">@app.command</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">list</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
+</span></span></code></pre></div><p>Users choose based on use case:</p>
+<ul>
+<li><strong>Automation</strong>: Use CLI with pipes</li>
+<li><strong>Exploration</strong>: Use shell with <code>cd</code>/<code>ls</code></li>
+</ul>
+<h3 id="6-output-jsonl-by-default">6. Output JSONL by Default</h3>
+<p>Every command should output newline-delimited JSON unless <code>--pretty</code> is specified:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">output</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pretty</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">pretty</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="n">print_table</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Rich table</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">item</span><span class="p">))</span>  <span class="c1"># JSONL</span>
+</span></span></code></pre></div><p>This makes your tool a first-class Unix citizen.</p>
+<h2 id="real-world-benefits-what-ive-gained">Real-World Benefits: What I&rsquo;ve Gained</h2>
+<p>Since building these tools, I&rsquo;ve:</p>
+<ol>
+<li><strong>Found forgotten treasures</strong>: Exploring <code>/tags/</code> revealed bookmark categories I&rsquo;d forgotten</li>
+<li><strong>Automated workflows</strong>: <code>cd /recent/this-week/added &amp;&amp; tag * weekly-review</code></li>
+<li><strong>Composed with Unix tools</strong>: <code>btk list | jq '.url' | xargs -I {} curl -I {}</code></li>
+<li><strong>Reduced cognitive load</strong>: No memorizing flags; just <code>cd</code> and <code>ls</code></li>
+<li><strong>Built faster</strong>: New tools reuse the same VFS pattern</li>
+</ol>
+<p>Most importantly: <strong>I actually use these tools daily.</strong> They&rsquo;re not abandoned side projects—they&rsquo;re integral to my workflow.</p>
+<h2 id="the-repository">The Repository</h2>
+<p>All six tools are open source:</p>
+<ul>
+<li><strong>btk</strong> (Bookmark Toolkit): <a href="https://github.com/queelius/btk">github.com/queelius/btk</a></li>
+<li><strong>ebk</strong> (eBook Manager): <a href="https://github.com/queelius/ebk">github.com/queelius/ebk</a></li>
+<li><strong>ctk</strong> (Conversation Toolkit): <a href="https://github.com/queelius/ctk">github.com/queelius/ctk</a></li>
+<li><strong>ghops</strong> (Git Repository Manager): <a href="https://github.com/queelius/ghops">github.com/queelius/ghops</a></li>
+<li><strong>infinigram</strong> (N-gram Models): <a href="https://github.com/queelius/infinigram">github.com/queelius/infinigram</a></li>
+<li><strong>AlgoTree</strong> (Tree Structures): <a href="https://github.com/queelius/AlgoTree">github.com/queelius/AlgoTree</a></li>
+</ul>
+<p>Each is on PyPI, fully documented, and well-tested.</p>
+<h2 id="call-to-action-join-the-movement">Call to Action: Join the Movement</h2>
+<p><strong>If you build CLI tools for hierarchical data:</strong></p>
+<p>Consider the VFS pattern. Your users already know <code>cd</code> and <code>ls</code>. Why make them learn 47 flags?</p>
+<p><strong>If you maintain complex data:</strong></p>
+<p>Try one of these tools. Install with <code>pip install btk</code> or <code>pip install ebk</code>. See if the VFS interface clicks.</p>
+<p><strong>If you want to contribute:</strong></p>
+<p>All six projects welcome contributors. The pattern is proven; the features are endless. Pick your domain (bookmarks, ebooks, chats, repos) and add:</p>
+<ul>
+<li>New smart collections</li>
+<li>New commands</li>
+<li>Better visualizations</li>
+<li>MCP integrations</li>
+<li>Browser extensions</li>
+</ul>
+<p><strong>If you&rsquo;re just here for the philosophy:</strong></p>
+<p>Spread the word. The Unix philosophy isn&rsquo;t dead—it&rsquo;s <em>evolving</em>. We&rsquo;ve gone from &ldquo;everything is a file&rdquo; to &ldquo;everything <em>can be presented as</em> a file.&rdquo;</p>
+<p>Your data deserves to be navigable. Make it a filesystem.</p>
+<hr>
+<h2 id="technical-notes">Technical Notes</h2>
+<h3 id="on-recording-shell-sessions">On Recording Shell Sessions</h3>
+<p>The interactive shell demo at the top of this post is a real <a href="https://asciinema.org/">asciinema</a> recording (78KB):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">asciinema rec btk-demo.cast
+</span></span><span class="line"><span class="cl">btk shell
+</span></span><span class="line"><span class="cl"><span class="c1"># ... do your demo ...</span>
+</span></span><span class="line"><span class="cl"><span class="nb">exit</span>
+</span></span></code></pre></div><p>The resulting <code>.cast</code> file is pure text (JSON), usually just a few KB. Benefits:</p>
+<ul>
+<li><strong>Embeddable</strong>: Use <a href="https://github.com/asciinema/asciinema-player">asciinema-player</a> for interactive playback</li>
+<li><strong>Copy-pasteable</strong>: Viewers can copy text directly from the recording</li>
+<li><strong>Lightweight</strong>: 78KB for several minutes of demo vs. megabytes for video/GIF</li>
+<li><strong>Shareable</strong>: Host on asciinema.org for free or self-host</li>
+</ul>
+<p>This is <em>way</em> better than GIFs or videos for terminal demos. The player works in all modern browsers and supports pause/resume, speed control, and text selection.</p>
+<h3 id="on-jsonl-vs-pretty-printing">On JSONL vs. Pretty Printing</h3>
+<p>JSONL (newline-delimited JSON) is crucial for Unix composability:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Each line is valid JSON</span>
+</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span> <span class="p">|</span> jq <span class="s1">&#39;.title&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># vs. array JSON (breaks streaming)</span>
+</span></span><span class="line"><span class="cl">btk list --format json <span class="p">|</span> jq <span class="s1">&#39;.[] | select(.stars == true) | .title&#39;</span>
+</span></span></code></pre></div><p>JSONL is:</p>
+<ul>
+<li><strong>Streamable</strong>: Process line-by-line, no need to load entire array</li>
+<li><strong>Appendable</strong>: <code>echo '{&quot;new&quot;:&quot;item&quot;}' &gt;&gt; data.jsonl</code></li>
+<li><strong>Grepable</strong>: <code>grep '&quot;stars&quot;:true' data.jsonl</code></li>
+<li><strong>Robust</strong>: One malformed record doesn&rsquo;t break the entire file</li>
+</ul>
+<p>Make it your default. Provide <code>--pretty</code> for humans.</p>
+<h3 id="on-test-coverage">On Test Coverage</h3>
+<p>All six tools have comprehensive test suites:</p>
+<ul>
+<li><strong>btk</strong>: 515 tests (53% shell coverage, 23% CLI coverage)</li>
+<li><strong>ebk</strong>: Similar architecture, similar coverage</li>
+<li><strong>ctk</strong>: Extensive integration tests with multiple LLM providers</li>
+<li><strong>ghops</strong>: 138 tests, 86% coverage</li>
+<li><strong>infinigram</strong>: 36 tests with benchmarks</li>
+<li><strong>AlgoTree</strong>: 197 tests, 86% coverage</li>
+</ul>
+<p>The VFS pattern is <em>highly testable</em>:</p>
+<ol>
+<li>Mock database queries</li>
+<li>Test path parsing</li>
+<li>Test context detection</li>
+<li>Test command handlers</li>
+</ol>
+<p>Each component is isolated and pure.</p>
+<hr>
+<h2 id="conclusion-the-future-is-navigable">Conclusion: The Future is Navigable</h2>
+<p>We&rsquo;ve spent 50 years making filesystems fast, reliable, and ubiquitous. Every operating system has them. Every programmer understands them.</p>
+<p>Why build new mental models for every data domain?</p>
+<p><strong>Make your data navigable. Make it a filesystem.</strong></p>
+<p>The tools are here. The pattern is proven. The Unix philosophy endures.</p>
+<p>Now go forth and <code>cd</code> into your data.</p>
+<hr>
+<p><em>Alex Towell builds tools at the intersection of systems programming, language models, and data wrangling. Find more at <a href="https://metafunctor.com">metafunctor.com</a> or follow the projects on <a href="https://github.com/queelius">GitHub</a>.</em></p>
+
+      </div>
+
+    
+    <nav class="post-navigation">
+      
+      <a href="/post/orientation-under-pressure/" class="nav-prev">
+        <span class="nav-label">← Previous</span>
+        <span class="nav-title">Orientation Under Pressure: Notes on a Life Lived Deliberately</span>
+      </a>
+      
+      
+      <a href="/post/2025-10-26-networks-of-thought/" class="nav-next">
+        <span class="nav-label">Next →</span>
+        <span class="nav-title">Networks of Thought: Finding Your Research Niche in the Age of LLMs</span>
+      </a>
+      
+    </nav>
+    
+
+    
+    
+
+    
+    
+    
+    <section class="related-posts">
+      <h2 class="related-posts-title">Related Posts</h2>
+      <div class="related-posts-grid">
+        
+        <article class="related-post-card">
+          <a href="/post/2025-10-ebk/" class="related-post-link">
+            <h3 class="related-post-title">EBK: A Modern eBook Management System with AI-Powered Features</h3>
+            <p class="related-post-excerpt"><p>Managing a large eBook collection can quickly become overwhelming. Different formats, inconsistent metadata, duplicate …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Oct 13, 2025
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">Python</span>
+                
+                  <span class="mini-tag">ebook-manager</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="/post/2024-08-15-dagshell/" class="related-post-link">
+            <h3 class="related-post-title">DagShell: A Content-Addressable Virtual Filesystem</h3>
+            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/dagshell">DagShell</a></strong> implements a complete virtual filesystem using a content-addressable directed acyclic graph (DAG) structure. …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Oct 12, 2025
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">Python</span>
+                
+                  <span class="mini-tag">filesystem</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="/post/2024-12-jsonl-algebra/" class="related-post-link">
+            <h3 class="related-post-title">jsonl-algebra: Production-Grade Relational Algebra for Nested JSON</h3>
+            <p class="related-post-excerpt"><p><strong><a href="https://pypi.org/project/jsonl-algebra/">jsonl-algebra</a></strong> (command: <code>ja</code>) is a production-grade implementation of relational algebra for JSONL data. It&rsquo;s the …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Dec 18, 2024
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">Python</span>
+                
+                  <span class="mini-tag">JSON</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="/post/2024-12-dotsuite/" class="related-post-link">
+            <h3 class="related-post-title">The Dot Ecosystem: From Simple Paths to Data Algebras</h3>
+            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/dotsuite">dotsuite</a></strong> is a suite of composable tools for working with nested data structures like JSON, YAML, and Python …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Dec 15, 2024
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">Python</span>
+                
+                  <span class="mini-tag">data-structures</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="/post/2024-11-open-source-legacy/" class="related-post-link">
+            <h3 class="related-post-title">Why I Build Comprehensively in Open Source</h3>
+            <p class="related-post-excerpt"><p>I maintain 50+ open source repositories. Every one has documentation, tests, examples, and clear architecture.</p>
+<p>People …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Nov 15, 2024
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">open-source</span>
+                
+                  <span class="mini-tag">legacy</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+      </div>
+    </section>
+
+    <style>
+    .related-posts {
+      margin-top: 4rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .related-posts-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+    }
+
+    .related-posts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .related-post-card {
+      background: var(--paper, #fff);
+      border: 1px solid var(--border-color, #e5e7eb);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .related-post-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      border-color: var(--accent, #667eea);
+    }
+
+    .related-post-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .related-post-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+      line-height: 1.4;
+    }
+
+    .related-post-card:hover .related-post-title {
+      color: var(--accent, #667eea);
+    }
+
+    .related-post-excerpt {
+      font-size: 0.9rem;
+      color: var(--ink-light, #666);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .related-post-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--ink-light, #999);
+    }
+
+    .related-post-date i {
+      margin-right: 0.25rem;
+    }
+
+    .related-post-tags {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .related-post-tags .mini-tag {
+      background: var(--paper-dark, #f5f5f5);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--ink, #1a1a1a);
+    }
+
+    [data-theme="dark"] .related-posts {
+      border-top-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-posts-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-card {
+      background: var(--paper-dark, #222);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-post-card:hover {
+      border-color: var(--accent, #667eea);
+    }
+
+    [data-theme="dark"] .related-post-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-tags .mini-tag {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--ink, #e8e8e8);
+    }
+    </style>
+    
+
+    
+    <section class="comments-section">
+      <h2 class="comments-title">Discussion</h2>
+      <div class="giscus-container"></div>
+      <script src="https://giscus.app/client.js"
+              data-repo="queelius/metafunctor"
+              data-repo-id="R_kgDONbcL1g"
+              data-category="General"
+              data-category-id="DIC_kwDONbcL1s4CwFJ7"
+              data-mapping="pathname"
+              data-strict="0"
+              data-reactions-enabled="1"
+              data-emit-metadata="0"
+              data-input-position="bottom"
+              data-theme="preferred_color_scheme"
+              data-lang="en"
+              crossorigin="anonymous"
+              async>
+      </script>
+    </section>
+  </article>
+</div>
+
+<style>
+.comments-section {
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.comments-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--ink, #1a1a1a);
+  font-family: 'Lora', Georgia, serif;
+}
+
+.giscus-container {
+  margin-top: 1rem;
+}
+
+ 
+[data-theme="dark"] .comments-section {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .comments-title {
+  color: var(--ink, #e8e8e8);
+}
+</style>
+
+<script>
+
+function updateGiscusTheme() {
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  const giscusTheme = theme === 'dark' ? 'dark' : 'light';
+
+  const iframe = document.querySelector('iframe.giscus-frame');
+  if (iframe) {
+    iframe.contentWindow.postMessage({
+      giscus: {
+        setConfig: {
+          theme: giscusTheme
+        }
+      }
+    }, 'https://giscus.app');
+  }
+}
+
+
+const observer = new MutationObserver(updateGiscusTheme);
+observer.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme']
+});
+
+
+setTimeout(updateGiscusTheme, 1000);
+</script>
+  </div>
+</div>
+
+  </main>
+  
+  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-content">
+      <div class="footer-about">
+        <h3>metafunctor</h3>
+        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
+        <nav aria-label="Social media links" class="social-links">
+          
+          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+            <i class="fab fa-twitter" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <i class="fab fa-github" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <i class="fab fa-linkedin" aria-hidden="true"></i>
+          </a>
+          
+          <a href="/index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
+            <i class="fas fa-rss" aria-hidden="true"></i>
+          </a>
+          
+          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
+            <i class="fab fa-keybase" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
+            <i class="fab fa-orcid" aria-hidden="true"></i>
+          </a>
+          
+        </nav>
+      </div>
+
+      <nav class="footer-section" aria-labelledby="footer-research">
+        <h4 id="footer-research">Research</h4>
+        <div class="footer-links">
+          <a href="http://localhost:1313/publications/">Publications</a>
+          <a href="http://localhost:1313/research/">Research Areas</a>
+          <a href="http://localhost:1313/featured/">Featured Work</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-development">
+        <h4 id="footer-development">Development</h4>
+        <div class="footer-links">
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
+          <a href="http://localhost:1313/projects/">Projects</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-connect">
+        <h4 id="footer-connect">Connect</h4>
+        <div class="footer-links">
+          <a href="http://localhost:1313/about/">About</a>
+          <a href="mailto:lex@metafunctor.com">Contact</a>
+          <a href="http://localhost:1313/archive/">Archive</a>
+          <a href="http://localhost:1313/sitemap.xml">Sitemap</a>
+          <a href="http://localhost:1313/index.xml" type="application/rss+xml">RSS Feed</a>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p class="copyright">
+        © 2026 Alex Towell. All rights reserved.
+      </p>
+      <p class="accessibility-note">
+        <a href="#main-content">Back to top</a>
+      </p>
+    </div>
+  </footer>
+
+  
+  <script src="/js/performance-optimizations.js" defer></script>
+  <script src="/js/performance-enhancements.js" defer></script>
+
+  
+  <script src="/js/mobile-menu.js" defer></script>
+  <script src="/js/modern-interactions.js" defer></script>
+  <script src="/js/search.js" defer></script>
+
+  
+  <script src="/js/reading-progress.js" defer></script>
+  <script src="/js/copy-code.js" defer></script>
+  <script src="/js/anchor-links.js" defer></script>
+
+  
+  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <script>
+    
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.style.display = 'block';
+      } else {
+        backToTop.style.display = 'none';
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+
+  
+  <script data-goatcounter="https://queelius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
