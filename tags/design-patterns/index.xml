@@ -1,1 +1,134 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Design-Patterns on metafunctor</title><link>https://metafunctor.com/tags/design-patterns/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Tue, 06 Jan 2026 00:54:17 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/design-patterns/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Design Patterns: Elements of Reusable Object-Oriented Software</title><link>https://metafunctor.com/media/design-patterns-elements-of-reusable-object-oriented-software/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/design-patterns-elements-of-reusable-object-oriented-software/</guid><description/><content:encoded></content:encoded><category>design-patterns</category><category>oop</category><category>classic</category></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Design-Patterns on metafunctor</title><link>https://metafunctor.com/tags/design-patterns/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/design-patterns/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Design Patterns: Elements of Reusable Object-Oriented Software</title><link>https://metafunctor.com/media/design-patterns-elements-of-reusable-object-oriented-software/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/design-patterns-elements-of-reusable-object-oriented-software/</guid><description/><content:encoded></content:encoded><category>design-patterns</category><category>oop</category><category>classic</category></item><item><title>Runtime Polymorphism Without Inheritance</title><link>https://metafunctor.com/post/2024-02-type-erasure-stepanov/</link><pubDate>Mon, 05 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-02-type-erasure-stepanov/</guid><description>Sean Parent's type erasure technique provides value-semantic polymorphism without inheritance. Combined with Stepanov's algebraic thinking, we can type-erase entire algebraic structures.</description><content:encoded><![CDATA[<p><em>Sean Parent&rsquo;s technique for value-semantic polymorphism, and algebraic extensions</em></p>
+<h2 id="the-problem">The Problem</h2>
+<p>You want a container that holds different types:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;???&gt;</span> <span class="n">items</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">items</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="mi">42</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">items</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&#34;hello&#34;</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl"><span class="n">items</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">MyCustomType</span><span class="p">{});</span>
+</span></span></code></pre></div><p>Traditional OOP says: make everything inherit from a base class. But that&rsquo;s intrusive&mdash;you can&rsquo;t add <code>int</code> to your hierarchy.</p>
+<h2 id="the-solution-type-erasure">The Solution: Type Erasure</h2>
+<p>Store the interface in an abstract class, but wrap any type that provides the needed operations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">any_regular</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">concept_t</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="o">~</span><span class="n">concept_t</span><span class="p">()</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">clone</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="kt">bool</span> <span class="nf">equals</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">model_t</span> <span class="o">:</span> <span class="n">concept_t</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">T</span> <span class="n">value</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// Implement concept_t using T&#39;s operations
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">self_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The magic: <code>model_t&lt;int&gt;</code>, <code>model_t&lt;string&gt;</code>, <code>model_t&lt;MyType&gt;</code> are all different types, but they all inherit from <code>concept_t</code>. We&rsquo;ve moved the inheritance <em>inside</em> the wrapper.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<ol>
+<li><strong>concept_t</strong>: Abstract base defining required operations</li>
+<li><strong>model_t<T></strong>: Template that wraps any type T and implements concept_t</li>
+<li><strong>Wrapper class</strong>: Holds <code>unique_ptr&lt;concept_t&gt;</code>, provides value semantics</li>
+</ol>
+<p>The wrapper looks like a value but can hold any type:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">any_regular</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">42</span><span class="p">;</span>           <span class="c1">// Stores model_t&lt;int&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">any_regular</span> <span class="n">b</span> <span class="o">=</span> <span class="s">&#34;hello&#34;</span><span class="n">s</span><span class="p">;</span>     <span class="c1">// Stores model_t&lt;string&gt;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">any_regular</span> <span class="n">c</span> <span class="o">=</span> <span class="n">a</span><span class="p">;</span>            <span class="c1">// Deep copy via clone()
+</span></span></span></code></pre></div><h2 id="value-semantics">Value Semantics</h2>
+<p>The key is <code>clone()</code>. Copying the wrapper deep-copies the held value:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">any_regular</span><span class="p">(</span><span class="n">any_regular</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">:</span> <span class="n">self_</span><span class="p">(</span><span class="n">other</span><span class="p">.</span><span class="n">self_</span> <span class="o">?</span> <span class="n">other</span><span class="p">.</span><span class="n">self_</span><span class="o">-&gt;</span><span class="n">clone</span><span class="p">()</span> <span class="o">:</span> <span class="k">nullptr</span><span class="p">)</span> <span class="p">{}</span>
+</span></span></code></pre></div><p>This gives us value semantics: copies are independent, assignment replaces content, no shared state surprises.</p>
+<h2 id="beyond-regular-algebraic-interfaces">Beyond Regular: Algebraic Interfaces</h2>
+<p>Here&rsquo;s where Stepanov&rsquo;s insight applies. What if we type-erase <em>algebraic structure</em>?</p>
+<h3 id="any_ring-erasing-ring-operations">any_ring: Erasing Ring Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">any_ring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">concept_t</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">clone</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">add</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">multiply</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">negate</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">one</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="kt">bool</span> <span class="nf">equals</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span></code></pre></div><p>Now <code>any_ring</code> can hold integers, polynomials, matrices, or any ring&mdash;and you can do arithmetic on it at runtime:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">any_ring</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">42</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">any_ring</span> <span class="n">b</span> <span class="o">=</span> <span class="n">polynomial</span><span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">};</span>  <span class="c1">// Different types!
+</span></span></span><span class="line"><span class="cl"><span class="c1">// a + b would throw (type mismatch), but:
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">any_ring</span> <span class="n">c</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">any_ring</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>     <span class="c1">// Works: 52
+</span></span></span></code></pre></div><h3 id="any_vector_space-linear-algebra-abstraction">any_vector_space: Linear Algebra Abstraction</h3>
+<p>A vector space over a field F has:</p>
+<ul>
+<li>Vector addition: v + w</li>
+<li>Scalar multiplication: alpha * v</li>
+<li>Zero vector: 0</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">Scalar</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">any_vector</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">concept_t</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">clone</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">add</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">scale</span><span class="p">(</span><span class="n">Scalar</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">Scalar</span> <span class="nf">inner_product</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span></code></pre></div><p>This lets you write algorithms that work on <em>any</em> vector space:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Gram-Schmidt orthogonalization - works on any inner product space
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">Scalar</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">any_vector</span><span class="o">&lt;</span><span class="n">Scalar</span><span class="o">&gt;&gt;</span> <span class="n">gram_schmidt</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">any_vector</span><span class="o">&lt;</span><span class="n">Scalar</span><span class="o">&gt;&gt;</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">basis</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">any_vector</span><span class="o">&lt;</span><span class="n">Scalar</span><span class="o">&gt;&gt;</span> <span class="n">orthonormal</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="k">const</span><span class="o">&amp;</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">basis</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">u</span> <span class="o">=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="k">const</span><span class="o">&amp;</span> <span class="nl">e</span> <span class="p">:</span> <span class="n">orthonormal</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// u = u - &lt;u,e&gt;*e
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>            <span class="n">u</span> <span class="o">=</span> <span class="n">u</span> <span class="o">-</span> <span class="n">e</span><span class="p">.</span><span class="n">scale</span><span class="p">(</span><span class="n">u</span><span class="p">.</span><span class="n">inner_product</span><span class="p">(</span><span class="n">e</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// Normalize u
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="n">Scalar</span> <span class="n">norm</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">sqrt</span><span class="p">(</span><span class="n">u</span><span class="p">.</span><span class="n">inner_product</span><span class="p">(</span><span class="n">u</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="n">orthonormal</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">u</span><span class="p">.</span><span class="n">scale</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">norm</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">orthonormal</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="the-stepanov-connection">The Stepanov Connection</h2>
+<p>This is Stepanov&rsquo;s approach at the type level:</p>
+<ol>
+<li><strong>Identify the algebraic structure</strong> (ring, vector space, etc.)</li>
+<li><strong>Define operations axiomatically</strong> (not by inheritance)</li>
+<li><strong>Let any type that provides the operations participate</strong></li>
+</ol>
+<p>The concept/model pattern makes this work at runtime. It&rsquo;s the same philosophy as C++20 concepts, but with runtime dispatch instead of compile-time.</p>
+<h2 id="trade-offs">Trade-offs</h2>
+<p><strong>Costs:</strong></p>
+<ul>
+<li>Heap allocation</li>
+<li>Virtual dispatch (~20ns overhead)</li>
+<li>Can&rsquo;t mix different concrete types in one operation</li>
+</ul>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Works with existing types (no inheritance required)</li>
+<li>Value semantics</li>
+<li>Algorithm code is simple and generic</li>
+<li>Easy to add new types</li>
+</ul>
+<h2 id="when-to-use-this">When to Use This</h2>
+<ul>
+<li>Plugin systems where concrete types aren&rsquo;t known at compile time</li>
+<li>Numerical libraries that support multiple matrix representations</li>
+<li>Document systems with heterogeneous content</li>
+<li>Undo/redo stacks with different action types</li>
+</ul>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Sean Parent, &ldquo;Inheritance Is The Base Class of Evil&rdquo; (GoingNative 2013)</li>
+<li>Sean Parent, &ldquo;Better Code: Runtime Polymorphism&rdquo; (NDC 2017)</li>
+<li>Stepanov &amp; McJones, <em>Elements of Programming</em>, Chapter 1</li>
+</ul>
+]]></content:encoded><category>C++</category><category>type-erasure</category><category>polymorphism</category><category>design-patterns</category><category>generic-programming</category></item></channel></rss>

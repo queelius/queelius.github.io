@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
-    // Close menu when navigating
-    navMenu.querySelectorAll('a').forEach(link => {
+    // Close menu when navigating (but not for dropdown toggles)
+    navMenu.querySelectorAll('a:not(.dropdown-toggle)').forEach(link => {
       link.addEventListener('click', function() {
         mobileMenuToggle.setAttribute('aria-expanded', 'false');
         navMenu.classList.remove('active');

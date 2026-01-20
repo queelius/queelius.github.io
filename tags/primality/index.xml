@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Primality on metafunctor</title><link>https://metafunctor.com/tags/primality/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/primality/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Is It Prime?</title><link>https://metafunctor.com/post/2019-09-miller-rabin-stepanov/</link><pubDate>Tue, 10 Sep 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-09-miller-rabin-stepanov/</guid><description>The Miller-Rabin primality test demonstrates how probabilistic algorithms can achieve arbitrary certainty, trading absolute truth for practical efficiency.</description><content:encoded><![CDATA[<p><em>The Miller-Rabin primality test and the mathematics of certainty</em></p>
+<h2 id="the-problem">The Problem</h2>
+<p>Given a large number n, is it prime? Trial division up to sqrt(n) is too slow for cryptographic-sized numbers. We need something faster&mdash;and we&rsquo;re willing to accept &ldquo;probably prime&rdquo; with quantifiable certainty.</p>
+<h2 id="fermats-little-theorem">Fermat&rsquo;s Little Theorem</h2>
+<p>For prime \(p\) and any \(a\) not divisible by \(p\):</p>
+$$a^{p-1} \equiv 1 \pmod{p}$$<p>This suggests a test: pick random a, compute a^(n-1) mod n. If the result isn&rsquo;t 1, n is definitely composite. But if it <em>is</em> 1, n might be prime&hellip; or might be a Carmichael number that fools this test.</p>
+<h2 id="the-miller-rabin-improvement">The Miller-Rabin Improvement</h2>
+<p>Miller and Rabin observed something stronger. For odd prime \(p\), write \(p-1 = 2^r \cdot d\) (factor out all 2s). Then the sequence:</p>
+$$a^d, a^{2d}, a^{4d}, \ldots, a^{2^r \cdot d} = a^{p-1}$$<p>must either:</p>
+<ol>
+<li>Start with 1, or</li>
+<li>Contain -1 (i.e., p-1) somewhere before reaching 1</li>
+</ol>
+<p>Why? Because the only square roots of 1 mod p are plus or minus 1. If we ever see 1 without first seeing -1, we&rsquo;ve found a non-trivial square root of 1, proving n is composite.</p>
+<h2 id="the-witness-test">The Witness Test</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">witness_test</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">n</span><span class="p">,</span> <span class="kt">int64_t</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Write n-1 = 2^r x d
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int64_t</span> <span class="n">d</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">((</span><span class="n">d</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="n">d</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">r</span><span class="o">++</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Compute x = a^d mod n
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int64_t</span> <span class="n">x</span> <span class="o">=</span> <span class="n">mod_pow</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">||</span> <span class="n">x</span> <span class="o">==</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>  <span class="c1">// Probably prime
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Square r-1 times, looking for n-1
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">r</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">%</span> <span class="n">n</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>  <span class="c1">// Definitely composite
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>If <code>witness_test(n, a)</code> returns false, n is <strong>definitely composite</strong>&mdash;a is a &ldquo;witness&rdquo; to compositeness.</p>
+<h2 id="error-bounds">Error Bounds</h2>
+<p>The beautiful part: for any composite n, <strong>at least 3/4 of all possible witnesses a in [2, n-2] will detect it</strong>. This means each random witness has at most 1/4 chance of failing to detect a composite.</p>
+<p>With \(k\) independent witnesses:</p>
+$$P(\text{false positive}) \leq \left(\frac{1}{4}\right)^k$$<table>
+  <thead>
+      <tr>
+          <th>Witnesses</th>
+          <th>Error bound</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>10</td>
+          <td>\(< 10^{-6}\)</td>
+      </tr>
+      <tr>
+          <td>20</td>
+          <td>\(< 10^{-12}\)</td>
+      </tr>
+      <tr>
+          <td>40</td>
+          <td>\(< 10^{-24}\)</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="parameterizing-by-error">Parameterizing by Error</h2>
+<p>Rather than asking &ldquo;how many iterations?&rdquo;, ask &ldquo;what error rate is acceptable?&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">is_prime</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">n</span><span class="p">,</span> <span class="kt">double</span> <span class="n">max_error</span> <span class="o">=</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">k</span> <span class="o">=</span> <span class="n">ceil</span><span class="p">(</span><span class="o">-</span><span class="n">log</span><span class="p">(</span><span class="n">max_error</span><span class="p">)</span> <span class="o">/</span> <span class="n">log</span><span class="p">(</span><span class="mi">4</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// ... test with k random witnesses
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>The implementation also returns the actual error bound achieved:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">is_prime_with_error</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">probably_prime</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Prime with error &lt; &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">result</span><span class="p">.</span><span class="n">error_bound</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="modular-exponentiation">Modular Exponentiation</h2>
+<p>The workhorse is computing a^e mod n efficiently. The peasant algorithm again:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">int64_t</span> <span class="nf">mod_pow</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">base</span><span class="p">,</span> <span class="kt">int64_t</span> <span class="n">exp</span><span class="p">,</span> <span class="kt">int64_t</span> <span class="n">m</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int64_t</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">base</span> <span class="o">%=</span> <span class="n">m</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span> <span class="o">*</span> <span class="n">base</span><span class="p">)</span> <span class="o">%</span> <span class="n">m</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">base</span> <span class="o">*</span> <span class="n">base</span><span class="p">)</span> <span class="o">%</span> <span class="n">m</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exp</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>O(log e) multiplications, each followed by a mod operation.</p>
+<h2 id="carmichael-numbers">Carmichael Numbers</h2>
+<p>The Fermat test fails on Carmichael numbers&mdash;composites where \(a^{n-1} \equiv 1 \pmod{n}\) for all \(a\) coprime to \(n\). The smallest is \(561 = 3 \times 11 \times 17\).</p>
+<p>Miller-Rabin correctly identifies these as composite because it checks the <em>path</em> to a^(n-1), not just the final value.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">EXPECT_FALSE</span><span class="p">(</span><span class="n">is_prime</span><span class="p">(</span><span class="mi">561</span><span class="p">));</span>   <span class="c1">// Fermat test would fail here
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">EXPECT_FALSE</span><span class="p">(</span><span class="n">is_prime</span><span class="p">(</span><span class="mi">1729</span><span class="p">));</span>  <span class="c1">// The Hardy-Ramanujan number
+</span></span></span></code></pre></div><h2 id="why-not-deterministic">Why Not Deterministic?</h2>
+<p>There exist deterministic witnesses that work for all \(n\) below certain bounds. With the first 12 primes as witnesses, Miller-Rabin is deterministic for all \(n < 3.3 \times 10^{24}\).</p>
+<p>But the probabilistic version is:</p>
+<ol>
+<li>Simpler to understand</li>
+<li>Sufficient for practice (10^-12 error is smaller than hardware error rates)</li>
+<li>More pedagogically honest about what we&rsquo;re computing</li>
+</ol>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Miller, &ldquo;Riemann&rsquo;s Hypothesis and Tests for Primality&rdquo; (1976)</li>
+<li>Rabin, &ldquo;Probabilistic Algorithm for Testing Primality&rdquo; (1980)</li>
+</ul>
+]]></content:encoded><category>C++</category><category>algorithms</category><category>number-theory</category><category>primality</category><category>probabilistic-algorithms</category></item></channel></rss>

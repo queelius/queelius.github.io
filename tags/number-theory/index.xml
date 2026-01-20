@@ -1,0 +1,485 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Number-Theory on metafunctor</title><link>https://metafunctor.com/tags/number-theory/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/number-theory/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Exact Rational Arithmetic</title><link>https://metafunctor.com/post/2020-02-rational-stepanov/</link><pubDate>Tue, 18 Feb 2020 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2020-02-rational-stepanov/</guid><description>Rational numbers give us exact arithmetic where floating-point fails. The implementation reveals deep connections to GCD, the Stern-Brocot tree, and the algebraic structure of fields.</description><content:encoded><![CDATA[<p><em>Fractions that never lose precision</em></p>
+<h2 id="the-problem-with-floating-point">The Problem with Floating-Point</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">x</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mf">0.3</span><span class="p">);</span>  <span class="c1">// Prints 0 (false!)
+</span></span></span></code></pre></div><p>Floating-point represents numbers as m x 2^e. The number 0.1 has no exact finite representation in binary, just as 1/3 has no exact finite representation in decimal.</p>
+<p>Rational arithmetic solves this: 1/3 stays exactly 1/3.</p>
+<h2 id="the-implementation">The Implementation</h2>
+<p>A rational is a pair (numerator, denominator) kept in lowest terms:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">integral</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">rat</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">num_</span><span class="p">;</span>  <span class="c1">// numerator (carries sign)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">T</span> <span class="n">den_</span><span class="p">;</span>  <span class="c1">// denominator (always positive)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">reduce</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">T</span> <span class="n">g</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">gcd</span><span class="p">(</span><span class="n">abs</span><span class="p">(</span><span class="n">num_</span><span class="p">),</span> <span class="n">den_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">num_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">den_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Key invariants:</p>
+<ol>
+<li>Denominator is always positive (sign lives in numerator)</li>
+<li>GCD(|num|, den) = 1 (always reduced)</li>
+<li>Zero is uniquely 0/1</li>
+</ol>
+<h2 id="arithmetic">Arithmetic</h2>
+<p>Addition requires a common denominator:</p>
+$$\frac{a}{b} + \frac{c}{d} = \frac{ad + bc}{bd}$$<p>Then reduce. The implementation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">rat</span> <span class="k">operator</span><span class="o">+</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">rat</span><span class="p">(</span><span class="n">num_</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span> <span class="o">+</span> <span class="n">rhs</span><span class="p">.</span><span class="n">num_</span> <span class="o">*</span> <span class="n">den_</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">               <span class="n">den_</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The constructor automatically reduces.</p>
+<p>Multiplication is simpler:</p>
+$$\frac{a}{b} \times \frac{c}{d} = \frac{ac}{bd}$$<p>Division multiplies by the reciprocal:</p>
+$$\frac{a/b}{c/d} = \frac{ad}{bc}$$<h2 id="exact-comparison">Exact Comparison</h2>
+<p>No floating-point fuzziness. Two reduced rationals are equal iff their numerators and denominators match:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">num_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">num_</span> <span class="o">&amp;&amp;</span> <span class="n">den_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>For ordering, cross-multiply (valid when denominators are positive):</p>
+$$\frac{a}{b} < \frac{c}{d} \iff ad < cb$$<h2 id="the-mediant">The Mediant</h2>
+<p>The mediant of a/b and c/d is (a+c)/(b+d). Unlike the average, it&rsquo;s <em>not</em> halfway between, but it has remarkable properties:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">rat</span> <span class="nf">mediant</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">a</span><span class="p">,</span> <span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">rat</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">numerator</span><span class="p">()</span> <span class="o">+</span> <span class="n">b</span><span class="p">.</span><span class="n">numerator</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">               <span class="n">a</span><span class="p">.</span><span class="n">denominator</span><span class="p">()</span> <span class="o">+</span> <span class="n">b</span><span class="p">.</span><span class="n">denominator</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Properties:</p>
+<ul>
+<li>If a/b &lt; c/d, then a/b &lt; mediant &lt; c/d</li>
+<li>The mediant is always in lowest terms if a/b and c/d are neighbors in the Stern-Brocot tree</li>
+<li>Mediants generate all positive rationals exactly once</li>
+</ul>
+<h2 id="stern-brocot-tree">Stern-Brocot Tree</h2>
+<p>Start with 0/1 and 1/0 (infinity). Repeatedly take mediants:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Level 0:     0/1                     1/0
+</span></span><span class="line"><span class="cl">Level 1:     0/1       1/1           1/0
+</span></span><span class="line"><span class="cl">Level 2:     0/1   1/2   1/1   2/1   1/0
+</span></span><span class="line"><span class="cl">Level 3:  0/1 1/3 1/2 2/3 1/1 3/2 2/1 3/1 1/0
+</span></span></code></pre></div><p>Every positive rational appears exactly once. This connects to:</p>
+<ul>
+<li>Continued fractions (path from root encodes CF)</li>
+<li>Best rational approximations</li>
+<li>Farey sequences</li>
+</ul>
+<h2 id="gcd-the-unifying-thread">GCD: The Unifying Thread</h2>
+<p>Reducing fractions uses GCD. The GCD algorithm is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">T</span> <span class="nf">gcd</span><span class="p">(</span><span class="n">T</span> <span class="n">a</span><span class="p">,</span> <span class="n">T</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">b</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">%</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">swap</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is Euclid&rsquo;s algorithm from ~300 BCE&mdash;the same algorithm that appears for any Euclidean domain.</p>
+<p>Rational numbers form a <strong>field</strong>: every non-zero element has a multiplicative inverse (the reciprocal). The denominator requirement (non-zero, reduced) comes from the algebraic structure.</p>
+<h2 id="overflow-considerations">Overflow Considerations</h2>
+<p>For large computations, numerator and denominator can grow quickly. Options:</p>
+<ol>
+<li>Use <code>int64_t</code> and accept limits</li>
+<li>Use arbitrary-precision integers</li>
+<li>Use interval arithmetic to track bounds</li>
+</ol>
+<p>This implementation uses the first approach for simplicity.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Graham, Knuth, Patashnik, <em>Concrete Mathematics</em>, Chapter 4</li>
+<li>Stern, &ldquo;Uber eine zahlentheoretische Funktion&rdquo; (1858)</li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>number-theory</category><category>fractions</category><category>exact-arithmetic</category></item><item><title>Is It Prime?</title><link>https://metafunctor.com/post/2019-09-miller-rabin-stepanov/</link><pubDate>Tue, 10 Sep 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-09-miller-rabin-stepanov/</guid><description>The Miller-Rabin primality test demonstrates how probabilistic algorithms can achieve arbitrary certainty, trading absolute truth for practical efficiency.</description><content:encoded><![CDATA[<p><em>The Miller-Rabin primality test and the mathematics of certainty</em></p>
+<h2 id="the-problem">The Problem</h2>
+<p>Given a large number n, is it prime? Trial division up to sqrt(n) is too slow for cryptographic-sized numbers. We need something faster&mdash;and we&rsquo;re willing to accept &ldquo;probably prime&rdquo; with quantifiable certainty.</p>
+<h2 id="fermats-little-theorem">Fermat&rsquo;s Little Theorem</h2>
+<p>For prime \(p\) and any \(a\) not divisible by \(p\):</p>
+$$a^{p-1} \equiv 1 \pmod{p}$$<p>This suggests a test: pick random a, compute a^(n-1) mod n. If the result isn&rsquo;t 1, n is definitely composite. But if it <em>is</em> 1, n might be prime&hellip; or might be a Carmichael number that fools this test.</p>
+<h2 id="the-miller-rabin-improvement">The Miller-Rabin Improvement</h2>
+<p>Miller and Rabin observed something stronger. For odd prime \(p\), write \(p-1 = 2^r \cdot d\) (factor out all 2s). Then the sequence:</p>
+$$a^d, a^{2d}, a^{4d}, \ldots, a^{2^r \cdot d} = a^{p-1}$$<p>must either:</p>
+<ol>
+<li>Start with 1, or</li>
+<li>Contain -1 (i.e., p-1) somewhere before reaching 1</li>
+</ol>
+<p>Why? Because the only square roots of 1 mod p are plus or minus 1. If we ever see 1 without first seeing -1, we&rsquo;ve found a non-trivial square root of 1, proving n is composite.</p>
+<h2 id="the-witness-test">The Witness Test</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">witness_test</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">n</span><span class="p">,</span> <span class="kt">int64_t</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Write n-1 = 2^r x d
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int64_t</span> <span class="n">d</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">((</span><span class="n">d</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="n">d</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">r</span><span class="o">++</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Compute x = a^d mod n
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int64_t</span> <span class="n">x</span> <span class="o">=</span> <span class="n">mod_pow</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">||</span> <span class="n">x</span> <span class="o">==</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>  <span class="c1">// Probably prime
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Square r-1 times, looking for n-1
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">r</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">%</span> <span class="n">n</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>  <span class="c1">// Definitely composite
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>If <code>witness_test(n, a)</code> returns false, n is <strong>definitely composite</strong>&mdash;a is a &ldquo;witness&rdquo; to compositeness.</p>
+<h2 id="error-bounds">Error Bounds</h2>
+<p>The beautiful part: for any composite n, <strong>at least 3/4 of all possible witnesses a in [2, n-2] will detect it</strong>. This means each random witness has at most 1/4 chance of failing to detect a composite.</p>
+<p>With \(k\) independent witnesses:</p>
+$$P(\text{false positive}) \leq \left(\frac{1}{4}\right)^k$$<table>
+  <thead>
+      <tr>
+          <th>Witnesses</th>
+          <th>Error bound</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>10</td>
+          <td>\(< 10^{-6}\)</td>
+      </tr>
+      <tr>
+          <td>20</td>
+          <td>\(< 10^{-12}\)</td>
+      </tr>
+      <tr>
+          <td>40</td>
+          <td>\(< 10^{-24}\)</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="parameterizing-by-error">Parameterizing by Error</h2>
+<p>Rather than asking &ldquo;how many iterations?&rdquo;, ask &ldquo;what error rate is acceptable?&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">is_prime</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">n</span><span class="p">,</span> <span class="kt">double</span> <span class="n">max_error</span> <span class="o">=</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">k</span> <span class="o">=</span> <span class="n">ceil</span><span class="p">(</span><span class="o">-</span><span class="n">log</span><span class="p">(</span><span class="n">max_error</span><span class="p">)</span> <span class="o">/</span> <span class="n">log</span><span class="p">(</span><span class="mi">4</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// ... test with k random witnesses
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>The implementation also returns the actual error bound achieved:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">is_prime_with_error</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">probably_prime</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Prime with error &lt; &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">result</span><span class="p">.</span><span class="n">error_bound</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="modular-exponentiation">Modular Exponentiation</h2>
+<p>The workhorse is computing a^e mod n efficiently. The peasant algorithm again:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">int64_t</span> <span class="nf">mod_pow</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">base</span><span class="p">,</span> <span class="kt">int64_t</span> <span class="n">exp</span><span class="p">,</span> <span class="kt">int64_t</span> <span class="n">m</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int64_t</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">base</span> <span class="o">%=</span> <span class="n">m</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span> <span class="o">*</span> <span class="n">base</span><span class="p">)</span> <span class="o">%</span> <span class="n">m</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">base</span> <span class="o">*</span> <span class="n">base</span><span class="p">)</span> <span class="o">%</span> <span class="n">m</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exp</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>O(log e) multiplications, each followed by a mod operation.</p>
+<h2 id="carmichael-numbers">Carmichael Numbers</h2>
+<p>The Fermat test fails on Carmichael numbers&mdash;composites where \(a^{n-1} \equiv 1 \pmod{n}\) for all \(a\) coprime to \(n\). The smallest is \(561 = 3 \times 11 \times 17\).</p>
+<p>Miller-Rabin correctly identifies these as composite because it checks the <em>path</em> to a^(n-1), not just the final value.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">EXPECT_FALSE</span><span class="p">(</span><span class="n">is_prime</span><span class="p">(</span><span class="mi">561</span><span class="p">));</span>   <span class="c1">// Fermat test would fail here
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">EXPECT_FALSE</span><span class="p">(</span><span class="n">is_prime</span><span class="p">(</span><span class="mi">1729</span><span class="p">));</span>  <span class="c1">// The Hardy-Ramanujan number
+</span></span></span></code></pre></div><h2 id="why-not-deterministic">Why Not Deterministic?</h2>
+<p>There exist deterministic witnesses that work for all \(n\) below certain bounds. With the first 12 primes as witnesses, Miller-Rabin is deterministic for all \(n < 3.3 \times 10^{24}\).</p>
+<p>But the probabilistic version is:</p>
+<ol>
+<li>Simpler to understand</li>
+<li>Sufficient for practice (10^-12 error is smaller than hardware error rates)</li>
+<li>More pedagogically honest about what we&rsquo;re computing</li>
+</ol>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Miller, &ldquo;Riemann&rsquo;s Hypothesis and Tests for Primality&rdquo; (1976)</li>
+<li>Rabin, &ldquo;Probabilistic Algorithm for Testing Primality&rdquo; (1980)</li>
+</ul>
+]]></content:encoded><category>C++</category><category>algorithms</category><category>number-theory</category><category>primality</category><category>probabilistic-algorithms</category></item><item><title>Modular Arithmetic as Rings</title><link>https://metafunctor.com/post/2019-06-modular-stepanov/</link><pubDate>Sat, 22 Jun 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-06-modular-stepanov/</guid><description>Integers modulo N form a ring---an algebraic structure that determines which algorithms apply. Understanding this structure unlocks algorithms from cryptography to competitive programming.</description><content:encoded><![CDATA[<p><em>Finite algebraic structures and what they teach us about algorithms</em></p>
+<h2 id="the-stepanov-perspective">The Stepanov Perspective</h2>
+<p>Alex Stepanov&rsquo;s central insight: <strong>algorithms arise from algebraic structure</strong>. The same algorithm that works on integers works on matrices, polynomials, and modular integers&mdash;not by accident, but because they share algebraic properties.</p>
+<p>Integers modulo N form a <strong>ring</strong>: a set with addition and multiplication satisfying familiar laws. When N is prime, it&rsquo;s a <strong>field</strong>&mdash;every non-zero element has a multiplicative inverse. Understanding these structures teaches us which algorithms apply where.</p>
+<h2 id="the-ring-znz">The Ring Z/NZ</h2>
+<p>Integers modulo N, written Z/NZ, are equivalence classes:</p>
+<ul>
+<li>0 = {&hellip;, -N, 0, N, 2N, &hellip;}</li>
+<li>1 = {&hellip;, -N+1, 1, N+1, 2N+1, &hellip;}</li>
+<li>&hellip;</li>
+</ul>
+<p>Operations are inherited from integers:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">[a] + [b] = [a + b]
+</span></span><span class="line"><span class="cl">[a] x [b] = [a x b]
+</span></span></code></pre></div><p>The implementation keeps one representative per class, in [0, N):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">mod_int</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int64_t</span> <span class="n">v</span><span class="p">;</span>  <span class="c1">// Always in [0, N)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="kt">int64_t</span> <span class="nf">normalize</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x</span> <span class="o">%=</span> <span class="n">N</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">?</span> <span class="n">x</span> <span class="o">+</span> <span class="nl">N</span> <span class="p">:</span> <span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="nf">mod_int</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">x</span><span class="p">)</span> <span class="o">:</span> <span class="n">v</span><span class="p">(</span><span class="n">normalize</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><h2 id="ring-axioms">Ring Axioms</h2>
+<p>A ring (R, +, x) satisfies:</p>
+<p><strong>Addition forms an abelian group:</strong></p>
+<ul>
+<li>Associative: (a + b) + c = a + (b + c)</li>
+<li>Identity: a + 0 = a</li>
+<li>Inverses: a + (-a) = 0</li>
+<li>Commutative: a + b = b + a</li>
+</ul>
+<p><strong>Multiplication is a monoid:</strong></p>
+<ul>
+<li>Associative: (a x b) x c = a x (b x c)</li>
+<li>Identity: a x 1 = 1 x a = a</li>
+</ul>
+<p><strong>Distributive:</strong></p>
+<ul>
+<li>a x (b + c) = a x b + a x c</li>
+<li>(b + c) x a = b x a + c x a</li>
+</ul>
+<p>These axioms <em>enable algorithms</em>. Power-by-squaring works because multiplication is associative. The extended GCD works because of the ring structure.</p>
+<h2 id="fermats-little-theorem">Fermat&rsquo;s Little Theorem</h2>
+<p>When N is prime, something special happens: every non-zero element has a multiplicative inverse. The set of non-zero elements forms a multiplicative group of order N-1.</p>
+<p>Fermat&rsquo;s Little Theorem: for prime \(p\) and \(a\) not congruent to \(0 \pmod{p}\):</p>
+$$a^{p-1} \equiv 1 \pmod{p}$$<p>This gives us the inverse:</p>
+$$a \cdot a^{p-2} = a^{p-1} \equiv 1 \pmod{p}$$<p>So \(a^{p-2}\) is the multiplicative inverse of \(a\):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span> <span class="nf">inverse</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">pow</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="mi">2</span><span class="p">);</span>  <span class="c1">// Using repeated squaring
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><h2 id="the-connection-to-peasant">The Connection to Peasant</h2>
+<p>The power function uses the same peasant algorithm from elsewhere:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span> <span class="nf">pow</span><span class="p">(</span><span class="kt">int64_t</span> <span class="n">exp</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mod_int</span> <span class="n">result</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">base</span> <span class="o">=</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="n">result</span> <span class="o">*=</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">base</span> <span class="o">*=</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exp</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This works because:</p>
+<ol>
+<li><code>mod_int</code> multiplication is associative</li>
+<li><code>mod_int(1)</code> is the multiplicative identity</li>
+</ol>
+<p>Same algorithm, different type. The structure (monoid) determines applicability.</p>
+<h2 id="algebraic-operations-for-generic-algorithms">Algebraic Operations for Generic Algorithms</h2>
+<p>To use <code>mod_int</code> with generic algorithms, we provide the required operations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">one</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">twice</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">x</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">half</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="n">inverse</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Now generic <code>power()</code> and <code>product()</code> work with modular integers.</p>
+<h2 id="why-compile-time-modulus">Why Compile-Time Modulus?</h2>
+<p>The modulus N is a template parameter:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">mod_int</span><span class="o">&lt;</span><span class="mi">7</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">;</span>       <span class="c1">// Mod 7
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">mod_int</span><span class="o">&lt;</span><span class="mi">1000000007</span><span class="o">&gt;</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Mod 10^9+7
+</span></span></span></code></pre></div><p>Benefits:</p>
+<ul>
+<li>No runtime storage for modulus</li>
+<li>Compiler can optimize division/modulo</li>
+<li>Type safety: can&rsquo;t accidentally mix mod-7 with mod-11</li>
+</ul>
+<p>Trade-off: can&rsquo;t choose modulus at runtime. For that, you&rsquo;d need a runtime-parameterized version.</p>
+<h2 id="common-moduli">Common Moduli</h2>
+<p>Competitive programming conventions:</p>
+<ul>
+<li><strong>10^9 + 7</strong> &mdash; Large prime, fits in 32 bits when squared</li>
+<li><strong>10^9 + 9</strong> &mdash; Another large prime</li>
+<li><strong>998244353</strong> &mdash; 2^23 x 7 x 17 + 1, useful for NTT</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">mod_1e9_7</span> <span class="o">=</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="mi">1000000007</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span></code></pre></div><h2 id="connections">Connections</h2>
+<p>Modular arithmetic appears throughout:</p>
+<ol>
+<li><strong>Cryptography</strong>: RSA uses modular exponentiation</li>
+<li><strong>Hash functions</strong>: Often compute mod some prime</li>
+<li><strong>Error detection</strong>: CRC and checksums</li>
+<li><strong>Miller-Rabin</strong>: Primality testing</li>
+<li><strong>Chinese Remainder Theorem</strong>: Solving systems of congruences</li>
+</ol>
+<h2 id="the-deeper-point">The Deeper Point</h2>
+<p>Stepanov teaches us to see <em>structure first, algorithm second</em>. When you recognize &ldquo;this is a ring,&rdquo; you immediately know which algorithms apply.</p>
+<p>Modular arithmetic isn&rsquo;t just &ldquo;integers with %&rdquo;. It&rsquo;s a complete algebraic structure with its own theorems and algorithms. Understanding the structure unlocks the algorithms.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Stepanov &amp; McJones, <em>Elements of Programming</em>, Chapter 5</li>
+<li>Ireland &amp; Rosen, <em>A Classical Introduction to Modern Number Theory</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>number-theory</category><category>rings</category><category>algebra</category></item><item><title>One Algorithm, Infinite Powers</title><link>https://metafunctor.com/post/2019-03-peasant-stepanov/</link><pubDate>Fri, 15 Mar 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-03-peasant-stepanov/</guid><description>The Russian peasant algorithm teaches us that one algorithm can compute products, powers, Fibonacci numbers, and more---once we see the underlying algebraic structure.</description><content:encoded><![CDATA[<p><em>How the Russian peasant algorithm reveals the universal structure of exponentiation</em></p>
+<h2 id="the-algorithm">The Algorithm</h2>
+<p>Russian peasants had a clever method for multiplication that doesn&rsquo;t require memorizing times tables. To compute 23 x 17:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">23    17
+</span></span><span class="line"><span class="cl">11    34     (halve, double)
+</span></span><span class="line"><span class="cl"> 5    68
+</span></span><span class="line"><span class="cl"> 2   136
+</span></span><span class="line"><span class="cl"> 1   272
+</span></span></code></pre></div><p>Add the right column wherever the left is odd: 17 + 34 + 68 + 272 = 391. That&rsquo;s 23 x 17.</p>
+<p>Why does this work? Because we&rsquo;re really computing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">23 x 17 = (16 + 4 + 2 + 1) x 17 = 16x17 + 4x17 + 2x17 + 17
+</span></span></code></pre></div><p>The algorithm only needs three operations on the multiplier:</p>
+<ul>
+<li><code>half(n)</code> &mdash; integer division by 2</li>
+<li><code>even(n)</code> &mdash; test if divisible by 2</li>
+<li>Addition on the result</li>
+</ul>
+<h2 id="from-multiplication-to-exponentiation">From Multiplication to Exponentiation</h2>
+<p>Here&rsquo;s the insight that makes this interesting: the <em>same algorithm</em> computes powers.</p>
+<p>Replace &ldquo;add to accumulator&rdquo; with &ldquo;multiply into accumulator&rdquo; and &ldquo;double the multiplicand&rdquo; with &ldquo;square the base&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">T</span> <span class="nf">power</span><span class="p">(</span><span class="n">T</span> <span class="n">base</span><span class="p">,</span> <span class="kt">int</span> <span class="n">exp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">even</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span> <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">base</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exp</span> <span class="o">=</span> <span class="n">half</span><span class="p">(</span><span class="n">exp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is O(log n) multiplications instead of O(n). Computing 2^1000 takes about 10 multiplications, not 1000.</p>
+<h2 id="the-monoid-connection">The Monoid Connection</h2>
+<p>The peasant algorithm works whenever you have:</p>
+<ol>
+<li>An associative binary operation <code>*</code></li>
+<li>An identity element <code>1</code> where <code>1 * x = x * 1 = x</code></li>
+</ol>
+<p>This structure is called a <strong>monoid</strong>. The algorithm computes <code>x * x * ... * x</code> (n times) using O(log n) operations.</p>
+<p>What makes this powerful is that <em>many things</em> form monoids:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Type</th>
+          <th>Operation</th>
+          <th>Identity</th>
+          <th>Computing x^n gives you&hellip;</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Integers</td>
+          <td>x</td>
+          <td>1</td>
+          <td>Powers</td>
+      </tr>
+      <tr>
+          <td>Matrices</td>
+          <td>x</td>
+          <td>I</td>
+          <td>Matrix powers</td>
+      </tr>
+      <tr>
+          <td>Strings</td>
+          <td>concat</td>
+          <td>&quot;&quot;</td>
+          <td>String repetition</td>
+      </tr>
+      <tr>
+          <td>Functions</td>
+          <td>compose</td>
+          <td>id</td>
+          <td>Function iteration</td>
+      </tr>
+      <tr>
+          <td>Permutations</td>
+          <td>compose</td>
+          <td>id</td>
+          <td>Permutation powers</td>
+      </tr>
+      <tr>
+          <td>Quaternions</td>
+          <td>x</td>
+          <td>1</td>
+          <td>Rotation composition</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="why-associativity-unlocks-efficiency">Why Associativity Unlocks Efficiency</h2>
+<p>Why does the peasant algorithm achieve O(log n) instead of O(n)? The answer lies in a single algebraic law: <strong>associativity</strong>.</p>
+<p>Associativity says \((a \cdot b) \cdot c = a \cdot (b \cdot c)\). This looks innocuous, but it means we can <em>restructure</em> computation without changing results. Consider computing \(a^8\):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Naive:     a x a x a x a x a x a x a x a     (7 multiplications)
+</span></span><span class="line"><span class="cl">Peasant:   ((a^2)^2)^2                        (3 multiplications)
+</span></span></code></pre></div><p>Both produce the same answer because we can freely regroup. The peasant algorithm exploits this freedom systematically: instead of accumulating one factor at a time, it squares intermediate results and combines them.</p>
+<p>This restructuring <strong>is</strong> the source of logarithmic complexity&mdash;not a clever trick, but an inevitable consequence of the law. Given associativity, you&rsquo;re <em>permitted</em> to compute \(a^8 = (a^4)^2 = ((a^2)^2)^2\). Without associativity, this rewriting would be invalid; the expressions would mean different things.</p>
+<p>Each algebraic law unlocks specific computational freedoms:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Law</th>
+          <th>What it permits</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Associativity</td>
+          <td>Restructuring evaluation order (enables O(log n) via squaring)</td>
+      </tr>
+      <tr>
+          <td>Identity</td>
+          <td>Base case for recursion (\(x^0 = 1\))</td>
+      </tr>
+      <tr>
+          <td>Commutativity</td>
+          <td>Reordering operands (we don&rsquo;t require this!)</td>
+      </tr>
+      <tr>
+          <td>Inverses</td>
+          <td>Computing negative powers</td>
+      </tr>
+  </tbody>
+</table>
+<p>Note what we <em>don&rsquo;t</em> require: commutativity. If we needed \(a \cdot b = b \cdot a\), then quaternions and matrices couldn&rsquo;t participate&mdash;but they do, because the algorithm never reorders operands. It only regroups them.</p>
+<h2 id="what-we-dont-require">What We Don&rsquo;t Require</h2>
+<p>The absence of a law is information: it tells you what you <em>can&rsquo;t</em> do.</p>
+<p>Quaternion multiplication is non-commutative: \(q_1 \cdot q_2 \neq q_2 \cdot q_1\) in general. The peasant algorithm works anyway because it never swaps operand order. When computing \(q^5\), we use \(q \cdot q \cdot q \cdot q \cdot q\)&mdash;the q&rsquo;s appear in the same sequence regardless of how we group them.</p>
+<p>If we <em>had</em> required commutativity, we&rsquo;d have excluded quaternions, matrices, permutations, and function composition&mdash;losing most of the interesting examples. Minimal requirements maximize applicability.</p>
+<p>What <em>would</em> commutativity enable? Parallel reduction with arbitrary partitioning. If \(a \cdot b = b \cdot a\), you can split a sequence into chunks, reduce each chunk independently, then combine&mdash;regardless of which elements ended up in which chunk. Without commutativity, chunk boundaries must respect operand order.</p>
+<h2 id="examples-in-code">Examples in Code</h2>
+<h3 id="fibonacci-via-matrix-exponentiation">Fibonacci via Matrix Exponentiation</h3>
+<p>The Fibonacci recurrence F(n) = F(n-1) + F(n-2) can be encoded as matrix multiplication:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">[F(n+1)]   [1 1]^n   [1]
+</span></span><span class="line"><span class="cl">[F(n)  ] = [1 0]   x [0]
+</span></span></code></pre></div><p>Computing F(1,000,000) takes about 20 matrix multiplications:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">mat2</span> <span class="n">fib_matrix</span><span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="n">mat2</span> <span class="n">result</span> <span class="o">=</span> <span class="n">power</span><span class="p">(</span><span class="n">fib_matrix</span><span class="p">,</span> <span class="mi">1000000</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// result.b is F(1,000,000)
+</span></span></span></code></pre></div><h3 id="quaternion-rotations">Quaternion Rotations</h3>
+<p>A rotation by angle theta around axis (x,y,z) is a unit quaternion. Composing rotations is quaternion multiplication. To rotate by theta x n:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rot</span> <span class="o">=</span> <span class="n">rotation_z</span><span class="p">(</span><span class="n">theta</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rot_n</span> <span class="o">=</span> <span class="n">power</span><span class="p">(</span><span class="n">rot</span><span class="p">,</span> <span class="n">n</span><span class="p">);</span>  <span class="c1">// O(log n) multiplications
+</span></span></span></code></pre></div><h3 id="shortest-paths-via-tropical-semiring">Shortest Paths via Tropical Semiring</h3>
+<p>In the tropical semiring, &ldquo;addition&rdquo; is min and &ldquo;multiplication&rdquo; is +. Matrix &ldquo;multiplication&rdquo; computes path lengths. Powers find multi-hop paths:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">trop_matrix</span> <span class="n">adj</span> <span class="o">=</span> <span class="cm">/* adjacency matrix with edge weights */</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">paths_k</span> <span class="o">=</span> <span class="n">power</span><span class="p">(</span><span class="n">adj</span><span class="p">,</span> <span class="n">k</span><span class="p">);</span>  <span class="c1">// paths_k[i][j] = shortest k-hop path i-&gt;j
+</span></span></span></code></pre></div><h3 id="compound-interest">Compound Interest</h3>
+<p>An affine transformation f(x) = ax + b under composition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(a1*x + b1) compose (a2*x + b2) = a1(a2*x + b2) + b1 = (a1*a2)x + (a1*b2 + b1)
+</span></span></code></pre></div><p>Compound interest with rate r and deposit d is f(x) = (1+r)x + d. After n years:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">affine</span> <span class="n">yearly</span> <span class="o">=</span> <span class="p">{</span><span class="mf">1.05</span><span class="p">,</span> <span class="mi">100</span><span class="p">};</span>  <span class="c1">// 5% interest, $100 deposit
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">affine</span> <span class="n">after_30_years</span> <span class="o">=</span> <span class="n">power</span><span class="p">(</span><span class="n">yearly</span><span class="p">,</span> <span class="mi">30</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">final_balance</span> <span class="o">=</span> <span class="n">after_30_years</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>  <span class="c1">// Starting with $1000
+</span></span></span></code></pre></div><h2 id="the-minimal-interface">The Minimal Interface</h2>
+<p>The implementation uses C++20 concepts to express exactly what&rsquo;s needed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">algebraic</span> <span class="o">=</span> <span class="k">requires</span><span class="p">(</span><span class="n">T</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">zero</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">one</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">twice</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">half</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">even</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">convertible_to</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">a</span> <span class="o">+</span> <span class="n">a</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Any type satisfying this concept works with <code>power()</code>. The examples demonstrate 15 different monoids, each with about 50 lines of code.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>Alex Stepanov&rsquo;s key insight: <strong>algorithms arise from algebraic structure</strong>. The peasant algorithm isn&rsquo;t really &ldquo;about&rdquo; integers or matrices&mdash;it&rsquo;s about monoids. Once you see this, you find the same pattern everywhere.</p>
+<p>This is generic programming: write the algorithm once, state its requirements precisely, and let it work on anything that satisfies those requirements.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+<li>Stepanov, <em>Elements of Programming</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>number-theory</category></item></channel></rss>

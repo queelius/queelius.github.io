@@ -1,4 +1,191 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Bitter-Lesson on metafunctor</title><link>https://metafunctor.com/tags/bitter-lesson/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Tue, 06 Jan 2026 00:54:17 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/bitter-lesson/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>The Incomputability of Simple Learning</title><link>https://metafunctor.com/post/2025-12-19-incomputability-of-simple-learning/</link><pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-19-incomputability-of-simple-learning/</guid><description>An exploration of why the simplest forms of learning may be incomputable, and what that means for the intelligence we can build.</description><content:encoded><![CDATA[<p>Karpathy&rsquo;s recent <a href="https://karpathy.bearblog.dev/animals-vs-ghosts/">&ldquo;Animals vs Ghosts&rdquo;</a> piece has been rattling around in my head. In it, he surfaces a tension that deserves more attention: the author of &ldquo;The Bitter Lesson&rdquo; — the text that&rsquo;s become almost biblical in frontier AI circles — isn&rsquo;t convinced that LLMs are bitter lesson pilled at all.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Bitter-Lesson on metafunctor</title><link>https://metafunctor.com/tags/bitter-lesson/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:22 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/bitter-lesson/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Value Functions Over Reasoning Traces</title><link>https://metafunctor.com/post/2026-01-18-value-functions-reasoning-traces/</link><pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-value-functions-reasoning-traces/</guid><description>What if reasoning traces could learn their own usefulness? A simple RL framing for trace memory, and why one reward signal is enough.</description><content:encoded><![CDATA[<p>In <a href="/post/2024-10-15-latent-reasoning-traces/">Latent Reasoning Traces</a>, I described a simple system: store successful reasoning traces, retrieve similar ones, use them to scaffold new problems. The traces serve as learned priors over reasoning patterns.</p>
+<p>But there&rsquo;s something missing.</p>
+<p>Once a trace is stored, it&rsquo;s dead. It has a quality score from when it was created—&ldquo;this solution was correct&rdquo;—and that score never changes. The trace doesn&rsquo;t learn. It doesn&rsquo;t get better at being useful. It just sits there, waiting to be retrieved.</p>
+<p>What if traces could learn from experience?</p>
+<hr>
+<h2 id="the-missing-gradient">The Missing Gradient</h2>
+<p>Consider what happens when you retrieve traces:</p>
+<ol>
+<li>Problem arrives</li>
+<li>Retrieve k similar traces from memory</li>
+<li>Generate solution conditioned on those traces</li>
+<li>Evaluate: correct or not?</li>
+</ol>
+<p>If the solution is correct, the new trace might get stored. But what about the traces that were <em>retrieved</em>? They helped produce that correct answer. Shouldn&rsquo;t they get credit?</p>
+<p>And if the solution is wrong, maybe the retrieved traces were misleading. Shouldn&rsquo;t they be&hellip; downgraded somehow?</p>
+<p>This is the missing gradient. Information flows forward (traces → generation → evaluation) but never backward (evaluation → traces).</p>
+<hr>
+<h2 id="traces-as-states-retrieval-as-actions">Traces as States, Retrieval as Actions</h2>
+<p>Let&rsquo;s reframe this in RL terms.</p>
+<p><strong>State</strong>: The current problem, plus the contents of memory.</p>
+<p><strong>Action</strong>: Which traces to retrieve. (Or: what retrieval policy to use.)</p>
+<p><strong>Reward</strong>: Did the generated solution pass evaluation?</p>
+<p><strong>Value V(τ)</strong>: The expected future reward when trace τ is retrieved.</p>
+<p>Now the question becomes: how do we learn V(τ)?</p>
+<hr>
+<h2 id="the-bellman-equation-for-traces">The Bellman Equation for Traces</h2>
+<p>Start with the standard TD update:</p>
+$$V(\tau) \leftarrow V(\tau) + \alpha \left[ r + \gamma V(\tau') - V(\tau) \right]$$<p>Where:</p>
+<ul>
+<li>τ is a retrieved trace</li>
+<li>r is the reward (1 if correct, 0 if not)</li>
+<li>τ&rsquo; is the newly generated trace (if stored)</li>
+<li>α is learning rate</li>
+<li>γ is discount factor</li>
+</ul>
+<p>The intuition: a trace&rsquo;s value should reflect not just the immediate reward, but also the value of traces it helps create.</p>
+<p>If trace A helps generate trace B, and trace B is highly useful, then trace A deserves credit. The value propagates backward through the generative chain.</p>
+<hr>
+<h2 id="credit-assignment">Credit Assignment</h2>
+<p>Here&rsquo;s the hard part: if you retrieve k=3 traces and succeed, which trace gets credit?</p>
+<p>Options:</p>
+<p><strong>Equal split</strong>: Each retrieved trace gets r/k reward.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">trace</span> <span class="ow">in</span> <span class="n">retrieved</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">reward</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">retrieved</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Similarity-weighted</strong>: More similar traces were probably more influential.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">trace</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">retrieved</span><span class="p">,</span> <span class="n">similarities</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">reward</span> <span class="o">*</span> <span class="p">(</span><span class="n">sim</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">similarities</span><span class="p">))</span>
+</span></span></code></pre></div><p><strong>Rank-discounted</strong>: First-retrieved (most similar) gets most credit.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">trace</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">retrieved</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">reward</span> <span class="o">*</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">**</span> <span class="n">i</span><span class="p">)</span>
+</span></span></code></pre></div><p>I&rsquo;d start with equal split. It&rsquo;s wrong, but it&rsquo;s simple. And simplicity matters—we&rsquo;ll get to why.</p>
+<hr>
+<h2 id="the-bitter-lesson">The Bitter Lesson</h2>
+<p>Here&rsquo;s where I need to resist temptation.</p>
+<p>The obvious next step is to add more reward signals. Reward traces for:</p>
+<ul>
+<li>Efficiency (shorter reasoning)</li>
+<li>Elegance (cleaner structure)</li>
+<li>Generality (works across problem types)</li>
+<li>Novelty (different from existing traces)</li>
+</ul>
+<p>This is the wrong path.</p>
+<p>Rich Sutton&rsquo;s <a href="http://www.incompleteideas.net/IncsIdeas/BitterLesson.html">bitter lesson</a>: methods that leverage computation scale better than methods that leverage human knowledge. Don&rsquo;t build in structure. Don&rsquo;t encode heuristics. Let scale find them.</p>
+<p>Every time we add a hand-crafted reward, we&rsquo;re encoding human judgment about what makes a good trace. That judgment might be wrong. It definitely won&rsquo;t scale. And it creates a maintenance burden—someone has to tune the weights between &ldquo;correctness reward&rdquo; and &ldquo;efficiency reward&rdquo; and &ldquo;elegance reward.&rdquo;</p>
+<p>Instead: <strong>one bit of feedback</strong>. Correct or not.</p>
+<p>That&rsquo;s it. Let the value function learn everything else.</p>
+<p>If efficient traces tend to help produce correct answers, their values will rise. If elegant traces don&rsquo;t actually help, their values won&rsquo;t. The system learns what matters from the signal that matters.</p>
+<p>This is harder to accept than it sounds. The temptation to add &ldquo;just one more reward term&rdquo; is strong. Resist it.</p>
+<hr>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>The standard approach to trace quality is categorical: this trace is &ldquo;good&rdquo; (store it) or &ldquo;bad&rdquo; (discard it).</p>
+<p>Value functions replace categories with gradients. A trace isn&rsquo;t good or bad—it has a <em>value</em>, a number that gets updated with experience.</p>
+<p>This changes what the memory learns:</p>
+<p><strong>Without values</strong>: Memory accumulates traces that were correct when created.</p>
+<p><strong>With values</strong>: Memory accumulates traces that <em>consistently help produce correct answers when retrieved</em>.</p>
+<p>These aren&rsquo;t the same thing. A trace might be correct but useless as a retrieved example (too specific, wrong abstraction level). A trace might even be incorrect but useful (shows a pattern that triggers good reasoning in the model).</p>
+<p>The value function lets this distinction emerge from data, rather than being hard-coded.</p>
+<hr>
+<h2 id="retrieval-policy">Retrieval Policy</h2>
+<p>With values, retrieval changes:</p>
+<p><strong>Before</strong>: Retrieve by similarity alone.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">retrieve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">top_k</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">sim</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+</span></span></code></pre></div><p><strong>After</strong>: Blend similarity and value.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">retrieve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">score</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">sim</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">top_k</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">score</span><span class="p">)</span>
+</span></span></code></pre></div><p>The α parameter controls the tradeoff. High α: trust similarity. Low α: trust value.</p>
+<p>You could also do something UCB-style—retrieve traces with high uncertainty (low visit count) to explore. But that adds complexity. Start without it.</p>
+<hr>
+<h2 id="feedback-loops">Feedback Loops</h2>
+<p>Here&rsquo;s what worries me.</p>
+<p>High-value traces get retrieved more often. Being retrieved (and succeeding) increases their value further. The rich get richer.</p>
+<p>This is a feedback loop. Possible failure modes:</p>
+<p><strong>Mode collapse</strong>: A few &ldquo;winner&rdquo; traces monopolize retrieval. The memory effectively shrinks to k traces.</p>
+<p><strong>Value explosion</strong>: With positive rewards, values grow without bound. Need normalization or decay.</p>
+<p><strong>Ossification</strong>: Early traces get so much value that new (possibly better) traces never get retrieved.</p>
+<p>Mitigations exist: exploration bonuses, value decay, diversity sampling. But each adds complexity. And the bitter lesson says: be careful about adding complexity.</p>
+<p>Maybe the right answer is to accept some mode collapse. If a trace is genuinely more useful than others, maybe it <em>should</em> dominate. The question is whether &ldquo;more useful in the past&rdquo; predicts &ldquo;more useful in the future.&rdquo;</p>
+<p>I don&rsquo;t know. This needs experiments.</p>
+<hr>
+<h2 id="connection-to-the-policy">Connection to The Policy</h2>
+<p>In <a href="/post/2024-09-10-the-policy/">The Policy</a>, SIGMA doesn&rsquo;t cache a policy. At decision time, it searches through possibility space guided by learned Q-values.</p>
+<p>The Q-function encodes: &ldquo;in state s, taking action a tends to lead to reward r.&rdquo;</p>
+<p>Our value function encodes: &ldquo;retrieving trace τ tends to lead to correct outputs.&rdquo;</p>
+<p>Same structure. SIGMA&rsquo;s Q-values are implicit in neural weights. Our trace values are explicit in the memory store.</p>
+<p>The feedback loop is the same too. SIGMA&rsquo;s learned values shape its decisions, which shape its future learning. Our trace values shape retrieval, which shapes what traces get updated.</p>
+<p>In The Policy, this feedback loop leads to emergent behavior that surprises the creators. I don&rsquo;t know if trace value learning would produce anything comparably interesting. But the mathematical structure is parallel.</p>
+<hr>
+<h2 id="connection-to-priors">Connection to Priors</h2>
+<p>In <a href="/post/2024-09-30-universal-bayes/">All Induction Is the Same Induction</a>, I parameterized learning by four knobs:</p>
+<ul>
+<li><strong>P</strong>: The program/hypothesis space</li>
+<li><strong>C(p)</strong>: Complexity penalty (the prior)</li>
+<li><strong>λ</strong>: Noise tolerance</li>
+<li><strong>ℓ</strong>: Loss function</li>
+</ul>
+<p>Value-weighted retrieval adds something: <strong>utility weighting</strong>.</p>
+<p>Standard Bayesian inference weights hypotheses by posterior probability. Decision-theoretic inference weights by expected utility—probability times value.</p>
+<p>Retrieving by similarity alone is like weighting by probability (&ldquo;how likely is this trace to be relevant?&rdquo;). Retrieving by similarity × value is like weighting by utility (&ldquo;how useful is this trace for getting reward?&rdquo;).</p>
+<p>The value function turns the prior into a decision-theoretic prior.</p>
+<hr>
+<h2 id="ancestry-and-multi-step-credit">Ancestry and Multi-Step Credit</h2>
+<p>The speculative extension: what if credit could flow further back?</p>
+<p>Trace A was retrieved → helped generate Trace B.
+Trace B was retrieved → helped generate Trace C.
+Trace C was retrieved → produced correct output → reward r.</p>
+<p>Should Trace A get credit? It&rsquo;s a grandparent of the successful solution.</p>
+<p>The Bellman equation already handles this through γ:</p>
+$$V(A) \leftarrow V(A) + \alpha \gamma^2 r$$<p>But this requires tracking ancestry: which traces were retrieved when generating each stored trace.</p>
+<p>This adds significant complexity:</p>
+<ul>
+<li>Storage overhead (provenance for every trace)</li>
+<li>Potential cycles (trace A retrieved for trace B, trace B retrieved for trace A)</li>
+<li>Computational cost (propagating updates through the graph)</li>
+</ul>
+<p>Probably not worth it for a first implementation. But interesting to think about.</p>
+<hr>
+<h2 id="the-minimal-system">The Minimal System</h2>
+<p>Strip away everything non-essential:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">ValueTraceMemory</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">traces</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Each trace has: context, vec, value</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">retrieve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">query_vec</span> <span class="o">=</span> <span class="n">embed</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">scored</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">traces</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sim</span> <span class="o">=</span> <span class="n">cosine</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="s1">&#39;vec&#39;</span><span class="p">],</span> <span class="n">query_vec</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">val</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">scored</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">t</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">sim</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">val</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">scored</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])[:</span><span class="n">k</span><span class="p">]]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">retrieved</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.9</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">trace</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">retrieved</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">**</span> <span class="n">i</span><span class="p">)</span> <span class="o">*</span> <span class="n">reward</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">trace_text</span><span class="p">,</span> <span class="n">initial_value</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">traces</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;context&#39;</span><span class="p">:</span> <span class="n">context</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;trace&#39;</span><span class="p">:</span> <span class="n">trace_text</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;vec&#39;</span><span class="p">:</span> <span class="n">embed</span><span class="p">(</span><span class="n">context</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">initial_value</span>
+</span></span><span class="line"><span class="cl">        <span class="p">})</span>
+</span></span></code></pre></div><p>That&rsquo;s it. ~25 lines.</p>
+<p>One reward signal (correct/incorrect). Values updated by rank-discounted credit. Retrieval blends similarity and value.</p>
+<p>Everything else is detail.</p>
+<hr>
+<h2 id="what-we-dont-know">What We Don&rsquo;t Know</h2>
+<p>This is speculative. Open questions:</p>
+<p><strong>Does it help?</strong> Compared to static quality scores, do learned values improve downstream accuracy?</p>
+<p><strong>Convergence</strong>: Does the value distribution stabilize? To what?</p>
+<p><strong>Discount factor</strong>: What&rsquo;s the right γ? High γ means more credit to ancestors. Low γ means only recent traces matter.</p>
+<p><strong>Negative reward</strong>: If retrieval leads to failure, should values decrease? This could destabilize good traces that happened to be retrieved for hard problems.</p>
+<p><strong>Exploration</strong>: How much to prioritize uncertain traces? Or is pure exploitation fine?</p>
+<p><strong>Scale</strong>: Does this work with 100 traces? 10,000? 1,000,000?</p>
+<p>I don&rsquo;t have answers. These need experiments.</p>
+<hr>
+<h2 id="closing">Closing</h2>
+<p>The core idea: reasoning traces should have values that learn from experience.</p>
+<p>Not just &ldquo;was this trace correct when created?&rdquo; but &ldquo;does this trace help produce correct answers when retrieved?&rdquo;</p>
+<p>One reward signal. Let the values learn what matters.</p>
+<p>This is the bitter lesson applied to memory: don&rsquo;t engineer features, don&rsquo;t hand-craft rewards, don&rsquo;t encode human judgment about what makes a trace &ldquo;good.&rdquo; Give the system a scalar signal and let it figure out the rest.</p>
+<p>Accumulated experience becomes accumulated value. Accumulated value shapes retrieval. Retrieval shapes generation. Generation shapes what traces get stored next.</p>
+<p>The feedback loop is real. Whether it leads somewhere interesting—that&rsquo;s what experiments are for.</p>
+<hr>
+<p><em>Values propagate backward. The only question is what signal they carry.</em></p>
+]]></content:encoded><category>machine-learning</category><category>LLM</category><category>reinforcement-learning</category><category>value-functions</category><category>reasoning</category><category>bitter-lesson</category></item><item><title>The Incomputability of Simple Learning</title><link>https://metafunctor.com/post/2025-12-19-incomputability-of-simple-learning/</link><pubDate>Fri, 19 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-19-incomputability-of-simple-learning/</guid><description>An exploration of why the simplest forms of learning may be incomputable, and what that means for the intelligence we can build.</description><content:encoded><![CDATA[<p>Karpathy&rsquo;s recent <a href="https://karpathy.bearblog.dev/animals-vs-ghosts/">&ldquo;Animals vs Ghosts&rdquo;</a> piece has been rattling around in my head. In it, he surfaces a tension that deserves more attention: the author of &ldquo;The Bitter Lesson&rdquo; — the text that&rsquo;s become almost biblical in frontier AI circles — isn&rsquo;t convinced that LLMs are bitter lesson pilled at all.</p>
 <p>The bitter lesson, in brief: methods that leverage computation scale better than methods that leverage human knowledge. Don&rsquo;t build in structure; let the model learn it. Don&rsquo;t encode heuristics; let scale find them. The lesson is &ldquo;bitter&rdquo; because it means a lot of clever human engineering ends up being wasted effort, steamrolled by dumber approaches with more compute.</p>
 <p>LLM researchers routinely ask whether an idea is &ldquo;sufficiently bitter lesson pilled&rdquo; as a proxy for whether it&rsquo;s worth pursuing. And yet Sutton, the lesson&rsquo;s author, looks at LLMs and sees something thoroughly entangled with humanity — trained on human text, finetuned with human preferences, reward-shaped by human engineers. Where&rsquo;s the clean, simple algorithm you could &ldquo;turn the crank&rdquo; on and watch learn from experience alone?</p>
 <p>This got me thinking about why that clean algorithm is so elusive. And I&rsquo;ve come to suspect the answer is uncomfortable: <strong>the simplest forms of learning may be incomputable, or at least intractable, in ways that force us into approximations that fundamentally shape the resulting intelligence.</strong></p>
@@ -36,7 +223,7 @@
 <p>The question isn&rsquo;t whether to have biases — you can&rsquo;t avoid them. The question is where they come from:</p>
 <ul>
 <li>
-<p><strong>Evolved biases</strong>: Animal brains, shaped by billions of years of selection, embody priors about physics, other agents, cause and effect. These are maps drawn by evolution.</p>
+<p><strong>Evolved biases</strong>: Animal brains, shaped by billions of years of selection, embody priors about physics, other agents, cause and effect. These are maps drawn by evolution. Consider working memory: Miller&rsquo;s famous &ldquo;7 ± 2&rdquo; chunks. That&rsquo;s not an accident—it&rsquo;s a bottleneck that forces compression. You can&rsquo;t remember every detail, so you must extract patterns, build models, find regularities. Memory limits automatically implement Occam&rsquo;s razor: only simple enough hypotheses fit through the bottleneck.</p>
 </li>
 <li>
 <p><strong>Derived biases</strong>: Sometimes we can work out from first principles what patterns to expect. Physics gives us conservation laws. Information theory gives us compression. These are maps drawn by understanding.</p>

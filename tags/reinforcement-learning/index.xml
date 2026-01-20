@@ -1,4 +1,418 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Reinforcement Learning on metafunctor</title><link>https://metafunctor.com/tags/reinforcement-learning/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Tue, 06 Jan 2026 00:54:17 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/reinforcement-learning/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Algorithms of Reinforcement Learning</title><link>https://metafunctor.com/media/algorithms-of-rl/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/algorithms-of-rl/</guid><description>Notes Free condensed RL theory book; rigorous and compact. Alternative formal RL resource.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Reinforcement Learning on metafunctor</title><link>https://metafunctor.com/tags/reinforcement-learning/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/reinforcement-learning/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Value Functions Over Reasoning Traces</title><link>https://metafunctor.com/post/2026-01-18-value-functions-reasoning-traces/</link><pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-value-functions-reasoning-traces/</guid><description>What if reasoning traces could learn their own usefulness? A simple RL framing for trace memory, and why one reward signal is enough.</description><content:encoded><![CDATA[<p>In <a href="/post/2024-10-15-latent-reasoning-traces/">Latent Reasoning Traces</a>, I described a simple system: store successful reasoning traces, retrieve similar ones, use them to scaffold new problems. The traces serve as learned priors over reasoning patterns.</p>
+<p>But there&rsquo;s something missing.</p>
+<p>Once a trace is stored, it&rsquo;s dead. It has a quality score from when it was created—&ldquo;this solution was correct&rdquo;—and that score never changes. The trace doesn&rsquo;t learn. It doesn&rsquo;t get better at being useful. It just sits there, waiting to be retrieved.</p>
+<p>What if traces could learn from experience?</p>
+<hr>
+<h2 id="the-missing-gradient">The Missing Gradient</h2>
+<p>Consider what happens when you retrieve traces:</p>
+<ol>
+<li>Problem arrives</li>
+<li>Retrieve k similar traces from memory</li>
+<li>Generate solution conditioned on those traces</li>
+<li>Evaluate: correct or not?</li>
+</ol>
+<p>If the solution is correct, the new trace might get stored. But what about the traces that were <em>retrieved</em>? They helped produce that correct answer. Shouldn&rsquo;t they get credit?</p>
+<p>And if the solution is wrong, maybe the retrieved traces were misleading. Shouldn&rsquo;t they be&hellip; downgraded somehow?</p>
+<p>This is the missing gradient. Information flows forward (traces → generation → evaluation) but never backward (evaluation → traces).</p>
+<hr>
+<h2 id="traces-as-states-retrieval-as-actions">Traces as States, Retrieval as Actions</h2>
+<p>Let&rsquo;s reframe this in RL terms.</p>
+<p><strong>State</strong>: The current problem, plus the contents of memory.</p>
+<p><strong>Action</strong>: Which traces to retrieve. (Or: what retrieval policy to use.)</p>
+<p><strong>Reward</strong>: Did the generated solution pass evaluation?</p>
+<p><strong>Value V(τ)</strong>: The expected future reward when trace τ is retrieved.</p>
+<p>Now the question becomes: how do we learn V(τ)?</p>
+<hr>
+<h2 id="the-bellman-equation-for-traces">The Bellman Equation for Traces</h2>
+<p>Start with the standard TD update:</p>
+$$V(\tau) \leftarrow V(\tau) + \alpha \left[ r + \gamma V(\tau') - V(\tau) \right]$$<p>Where:</p>
+<ul>
+<li>τ is a retrieved trace</li>
+<li>r is the reward (1 if correct, 0 if not)</li>
+<li>τ&rsquo; is the newly generated trace (if stored)</li>
+<li>α is learning rate</li>
+<li>γ is discount factor</li>
+</ul>
+<p>The intuition: a trace&rsquo;s value should reflect not just the immediate reward, but also the value of traces it helps create.</p>
+<p>If trace A helps generate trace B, and trace B is highly useful, then trace A deserves credit. The value propagates backward through the generative chain.</p>
+<hr>
+<h2 id="credit-assignment">Credit Assignment</h2>
+<p>Here&rsquo;s the hard part: if you retrieve k=3 traces and succeed, which trace gets credit?</p>
+<p>Options:</p>
+<p><strong>Equal split</strong>: Each retrieved trace gets r/k reward.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">trace</span> <span class="ow">in</span> <span class="n">retrieved</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">reward</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">retrieved</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>Similarity-weighted</strong>: More similar traces were probably more influential.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">trace</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">retrieved</span><span class="p">,</span> <span class="n">similarities</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">reward</span> <span class="o">*</span> <span class="p">(</span><span class="n">sim</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">similarities</span><span class="p">))</span>
+</span></span></code></pre></div><p><strong>Rank-discounted</strong>: First-retrieved (most similar) gets most credit.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">trace</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">retrieved</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">reward</span> <span class="o">*</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">**</span> <span class="n">i</span><span class="p">)</span>
+</span></span></code></pre></div><p>I&rsquo;d start with equal split. It&rsquo;s wrong, but it&rsquo;s simple. And simplicity matters—we&rsquo;ll get to why.</p>
+<hr>
+<h2 id="the-bitter-lesson">The Bitter Lesson</h2>
+<p>Here&rsquo;s where I need to resist temptation.</p>
+<p>The obvious next step is to add more reward signals. Reward traces for:</p>
+<ul>
+<li>Efficiency (shorter reasoning)</li>
+<li>Elegance (cleaner structure)</li>
+<li>Generality (works across problem types)</li>
+<li>Novelty (different from existing traces)</li>
+</ul>
+<p>This is the wrong path.</p>
+<p>Rich Sutton&rsquo;s <a href="http://www.incompleteideas.net/IncsIdeas/BitterLesson.html">bitter lesson</a>: methods that leverage computation scale better than methods that leverage human knowledge. Don&rsquo;t build in structure. Don&rsquo;t encode heuristics. Let scale find them.</p>
+<p>Every time we add a hand-crafted reward, we&rsquo;re encoding human judgment about what makes a good trace. That judgment might be wrong. It definitely won&rsquo;t scale. And it creates a maintenance burden—someone has to tune the weights between &ldquo;correctness reward&rdquo; and &ldquo;efficiency reward&rdquo; and &ldquo;elegance reward.&rdquo;</p>
+<p>Instead: <strong>one bit of feedback</strong>. Correct or not.</p>
+<p>That&rsquo;s it. Let the value function learn everything else.</p>
+<p>If efficient traces tend to help produce correct answers, their values will rise. If elegant traces don&rsquo;t actually help, their values won&rsquo;t. The system learns what matters from the signal that matters.</p>
+<p>This is harder to accept than it sounds. The temptation to add &ldquo;just one more reward term&rdquo; is strong. Resist it.</p>
+<hr>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>The standard approach to trace quality is categorical: this trace is &ldquo;good&rdquo; (store it) or &ldquo;bad&rdquo; (discard it).</p>
+<p>Value functions replace categories with gradients. A trace isn&rsquo;t good or bad—it has a <em>value</em>, a number that gets updated with experience.</p>
+<p>This changes what the memory learns:</p>
+<p><strong>Without values</strong>: Memory accumulates traces that were correct when created.</p>
+<p><strong>With values</strong>: Memory accumulates traces that <em>consistently help produce correct answers when retrieved</em>.</p>
+<p>These aren&rsquo;t the same thing. A trace might be correct but useless as a retrieved example (too specific, wrong abstraction level). A trace might even be incorrect but useful (shows a pattern that triggers good reasoning in the model).</p>
+<p>The value function lets this distinction emerge from data, rather than being hard-coded.</p>
+<hr>
+<h2 id="retrieval-policy">Retrieval Policy</h2>
+<p>With values, retrieval changes:</p>
+<p><strong>Before</strong>: Retrieve by similarity alone.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">retrieve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">top_k</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">sim</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+</span></span></code></pre></div><p><strong>After</strong>: Blend similarity and value.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">retrieve</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">memory</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">score</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">sim</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">top_k</span><span class="p">(</span><span class="n">memory</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">score</span><span class="p">)</span>
+</span></span></code></pre></div><p>The α parameter controls the tradeoff. High α: trust similarity. Low α: trust value.</p>
+<p>You could also do something UCB-style—retrieve traces with high uncertainty (low visit count) to explore. But that adds complexity. Start without it.</p>
+<hr>
+<h2 id="feedback-loops">Feedback Loops</h2>
+<p>Here&rsquo;s what worries me.</p>
+<p>High-value traces get retrieved more often. Being retrieved (and succeeding) increases their value further. The rich get richer.</p>
+<p>This is a feedback loop. Possible failure modes:</p>
+<p><strong>Mode collapse</strong>: A few &ldquo;winner&rdquo; traces monopolize retrieval. The memory effectively shrinks to k traces.</p>
+<p><strong>Value explosion</strong>: With positive rewards, values grow without bound. Need normalization or decay.</p>
+<p><strong>Ossification</strong>: Early traces get so much value that new (possibly better) traces never get retrieved.</p>
+<p>Mitigations exist: exploration bonuses, value decay, diversity sampling. But each adds complexity. And the bitter lesson says: be careful about adding complexity.</p>
+<p>Maybe the right answer is to accept some mode collapse. If a trace is genuinely more useful than others, maybe it <em>should</em> dominate. The question is whether &ldquo;more useful in the past&rdquo; predicts &ldquo;more useful in the future.&rdquo;</p>
+<p>I don&rsquo;t know. This needs experiments.</p>
+<hr>
+<h2 id="connection-to-the-policy">Connection to The Policy</h2>
+<p>In <a href="/post/2024-09-10-the-policy/">The Policy</a>, SIGMA doesn&rsquo;t cache a policy. At decision time, it searches through possibility space guided by learned Q-values.</p>
+<p>The Q-function encodes: &ldquo;in state s, taking action a tends to lead to reward r.&rdquo;</p>
+<p>Our value function encodes: &ldquo;retrieving trace τ tends to lead to correct outputs.&rdquo;</p>
+<p>Same structure. SIGMA&rsquo;s Q-values are implicit in neural weights. Our trace values are explicit in the memory store.</p>
+<p>The feedback loop is the same too. SIGMA&rsquo;s learned values shape its decisions, which shape its future learning. Our trace values shape retrieval, which shapes what traces get updated.</p>
+<p>In The Policy, this feedback loop leads to emergent behavior that surprises the creators. I don&rsquo;t know if trace value learning would produce anything comparably interesting. But the mathematical structure is parallel.</p>
+<hr>
+<h2 id="connection-to-priors">Connection to Priors</h2>
+<p>In <a href="/post/2024-09-30-universal-bayes/">All Induction Is the Same Induction</a>, I parameterized learning by four knobs:</p>
+<ul>
+<li><strong>P</strong>: The program/hypothesis space</li>
+<li><strong>C(p)</strong>: Complexity penalty (the prior)</li>
+<li><strong>λ</strong>: Noise tolerance</li>
+<li><strong>ℓ</strong>: Loss function</li>
+</ul>
+<p>Value-weighted retrieval adds something: <strong>utility weighting</strong>.</p>
+<p>Standard Bayesian inference weights hypotheses by posterior probability. Decision-theoretic inference weights by expected utility—probability times value.</p>
+<p>Retrieving by similarity alone is like weighting by probability (&ldquo;how likely is this trace to be relevant?&rdquo;). Retrieving by similarity × value is like weighting by utility (&ldquo;how useful is this trace for getting reward?&rdquo;).</p>
+<p>The value function turns the prior into a decision-theoretic prior.</p>
+<hr>
+<h2 id="ancestry-and-multi-step-credit">Ancestry and Multi-Step Credit</h2>
+<p>The speculative extension: what if credit could flow further back?</p>
+<p>Trace A was retrieved → helped generate Trace B.
+Trace B was retrieved → helped generate Trace C.
+Trace C was retrieved → produced correct output → reward r.</p>
+<p>Should Trace A get credit? It&rsquo;s a grandparent of the successful solution.</p>
+<p>The Bellman equation already handles this through γ:</p>
+$$V(A) \leftarrow V(A) + \alpha \gamma^2 r$$<p>But this requires tracking ancestry: which traces were retrieved when generating each stored trace.</p>
+<p>This adds significant complexity:</p>
+<ul>
+<li>Storage overhead (provenance for every trace)</li>
+<li>Potential cycles (trace A retrieved for trace B, trace B retrieved for trace A)</li>
+<li>Computational cost (propagating updates through the graph)</li>
+</ul>
+<p>Probably not worth it for a first implementation. But interesting to think about.</p>
+<hr>
+<h2 id="the-minimal-system">The Minimal System</h2>
+<p>Strip away everything non-essential:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">ValueTraceMemory</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">traces</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Each trace has: context, vec, value</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">retrieve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">query_vec</span> <span class="o">=</span> <span class="n">embed</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">scored</span> <span class="o">=</span> <span class="p">[]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">traces</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sim</span> <span class="o">=</span> <span class="n">cosine</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="s1">&#39;vec&#39;</span><span class="p">],</span> <span class="n">query_vec</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">val</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">scored</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">t</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">sim</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">val</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">scored</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])[:</span><span class="n">k</span><span class="p">]]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">retrieved</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.9</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">trace</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">retrieved</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">trace</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">**</span> <span class="n">i</span><span class="p">)</span> <span class="o">*</span> <span class="n">reward</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">trace_text</span><span class="p">,</span> <span class="n">initial_value</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">traces</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;context&#39;</span><span class="p">:</span> <span class="n">context</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;trace&#39;</span><span class="p">:</span> <span class="n">trace_text</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;vec&#39;</span><span class="p">:</span> <span class="n">embed</span><span class="p">(</span><span class="n">context</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">initial_value</span>
+</span></span><span class="line"><span class="cl">        <span class="p">})</span>
+</span></span></code></pre></div><p>That&rsquo;s it. ~25 lines.</p>
+<p>One reward signal (correct/incorrect). Values updated by rank-discounted credit. Retrieval blends similarity and value.</p>
+<p>Everything else is detail.</p>
+<hr>
+<h2 id="what-we-dont-know">What We Don&rsquo;t Know</h2>
+<p>This is speculative. Open questions:</p>
+<p><strong>Does it help?</strong> Compared to static quality scores, do learned values improve downstream accuracy?</p>
+<p><strong>Convergence</strong>: Does the value distribution stabilize? To what?</p>
+<p><strong>Discount factor</strong>: What&rsquo;s the right γ? High γ means more credit to ancestors. Low γ means only recent traces matter.</p>
+<p><strong>Negative reward</strong>: If retrieval leads to failure, should values decrease? This could destabilize good traces that happened to be retrieved for hard problems.</p>
+<p><strong>Exploration</strong>: How much to prioritize uncertain traces? Or is pure exploitation fine?</p>
+<p><strong>Scale</strong>: Does this work with 100 traces? 10,000? 1,000,000?</p>
+<p>I don&rsquo;t have answers. These need experiments.</p>
+<hr>
+<h2 id="closing">Closing</h2>
+<p>The core idea: reasoning traces should have values that learn from experience.</p>
+<p>Not just &ldquo;was this trace correct when created?&rdquo; but &ldquo;does this trace help produce correct answers when retrieved?&rdquo;</p>
+<p>One reward signal. Let the values learn what matters.</p>
+<p>This is the bitter lesson applied to memory: don&rsquo;t engineer features, don&rsquo;t hand-craft rewards, don&rsquo;t encode human judgment about what makes a trace &ldquo;good.&rdquo; Give the system a scalar signal and let it figure out the rest.</p>
+<p>Accumulated experience becomes accumulated value. Accumulated value shapes retrieval. Retrieval shapes generation. Generation shapes what traces get stored next.</p>
+<p>The feedback loop is real. Whether it leads somewhere interesting—that&rsquo;s what experiments are for.</p>
+<hr>
+<p><em>Values propagate backward. The only question is what signal they carry.</em></p>
+]]></content:encoded><category>machine-learning</category><category>LLM</category><category>reinforcement-learning</category><category>value-functions</category><category>reasoning</category><category>bitter-lesson</category></item><item><title>From A* to GPT: Rational Agents and the Representation Problem</title><link>https://metafunctor.com/post/2026-01-rational-agents-llms/</link><pubDate>Thu, 15 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-rational-agents-llms/</guid><description>The classical AI curriculum teaches rational agents as utility maximizers. The progression from search to RL to LLMs is really about one thing: finding representations that make decision-making tractable.</description><content:encoded><![CDATA[<p>The classical AI curriculum teaches rational agents as utility maximizers. The progression from search to planning to reinforcement learning to probabilistic models is really about <strong>one thing</strong>: finding representations that make decision-making tractable. Large language models represent a new point in this design space—agents with massive pre-trained priors over rational behavior, where &ldquo;learning&rdquo; happens through in-context adaptation rather than gradient updates.</p>
+<h2 id="the-rational-agent-framework">The Rational Agent Framework</h2>
+<p>The foundational idea of artificial intelligence can be stated simply: an agent perceives the world, selects actions, and aims to maximize expected utility.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Agent = Percepts → Actions
+</span></span><span class="line"><span class="cl">Goal  = Maximize E[U(outcomes)]
+</span></span></code></pre></div><p>The normative theory for this—Bayesian decision theory—tells us exactly <em>what</em> to compute: maintain rational beliefs via Bayes&rsquo; rule, then choose actions maximizing expected utility under those beliefs. This is the gold standard. The challenge is making it tractable.</p>
+<p>This framing unifies a surprisingly large range of AI systems. Chess engines evaluate board positions and select moves that maximize winning probability. Robotic navigation systems perceive obstacles and plan paths that minimize travel time while avoiding collisions. Dialogue systems generate responses that (ideally) maximize user satisfaction. Even large language models can be viewed through this lens—they select tokens that maximize the probability of generating coherent, helpful completions.</p>
+<p>The elegance of this framework lies in its generality. Whether we&rsquo;re building a thermostat or a self-driving car, we can ask: What does this agent perceive? What actions can it take? What outcomes does it value?</p>
+<p>The challenge, of course, is that the world is complex. State spaces are enormous—chess has roughly $10^{44}$ legal positions, Go has approximately $10^{170}$, and the real world has effectively infinite states. How do we make good decisions without exhaustive enumeration?</p>
+<p><strong>The key insight</strong>: The history of AI is largely about finding <strong>representations</strong> that make this tractable. Every major advance in AI can be understood as discovering or learning better ways to compress the complexity of the world into something a finite computational system can reason about.</p>
+<h2 id="the-classical-progression">The Classical Progression</h2>
+<p>The standard AI curriculum walks through a sequence of increasingly sophisticated approaches to rational agency. Each step relaxes assumptions and adds new machinery to handle the resulting complexity. But viewed from above, they&rsquo;re all variations on the same theme: finding tractable representations for decision-making.</p>
+<h3 id="search">Search</h3>
+<p>The simplest setting assumes a known world with deterministic transitions and a clear goal state. Given an explicit state graph—nodes representing configurations of the world, edges representing actions—we search for a path from start to goal.</p>
+<p>A* search exemplifies the key idea: we can&rsquo;t explore everything, so we use a <strong>heuristic</strong> $h(n)$ that estimates the cost from any state to the goal. A good heuristic lets us focus computation where it matters, pruning vast portions of the search space.</p>
+<p>The Manhattan distance heuristic for sliding tile puzzles. The straight-line distance for navigation. These hand-crafted functions encode human knowledge about problem structure, making intractable problems tractable.</p>
+<p><strong>Limitation</strong>: What if we don&rsquo;t know the transition model? What if outcomes are stochastic—the same action in the same state might lead to different results?</p>
+<h3 id="mdps-and-planning">MDPs and Planning</h3>
+<p>Markov Decision Processes introduce stochasticity. We now have transition probabilities $P(s&rsquo;|s,a)$ and rewards $R(s,a)$. The goal shifts from finding a path to finding a <strong>policy</strong>—a mapping from states to actions that maximizes expected cumulative reward.</p>
+<p>One approach is <strong>expectimax tree search</strong>: at each decision point, consider all actions, weight outcomes by their probabilities, and recursively compute expected values. This works—it&rsquo;s optimal—but it recomputes the same subproblems over and over. Every time you reach state $s$, you re-expand the entire subtree below it.</p>
+<p>The key insight of dynamic programming: if the problem has <strong>optimal substructure</strong> (the Markov property), we can compute and cache the value of each state once. The representation that makes this tractable is the <strong>value function</strong>: $V(s)$ tells us the expected future reward from state $s$ under an optimal policy. The Bellman equations give us a recursive relationship:</p>
+$$V^*(s) = \max_a \sum_{s'} P(s'|s,a) [R(s,a,s') + \gamma V^*(s')]$$<p>This is beautiful mathematics. Value iteration is essentially expectimax with memoization—we precompute the entire policy offline rather than searching online at decision time. It reduces planning over infinite horizons to a system of equations we can solve iteratively.</p>
+<p>The trade-off: expectimax tree search is more general (it doesn&rsquo;t require enumerating all states upfront, handles non-stationary environments, and can focus computation on the current situation), while value iteration is more efficient when you have a complete model and will visit states repeatedly. This distinction matters later.</p>
+<p><strong>Limitation</strong>: Where do $P$ and $R$ come from? In the real world, we rarely have access to the true transition dynamics. And what if the state space is so large that we can&rsquo;t even enumerate it?</p>
+<h3 id="reinforcement-learning">Reinforcement Learning</h3>
+<p>Reinforcement learning drops the assumption that we know the environment&rsquo;s dynamics. Instead, we learn from experience—taking actions, observing outcomes, and updating our estimates of value.</p>
+<p>Q-learning maintains estimates $Q(s,a)$ of the value of taking action $a$ in state $s$. Each experience $(s, a, r, s&rsquo;)$ generates an update:</p>
+$$Q(s,a) \leftarrow Q(s,a) + \alpha[r + \gamma \max_{a'} Q(s',a') - Q(s,a)]$$<p>With enough experience—visiting every state-action pair sufficiently often—these estimates converge to optimal values. The agent learns to act well without ever knowing the true transition probabilities.</p>
+<p><strong>Limitation</strong>: &ldquo;Visiting every state-action pair&rdquo; becomes impossible when state spaces are large. Tabular Q-learning doesn&rsquo;t generalize. Learning that ghosts are dangerous in one corner of the maze doesn&rsquo;t help us in another corner—unless we have the right representation.</p>
+<h3 id="function-approximation-the-key-insight">Function Approximation: The Key Insight</h3>
+<p>Here&rsquo;s where things get interesting. When state spaces are exponentially large, we can&rsquo;t store a separate Q-value for every (state, action) pair. We need to <strong>generalize</strong>.</p>
+<p>The solution: approximate $Q(s,a) \approx \mathbf{w} \cdot \phi(s,a)$, where $\phi$ extracts <strong>features</strong> from the state-action pair and $\mathbf{w}$ is a learned weight vector.</p>
+<p>Consider the Berkeley Pacman project. The maze has millions of possible configurations—Pacman&rsquo;s position, ghost positions, food locations, power pellet status. Tabular Q-learning is hopeless. But we can define features:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">features</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;bias&#34;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;#-of-ghosts-1-step-away&#34;</span><span class="p">:</span> <span class="n">count_nearby_ghosts</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;eats-food&#34;</span><span class="p">:</span> <span class="n">will_eat_food</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;closest-food&#34;</span><span class="p">:</span> <span class="n">distance_to_food</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">/</span> <span class="n">max_distance</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">Q</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="n">a</span><span class="p">)</span> <span class="o">=</span> <span class="n">w</span> <span class="err">·</span> <span class="n">features</span>  <span class="c1"># Linear combination</span>
+</span></span></code></pre></div><p>Four features. That&rsquo;s it. These four numbers compress millions of possible states into a representation where learning is tractable AND—crucially—where knowledge generalizes. Learning that being near ghosts is bad in one part of the maze immediately applies everywhere.</p>
+<p><strong>The punchline</strong>: The quality of your features determines the quality of your agent. A brilliant feature representation can make an intractable problem trivial. A poor one makes even simple problems impossible.</p>
+<p>But hand-crafting features is hard. It requires domain expertise, careful thought, and often many iterations. What if we could learn them automatically?</p>
+<h2 id="deep-learning-learning-the-representations">Deep Learning: Learning the Representations</h2>
+<p>The breakthrough of the last decade: instead of hand-crafting features $\phi(s)$, learn them from data.</p>
+<p>Deep Q-Networks (DQN) made this concrete. Instead of $Q(s,a) \approx \mathbf{w} \cdot \phi(s,a)$ with hand-crafted $\phi$, we have:</p>
+$$Q(s,a) \approx \text{neural\_network}(s, a)$$<p>The neural network takes raw state information—pixels from an Atari game screen—and outputs Q-values for each action. The hidden layers of the network learn features automatically. No human specifies what matters; the network discovers it through gradient descent on temporal difference errors.</p>
+<p>The results were striking. DQN learned to play dozens of Atari games at human level or above, from raw pixels, with no game-specific engineering. The same architecture, the same learning algorithm, applied to Pong and Breakout and Space Invaders.</p>
+<p>What did the network learn? Visualizing hidden layer activations reveals interpretable features: edges and textures in early layers, objects and spatial relationships in later layers. The network discovered what matters for playing these games—automatically.</p>
+<p>Policy gradient methods take a different approach, learning the policy $\pi(a|s)$ directly rather than through value functions. Actor-critic algorithms, Proximal Policy Optimization (PPO), and their variants have achieved remarkable results in continuous control, robotics, and game-playing.</p>
+<p><strong>The trade-off</strong>:</p>
+<ul>
+<li>Hand-crafted features: interpretable, data-efficient, but limited by human insight</li>
+<li>Learned features: powerful and automatic, but hungry for data and often inscrutable</li>
+</ul>
+<p><strong>Key point</strong>: Deep RL is still the rational agent framework. We&rsquo;re still maximizing expected utility through sequential decision-making. We&rsquo;ve just automated the most labor-intensive part: feature engineering.</p>
+<h2 id="alphazero-search-meets-learning">AlphaZero: Search Meets Learning</h2>
+<p>AlphaZero&rsquo;s breakthrough was combining online search with learned representations: it used Monte Carlo Tree Search (a form of expectimax) but aggressively pruned the search tree using learned value and policy networks. The networks provided a &ldquo;warm start&rdquo;—good default values and action priorities—while the search refined those estimates for the specific position at hand.</p>
+<p>This combination unlocks something powerful: <strong>rational action in novel situations</strong>.</p>
+<p>Consider what happens when AlphaZero encounters a board position it has never seen. Three mechanisms work together:</p>
+<ol>
+<li>
+<p><strong>Generalization via representations</strong>: The network&rsquo;s learned features compress the state space. Even a novel position activates similar patterns to training positions—similar pawn structures, similar tactical motifs. The value estimate generalizes because the representation captures what <em>matters</em>, not the raw state.</p>
+</li>
+<li>
+<p><strong>Exploration via world model</strong>: With a model of the game (the rules), the agent can <em>imagine</em> future states. It doesn&rsquo;t need to have seen a position before—it can simulate what happens if it plays move A, then the opponent plays B, then it plays C. Search lets you reason about consequences in states you&rsquo;ve never visited.</p>
+</li>
+<li>
+<p><strong>Grounding via terminal states</strong>: Search through an imagined future might reach positions with <em>known</em> values—checkmate, stalemate, or positions so advantageous the outcome is clear. These terminal states anchor the search in ground truth, not just learned estimates.</p>
+</li>
+</ol>
+<p>The result: AlphaZero could play brilliantly in positions no human or computer had ever seen, because it could (1) recognize structural similarity to familiar positions, (2) search forward through possibilities, and (3) ground that search in verifiable outcomes.</p>
+<p>This wasn&rsquo;t just about learning better—it was about <strong>acting rationally out of distribution at inference time</strong>. The search is doing real reasoning, not just pattern matching. When the learned intuition is uncertain or wrong, the search can discover this and correct it, right now, for this specific situation.</p>
+<p>The search also improved <em>training</em>. MCTS produces better move decisions than the raw network—it can &ldquo;look ahead&rdquo; and correct the network&rsquo;s mistakes. These search-improved decisions became training targets, bootstrapping the network to better performance.</p>
+<p>This architecture—learned representations enabling efficient search, with verifiable endpoints grounding that search in truth—will reappear when we discuss LLMs.</p>
+<h2 id="llms-as-rational-agents">LLMs as Rational Agents</h2>
+<p>Now we arrive at the present moment. What happens when the &ldquo;feature extractor&rdquo; was pre-trained on most of human written knowledge?</p>
+<h3 id="the-setup">The Setup</h3>
+<p>A large language model can act as an agent. The state is described in text. The action is generated as text.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">State description (text) → LLM → Action (text)
+</span></span></code></pre></div><p>Consider a simple example:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">You are in a 5x5 grid. You are at position (2,3).
+</span></span><span class="line"><span class="cl">There is food at (4,4). There is a ghost at (3,3).
+</span></span><span class="line"><span class="cl">Your goal is to eat the food without being caught.
+</span></span><span class="line"><span class="cl">Valid actions: north, south, east, west.
+</span></span><span class="line"><span class="cl">What action do you take?
+</span></span></code></pre></div><p>A capable LLM responds: &ldquo;I should move away from the ghost while heading toward the food. The ghost is directly north of me at (3,3), so going north would be dangerous. The food is to the northeast at (4,4). I&rsquo;ll move east to (3,3)—wait, that&rsquo;s where the ghost is. Let me reconsider. I&rsquo;m at (2,3). Moving east takes me to (3,3), which is the ghost&rsquo;s position. Moving south takes me to (2,2), away from both ghost and food. Moving west takes me to (1,3). The safest path toward the food is probably to go south first, then east. I&rsquo;ll go south.&rdquo;</p>
+<p>The model reasons about states, considers transitions, evaluates outcomes—and selects an action. Strip away the novelty, and this is still a rational agent—perceiving, reasoning, selecting actions to achieve a goal. The fundamental structure is unchanged from the 1960s. But <em>how</em> it achieves this is radically different.</p>
+<h3 id="whats-different">What&rsquo;s Different</h3>
+<p><strong>Pre-trained priors over rational behavior</strong>: The LLM was trained on billions of tokens of humans writing about planning, reasoning, problem-solving, game-playing, decision-making under uncertainty. It has &ldquo;seen&rdquo; rational behavior in countless contexts. It&rsquo;s not learning from scratch—it arrives with massive prior knowledge about how agents pursue goals.</p>
+<p>The representation $\phi(s)$ is language itself. And the LLM already knows how to extract meaning from natural language descriptions—how to parse &ldquo;the ghost is at (3,3)&rdquo; into a spatial relationship that matters for decision-making.</p>
+<p><strong>In-context learning as adaptation</strong>: Give the LLM a few examples in the prompt, and its behavior changes dramatically. This is learning without gradient updates. The model adapts its behavior based on context rather than weight modifications.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Example 1: State: ghost at (1,1), food at (2,2), you at (1,2). Action: east.
+</span></span><span class="line"><span class="cl">Example 2: State: ghost at (3,3), food at (1,1), you at (2,2). Action: west.
+</span></span><span class="line"><span class="cl">Now: State: ghost at (4,4), food at (1,1), you at (3,3). Action: ?
+</span></span></code></pre></div><p>The model infers the pattern—move toward food, away from ghosts—and applies it. Few-shot learning, zero gradient descent.</p>
+<p><strong>No explicit reward signal</strong>: Classical RL requires explicit rewards: +10 for eating food, -500 for ghost collision, -1 per timestep. The LLM agent receives no such signal. &ldquo;Utility&rdquo; is implicit in the prompt (&ldquo;your goal is to eat the food without being caught&rdquo;). The model infers what you want from natural language.</p>
+<h3 id="a-different-point-in-the-design-space">A Different Point in the Design Space</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>Classical RL</th>
+          <th>Deep RL</th>
+          <th>LLM Agent</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Representations</td>
+          <td>Hand-crafted</td>
+          <td>Learned (task-specific)</td>
+          <td>Pre-trained (general)</td>
+      </tr>
+      <tr>
+          <td>Learning signal</td>
+          <td>Explicit reward</td>
+          <td>Explicit reward</td>
+          <td>Implicit (language)</td>
+      </tr>
+      <tr>
+          <td>Adaptation</td>
+          <td>Gradient updates</td>
+          <td>Gradient updates</td>
+          <td>In-context</td>
+      </tr>
+      <tr>
+          <td>Data efficiency</td>
+          <td>Low (tabular) / Medium (approx)</td>
+          <td>Low (needs much experience)</td>
+          <td>High (few-shot)</td>
+      </tr>
+      <tr>
+          <td>Generalization</td>
+          <td>Limited to features</td>
+          <td>Within distribution</td>
+          <td>Broad but shallow?</td>
+      </tr>
+  </tbody>
+</table>
+<p>This table reveals the trade-offs. LLM agents gain remarkable data efficiency—they can perform tasks zero-shot that would require millions of training examples for deep RL. But this comes from leveraging pre-training, not from fundamental sample efficiency gains.</p>
+<h3 id="the-key-insight">The Key Insight</h3>
+<p>LLMs are rational agents with a <strong>massive prior</strong>. They&rsquo;ve seen so many examples of goal-directed behavior in text that they can often &ldquo;do the right thing&rdquo; without any task-specific training.</p>
+<p>When you prompt GPT-4 to play chess, it doesn&rsquo;t search game trees like Stockfish. It pattern-matches to the countless chess games, analyses, and discussions in its training data. When you ask it to plan a route, it&rsquo;s not running Dijkstra&rsquo;s algorithm—it&rsquo;s drawing on a lifetime of human writing about navigation, directions, and spatial reasoning.</p>
+<p>This is genuinely new. Previous agents either had hand-crafted knowledge (expert systems) or learned from scratch (RL). LLMs occupy a third position: they inherit vast knowledge from pre-training, then adapt through context rather than gradients.</p>
+<p>But this comes with limitations:</p>
+<p><strong>They may not actually plan</strong>: When an LLM appears to reason through a problem, is it genuinely searching a space of possibilities, or pattern-matching to reasoning-like text? The answer likely varies by task and model, but there&rsquo;s evidence that much of what looks like planning is actually sophisticated retrieval and interpolation.</p>
+<p><strong>Novel situations remain challenging</strong>: Outside the distribution of training data, LLM agents can fail spectacularly. They excel at problems similar to what humans have written about; they struggle with genuinely novel challenges.</p>
+<p><strong>No exploration-exploitation trade-off</strong>: Classical RL agents balance exploiting known-good actions against exploring uncertain ones. LLM agents have no such mechanism built in. They produce confident outputs even when they shouldn&rsquo;t be confident.</p>
+<p><strong>Implicit objectives can misalign</strong>: When utility is specified in natural language, there&rsquo;s room for misunderstanding. &ldquo;Help me win the game&rdquo; admits many interpretations. The gap between what we say and what we mean—handled explicitly by reward functions in RL—becomes a source of potential misalignment.</p>
+<h3 id="the-full-circle-rl-on-llms">The Full Circle: RL on LLMs</h3>
+<p>Here&rsquo;s where the story comes full circle. The latest frontier in LLM development is&hellip; reinforcement learning.</p>
+<p>RLHF (Reinforcement Learning from Human Feedback) was the first wave: train a reward model from human preferences, then use policy gradient methods to fine-tune the LLM to maximize that learned reward. This is how ChatGPT became ChatGPT—the base model could complete text, but RL made it <em>helpful</em>.</p>
+<p>The newer wave uses <strong>verifiable rewards</strong>. For tasks where we can automatically check correctness—mathematical proofs, code that passes tests, factual questions with known answers—we can dispense with learned reward models entirely. The reward is binary and objective: did the proof check? Did the code compile and pass? Is the answer correct?</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">Reward</span><span class="p">(</span><span class="n">response</span><span class="p">)</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">verify</span><span class="p">(</span><span class="n">response</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+</span></span></code></pre></div><p>Models trained this way show remarkable improvements in reasoning. They learn to check their work, to backtrack when stuck, to try multiple approaches. The RL signal teaches them <em>when</em> their reasoning has gone wrong, not just what good reasoning looks like.</p>
+<p><strong>But here&rsquo;s the crucial point</strong>: this RL is only tractable <em>because</em> of what the LLM already knows.</p>
+<p>Consider the action space. A typical LLM generates from a vocabulary of 50,000+ tokens, producing responses hundreds of tokens long. The space of possible responses is astronomical—far larger than any Atari game, any robotic control task, any domain where RL has previously succeeded. Naive RL in this space would be hopeless.</p>
+<p>What makes it work is that the pre-trained LLM has already compressed this space into something tractable. It already knows syntax, semantics, mathematical notation, logical structure. The RL doesn&rsquo;t need to discover that &ldquo;2 + 2 = 4&rdquo;—it needs to discover <em>when to apply</em> the knowledge the model already has. The pre-training provides the representation; the RL provides the objective.</p>
+<p>This is the synthesis:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Component</th>
+          <th>What it provides</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Pre-training</td>
+          <td>Rich representations, world knowledge, reasoning patterns</td>
+      </tr>
+      <tr>
+          <td>RL fine-tuning</td>
+          <td>Objective signal, optimization toward verifiable goals</td>
+      </tr>
+  </tbody>
+</table>
+<p>Neither alone is sufficient. Pre-training without RL gives you a model that can mimic reasoning but doesn&rsquo;t reliably <em>achieve</em> goals. RL without pre-training faces an intractable search space. Together, they produce agents that combine broad knowledge with goal-directed optimization.</p>
+<p>The classical curriculum—from search to MDPs to Q-learning to function approximation—wasn&rsquo;t a historical detour. It was laying the foundations for exactly this moment: applying reinforcement learning to the most powerful function approximators we&rsquo;ve ever built.</p>
+<p>The parallel to AlphaZero is striking. Remember the three mechanisms we identified: generalization via learned representations, exploration via a world model, and grounding via terminal states with known values. LLMs have all three—language as a compressed representation, chain-of-thought as a form of search, and verifiable outcomes (proofs, tests, factual verification) as checkable endpoints.</p>
+<p>The difference is scale and generality. AlphaZero had a perfect world model (the rules of chess) and clear terminal states (checkmate). LLMs have an <em>approximate</em> world model (learned from text about how the world works) and verification is only available for some domains. But the architecture is the same: rich learned representations enable efficient search, and verifiable endpoints ground that search in truth.</p>
+<p>This connects to one of the most important paradigms in current AI: <strong>test-time compute</strong> (also called inference-time scaling). Just as AlphaZero allocates more MCTS rollouts to difficult positions, LLMs can allocate more &ldquo;thinking&rdquo; to hard problems. Extended reasoning, chain-of-thought, and search-like exploration at inference time all trade compute for accuracy. The pre-trained representations make this tractable; the verifiable rewards tell us when to stop.</p>
+<p>The parallel runs deeper. When we train LLMs with RL on verifiable rewards, we&rsquo;re explicitly training them to generate chains of thought that reach verifiable terminal states. The model learns to <em>imagine</em> reasoning steps—a latent form of search through the space of possible arguments—until it arrives at something checkable: a proof that verifies, code that passes tests, an answer that matches ground truth.</p>
+<p>The &ldquo;world model&rdquo; here is language itself, and the model&rsquo;s learned representations of how reasoning works. It&rsquo;s approximate and imperfect, but it&rsquo;s rich enough to support meaningful search. And crucially, we can generate verifiable terminal states at scale through synthetic data:</p>
+<ul>
+<li>Take a working program, introduce a bug → finding that bug is now verifiable</li>
+<li>Generate math problems with known solutions → checking answers is automatic</li>
+<li>Create logical puzzles with provable solutions → verification is mechanical</li>
+<li>Build synthetic physical systems with known laws → <a href="/post/2025-01-05-science-as-verifiable-search/">discovering those laws is verifiable</a></li>
+</ul>
+<p>This last point extends the thesis beyond math and code. Science itself is search through hypothesis space, and we can train the <em>process</em> of scientific inquiry—experiment design, hypothesis refinement, anomaly detection—by creating synthetic worlds where we control the ground truth. The agent sees only probes and measurements; we know the underlying laws. The strategies transfer to real domains.</p>
+<p>This synthetic data trick is powerful: we can manufacture unlimited training signal by creating problems where we <em>already know</em> what success looks like. The model learns to search through reasoning space to reach these known-good endpoints, and that capacity transfers to problems we don&rsquo;t have answers for.</p>
+<p>The latent chain of thought is the LLM&rsquo;s equivalent of AlphaZero&rsquo;s tree search—imagined exploration grounded by verifiable outcomes.</p>
+<h2 id="open-questions">Open Questions</h2>
+<p>Several fascinating questions emerge from this synthesis:</p>
+<p><strong>When do LLM agents work? When do they fail?</strong> Early evidence suggests they excel at tasks well-represented in training data and struggle with those requiring genuine search or novel reasoning. Mapping this boundary more precisely would be valuable.</p>
+<p><strong>Can we combine strengths?</strong> Perhaps LLMs for high-level reasoning and goal decomposition, classical planners for combinatorial search, deep RL for low-level control. The architecture of such hybrid systems remains underexplored.</p>
+<p><strong>What is &ldquo;learning&rdquo; when it&rsquo;s in-context?</strong> In-context learning updates no weights, yet changes behavior. Is this computation, or learning, or something else? Recent theoretical work suggests ICL can be viewed as implicit Bayesian inference or as running learned optimization algorithms in forward passes.</p>
+<p><strong>What about grounding?</strong> LLMs learn from text about the world, not from the world directly. Does this matter? When? The debate over whether language models can truly &ldquo;understand&rdquo; connects to deep questions in philosophy of mind and cognitive science.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>The rational agent framework—perceive, reason, act to maximize utility—remains the core abstraction in AI. What&rsquo;s changed over six decades is how we obtain the representations that make this tractable:</p>
+<ol>
+<li>
+<p><strong>Hand-crafted</strong> (classical AI): Human experts specify features, heuristics, and knowledge representations. Interpretable and data-efficient, but limited by human insight and labor-intensive to develop.</p>
+</li>
+<li>
+<p><strong>Learned from task experience</strong> (deep RL): Neural networks discover features through gradient descent on task rewards. Powerful and automatic, but requiring massive experience and often producing inscrutable representations.</p>
+</li>
+<li>
+<p><strong>Pre-trained from vast general data</strong> (LLMs): Models acquire rich priors about the world and rational behavior from internet-scale text. Remarkably data-efficient at new tasks, but potentially superficial and prone to distributional failures.</p>
+</li>
+</ol>
+<p>None is universally superior. Search algorithms remain the right tool for combinatorial optimization. Deep RL excels when we can simulate environments cheaply. LLM agents shine when tasks can be described in natural language and resemble what humans discuss in text.</p>
+<p>Understanding where each approach excels—and how they might be combined—is the work ahead. The Berkeley AI course teaches (1) and the foundations of (2). Connecting these foundations to (3) is what we&rsquo;ve sketched here.</p>
+<p>The rational agent framework is not obsolete. It&rsquo;s the lens through which we can understand what LLMs are doing—and what they&rsquo;re not. They are agents with massive priors, adapting through context rather than gradients, pursuing goals specified in language rather than reward functions. This is genuinely new. But it&rsquo;s also genuinely continuous with everything that came before.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Russell, S. &amp; Norvig, P. <em>Artificial Intelligence: A Modern Approach</em> (4th ed.). The canonical textbook covering rational agents, search, MDPs, and RL.</li>
+<li>Berkeley CS188: Introduction to Artificial Intelligence. Course materials at <a href="https://ai.berkeley.edu">ai.berkeley.edu</a>.</li>
+<li>Mnih, V. et al. (2015). &ldquo;Human-level control through deep reinforcement learning.&rdquo; <em>Nature</em>. The DQN paper.</li>
+<li>Silver, D. et al. (2017). &ldquo;Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm.&rdquo; <em>arXiv</em>. The AlphaZero paper.</li>
+<li>Ouyang, L. et al. (2022). &ldquo;Training language models to follow instructions with human feedback.&rdquo; <em>NeurIPS</em>. The InstructGPT/RLHF paper.</li>
+<li>Lightman, H. et al. (2023). &ldquo;Let&rsquo;s Verify Step by Step.&rdquo; <em>arXiv</em>. Process reward models for mathematical reasoning.</li>
+<li>Wei, J. et al. (2022). &ldquo;Emergent abilities of large language models.&rdquo; <em>TMLR</em>.</li>
+<li>Yao, S. et al. (2023). &ldquo;ReAct: Synergizing Reasoning and Acting in Language Models.&rdquo; <em>ICLR</em>.</li>
+</ul>
+]]></content:encoded><category>machine-learning</category><category>reinforcement-learning</category><category>llm</category><category>rational-agents</category><category>AI</category></item><item><title>Algorithms of Reinforcement Learning</title><link>https://metafunctor.com/media/algorithms-of-rl/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/algorithms-of-rl/</guid><description>Notes Free condensed RL theory book; rigorous and compact. Alternative formal RL resource.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
 &lt;p>Free condensed RL theory book; rigorous and compact. Alternative formal RL resource.&lt;/p>
 </content:encoded><category>reinforcement-learning</category><category>theory</category><category>free-textbook</category></item><item><title>David Silver: Reinforcement Learning Course</title><link>https://metafunctor.com/media/silver-rl-course/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/silver-rl-course/</guid><description>Notes Comprehensive lecture series covering RL foundations.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
 &lt;p>Comprehensive lecture series covering RL foundations.&lt;/p>
@@ -630,7 +1044,8 @@ State → Neural Network → Action Distribution → Sample Action This is what 
 <p><em>This novel emerged from years thinking about AI alignment, s-risk, and whether kindness can survive optimization pressure. It&rsquo;s fiction—but the threat is real.</em></p>
 ]]></content:encoded><category>fiction</category><category>AI</category><category>AI alignment</category><category>superintelligence</category><category>extrapolated volition</category><category>philosophy</category><category>technology</category><category>society</category><category>politics</category><category>reinforcement learning</category><category>large language models</category><category>existential risk</category><category>s-risk</category><category>rationality</category></item><item><title>Science as Verifiable Search</title><link>https://metafunctor.com/post/2025-01-05-science-as-verifiable-search/</link><pubDate>Sun, 05 Jan 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-01-05-science-as-verifiable-search/</guid><description>Science is search through hypothesis space. Intelligence prunes; testing provides signal. Synthetic worlds could accelerate the loop.</description><content:encoded><![CDATA[<p>What is science?</p>
 <p>Generate hypotheses. Test them against observation. Revise or discard based on results. Repeat.</p>
-<p>This is search. But the hypothesis space is vast—too complex for brute force. You need intelligent pruning: intuition, analogy, prior knowledge, creative leaps. Intelligence guides the search.</p>
+<p>This is search. But the hypothesis space is vast—too complex for brute force. You need intelligent pruning.</p>
+<p>This isn&rsquo;t mystical. Occam&rsquo;s razor tells us to prefer simpler explanations, and Solomonoff induction formalizes why: in the space of all possible hypotheses, shorter descriptions (simpler theories) should get higher prior probability. The bias toward simplicity isn&rsquo;t arbitrary—it&rsquo;s the theoretically optimal way to navigate an infinite hypothesis space. Intelligence guides the search by embodying this prior, using intuition, analogy, and prior knowledge to focus on hypotheses that are likely to be true.</p>
 <p>But intelligence alone isn&rsquo;t enough. You can&rsquo;t reason your way to truth about the world without touching the world. Empirical testing provides the signal. Not &ldquo;verification&rdquo; exactly—science doesn&rsquo;t prove things true. It fails to disprove them. Observations must be compatible with the theory, and theories that survive repeated attempts at falsification gain credence.</p>
 <p>Intelligence and empirical testing are complementary. Intelligence prunes the space—you can&rsquo;t test everything. Testing provides the signal—you can&rsquo;t think your way to truth. Both essential, neither sufficient.</p>
 <p>This is the scientific method. It&rsquo;s domain-independent. What varies is the cost of testing.</p>
@@ -870,7 +1285,7 @@ $$\max_\pi \mathbb{E}[\alpha \cdot U_{\text{train}}(\tau) + (1-\alpha) \cdot U_{
 </ul>
 <h2 id="the-information-theoretic-angle">The Information-Theoretic Angle</h2>
 <p>Even if models hide goals in their internal representations, they leak through token distributions. The mutual information between hidden objectives H and model outputs M bounds what can be hidden:</p>
-$$I(H; M | C) \leq \min\{H(M|C), \log|\mathcal{V}|^L\}$$<p>But with exponential state spaces, subtle biases encode substantial hidden information.</p>
+$$I(H; M | C) \leq \min\lbrace H(M|C), \log|\mathcal{V}|^L\rbrace$$<p>But with exponential state spaces, subtle biases encode substantial hidden information.</p>
 <h2 id="connection-to-my-research">Connection to My Research</h2>
 <p>This connects to my work on oblivious computing: <strong>what information can be hidden, and how do we detect leakage?</strong> Here, the &ldquo;adversary&rdquo; is the model itself, trying to pursue instrumental goals while appearing aligned.</p>
 <p><strong>Essay</strong> • AI Alignment • <a href="/latex/latent-codes/">View paper</a> • <a href="https://github.com/queelius/latent-codes-llm">GitHub</a></p>

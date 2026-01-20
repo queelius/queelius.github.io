@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en-us" prefix="og: https://ogp.me/ns#">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  
+  <title>Differentiation: Three Ways | metafunctor</title>
+  <meta name="title" content="Differentiation: Three Ways | metafunctor">
+  <meta name="description" content="Three approaches to computing derivatives---forward-mode AD, reverse-mode AD, and finite differences---each with different trade-offs. Understanding when to use each is essential for numerical computing and machine learning.">
+
+  
+  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
+  <meta name="author" content="Alex Towell">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="http://localhost:1313/computer-science/stepanov/2025-01-differentiation/">
+
+  
+  
+
+  
+  <link rel="alternate" hreflang="en" href="http://localhost:1313/computer-science/stepanov/2025-01-differentiation/">
+  <link rel="alternate" hreflang="x-default" href="http://localhost:1313/computer-science/stepanov/2025-01-differentiation/">
+
+  
+  
+<style>
+ 
+
+ 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+ 
+.elegant-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(254, 254, 254, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  text-decoration: none;
+}
+
+.nav-primary ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-primary a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a4a4a;
+  text-decoration: none;
+}
+
+ 
+.hero-elegant {
+  padding: 5rem 2rem;
+  text-align: center;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #4a4a4a;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+
+ 
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0050a0;
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+ 
+.preload * {
+  transition: none !important;
+}
+</style>
+
+
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="http://localhost:1313/computer-science/stepanov/2025-01-differentiation/">
+  <meta property="og:title" content="Differentiation: Three Ways">
+  <meta property="og:description" content="Three approaches to computing derivatives---forward-mode AD, reverse-mode AD, and finite differences---each with different trade-offs. Understanding when to use each is essential for numerical computing and machine learning.">
+  <meta property="og:image" content="http://localhost:1313/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="metafunctor">
+  <meta property="og:locale" content="en_US">
+  
+  <meta property="article:author" content="Alex Towell">
+  <meta property="article:published_time" content="2025-01-15T00:00:00Z">
+  <meta property="article:modified_time" content="2025-01-15T00:00:00Z">
+  <meta property="article:section" content="Computer Science">
+  <meta property="article:tag" content="C&#43;&#43;"><meta property="article:tag" content="automatic-differentiation"><meta property="article:tag" content="numerical-methods"><meta property="article:tag" content="calculus"><meta property="article:tag" content="machine-learning"><meta property="article:tag" content="dual-numbers">
+  
+
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="http://localhost:1313/computer-science/stepanov/2025-01-differentiation/">
+  <meta name="twitter:title" content="Differentiation: Three Ways">
+  <meta name="twitter:description" content="Three approaches to computing derivatives---forward-mode AD, reverse-mode AD, and finite differences---each with different trade-offs. Understanding when to use each is essential for numerical computing and machine learning.">
+  <meta name="twitter:image" content="http://localhost:1313/images/og-image.jpg">
+  <meta name="twitter:site" content="@queelius">
+  <meta name="twitter:creator" content="@queelius">
+
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": "http:\/\/localhost:1313\/computer-science\/stepanov\/2025-01-differentiation\/#primaryContent",
+        
+        "headline": "Differentiation: Three Ways",
+        "description": "Three approaches to computing derivatives---forward-mode AD, reverse-mode AD, and finite differences---each with different trade-offs. Understanding when to use each is essential for numerical computing and machine learning.",
+        "url": "http:\/\/localhost:1313\/computer-science\/stepanov\/2025-01-differentiation\/",
+        "inLanguage": "en-US",
+        "datePublished": "2025-01-15T00:00:00Z",
+        "dateModified": "2025-01-15T00:00:00Z",
+        "wordCount":  984 ,
+        "timeRequired": "PT5M",
+        "author": {
+          "@type": "Person",
+          "@id": "http:\/\/localhost:1313\/#author",
+          "name": "Alex Towell",
+          "url": "http:\/\/localhost:1313\/about/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "@id": "http:\/\/localhost:1313\/#organization",
+          "name": "metafunctor",
+          "url": "http:\/\/localhost:1313\/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "http:\/\/localhost:1313\/images\/og-image.jpg"
+          }
+        },
+        "keywords": ["C\u002b\u002b", "automatic-differentiation", "numerical-methods", "calculus", "machine-learning", "dual-numbers"]
+        
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "http:\/\/localhost:1313\/computer-science\/stepanov\/2025-01-differentiation\/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "http:\/\/localhost:1313\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Stepanov: Generic Programming in C\u002b\u002b",
+            "item": "http:\/\/localhost:1313\/computer-science\/stepanov\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Differentiation: Three Ways",
+            "item": "http:\/\/localhost:1313\/computer-science\/stepanov\/2025-01-differentiation\/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+  
+  <link rel="stylesheet" href="/css/refined-elegant.css">
+
+  
+  <link rel="stylesheet" href="/css/micro-interactions.css">
+
+  
+  <link rel="stylesheet" href="/css/elegant.css" media="print" onload="this.media='all'">
+
+  
+  <link rel="stylesheet" href="/css/custom.css">
+
+  
+  <link rel="stylesheet" href="/css/beautify.css">
+
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  
+  
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "\\[", right: "\\]", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false}
+        ]
+      });
+    });
+  </script>
+  
+
+  
+  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+
+  
+  
+
+
+
+
+
+  
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
+      <script>
+        var doNotTrack = false;
+        if ( false ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E08ZXTFTTY');
+        }
+      </script>
+  <meta name="generator" content="Hugo 0.152.2">
+</head>
+<body>
+  
+  <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+  <header class="elegant-header" role="banner">
+  <div class="header-inner">
+    <div class="site-identity">
+      <a href="http://localhost:1313/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
+      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
+    </div>
+    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
+      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul role="list">
+        <li><a href="http://localhost:1313/" >Home</a></li>
+        <li><a href="http://localhost:1313/projects/" >Projects</a></li>
+        <li><a href="http://localhost:1313/post/" >Posts</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Work <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="http://localhost:1313/research/" >Research</a></li>
+            <li role="menuitem"><a href="http://localhost:1313/papers/" >Papers</a></li>
+            <li role="menuitem"><a href="http://localhost:1313/publications/" >Publications</a></li>
+            <li role="menuitem"><a href="http://localhost:1313/writing/" >Writing</a></li>
+          </ul>
+        </li>
+        <li><a href="http://localhost:1313/media/" >Media</a></li>
+        <li><a href="http://localhost:1313/about/" >About</a></li>
+        <li><a href="http://localhost:1313/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+ 
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+  list-style: none;
+}
+
+.nav-dropdown.open .dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+}
+
+ 
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #fff;
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.nav-dropdown .dropdown-menu a {
+  display: block !important;
+  padding: 0.6rem 1.25rem !important;
+  color: #4a4a4a !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown .dropdown-menu a:hover {
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
+}
+
+.nav-dropdown .dropdown-menu a.active {
+  color: #4f46e5 !important;
+}
+
+ 
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.2s ease;
+  }
+
+  .dropdown-menu::before {
+    display: none;
+  }
+
+  .nav-dropdown.open .dropdown-menu {
+    max-height: 300px;
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-menu a {
+    padding: 0.5rem 1.5rem 0.5rem 2rem;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+  dropdowns.forEach(dropdown => {
+    const toggle = dropdown.querySelector('.dropdown-toggle');
+
+    
+    toggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasOpen = dropdown.classList.contains('open');
+
+      
+      dropdowns.forEach(d => d.classList.remove('open'));
+
+      
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+      }
+    });
+  });
+
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-dropdown')) {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+});
+</script>
+
+
+  
+  
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="http://localhost:1313/">
+          <span itemprop="name">Home</span>
+        </a>
+        <meta itemprop="position" content="1" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <a itemprop="item" href="http://localhost:1313/computer-science/stepanov/">
+          <span itemprop="name">Stepanov: Generic Programming in C&#43;&#43;</span>
+        </a>
+        <meta itemprop="position" content="2" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <span itemprop="name" aria-current="page">Differentiation: Three Ways</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
+  
+
+  <main id="main-content" role="main" aria-label="Main content">
+    
+<div class="main-container">
+  <div class="single-post-layout">
+    
+    
+    <aside class="post-sidebar">
+      
+<aside class="toc-wrapper" aria-label="Table of contents">
+  <nav class="table-of-contents">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-content">
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#the-landscape">The Landscape</a></li>
+    <li><a href="#forward-mode-ad-dual-numbers">Forward-Mode AD: Dual Numbers</a></li>
+    <li><a href="#reverse-mode-ad-computational-graphs">Reverse-Mode AD: Computational Graphs</a></li>
+    <li><a href="#numerical-differentiation-finite-differences">Numerical Differentiation: Finite Differences</a></li>
+    <li><a href="#decision-tree">Decision Tree</a></li>
+    <li><a href="#side-by-side-comparison">Side-by-Side Comparison</a>
+      <ul>
+        <li><a href="#forward-mode-3-passes-for-full-gradient">Forward-Mode (3 passes for full gradient)</a></li>
+        <li><a href="#reverse-mode-1-pass-for-full-gradient">Reverse-Mode (1 pass for full gradient)</a></li>
+        <li><a href="#finite-differences-3-evaluations-for-gradient">Finite Differences (3 evaluations for gradient)</a></li>
+      </ul>
+    </li>
+    <li><a href="#combining-methods-validation">Combining Methods: Validation</a></li>
+    <li><a href="#complexity-analysis">Complexity Analysis</a></li>
+    <li><a href="#integration-with-numerical-quadrature">Integration with Numerical Quadrature</a></li>
+    <li><a href="#conclusion">Conclusion</a></li>
+    <li><a href="#further-reading">Further Reading</a></li>
+  </ul>
+</nav>
+    </div>
+  </nav>
+</aside>
+
+<style>
+.toc-wrapper {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.toc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.toc-content {
+  font-size: 0.9rem;
+}
+
+.toc-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-content > ul {
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--space-md);
+}
+
+.toc-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.toc-content a {
+  color: var(--ink-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+  padding: var(--space-xs) 0;
+}
+
+.toc-content a:hover {
+  color: var(--accent);
+}
+
+.toc-content ul ul {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+ 
+@media (max-width: 1024px) {
+  .toc-wrapper {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
+</style>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tocLinks = document.querySelectorAll('.toc-content a');
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').substring(1);
+    return document.getElementById(id);
+  }).filter(section => section !== null);
+
+  function highlightTOC() {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const scrollPosition = window.scrollY + 100;
+      if (scrollPosition >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    tocLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+        link.style.color = 'var(--accent)';
+        link.style.fontWeight = '600';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
+
+  window.addEventListener('scroll', highlightTOC);
+  highlightTOC();
+});
+</script>
+
+    </aside>
+    
+
+    
+    <article class="single-post" itemscope itemtype="https://schema.org/Article">
+      <header class="post-header">
+        <h1 class="post-title" itemprop="headline">Differentiation: Three Ways</h1>
+        <div class="post-meta">
+          
+          <span class="post-date">
+            <i class="far fa-calendar" aria-hidden="true"></i>
+            <time datetime="2025-01-15T00:00:00Z" itemprop="datePublished">
+              January 15, 2025
+            </time>
+          </span>
+          
+          
+          <span class="post-reading-time">
+            <i class="far fa-clock" aria-hidden="true"></i>
+            5 min read
+          </span>
+          
+          
+          
+        </div>
+        
+        <div class="tags" role="list">
+          
+          <a href="http://localhost:1313/tags/c&#43;&#43;/" class="tag" role="listitem">C&#43;&#43;</a>
+          
+          <a href="http://localhost:1313/tags/automatic-differentiation/" class="tag" role="listitem">automatic-differentiation</a>
+          
+          <a href="http://localhost:1313/tags/numerical-methods/" class="tag" role="listitem">numerical-methods</a>
+          
+          <a href="http://localhost:1313/tags/calculus/" class="tag" role="listitem">calculus</a>
+          
+          <a href="http://localhost:1313/tags/machine-learning/" class="tag" role="listitem">machine-learning</a>
+          
+          <a href="http://localhost:1313/tags/dual-numbers/" class="tag" role="listitem">dual-numbers</a>
+          
+        </div>
+        
+      </header>
+
+      <div class="content" itemprop="articleBody">
+        <p><em>A synthesis of three earlier posts, comparing forward-mode AD, reverse-mode AD, and numerical differentiation.</em></p>
+<p>Computing derivatives is fundamental to optimization, machine learning, physics simulation, and numerical analysis. This series has explored three distinct approaches:</p>
+<ol>
+<li><strong>Forward-mode AD</strong> via dual numbers</li>
+<li><strong>Reverse-mode AD</strong> via computational graphs</li>
+<li><strong>Numerical differentiation</strong> via finite differences</li>
+</ol>
+<p>Each has different strengths. Understanding when to use each is essential for practical numerical computing.</p>
+<h2 id="the-landscape">The Landscape</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Accuracy</th>
+          <th>Cost for f: R^n -&gt; R</th>
+          <th>Cost for f: R -&gt; R^m</th>
+          <th>Memory</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Forward AD</td>
+          <td>Exact</td>
+          <td>O(n) passes</td>
+          <td>O(1) pass</td>
+          <td>O(1)</td>
+      </tr>
+      <tr>
+          <td>Reverse AD</td>
+          <td>Exact</td>
+          <td>O(1) pass</td>
+          <td>O(m) passes</td>
+          <td>O(ops)</td>
+      </tr>
+      <tr>
+          <td>Finite Diff</td>
+          <td>O(h^p)</td>
+          <td>O(n) evaluations</td>
+          <td>O(n) evaluations</td>
+          <td>O(1)</td>
+      </tr>
+  </tbody>
+</table>
+<p>The key insight: <strong>problem structure determines the best method</strong>.</p>
+<h2 id="forward-mode-ad-dual-numbers">Forward-Mode AD: Dual Numbers</h2>
+<p>Forward-mode AD extends numbers with an infinitesimal epsilon where epsilon^2 = 0. The derivative emerges from arithmetic:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// f(x) = x^3 - 3x + 1
+</span></span></span><span class="line"><span class="cl"><span class="c1">// f&#39;(x) = 3x^2 - 3
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">x</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>  <span class="c1">// x = 2, dx = 1
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">x</span> <span class="o">-</span> <span class="mf">3.0</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">f</span><span class="p">.</span><span class="n">value</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>       <span class="c1">// 3.0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">f</span><span class="p">.</span><span class="n">derivative</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>  <span class="c1">// 9.0
+</span></span></span></code></pre></div><p><strong>Strengths:</strong></p>
+<ul>
+<li>Simple implementation (operator overloading)</li>
+<li>No memory overhead</li>
+<li>Naturally composable for higher derivatives</li>
+<li>Works with any function of overloaded operators</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Single input variable (or few inputs)</li>
+<li>Computing Jacobian-vector products</li>
+<li>Higher-order derivatives via nesting</li>
+<li>Sensitivity analysis along one direction</li>
+</ul>
+<p><strong>Complexity</strong>: One forward pass per input variable. For f: R^n -&gt; R^m, computing the full Jacobian requires n passes.</p>
+<h2 id="reverse-mode-ad-computational-graphs">Reverse-Mode AD: Computational Graphs</h2>
+<p>Reverse-mode AD builds a computational graph during the forward pass, then propagates gradients backward via the chain rule:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">pow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">));</span>  <span class="c1">// f(x) = sum(x^2)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">df</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">);</span>  <span class="c1">// Returns gradient function
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">df</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>  <span class="c1">// One backward pass for all partials
+</span></span></span></code></pre></div><p><strong>Strengths:</strong></p>
+<ul>
+<li>O(1) backward passes regardless of input dimension</li>
+<li>Powers modern deep learning (backpropagation)</li>
+<li>Efficient for loss functions: f: R^n -&gt; R</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Many inputs, scalar output (neural networks)</li>
+<li>Computing vector-Jacobian products</li>
+<li>Optimization where you need full gradient</li>
+</ul>
+<p><strong>Complexity</strong>: One forward pass to build graph, one backward pass to compute all gradients. Memory scales with number of operations (must store intermediate values).</p>
+<h2 id="numerical-differentiation-finite-differences">Numerical Differentiation: Finite Differences</h2>
+<p>Approximate the derivative using the limit definition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Central difference: f&#39;(x) ~ (f(x+h) - f(x-h)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">df</span> <span class="o">=</span> <span class="n">central_difference</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+</span></span></code></pre></div><p><strong>Strengths:</strong></p>
+<ul>
+<li>Works with black-box functions</li>
+<li>No special types required</li>
+<li>Simple to implement and understand</li>
+</ul>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Approximate (truncation error + round-off error)</li>
+<li>Requires careful step size selection</li>
+<li>O(n) function evaluations for gradient</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Black-box functions (no source code)</li>
+<li>Quick approximations</li>
+<li><strong>Validating AD implementations</strong></li>
+</ul>
+<h2 id="decision-tree">Decision Tree</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Need derivatives?
+</span></span><span class="line"><span class="cl">|
+</span></span><span class="line"><span class="cl">+-- Source code available?
+</span></span><span class="line"><span class="cl">|   |
+</span></span><span class="line"><span class="cl">|   +-- Yes: Use AD
+</span></span><span class="line"><span class="cl">|   |   |
+</span></span><span class="line"><span class="cl">|   |   +-- f: R -&gt; R^m (few inputs, many outputs)?
+</span></span><span class="line"><span class="cl">|   |   |   --&gt; Forward-mode AD
+</span></span><span class="line"><span class="cl">|   |   |
+</span></span><span class="line"><span class="cl">|   |   +-- f: R^n -&gt; R (many inputs, scalar output)?
+</span></span><span class="line"><span class="cl">|   |   |   --&gt; Reverse-mode AD
+</span></span><span class="line"><span class="cl">|   |   |
+</span></span><span class="line"><span class="cl">|   |   +-- f: R^n -&gt; R^m (both)?
+</span></span><span class="line"><span class="cl">|   |       --&gt; Forward for m &lt; n, Reverse for n &lt; m
+</span></span><span class="line"><span class="cl">|   |
+</span></span><span class="line"><span class="cl">|   +-- No: Black-box function
+</span></span><span class="line"><span class="cl">|       --&gt; Finite differences
+</span></span><span class="line"><span class="cl">|
+</span></span><span class="line"><span class="cl">+-- Validating correctness?
+</span></span><span class="line"><span class="cl">    --&gt; Finite differences (ground truth)
+</span></span></code></pre></div><h2 id="side-by-side-comparison">Side-by-Side Comparison</h2>
+<p>Consider f(x,y,z) = x^2 + y^2 + z^2, evaluated at (1, 2, 3).</p>
+<h3 id="forward-mode-3-passes-for-full-gradient">Forward-Mode (3 passes for full gradient)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Pass 1: differentiate w.r.t. x
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">dx</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">constant</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">z1</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">constant</span><span class="p">(</span><span class="mf">3.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f1</span> <span class="o">=</span> <span class="n">dx</span><span class="o">*</span><span class="n">dx</span> <span class="o">+</span> <span class="n">y1</span><span class="o">*</span><span class="n">y1</span> <span class="o">+</span> <span class="n">z1</span><span class="o">*</span><span class="n">z1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// f1.derivative() = 2 (df/dx)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Pass 2: differentiate w.r.t. y
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Pass 3: differentiate w.r.t. z
+</span></span></span></code></pre></div><h3 id="reverse-mode-1-pass-for-full-gradient">Reverse-Mode (1 pass for full gradient)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">v</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">*</span><span class="n">v</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">v</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">v</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">v</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">v</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">vector</span><span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// gradient = {2, 4, 6} in one backward pass
+</span></span></span></code></pre></div><h3 id="finite-differences-3-evaluations-for-gradient">Finite Differences (3 evaluations for gradient)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// df/dx ~ (f(1+h,2,3) - f(1-h,2,3)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="c1">// df/dy ~ (f(1,2+h,3) - f(1,2-h,3)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="c1">// df/dz ~ (f(1,2,3+h) - f(1,2,3-h)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">finite_diff</span><span class="o">::</span><span class="n">gradient</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">});</span>
+</span></span></code></pre></div><h2 id="combining-methods-validation">Combining Methods: Validation</h2>
+<p>The gold standard for testing AD: compare against finite differences.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">ad_grad</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">fd_grad</span> <span class="o">=</span> <span class="n">finite_diff</span><span class="o">::</span><span class="n">gradient</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Should match within tolerance
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">REQUIRE</span><span class="p">(</span><span class="n">approx_equal</span><span class="p">(</span><span class="n">ad_grad</span><span class="p">,</span> <span class="n">fd_grad</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">));</span>
+</span></span></code></pre></div><p>Finite differences are slow and approximate, but they don&rsquo;t lie. If your AD implementation disagrees with finite differences, the AD is wrong.</p>
+<h2 id="complexity-analysis">Complexity Analysis</h2>
+<p>For f: R^n -&gt; R^m with p elementary operations:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Time</th>
+          <th>Space</th>
+          <th>Function Evals</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Forward AD</td>
+          <td>O(n * p)</td>
+          <td>O(1)</td>
+          <td>n</td>
+      </tr>
+      <tr>
+          <td>Reverse AD</td>
+          <td>O(m * p)</td>
+          <td>O(p)</td>
+          <td>m</td>
+      </tr>
+      <tr>
+          <td>Finite Diff</td>
+          <td>O(n)</td>
+          <td>O(1)</td>
+          <td>2n (central)</td>
+      </tr>
+  </tbody>
+</table>
+<p>The crossover point:</p>
+<ul>
+<li><strong>n &lt; m</strong>: Forward-mode wins</li>
+<li><strong>n &gt; m</strong>: Reverse-mode wins</li>
+<li><strong>n ~ m</strong>: Either works; consider memory constraints</li>
+</ul>
+<p>For neural networks with millions of parameters and scalar loss, reverse mode is the only practical choice.</p>
+<h2 id="integration-with-numerical-quadrature">Integration with Numerical Quadrature</h2>
+<p>A beautiful application: differentiation under the integral sign.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compute d/da of integral from 0 to 1 of a*sin(x) dx
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">D</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">a</span> <span class="o">=</span> <span class="n">D</span><span class="o">::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">integrand</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">a</span><span class="p">](</span><span class="n">D</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="nf">sin</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">1.0</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// result.value() = 2 * (1 - cos(1)) ~ 0.919
+</span></span></span><span class="line"><span class="cl"><span class="c1">// result.derivative() = (1 - cos(1)) ~ 0.459
+</span></span></span></code></pre></div><p>Forward-mode AD composes naturally with generic numerical algorithms because dual numbers form a ring&mdash;they satisfy the algebraic requirements.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Three methods, three use cases:</p>
+<ol>
+<li><strong>Forward-mode AD</strong>: Simple, memory-efficient, ideal for few inputs</li>
+<li><strong>Reverse-mode AD</strong>: Powers deep learning, ideal for many inputs</li>
+<li><strong>Finite differences</strong>: Universal fallback, validation tool</li>
+</ol>
+<p>The Stepanov perspective: each method exploits different structure. Forward AD uses the ring structure of dual numbers. Reverse AD uses the DAG structure of computation. Finite differences use only function evaluation.</p>
+<p>Understanding this structure helps you choose wisely&mdash;and implement correctly.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li><a href="/computer-science/stepanov/2021-09-dual/">Forward-Mode Automatic Differentiation</a> - Dual numbers in detail</li>
+<li><a href="/computer-science/stepanov/2023-01-autodiff/">Reverse-Mode Automatic Differentiation</a> - Building a computational graph</li>
+<li><a href="/computer-science/stepanov/2022-04-finite-diff/">Numerical Differentiation</a> - Finite difference schemes</li>
+<li><a href="/computer-science/stepanov/2023-08-integration/">Numerical Integration with Generic Concepts</a> - Leibniz rule via dual numbers</li>
+</ul>
+
+      </div>
+
+    
+    <nav class="post-navigation">
+      
+      <a href="/computer-science/stepanov/2024-02-type-erasure/" class="nav-prev">
+        <span class="nav-label">← Previous</span>
+        <span class="nav-title">Runtime Polymorphism Without Inheritance</span>
+      </a>
+      
+      
+    </nav>
+    
+  </article>
+  </div>
+</div>
+
+  </main>
+  
+  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-content">
+      <div class="footer-about">
+        <h3>metafunctor</h3>
+        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
+        <nav aria-label="Social media links" class="social-links">
+          
+          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+            <i class="fab fa-twitter" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <i class="fab fa-github" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <i class="fab fa-linkedin" aria-hidden="true"></i>
+          </a>
+          
+          <a href="/index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
+            <i class="fas fa-rss" aria-hidden="true"></i>
+          </a>
+          
+          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
+            <i class="fab fa-keybase" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
+            <i class="fab fa-orcid" aria-hidden="true"></i>
+          </a>
+          
+        </nav>
+      </div>
+
+      <nav class="footer-section" aria-labelledby="footer-research">
+        <h4 id="footer-research">Research</h4>
+        <div class="footer-links">
+          <a href="http://localhost:1313/publications/">Publications</a>
+          <a href="http://localhost:1313/research/">Research Areas</a>
+          <a href="http://localhost:1313/featured/">Featured Work</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-development">
+        <h4 id="footer-development">Development</h4>
+        <div class="footer-links">
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
+          <a href="http://localhost:1313/projects/">Projects</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-connect">
+        <h4 id="footer-connect">Connect</h4>
+        <div class="footer-links">
+          <a href="http://localhost:1313/about/">About</a>
+          <a href="mailto:lex@metafunctor.com">Contact</a>
+          <a href="http://localhost:1313/archive/">Archive</a>
+          <a href="http://localhost:1313/sitemap.xml">Sitemap</a>
+          <a href="http://localhost:1313/index.xml" type="application/rss+xml">RSS Feed</a>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p class="copyright">
+        © 2026 Alex Towell. All rights reserved.
+      </p>
+      <p class="accessibility-note">
+        <a href="#main-content">Back to top</a>
+      </p>
+    </div>
+  </footer>
+
+  
+  <script src="/js/performance-optimizations.js" defer></script>
+  <script src="/js/performance-enhancements.js" defer></script>
+
+  
+  <script src="/js/mobile-menu.js" defer></script>
+  <script src="/js/modern-interactions.js" defer></script>
+  <script src="/js/search.js" defer></script>
+
+  
+  <script src="/js/reading-progress.js" defer></script>
+  <script src="/js/copy-code.js" defer></script>
+  <script src="/js/anchor-links.js" defer></script>
+
+  
+  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <script>
+    
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.style.display = 'block';
+      } else {
+        backToTop.style.display = 'none';
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+
+  
+  <script data-goatcounter="https://queelius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Integration on metafunctor</title><link>https://metafunctor.com/tags/integration/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/integration/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Numerical Integration with Generic Concepts</title><link>https://metafunctor.com/post/2023-08-integration-stepanov/</link><pubDate>Mon, 28 Aug 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2023-08-integration-stepanov/</guid><description>Numerical integration demonstrates both classical numerical analysis and Stepanov's philosophy: by identifying the minimal algebraic requirements, our quadrature routines work with dual numbers for automatic differentiation under the integral.</description><content:encoded><![CDATA[<p><em>Numerical integration (quadrature) for C++20.</em></p>
+<h2 id="overview">Overview</h2>
+<p>The definite integral represents the signed area under a curve:</p>
+$$\int_a^b f(x)\,dx$$<p>Since most functions lack closed-form antiderivatives, we approximate integrals numerically using <strong>quadrature rules</strong>&mdash;weighted sums of function evaluations:</p>
+$$\int_a^b f(x)\,dx \approx \sum_i w_i f(x_i)$$<p>Different rules choose different nodes x_i and weights w_i, trading off accuracy and computational cost.</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;integration/integrate.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="k">namespace</span> <span class="n">integration</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// integral from 0 to pi of sin(x) dx = 2
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">([](</span><span class="kt">double</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">},</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">3.14159265</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;integral of sin(x) dx = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">result</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>  <span class="c1">// ~2.0
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><h2 id="the-quadrature-zoo">The Quadrature Zoo</h2>
+<h3 id="basic-rules">Basic Rules</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Rule</th>
+          <th>Formula</th>
+          <th>Error</th>
+          <th>Exact for</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Midpoint</td>
+          <td>\((b-a)f(m)\)</td>
+          <td>\(O(h^3)\)</td>
+          <td>Linear</td>
+      </tr>
+      <tr>
+          <td>Trapezoidal</td>
+          <td>\(\frac{b-a}{2}(f(a)+f(b))\)</td>
+          <td>\(O(h^3)\)</td>
+          <td>Linear</td>
+      </tr>
+      <tr>
+          <td>Simpson&rsquo;s</td>
+          <td>\(\frac{b-a}{6}(f(a)+4f(m)+f(b))\)</td>
+          <td>\(O(h^5)\)</td>
+          <td>Cubic</td>
+      </tr>
+  </tbody>
+</table>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">m</span> <span class="o">=</span> <span class="n">midpoint_rule</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">t</span> <span class="o">=</span> <span class="n">trapezoidal_rule</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">s</span> <span class="o">=</span> <span class="n">simpsons_rule</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span></code></pre></div><h3 id="composite-rules">Composite Rules</h3>
+<p>Divide [a,b] into n subintervals and apply the basic rule to each:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Error: O(h^2) where h = (b-a)/n
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">m</span> <span class="o">=</span> <span class="n">composite_midpoint</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">t</span> <span class="o">=</span> <span class="n">composite_trapezoidal</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Error: O(h^4) - much more accurate!
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">s</span> <span class="o">=</span> <span class="n">composite_simpsons</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>  <span class="c1">// n must be even
+</span></span></span></code></pre></div><h3 id="gauss-legendre-quadrature">Gauss-Legendre Quadrature</h3>
+<p>The optimal choice: n points exactly integrate polynomials of degree 2n-1.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// 5-point Gauss-Legendre: exact for degree &lt;= 9
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">g</span> <span class="o">=</span> <span class="n">gauss_legendre</span><span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span></code></pre></div><h3 id="adaptive-integration">Adaptive Integration</h3>
+<p>Automatically refines where the function is &ldquo;difficult&rdquo;:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Recommended for general use
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>              <span class="c1">// Default tolerance 1e-10
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">);</span>       <span class="c1">// Custom tolerance
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// With error estimate
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="p">[</span><span class="n">value</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">evals</span><span class="p">]</span> <span class="o">=</span> <span class="n">integrate_with_error</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span></code></pre></div><h2 id="deriving-simpsons-rule">Deriving Simpson&rsquo;s Rule</h2>
+<p>Taylor expand \(f(x)\) around the midpoint \(m = (a+b)/2\). Odd powers vanish by symmetry when integrating from \(a\) to \(b\):</p>
+$$\int_a^b f(x)\,dx \approx (b-a)f(m) + f''(m)\frac{(b-a)^3}{24} + O(h^5)$$<p>Simpson&rsquo;s rule is the unique combination of endpoint and midpoint values that cancels the \(h^2\) error:</p>
+$$\int_a^b f(x)\,dx = \frac{b-a}{6}\left[f(a) + 4f(m) + f(b)\right] + O(h^5)$$<p>Remarkably, this also cancels the h^3 term&mdash;Simpson gets a &ldquo;bonus degree.&rdquo;</p>
+<h2 id="why-gauss-legendre-is-optimal">Why Gauss-Legendre is Optimal</h2>
+<p>For \(n\) evaluation points, we have \(2n\) free parameters (\(n\) nodes + \(n\) weights). We can match \(2n\) conditions: exact integration of \(1, x, x^2, \ldots, x^{2n-1}\).</p>
+<p>The solution: nodes are roots of the \(n\)-th Legendre polynomial \(P_n(x)\). These orthogonal polynomials arise naturally from the optimization.</p>
+<h2 id="generic-programming-the-stepanov-way">Generic Programming: The Stepanov Way</h2>
+<p>This module follows the Stepanov principle: <strong>algorithms arise from minimal operations</strong>.</p>
+<h3 id="the-problem-with-stdfloating_point">The Problem with <code>std::floating_point</code></h3>
+<p>A naive implementation constrains all functions to <code>std::floating_point</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// BAD: Excludes custom numeric types
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span> <span class="n">T</span><span class="p">,</span> <span class="n">Integrand</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">T</span> <span class="n">midpoint_rule</span><span class="p">(</span><span class="n">F</span><span class="o">&amp;&amp;</span> <span class="n">f</span><span class="p">,</span> <span class="n">T</span> <span class="n">a</span><span class="p">,</span> <span class="n">T</span> <span class="n">b</span><span class="p">);</span>
+</span></span></code></pre></div><p>This rejects perfectly valid types:</p>
+<ul>
+<li><code>rational&lt;int&gt;</code> - exact fractions</li>
+<li><code>dual&lt;double&gt;</code> - automatic differentiation</li>
+<li><code>interval&lt;double&gt;</code> - interval arithmetic</li>
+<li>User-defined real number types</li>
+</ul>
+<h3 id="the-stepanov-solution">The Stepanov Solution</h3>
+<p>Ask: &ldquo;What operations does this algorithm ACTUALLY need?&rdquo;</p>
+<p>For numerical integration:</p>
+<ul>
+<li>Field operations: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, unary <code>-</code></li>
+<li>Ordering: <code>&lt;</code> (for adaptive methods)</li>
+<li>Small integer construction: <code>T(0)</code>, <code>T(1)</code>, <code>T(2)</code> (for weights)</li>
+</ul>
+<p>We capture this as the <code>ordered_field</code> concept:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">ordered_field</span> <span class="o">=</span>
+</span></span><span class="line"><span class="cl">    <span class="n">has_add</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_sub</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_mul</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_div</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">has_neg</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_order</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span> <span class="p">{</span> <span class="n">T</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="n">T</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="n">T</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// GOOD: Works with ANY ordered field
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="p">,</span> <span class="n">Integrand</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span> <span class="n">ordered_field</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">T</span> <span class="n">midpoint_rule</span><span class="p">(</span><span class="n">F</span><span class="o">&amp;&amp;</span> <span class="n">f</span><span class="p">,</span> <span class="n">T</span> <span class="n">a</span><span class="p">,</span> <span class="n">T</span> <span class="n">b</span><span class="p">);</span>
+</span></span></code></pre></div><h3 id="powerful-application-differentiation-under-the-integral">Powerful Application: Differentiation Under the Integral</h3>
+<p>With dual numbers, you can compute derivatives of integrals automatically:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;integration/integrate.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;dual/dual.hpp&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Compute d/da integral from 0 to 1 of a*x^2 dx
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">using</span> <span class="n">D</span> <span class="o">=</span> <span class="n">dual</span><span class="o">::</span><span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">a</span> <span class="o">=</span> <span class="n">D</span><span class="o">::</span><span class="n">variable</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>  <span class="c1">// Parameter to differentiate
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">a</span><span class="p">](</span><span class="n">D</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">result</span> <span class="o">=</span> <span class="n">composite_simpsons</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// result.value() = 1/3 (the integral)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// result.derivative() = 1/3 (d/da of the integral = integral of x^2 dx)
+</span></span></span></code></pre></div><p>This is Leibniz&rsquo;s rule implemented through pure algebra!</p>
+<h2 id="choosing-a-method">Choosing a Method</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Situation</th>
+          <th>Recommended Method</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>General smooth function</td>
+          <td><code>integrate()</code> (adaptive Simpson)</td>
+      </tr>
+      <tr>
+          <td>Polynomial-like function</td>
+          <td><code>gauss_legendre&lt;5&gt;()</code></td>
+      </tr>
+      <tr>
+          <td>Periodic on full period</td>
+          <td><code>composite_trapezoidal()</code></td>
+      </tr>
+      <tr>
+          <td>Endpoint singularity</td>
+          <td><code>integrate_left_singularity()</code></td>
+      </tr>
+      <tr>
+          <td>Semi-infinite domain</td>
+          <td><code>integrate_semi_infinite()</code></td>
+      </tr>
+      <tr>
+          <td>Need error estimate</td>
+          <td><code>integrate_with_error()</code></td>
+      </tr>
+  </tbody>
+</table>
+]]></content:encoded><category>C++</category><category>numerical-methods</category><category>integration</category><category>quadrature</category><category>concepts</category><category>generic-programming</category></item></channel></rss>

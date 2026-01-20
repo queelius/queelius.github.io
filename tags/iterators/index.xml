@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Iterators on metafunctor</title><link>https://metafunctor.com/tags/iterators/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/iterators/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Duality: The Hidden Structure of Opposites</title><link>https://metafunctor.com/post/2026-01-19-duality-stepanov/</link><pubDate>Mon, 19 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-19-duality-stepanov/</guid><description>Many structures come in pairs: forward/reverse AD, push/pull iteration, encode/decode. Recognizing duality lets you transfer theorems and insights between domains.</description><content:encoded><![CDATA[<p><em>Many structures come in pairs. Recognizing duality lets you transfer insights between domains.</em></p>
+<h2 id="the-motivating-example">The Motivating Example</h2>
+<p>This collection includes two approaches to automatic differentiation:</p>
+<ul>
+<li><strong>Forward mode</strong> (in <a href="/post/2021-09-dual-stepanov/">dual</a>): Propagate derivatives alongside values, from inputs toward outputs</li>
+<li><strong>Reverse mode</strong> (in <a href="/post/2023-01-autodiff-stepanov/">autodiff</a>): Build a graph during forward evaluation, then propagate gradients backward from outputs toward inputs</li>
+</ul>
+<p>These aren&rsquo;t just two implementations of the same idea. They&rsquo;re <em>duals</em>&mdash;mirror images with complementary strengths.</p>
+<p>Forward mode computes one column of the Jacobian per pass. If \(f: \mathbb{R}^n \to \mathbb{R}^m\), computing the full Jacobian takes \(n\) passes. Reverse mode computes one row per pass&mdash;\(m\) passes for the full Jacobian.</p>
+<p>For neural network training, we have many inputs (millions of parameters) and one output (the loss). Reverse mode wins overwhelmingly: one backward pass gives all gradients. This is why backpropagation dominates deep learning.</p>
+<p>For sensitivity analysis with few parameters and many outputs, forward mode wins. Same algorithm structure, opposite traversal direction, complementary use cases.</p>
+<p>The mathematical explanation: forward mode computes Jacobian-vector products (\(Jv\)); reverse mode computes vector-Jacobian products (\(v^T J\)). These are transposes of each other. <strong>Duality is transposition.</strong></p>
+<h2 id="push-vs-pull">Push vs Pull</h2>
+<p>Consider two ways to traverse a sequence:</p>
+<p><strong>Pull (iterator/consumer controls):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">seq</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">seq</span><span class="p">.</span><span class="n">end</span><span class="p">();</span> <span class="o">++</span><span class="n">it</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="o">*</span><span class="n">it</span><span class="p">);</span>  <span class="c1">// Consumer pulls each element
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Push (producer controls):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">seq</span><span class="p">.</span><span class="n">for_each</span><span class="p">([](</span><span class="k">auto</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>  <span class="c1">// Producer pushes each element
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">});</span>
+</span></span></code></pre></div><p>Same traversal. Same elements processed. But control flow is reversed:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>Pull (Iterator)</th>
+          <th>Push (Generator)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Who controls pace?</td>
+          <td>Consumer</td>
+          <td>Producer</td>
+      </tr>
+      <tr>
+          <td>Suspend/resume?</td>
+          <td>Consumer decides when to call <code>++</code></td>
+          <td>Producer decides when to yield</td>
+      </tr>
+      <tr>
+          <td>Backpressure</td>
+          <td>Natural (just stop pulling)</td>
+          <td>Must be designed in</td>
+      </tr>
+      <tr>
+          <td>Composition</td>
+          <td>Chain iterators</td>
+          <td>Chain callbacks</td>
+      </tr>
+  </tbody>
+</table>
+<p>C++ ranges are pull-based: <code>view | filter | transform</code> creates an iterator that pulls through the pipeline. Reactive streams (Rx) are push-based: events flow through a pipeline of observers.</p>
+<p>These are duals. Given a pull-based algorithm, you can mechanically derive its push-based counterpart by reversing who initiates each step. The transformation preserves correctness because it&rsquo;s just changing <em>direction</em>, not <em>content</em>.</p>
+<h2 id="encode-vs-decode">Encode vs Decode</h2>
+<p>Compression algorithms come in pairs:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Encoder: structure -&gt; bits
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="nf">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">Document</span><span class="o">&amp;</span> <span class="n">doc</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Bitstream</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Decoder: bits -&gt; structure
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="nf">decode</span><span class="p">(</span><span class="k">const</span> <span class="n">Bitstream</span><span class="o">&amp;</span> <span class="n">bits</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Document</span><span class="p">;</span>
+</span></span></code></pre></div><p>These must be inverses: <code>decode(encode(x)) == x</code>. But their implementations are often strikingly different:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>Encoder</th>
+          <th>Decoder</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Sees</td>
+          <td>Full structure</td>
+          <td>Linear stream</td>
+      </tr>
+      <tr>
+          <td>Can do</td>
+          <td>Multiple passes, global analysis</td>
+          <td>Single pass, local decisions</td>
+      </tr>
+      <tr>
+          <td>Optimizes for</td>
+          <td>Small output</td>
+          <td>Fast reconstruction</td>
+      </tr>
+  </tbody>
+</table>
+<p>Huffman coding illustrates this asymmetry. Encoding requires building a frequency table (scan all symbols), constructing a tree, then traversing the tree for each symbol. Decoding walks the tree bit-by-bit&mdash;simpler, often faster.</p>
+<p>The same pattern appears in:</p>
+<ul>
+<li>Serialization (object -&gt; bytes) vs deserialization (bytes -&gt; object)</li>
+<li>Compilation (source -&gt; bytecode) vs interpretation (bytecode -&gt; execution)</li>
+<li>Encryption vs decryption</li>
+</ul>
+<p>Recognizing encode/decode as duals suggests questions: if encoding is hard, can decoding be easy? If we have a fast encoder, what does its dual look like?</p>
+<h2 id="covariance-and-contravariance">Covariance and Contravariance</h2>
+<p>Functions have a peculiar duality in their arguments:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// If Dog &lt;: Animal (Dog is a subtype of Animal)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Then:
+</span></span></span><span class="line"><span class="cl"><span class="c1">//   vector&lt;Dog&gt; is NOT a subtype of vector&lt;Animal&gt;     (invariant)
+</span></span></span><span class="line"><span class="cl"><span class="c1">//   function&lt;Dog&gt; is NOT a subtype of function&lt;Animal&gt;  (contravariant in input)
+</span></span></span><span class="line"><span class="cl"><span class="c1">//   function returning Dog IS a subtype of function returning Animal (covariant in output)
+</span></span></span></code></pre></div><p>A function <code>Animal -&gt; String</code> can substitute for <code>Dog -&gt; String</code> because any code expecting to pass a Dog can pass it to something expecting any Animal. The subtyping relationship <em>reverses</em> for inputs.</p>
+<p>This is contravariance: inputs are dual to outputs. The reversal happens because inputs flow <em>into</em> the function while outputs flow <em>out</em>. Direction reversal is duality.</p>
+<p>In C++, this manifests in template variance:</p>
+<ul>
+<li><code>const T*</code> is covariant in T (can convert <code>const Dog*</code> to <code>const Animal*</code>)</li>
+<li>Function parameters are contravariant (accepting broader types is safe)</li>
+</ul>
+<p>Understanding this duality prevents type errors and clarifies API design.</p>
+<h2 id="the-category-theoretic-view">The Category-Theoretic View</h2>
+<p>Category theory makes duality precise. A category has objects and arrows (morphisms) between them:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    f        g
+</span></span><span class="line"><span class="cl">A -----&gt; B -----&gt; C
+</span></span></code></pre></div><p>The <strong>opposite category</strong> \(C^{op}\) has the same objects but all arrows reversed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    f^op     g^op
+</span></span><span class="line"><span class="cl">A &lt;----- B &lt;----- C
+</span></span></code></pre></div><p>Every theorem in \(C\) has a dual theorem in \(C^{op}\), obtained by reversing all arrows. This mechanical transformation&mdash;&ldquo;reverse the arrows&rdquo;&mdash;generates valid mathematics for free.</p>
+<p>Some dualities this reveals:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Concept</th>
+          <th>Dual Concept</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Product (\(A \times B\))</td>
+          <td>Coproduct (\(A + B\), sum type)</td>
+      </tr>
+      <tr>
+          <td>Terminal object (unit, <code>void</code>)</td>
+          <td>Initial object (empty, <code>never</code>)</td>
+      </tr>
+      <tr>
+          <td>Monomorphism (injection)</td>
+          <td>Epimorphism (surjection)</td>
+      </tr>
+      <tr>
+          <td>Limit</td>
+          <td>Colimit</td>
+      </tr>
+      <tr>
+          <td>Algebra</td>
+          <td>Coalgebra</td>
+      </tr>
+  </tbody>
+</table>
+<p>A <strong>product</strong> is an object \(P\) with projections to \(A\) and \(B\) such that any object with maps to both \(A\) and \(B\) factors uniquely through \(P\):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">        X
+</span></span><span class="line"><span class="cl">       /|\
+</span></span><span class="line"><span class="cl">      / | \
+</span></span><span class="line"><span class="cl">     /  |  \
+</span></span><span class="line"><span class="cl">    v   v   v
+</span></span><span class="line"><span class="cl">    A&lt;--P--&gt;B
+</span></span></code></pre></div><p>A <strong>coproduct</strong> is the dual: an object \(S\) with injections from \(A\) and \(B\), such that any object receiving maps from both factors uniquely through \(S\):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    A--&gt;S&lt;--B
+</span></span><span class="line"><span class="cl">        |
+</span></span><span class="line"><span class="cl">        v
+</span></span><span class="line"><span class="cl">        X
+</span></span></code></pre></div><p>In types: product is <code>struct { A a; B b; }</code> (you have both). Coproduct is <code>variant&lt;A, B&gt;</code> (you have one or the other). Same diagram, arrows reversed.</p>
+<h2 id="why-duality-matters">Why Duality Matters</h2>
+<p><strong>Transfer theorems.</strong> Prove something about products; the dual theorem about coproducts follows automatically. Prove forward-mode AD is correct; reverse-mode correctness follows by transposition. Work done once yields two results.</p>
+<p><strong>Design insight.</strong> When you build X, ask: what is dual(X)? If you have a parser (string -&gt; tree), consider the printer (tree -&gt; string). If you have a fold (consume structure), consider an unfold (produce structure). The dual often fills a complementary need.</p>
+<p><strong>Debugging.</strong> If forward mode works but reverse mode doesn&rsquo;t, examine where arrow reversal might have gone wrong. Duality localizes errors: the bug is where the dual transformation wasn&rsquo;t applied correctly.</p>
+<p><strong>API symmetry.</strong> Push/pull, encode/decode, serialize/deserialize&mdash;recognizing these as duals suggests they should have symmetric interfaces. Asymmetry in dual pairs often indicates missing functionality or awkward design.</p>
+<h2 id="examples-in-this-collection">Examples in This Collection</h2>
+<p>The duality theme runs through several posts:</p>
+<p><strong>Forward vs reverse AD</strong> (<a href="/post/2021-09-dual-stepanov/">dual</a> and <a href="/post/2023-01-autodiff-stepanov/">autodiff</a>): The clearest example. Same derivatives, opposite traversal directions, complementary efficiency profiles.</p>
+<p><strong>Iterators and ranges</strong>: The <a href="/post/2021-03-elementa-stepanov/">elementa</a> matrix iteration follows pull semantics. The dual push semantics would be a visitor pattern over matrix elements.</p>
+<p><strong>Fold and unfold in power()</strong>: The <a href="/post/2019-03-peasant-stepanov/">peasant</a> algorithm is a fold: it consumes the exponent bit-by-bit, accumulating the result. The dual unfold would generate the sequence of squares from a base&mdash;which is exactly what repeated squaring does implicitly.</p>
+<p><strong>Encode/decode</strong>: While not explicitly covered, the type-erasure post implies this pattern: erasing a type is encoding its operations; invoking through the erased interface is decoding back to behavior.</p>
+<h2 id="the-deeper-pattern">The Deeper Pattern</h2>
+<p>Duality arises whenever there&rsquo;s a notion of <em>direction</em> that can be reversed:</p>
+<ul>
+<li>Data flow direction (forward/backward)</li>
+<li>Control flow direction (push/pull)</li>
+<li>Type hierarchy direction (covariant/contravariant)</li>
+<li>Logical implication direction (modus ponens/modus tollens)</li>
+<li>Arrow direction in diagrams</li>
+</ul>
+<p>Each reversal is a duality. Each duality doubles your theorems, doubles your designs, and halves your blind spots.</p>
+<p>The next time you build something, ask: what happens if I reverse the arrows? The answer might be exactly what you need.</p>
+<hr>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Wadler, &ldquo;Theorems for Free!&rdquo; (1989) &mdash; parametricity as a source of dual theorems</li>
+<li>Gibbons, &ldquo;Calculating Functional Programs&rdquo; &mdash; unfolds as duals of folds</li>
+<li>Awodey, <em>Category Theory</em> &mdash; the formal treatment of opposite categories</li>
+<li>Baydin et al., &ldquo;Automatic Differentiation in Machine Learning: a Survey&rdquo; &mdash; forward vs reverse mode</li>
+</ul>
+]]></content:encoded><category>C++</category><category>duality</category><category>category-theory</category><category>automatic-differentiation</category><category>iterators</category><category>generic-programming</category></item><item><title>How Iterators Give You N+M Instead of N×M</title><link>https://metafunctor.com/post/2019-11-iterators-composition/</link><pubDate>Fri, 15 Nov 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-11-iterators-composition/</guid><description>The problem is combinatorial. You have N algorithms (sort, search, find, copy) and M containers (array, list, tree, hash table). The naive approach: implement each algorithm for each container. That’s N×M implementations.
+The insight is to interpose an abstraction layer.
+The Iterator Abstraction Instead of algorithms knowing about containers directly, we define iterator categories—capabilities that algorithms require and containers provide:
+Input: Single-pass read. You can advance (++) and …</description><content:encoded><![CDATA[<p>The problem is combinatorial. You have N algorithms (sort, search, find, copy) and M containers (array, list, tree, hash table). The naive approach: implement each algorithm for each container. That&rsquo;s N×M implementations.</p>
+<p>The insight is to <strong>interpose an abstraction layer</strong>.</p>
+<h2 id="the-iterator-abstraction">The Iterator Abstraction</h2>
+<p>Instead of algorithms knowing about containers directly, we define <em>iterator categories</em>—capabilities that algorithms require and containers provide:</p>
+<p><strong>Input</strong>: Single-pass read. You can advance (<code>++</code>) and dereference (<code>*</code>), but once you move forward, you can&rsquo;t go back. Stream-like.</p>
+<p><strong>Forward</strong>: Multi-pass. You can iterate multiple times; <code>begin()</code> always gives the same starting point.</p>
+<p><strong>Bidirectional</strong>: Can go backward (<code>--</code>). Enables algorithms like reverse iteration.</p>
+<p><strong>Random-access</strong>: Can jump anywhere (<code>+n</code>, <code>[]</code>). Enables binary search, sorting.</p>
+<h2 id="a-true-input-iterator">A True Input Iterator</h2>
+<p>The input iterator category exists for a reason. Here&rsquo;s a working example that reads entropy from <code>/dev/urandom</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;fstream&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;iterator&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cstdint&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">entropy_iterator</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">iterator_category</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">input_iterator_tag</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span>        <span class="o">=</span> <span class="kt">uint8_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">difference_type</span>   <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">ptrdiff_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">pointer</span>           <span class="o">=</span> <span class="k">const</span> <span class="kt">uint8_t</span><span class="o">*</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">reference</span>         <span class="o">=</span> <span class="kt">uint8_t</span><span class="p">;</span>  <span class="c1">// returns by value, not reference
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">ifstream</span><span class="o">*</span> <span class="n">source</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="n">byte</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">entropy_iterator</span><span class="p">()</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span>  <span class="c1">// sentinel (end iterator)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="k">explicit</span> <span class="nf">entropy_iterator</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">ifstream</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">)</span> <span class="o">:</span> <span class="n">source</span><span class="p">(</span><span class="o">&amp;</span><span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="o">++</span><span class="p">(</span><span class="o">*</span><span class="k">this</span><span class="p">);</span>  <span class="c1">// prime the first byte
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="k">operator</span><span class="o">*</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="n">byte</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">entropy_iterator</span><span class="o">&amp;</span> <span class="k">operator</span><span class="o">++</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">source</span> <span class="o">&amp;&amp;</span> <span class="n">source</span><span class="o">-&gt;</span><span class="n">good</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">source</span><span class="o">-&gt;</span><span class="n">read</span><span class="p">(</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="kt">char</span><span class="o">*&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">byte</span><span class="p">),</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">source</span><span class="o">-&gt;</span><span class="n">good</span><span class="p">())</span> <span class="n">source</span> <span class="o">=</span> <span class="k">nullptr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">entropy_iterator</span> <span class="k">operator</span><span class="o">++</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">tmp</span> <span class="o">=</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="o">++</span><span class="p">(</span><span class="o">*</span><span class="k">this</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">tmp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="k">const</span> <span class="n">entropy_iterator</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">source</span> <span class="o">==</span> <span class="n">other</span><span class="p">.</span><span class="n">source</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Use it like any input iterator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">ifstream</span> <span class="n">urandom</span><span class="p">(</span><span class="s">&#34;/dev/urandom&#34;</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">binary</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">entropy_iterator</span> <span class="n">it</span><span class="p">(</span><span class="n">urandom</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// generate 16 random bytes
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">key</span><span class="p">(</span><span class="mi">16</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">copy_n</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="n">key</span><span class="p">.</span><span class="n">begin</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// or use in algorithms
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="kt">int</span> <span class="n">sum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">,</span> <span class="o">++</span><span class="n">it</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sum</span> <span class="o">+=</span> <span class="o">*</span><span class="n">it</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// sum ≈ 127500 (mean of uniform [0,255] × 1000)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
+</span></span></code></pre></div><p>Each <code>++</code> consumes a fresh entropy byte from the kernel—you literally cannot iterate twice over the same sequence. This is why the input iterator category exists: some sources are inherently single-pass. Claiming forward iterator capabilities would be a lie.</p>
+<p>The same pattern applies to network streams, sensor readings, and any source where data is consumed by reading it.</p>
+<h2 id="the-payoff">The Payoff</h2>
+<p>Now <code>binary_search</code> doesn&rsquo;t need to know about vectors, deques, or sorted arrays. It only needs random-access iterators. The algorithm expresses its requirements; the container provides capabilities. They compose through the iterator abstraction.</p>
+<p>N algorithms + M containers = N+M implementations.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>This is Abelson and Sussman&rsquo;s <em>abstraction barrier</em> from SICP, applied to C++. The iterator concept creates a clean separation: algorithms above, containers below, a stable interface between.</p>
+<p>Stepanov understood that generic programming isn&rsquo;t about making things work with any type—it&rsquo;s about identifying the <strong>minimal requirements</strong> for each algorithm and expressing them precisely. The iterator hierarchy is that precision.</p>
+<p>Every time you write <code>std::sort(v.begin(), v.end())</code>, you&rsquo;re benefiting from this N+M composition.</p>
+<hr>
+<p><em>The best abstractions don&rsquo;t just reduce code—they reduce the complexity of thought required to reason about systems.</em></p>
+]]></content:encoded><category>c++</category><category>generic-programming</category><category>stepanov</category><category>iterators</category><category>sicp</category></item></channel></rss>

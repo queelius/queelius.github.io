@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Fractions on metafunctor</title><link>https://metafunctor.com/tags/fractions/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 19 Jan 2026 21:48:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/fractions/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Exact Rational Arithmetic</title><link>https://metafunctor.com/post/2020-02-rational-stepanov/</link><pubDate>Tue, 18 Feb 2020 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2020-02-rational-stepanov/</guid><description>Rational numbers give us exact arithmetic where floating-point fails. The implementation reveals deep connections to GCD, the Stern-Brocot tree, and the algebraic structure of fields.</description><content:encoded><![CDATA[<p><em>Fractions that never lose precision</em></p>
+<h2 id="the-problem-with-floating-point">The Problem with Floating-Point</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">x</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mf">0.3</span><span class="p">);</span>  <span class="c1">// Prints 0 (false!)
+</span></span></span></code></pre></div><p>Floating-point represents numbers as m x 2^e. The number 0.1 has no exact finite representation in binary, just as 1/3 has no exact finite representation in decimal.</p>
+<p>Rational arithmetic solves this: 1/3 stays exactly 1/3.</p>
+<h2 id="the-implementation">The Implementation</h2>
+<p>A rational is a pair (numerator, denominator) kept in lowest terms:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">integral</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">rat</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">num_</span><span class="p">;</span>  <span class="c1">// numerator (carries sign)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="n">T</span> <span class="n">den_</span><span class="p">;</span>  <span class="c1">// denominator (always positive)
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">reduce</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">T</span> <span class="n">g</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">gcd</span><span class="p">(</span><span class="n">abs</span><span class="p">(</span><span class="n">num_</span><span class="p">),</span> <span class="n">den_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">num_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">den_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Key invariants:</p>
+<ol>
+<li>Denominator is always positive (sign lives in numerator)</li>
+<li>GCD(|num|, den) = 1 (always reduced)</li>
+<li>Zero is uniquely 0/1</li>
+</ol>
+<h2 id="arithmetic">Arithmetic</h2>
+<p>Addition requires a common denominator:</p>
+$$\frac{a}{b} + \frac{c}{d} = \frac{ad + bc}{bd}$$<p>Then reduce. The implementation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">rat</span> <span class="k">operator</span><span class="o">+</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">rat</span><span class="p">(</span><span class="n">num_</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span> <span class="o">+</span> <span class="n">rhs</span><span class="p">.</span><span class="n">num_</span> <span class="o">*</span> <span class="n">den_</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">               <span class="n">den_</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The constructor automatically reduces.</p>
+<p>Multiplication is simpler:</p>
+$$\frac{a}{b} \times \frac{c}{d} = \frac{ac}{bd}$$<p>Division multiplies by the reciprocal:</p>
+$$\frac{a/b}{c/d} = \frac{ad}{bc}$$<h2 id="exact-comparison">Exact Comparison</h2>
+<p>No floating-point fuzziness. Two reduced rationals are equal iff their numerators and denominators match:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">num_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">num_</span> <span class="o">&amp;&amp;</span> <span class="n">den_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>For ordering, cross-multiply (valid when denominators are positive):</p>
+$$\frac{a}{b} < \frac{c}{d} \iff ad < cb$$<h2 id="the-mediant">The Mediant</h2>
+<p>The mediant of a/b and c/d is (a+c)/(b+d). Unlike the average, it&rsquo;s <em>not</em> halfway between, but it has remarkable properties:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">rat</span> <span class="nf">mediant</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">a</span><span class="p">,</span> <span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">rat</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">numerator</span><span class="p">()</span> <span class="o">+</span> <span class="n">b</span><span class="p">.</span><span class="n">numerator</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">               <span class="n">a</span><span class="p">.</span><span class="n">denominator</span><span class="p">()</span> <span class="o">+</span> <span class="n">b</span><span class="p">.</span><span class="n">denominator</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Properties:</p>
+<ul>
+<li>If a/b &lt; c/d, then a/b &lt; mediant &lt; c/d</li>
+<li>The mediant is always in lowest terms if a/b and c/d are neighbors in the Stern-Brocot tree</li>
+<li>Mediants generate all positive rationals exactly once</li>
+</ul>
+<h2 id="stern-brocot-tree">Stern-Brocot Tree</h2>
+<p>Start with 0/1 and 1/0 (infinity). Repeatedly take mediants:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Level 0:     0/1                     1/0
+</span></span><span class="line"><span class="cl">Level 1:     0/1       1/1           1/0
+</span></span><span class="line"><span class="cl">Level 2:     0/1   1/2   1/1   2/1   1/0
+</span></span><span class="line"><span class="cl">Level 3:  0/1 1/3 1/2 2/3 1/1 3/2 2/1 3/1 1/0
+</span></span></code></pre></div><p>Every positive rational appears exactly once. This connects to:</p>
+<ul>
+<li>Continued fractions (path from root encodes CF)</li>
+<li>Best rational approximations</li>
+<li>Farey sequences</li>
+</ul>
+<h2 id="gcd-the-unifying-thread">GCD: The Unifying Thread</h2>
+<p>Reducing fractions uses GCD. The GCD algorithm is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">T</span> <span class="nf">gcd</span><span class="p">(</span><span class="n">T</span> <span class="n">a</span><span class="p">,</span> <span class="n">T</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">b</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">%</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">swap</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is Euclid&rsquo;s algorithm from ~300 BCE&mdash;the same algorithm that appears for any Euclidean domain.</p>
+<p>Rational numbers form a <strong>field</strong>: every non-zero element has a multiplicative inverse (the reciprocal). The denominator requirement (non-zero, reduced) comes from the algebraic structure.</p>
+<h2 id="overflow-considerations">Overflow Considerations</h2>
+<p>For large computations, numerator and denominator can grow quickly. Options:</p>
+<ol>
+<li>Use <code>int64_t</code> and accept limits</li>
+<li>Use arbitrary-precision integers</li>
+<li>Use interval arithmetic to track bounds</li>
+</ol>
+<p>This implementation uses the first approach for simplicity.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Graham, Knuth, Patashnik, <em>Concrete Mathematics</em>, Chapter 4</li>
+<li>Stern, &ldquo;Uber eine zahlentheoretische Funktion&rdquo; (1858)</li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>number-theory</category><category>fractions</category><category>exact-arithmetic</category></item></channel></rss>
