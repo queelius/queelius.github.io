@@ -1,4 +1,186 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Statistics on metafunctor</title><link>https://metafunctor.com/tags/statistics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 04 Feb 2026 04:18:48 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/statistics/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>All of Statistics</title><link>https://metafunctor.com/media/all-of-statistics/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/all-of-statistics/</guid><description/><content:encoded></content:encoded><category>statistics</category><category>inference</category><category>textbook</category></item><item><title>Bayesian Data Analysis</title><link>https://metafunctor.com/media/bayesian-data-analysis/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/bayesian-data-analysis/</guid><description>Notes Applied Bayesian inference with computing methods. The standard Bayesian statistics reference.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Statistics on metafunctor</title><link>https://metafunctor.com/tags/statistics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 05 Feb 2026 04:31:58 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/statistics/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>likelihood.model.series.md: Maximum Likelihood Estimation for Masked Series System Failures</title><link>https://metafunctor.com/post/2026-02-05-likelihood-model-series-md/</link><pubDate>Thu, 05 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-05-likelihood-model-series-md/</guid><description>Announcing the likelihood.model.series.md R package for maximum likelihood estimation in series systems with masked component failures—built on composable likelihood contributions, validated through extensive simulation, and heading to CRAN.</description><content:encoded><![CDATA[<p>Two days ago, I submitted <a href="/projects/likelihood.model/">likelihood.model</a> to CRAN—the foundation package for composable statistical inference. Next in line: <strong>likelihood.model.series.md</strong>, which implements maximum likelihood estimation for series systems where component failure causes are masked.</p>
+<p>This package represents the practical culmination of my <a href="/post/2024-06-15-reliability-estimation-in-series-systems/">master&rsquo;s thesis</a> work. Three years of theoretical development, now packaged for anyone analyzing masked failure data.</p>
+<h2 id="the-problem-masked-component-failures">The Problem: Masked Component Failures</h2>
+<p>A <strong>series system</strong> fails when <em>any</em> of its \(m\) components fails. In reliability testing, you observe the system fail at time \(t\), but two layers of uncertainty obscure the full picture:</p>
+<ol>
+<li>
+<p><strong>Right-censoring</strong>: Some systems are still running when testing ends—you know they survived at least until time \(\tau\), but not how much longer they would have lasted.</p>
+</li>
+<li>
+<p><strong>Masked cause of failure</strong>: When a system fails, you often can&rsquo;t identify <em>which</em> component caused it. Diagnostic tests might narrow it down to a <strong>candidate set</strong> of possible causes, but the true failure component remains ambiguous.</p>
+</li>
+</ol>
+<p>This happens constantly in practice. Electronic systems fail with only board-level diagnostics. Industrial machinery fails without root-cause teardown. Medical devices fail with symptoms pointing to multiple possible subsystems.</p>
+<p>The question: given this incomplete information, can you still estimate the lifetime distribution of each component?</p>
+<h2 id="the-package-three-likelihood-models">The Package: Three Likelihood Models</h2>
+<p><code>likelihood.model.series.md</code> provides three models with different complexity-accuracy tradeoffs:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Model</th>
+          <th>Parameters</th>
+          <th>Use Case</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>exp_series_md_c1_c2_c3</code></td>
+          <td>\(m\) rates \((\lambda_1, \ldots, \lambda_m)\)</td>
+          <td>Memoryless components (constant failure rate)</td>
+      </tr>
+      <tr>
+          <td><code>wei_series_md_c1_c2_c3</code></td>
+          <td>\(2m\) params \((k_1, \beta_1, \ldots, k_m, \beta_m)\)</td>
+          <td>Weibull with per-component shapes</td>
+      </tr>
+      <tr>
+          <td><code>wei_series_homogeneous_md_c1_c2_c3</code></td>
+          <td>\(m+1\) params \((k, \beta_1, \ldots, \beta_m)\)</td>
+          <td>Weibull with shared shape parameter</td>
+      </tr>
+  </tbody>
+</table>
+<p>Each model implements the full inference stack: <code>loglik()</code>, <code>score()</code>, <code>hess_loglik()</code>, <code>rdata()</code>, and <code>assumptions()</code>.</p>
+<h2 id="the-c1-c2-c3-conditions">The C1-C2-C3 Conditions</h2>
+<p>The models assume three conditions that simplify the likelihood:</p>
+<ul>
+<li><strong>C1</strong>: The failed component is in the candidate set with probability 1</li>
+<li><strong>C2</strong>: Given the failed component is in the candidate set, masking probability is uniform across candidates</li>
+<li><strong>C3</strong>: Masking probabilities are independent of system parameters \(\theta\)</li>
+</ul>
+<p>Under these conditions, the masking mechanism factors out of the likelihood—you can estimate component parameters without modeling the diagnostic process itself. This is why the package name includes &ldquo;c1_c2_c3&rdquo;.</p>
+<p>When these conditions <em>don&rsquo;t</em> hold, see <a href="/post/2025-12-03-mdrelax/">mdrelax</a> for relaxed masking models.</p>
+<h2 id="usage">Usage</h2>
+<p>Basic workflow for exponential series systems:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">likelihood.model.series.md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create the model</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">exp_series_md_c1_c2_c3</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Generate synthetic masked data (for validation)</span>
+</span></span><span class="line"><span class="cl"><span class="n">gen</span> <span class="o">&lt;-</span> <span class="nf">rdata</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">df</span> <span class="o">&lt;-</span> <span class="nf">gen</span><span class="p">(</span><span class="n">theta</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">1.0</span><span class="p">,</span> <span class="m">1.1</span><span class="p">,</span> <span class="m">0.95</span><span class="p">),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">500</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">3</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fit via MLE</span>
+</span></span><span class="line"><span class="cl"><span class="n">solver</span> <span class="o">&lt;-</span> <span class="nf">fit</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">mle</span> <span class="o">&lt;-</span> <span class="nf">solver</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">par</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="m">1</span><span class="p">,</span> <span class="m">1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Results</span>
+</span></span><span class="line"><span class="cl"><span class="n">mle</span><span class="o">$</span><span class="n">theta.hat</span>   <span class="c1"># estimated failure rates</span>
+</span></span><span class="line"><span class="cl"><span class="n">mle</span><span class="o">$</span><span class="n">sigma</span>       <span class="c1"># asymptotic standard errors</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Log-likelihood, score, and Hessian at the MLE</span>
+</span></span><span class="line"><span class="cl"><span class="n">ll</span> <span class="o">&lt;-</span> <span class="nf">loglik</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">s</span>  <span class="o">&lt;-</span> <span class="nf">score</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">H</span>  <span class="o">&lt;-</span> <span class="nf">hess_loglik</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nf">ll</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">par</span> <span class="o">=</span> <span class="n">mle</span><span class="o">$</span><span class="n">theta.hat</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">s</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">par</span> <span class="o">=</span> <span class="n">mle</span><span class="o">$</span><span class="n">theta.hat</span><span class="p">)</span>   <span class="c1"># should be near zero</span>
+</span></span><span class="line"><span class="cl"><span class="nf">H</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">par</span> <span class="o">=</span> <span class="n">mle</span><span class="o">$</span><span class="n">theta.hat</span><span class="p">)</span>   <span class="c1"># observed information</span>
+</span></span></code></pre></div><p>For Weibull components with shared shape:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">wmodel</span> <span class="o">&lt;-</span> <span class="nf">wei_series_homogeneous_md_c1_c2_c3</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">wsolver</span> <span class="o">&lt;-</span> <span class="nf">fit</span><span class="p">(</span><span class="n">wmodel</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># theta: (shape, scale1, scale2, ...)</span>
+</span></span><span class="line"><span class="cl"><span class="n">wmle</span> <span class="o">&lt;-</span> <span class="nf">wsolver</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">par</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">1.2</span><span class="p">,</span> <span class="m">1000</span><span class="p">,</span> <span class="m">900</span><span class="p">,</span> <span class="m">850</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="validation-through-simulation">Validation Through Simulation</h2>
+<p>The package includes a standalone Monte Carlo framework (<code>simulations/</code>) for studying MLE properties. Five experiments are pre-configured:</p>
+<ol>
+<li><strong>Bias/variance/MSE under censoring</strong> — How censoring rate affects estimation accuracy</li>
+<li><strong>Masking probability sensitivity</strong> — Performance as masking becomes more severe</li>
+<li><strong>Sample size requirements</strong> — How much data you need for reliable estimates</li>
+<li><strong>Confidence interval coverage</strong> — Do BCa intervals achieve nominal 95% coverage?</li>
+<li><strong>Model selection</strong> — AIC/BIC for choosing between exponential and Weibull</li>
+</ol>
+<p>Key design features:</p>
+<ul>
+<li><strong>Resumable/checkpointed</strong>: Atomic <code>.rds</code> saves let you stop and restart long simulations</li>
+<li><strong>Deterministic seeding</strong>: Reproducible results across runs</li>
+<li><strong>Pre-computed results</strong>: Fast vignette builds for CRAN (no waiting 10 minutes for <code>R CMD check</code>)</li>
+</ul>
+<p>Simulation results feed directly into the package vignette, so the documentation reflects actual validated performance—not just theoretical claims.</p>
+<h2 id="the-ecosystem">The Ecosystem</h2>
+<p>This package sits at the top of a layered architecture:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">algebraic.mle (on CRAN)
+</span></span><span class="line"><span class="cl">    ↓ MLE as algebraic objects with compose/transform operations
+</span></span><span class="line"><span class="cl">likelihood.model (submitted 2026-02-03)
+</span></span><span class="line"><span class="cl">    ↓ Composable statistical inference framework
+</span></span><span class="line"><span class="cl">likelihood.model.series.md (next submission)
+</span></span><span class="line"><span class="cl">    ↓ Series systems with masked component failures
+</span></span></code></pre></div><p>The key insight: <strong>likelihood contributions compose</strong>. When observations are independent, the total log-likelihood is a sum of individual contributions. This package provides the contributions for masked series system data; <code>likelihood.model</code> provides the composition machinery; <code>algebraic.mle</code> provides the algebra for working with fitted models.</p>
+<p>This design means you&rsquo;re not locked into my specific models. Define your own likelihood contributions and they plug into the same infrastructure.</p>
+<h2 id="related-packages">Related Packages</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Package</th>
+          <th>Role</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><a href="/projects/algebraic.mle/">algebraic.mle</a></td>
+          <td>Core MLE algebra (CRAN)</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/algebraic.dist/">algebraic.dist</a></td>
+          <td>Distributions as algebraic objects (CRAN)</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/likelihood.model/">likelihood.model</a></td>
+          <td>Composable inference framework</td>
+      </tr>
+      <tr>
+          <td><a href="/projects/wei.series.md.c1.c2.c3/">wei.series.md.c1.c2.c3</a></td>
+          <td>Weibull-specific implementations</td>
+      </tr>
+      <tr>
+          <td><a href="/papers/mdrelax/">mdrelax</a></td>
+          <td>Relaxed masking conditions (C2/C3 violations)</td>
+      </tr>
+      <tr>
+          <td><a href="https://github.com/queelius/md.tools">md.tools</a></td>
+          <td>Masked data encoding/decoding utilities</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="cran-journey">CRAN Journey</h2>
+<p>The submission timeline:</p>
+<ul>
+<li><strong>algebraic.mle</strong>: On CRAN since 2024</li>
+<li><strong>algebraic.dist</strong>: On CRAN since 2024</li>
+<li><strong>likelihood.model</strong>: Submitted 2026-02-03 (2 days ago)</li>
+<li><strong>likelihood.model.series.md</strong>: Next submission after likelihood.model is accepted</li>
+</ul>
+<p>CRAN-ready features:</p>
+<ul>
+<li>Fast vignette builds using pre-computed simulation results</li>
+<li>Clean <code>R CMD check</code> with no notes or warnings</li>
+<li>Documented S3 generics with complete examples</li>
+<li>Minimal dependencies (mostly base R + likelihood.model ecosystem)</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>Available now from <a href="https://queelius.r-universe.dev">r-universe</a>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">install.packages</span><span class="p">(</span><span class="s">&#34;likelihood.model.series.md&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">repos</span> <span class="o">=</span> <span class="s">&#34;https://queelius.r-universe.dev&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Or from GitHub:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># install.packages(&#34;devtools&#34;)</span>
+</span></span><span class="line"><span class="cl"><span class="n">devtools</span><span class="o">::</span><span class="nf">install_github</span><span class="p">(</span><span class="s">&#34;queelius/likelihood.model.series.md&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>Documentation: <a href="https://queelius.github.io/likelihood.model.series.md/">queelius.github.io/likelihood.model.series.md</a></p>
+<h2 id="from-thesis-to-tools">From Thesis to Tools</h2>
+<p>Three years ago, I was deriving likelihood functions on paper while fighting cancer. The math was interesting—masked data creates a mixture model where the component cause is a latent variable—but the goal was always practical: give engineers tools to estimate component reliability from incomplete field data.</p>
+<p>This package is that tool. If you&rsquo;re analyzing series system reliability with masked failure causes, try it. File issues if something breaks. The <a href="/papers/likelihood.model.series.md/">technical paper</a> has the mathematical details; the vignette has worked examples.</p>
+<p>Watch for the CRAN release once <code>likelihood.model</code> is accepted.</p>
+<hr>
+<p><strong>Resources</strong>:</p>
+<ul>
+<li><a href="https://github.com/queelius/likelihood.model.series.md">GitHub repository</a></li>
+<li><a href="https://queelius.github.io/likelihood.model.series.md/">Package documentation</a></li>
+<li><a href="/papers/likelihood.model.series.md/">Technical report</a></li>
+<li><a href="/post/2024-06-15-reliability-estimation-in-series-systems/">Master&rsquo;s thesis summary</a></li>
+<li><a href="/papers/expo-masked-fim/">Closed-form Fisher Information (exponential case)</a></li>
+<li><a href="/series/statistical-reliability/">Series landing page</a></li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category><category>CRAN</category><category>MLE</category><category>Weibull</category><category>exponential distribution</category><category>simulation</category><category>bootstrap</category></item><item><title>All of Statistics</title><link>https://metafunctor.com/media/all-of-statistics/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/all-of-statistics/</guid><description/><content:encoded></content:encoded><category>statistics</category><category>inference</category><category>textbook</category></item><item><title>Bayesian Data Analysis</title><link>https://metafunctor.com/media/bayesian-data-analysis/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/bayesian-data-analysis/</guid><description>Notes Applied Bayesian inference with computing methods. The standard Bayesian statistics reference.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
 &lt;p>Applied Bayesian inference with computing methods. The standard Bayesian statistics reference.&lt;/p>
 </content:encoded><category>bayesian</category><category>statistics</category><category>inference</category><category>mcmc</category></item><item><title>compositional.mle: SICP-Inspired Optimization</title><link>https://metafunctor.com/post/2025-12-17-compositional-mle/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-17-compositional-mle/</guid><description>An R package where solvers are first-class functions that compose through chaining, racing, and restarts.</description><content:encoded><![CDATA[<p>I&rsquo;ve recently updated <a href="https://github.com/queelius/compositional.mle">compositional.mle</a>, an R package for maximum likelihood estimation that takes seriously the idea that <strong>optimization strategies should compose</strong>.</p>
 <h2 id="the-core-insight">The Core Insight</h2>
@@ -1184,149 +1366,4 @@ h_{T_i}(t; \theta) = \sum_{j=1}^m \frac{k_j}{\lambda_j}\left(\frac{t}{\lambda_j}
 <hr>
 <p><em>Accumux: Compose your statistics, compute in one pass, trust the math.</em></p>
 ]]></content:encoded><category>C++</category><category>statistics</category><category>numerical-computing</category><category>accumulators</category><category>functional-programming</category><category>header-only</category><category>sicp</category></item><item><title>Approximations of Solomonoff Induction</title><link>https://metafunctor.com/research/solomonoff/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/research/solomonoff/</guid><description>I experiment with simple predictive / generative models to approximate Solomonoff induction for a relatively simple synthetic data-generating process.</description><content:encoded><![CDATA[<p>Shoot me an email at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a> if you&rsquo;re interested in collaborating on any projects.</p>
-]]></content:encoded><category>large language models</category><category>solomonoff induction</category><category>synthetic data</category><category>algorthmic data</category><category>n-gram models</category><category>markov models</category><category>foundation models</category><category>statistics</category></item><item><title>Mathematics Master's Complete: Post-Mortem on Three Years</title><link>https://metafunctor.com/post/2023-10-math-masters-complete-postmortem/</link><pubDate>Wed, 18 Oct 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2023-10-math-masters-complete-postmortem/</guid><description>Post-mortem on completing a mathematics master's degree over three years while navigating cancer treatment—what worked, what didn't, and lessons learned.</description><content:encoded><![CDATA[<p>I defended my mathematics thesis yesterday. It&rsquo;s done.</p>
-<p>Three years. Two degrees. Stage 3 cancer. And now: MS in Mathematics and Statistics from SIUE.</p>
-<p>October 13, 2023: Defense complete.</p>
-<p>Time for a post-mortem on what worked, what didn&rsquo;t, and what I learned.</p>
-<h2 id="the-decision-2020">The Decision (2020)</h2>
-<p>I started this degree for specific reasons:</p>
-<ul>
-<li>Needed deeper statistical foundations</li>
-<li>Wanted to understand proofs, not just applications</li>
-<li>Suspected mathematical maturity would unlock better research</li>
-</ul>
-<p>All three turned out to be true, but not how I expected.</p>
-<h2 id="what-i-actually-learned">What I Actually Learned</h2>
-<p><strong>Not just statistical methods, but statistical thinking:</strong></p>
-<p>Before: &ldquo;Run this test, get p-value, make decision&rdquo;
-After: &ldquo;What&rsquo;s the generative model? What are we assuming? What could go wrong?&rdquo;</p>
-<p><strong>Not just probability theory, but measure-theoretic probability:</strong></p>
-<p>Before: Probability is counting favorable outcomes
-After: Probability is a measure on σ-algebras and everything flows from Kolmogorov&rsquo;s axioms</p>
-<p><strong>Not just computing estimates, but understanding why they work:</strong></p>
-<p>Before: &ldquo;Maximum likelihood works because stats textbook says so&rdquo;
-After: &ldquo;MLE is consistent under these regularity conditions because of this proof&hellip;&rdquo;</p>
-<h2 id="the-thesis">The Thesis</h2>
-<p>My thesis: <em>Maximum Likelihood Estimation for Series Systems with Masked, Censored Failure Data</em></p>
-<p>Translation: When you have a system that fails if any component fails, some systems haven&rsquo;t failed when testing stops (censoring), and you don&rsquo;t know which component caused failures (masking), how do you estimate component reliability?</p>
-<p>This required combining:</p>
-<ul>
-<li>Survival analysis (censored data)</li>
-<li>Mixture models (masked causes)</li>
-<li>EM algorithm (hidden variables)</li>
-<li>Bootstrap methods (confidence intervals)</li>
-<li>Simulation studies (validation)</li>
-</ul>
-<p>It&rsquo;s not groundbreaking work. But it&rsquo;s <strong>complete, rigorous, and useful</strong>.</p>
-<h2 id="what-worked">What Worked</h2>
-<p><strong>Starting with clear goals</strong>: I knew what gaps I was filling. No wandering.</p>
-<p><strong>Choosing thesis topic early</strong>: Spent 2+ years with the problem. Got deep.</p>
-<p><strong>Coding while learning theory</strong>: Implemented methods as I derived them. Theory stayed concrete.</p>
-<p><strong>Cancer as deadline</strong>: Stage 3 diagnosis in 2020 made me finish. No lingering perfectionism.</p>
-<p><strong>Strong mathematical foundation</strong>: The CS degree gave me coding. This gave me proofs.</p>
-<h2 id="what-didnt-work">What Didn&rsquo;t Work</h2>
-<p><strong>Took some irrelevant courses</strong>: A few classes didn&rsquo;t connect to my research. Time tax.</p>
-<p><strong>Should have published earlier</strong>: Waited for thesis completion. Should have pushed papers out incrementally.</p>
-<p><strong>Didn&rsquo;t network enough</strong>: Focused on work, not relationships. Probably cost me collaboration opportunities.</p>
-<p><strong>Underestimated administrative burden</strong>: So much paperwork for something that should be about ideas.</p>
-<h2 id="the-cancer-context">The Cancer Context</h2>
-<p>Doing a math degree while managing stage 3 cancer was&hellip; complicated.</p>
-<p><strong>Good aspects:</strong></p>
-<ul>
-<li>Mathematics worked when biology didn&rsquo;t</li>
-<li>Having structure helped between treatments</li>
-<li>Research gave me something controllable</li>
-<li>Thesis deadlines kept me moving forward</li>
-</ul>
-<p><strong>Hard aspects:</strong></p>
-<ul>
-<li>Chemo brain made proofs harder</li>
-<li>Medical appointments ate time</li>
-<li>Energy unpredictable</li>
-<li>Had to accept reduced pace</li>
-</ul>
-<p>But I finished. That counts.</p>
-<h2 id="key-insights-gained">Key Insights Gained</h2>
-<p><strong>1. Statistical inference is philosophy formalized</strong></p>
-<p>Every statistical method embodies beliefs about:</p>
-<ul>
-<li>What&rsquo;s knowable from data</li>
-<li>What uncertainty means</li>
-<li>What constitutes evidence</li>
-<li>What trade-offs matter</li>
-</ul>
-<p>Understanding this makes you a better researcher.</p>
-<p><strong>2. Proofs force clarity</strong></p>
-<p>Can&rsquo;t handwave in a proof. Every step justified. This discipline carries over to everything else.</p>
-<p><strong>3. Computation and theory need each other</strong></p>
-<p>Pure theory becomes disconnected. Pure computation becomes unprincipled. The magic is in the synthesis.</p>
-<p><strong>4. The EM algorithm is everywhere</strong></p>
-<p>Hidden variables, mixture models, censored data, missing data—all EM problems. Once you see the pattern, you see it everywhere.</p>
-<p><strong>5. Mathematics is a mode of thought</strong></p>
-<p>Not just a toolkit. A way of seeing structure, abstraction, and pattern.</p>
-<h2 id="how-this-changed-my-research">How This Changed My Research</h2>
-<p>I now approach problems differently:</p>
-<p><strong>Before</strong>: Find existing method, apply it, report results</p>
-<p><strong>After</strong>:</p>
-<ul>
-<li>What&rsquo;s the generative process?</li>
-<li>What are we assuming?</li>
-<li>Can I derive this from first principles?</li>
-<li>What breaks under model misspecification?</li>
-</ul>
-<p>This makes research slower but more robust.</p>
-<h2 id="was-it-worth-it">Was It Worth It?</h2>
-<p>People ask: &ldquo;Was a second master&rsquo;s degree worth three years?&rdquo;</p>
-<p><strong>Absolutely.</strong></p>
-<p>I&rsquo;m a better researcher because of:</p>
-<ul>
-<li>Mathematical foundations</li>
-<li>Statistical rigor</li>
-<li>Comfort with proofs</li>
-<li>Understanding of asymptotic theory</li>
-</ul>
-<p>But more than that: <strong>I think differently now.</strong></p>
-<p>Computer science taught me to build.
-Mathematics taught me to reason.</p>
-<p>Both are essential.</p>
-<h2 id="whats-next">What&rsquo;s Next</h2>
-<p>Planning to start PhD in Computer Science soon.</p>
-<p>Focus areas:</p>
-<ul>
-<li>Machine learning and AI safety</li>
-<li>Complex networks</li>
-<li>Statistical computing</li>
-<li>Computational methods for hard problems</li>
-</ul>
-<p>The math degree was preparation. Now comes application.</p>
-<h2 id="for-anyone-considering-a-similar-path">For Anyone Considering a Similar Path</h2>
-<p>If you&rsquo;re thinking about a second degree in a related field:</p>
-<p><strong>Do it if:</strong></p>
-<ul>
-<li>You have specific gaps you need to fill</li>
-<li>You&rsquo;re willing to go deep, not just collect credentials</li>
-<li>You have research questions that require it</li>
-<li>You can afford the time investment</li>
-</ul>
-<p><strong>Don&rsquo;t do it if:</strong></p>
-<ul>
-<li>You just want credentials</li>
-<li>You&rsquo;re not willing to struggle with proofs</li>
-<li>You could learn what you need from textbooks</li>
-<li>You&rsquo;re doing it because it sounds impressive</li>
-</ul>
-<p><strong>If you do it:</strong></p>
-<ul>
-<li>Start with clear goals</li>
-<li>Choose thesis topic early</li>
-<li>Code while you learn</li>
-<li>Publish incrementally</li>
-<li>Accept that it&rsquo;s hard</li>
-</ul>
-<h2 id="final-thoughts">Final Thoughts</h2>
-<p>Three years. Stage 3 cancer. Two master&rsquo;s degrees.</p>
-<p>The work is done. The defense went well. The degree is complete.</p>
-<p>On to the next thing.</p>
-<hr>
-<p><em>MS Mathematics and Statistics, 2023. Next: PhD in Computer Science.</em></p>
-]]></content:encoded><category>mathematics</category><category>statistics</category><category>thesis</category><category>education</category><category>reflection</category></item></channel></rss>
+]]></content:encoded><category>large language models</category><category>solomonoff induction</category><category>synthetic data</category><category>algorthmic data</category><category>n-gram models</category><category>markov models</category><category>foundation models</category><category>statistics</category></item></channel></rss>

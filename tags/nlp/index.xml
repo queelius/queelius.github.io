@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>NLP on metafunctor</title><link>https://metafunctor.com/tags/nlp/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 04 Feb 2026 04:18:48 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/nlp/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Infinigram: Corpus-Based Language Modeling via Suffix Arrays with LLM Probability Mixing</title><link>https://metafunctor.com/papers/infinigram/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/infinigram/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>NLP on metafunctor</title><link>https://metafunctor.com/tags/nlp/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 05 Feb 2026 04:31:58 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/nlp/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Infinigram: Corpus-Based Language Modeling via Suffix Arrays with LLM Probability Mixing</title><link>https://metafunctor.com/papers/infinigram/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/infinigram/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
 .iframe-wrap {
   width: 100%;
   max-width: 100%;
@@ -337,4 +337,219 @@
 </ul>
 <hr>
 <p><em>BTK: Your bookmarks deserve better than a flat list in a browser sidebar.</em></p>
-]]></content:encoded><category>Python</category><category>bookmarks</category><category>SQLite</category><category>NLP</category><category>CLI</category><category>productivity</category></item></channel></rss>
+]]></content:encoded><category>Python</category><category>bookmarks</category><category>SQLite</category><category>NLP</category><category>CLI</category><category>productivity</category></item><item><title>N-gram Language Models</title><link>https://metafunctor.com/post/2016-08-15-ngram-language-models/</link><pubDate>Mon, 15 Aug 2016 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2016-08-15-ngram-language-models/</guid><description>The classical approach to sequence prediction—counting and smoothing</description><content:encoded><![CDATA[<p>Before neural networks dominated NLP, <strong>n-gram models</strong> were the workhorse of language modeling. They remain foundational—understanding n-grams provides intuition for what modern LLMs are doing, and reveals why their limitations motivated both CTW and deep learning approaches.</p>
+<h2 id="the-n-gram-idea">The N-gram Idea</h2>
+<p>N-gram models make a Markov assumption: only the last N-1 symbols matter.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(xₙ | xₙ₋₁, xₙ₋₂, ..., x₁) ≈ P(xₙ | xₙ₋₁, ..., xₙ₋ₙ₊₁)
+</span></span></code></pre></div><p>For a <strong>bigram</strong> (N=2) model over words:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(word | prev_word) = count(prev_word, word) / count(prev_word)
+</span></span></code></pre></div><p>For a <strong>trigram</strong> (N=3):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(word | prev2, prev1) = count(prev2, prev1, word) / count(prev2, prev1)
+</span></span></code></pre></div><p>It&rsquo;s just counting how often sequences appear, then normalizing.</p>
+<h2 id="the-sparsity-problem">The Sparsity Problem</h2>
+<p>As N increases, n-gram models face severe data sparsity:</p>
+<table>
+  <thead>
+      <tr>
+          <th>N</th>
+          <th>Context size</th>
+          <th>English vocabulary</th>
+          <th>Possible contexts</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2</td>
+          <td>1 word</td>
+          <td>50,000</td>
+          <td>50,000</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>2 words</td>
+          <td>50,000</td>
+          <td>2.5 billion</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>3 words</td>
+          <td>50,000</td>
+          <td>125 trillion</td>
+      </tr>
+  </tbody>
+</table>
+<p>Most contexts never appear in any training corpus. Maximum likelihood gives P=0 for unseen contexts, leading to:</p>
+<ul>
+<li>Infinite perplexity on test data</li>
+<li>Zero probability for reasonable sentences</li>
+<li>Catastrophic failures in practice</li>
+</ul>
+<h2 id="smoothing-handling-unseen-events">Smoothing: Handling Unseen Events</h2>
+<p>Smoothing techniques reallocate probability mass to unseen events.</p>
+<h3 id="laplace-add-one-smoothing">Laplace (Add-One) Smoothing</h3>
+<p>The simplest fix:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | context) = (count(context, w) + 1) / (count(context) + |V|)
+</span></span></code></pre></div><p>Problems:</p>
+<ul>
+<li>Adds too much mass to unseen events</li>
+<li>Assumes all unseen events equally likely</li>
+<li>Performance is mediocre</li>
+</ul>
+<h3 id="add-k-smoothing">Add-k Smoothing</h3>
+<p>Generalized Laplace:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | context) = (count(context, w) + k) / (count(context) + k × |V|)
+</span></span></code></pre></div><p>Tune k on held-out data. Still relatively crude.</p>
+<h3 id="good-turing-smoothing">Good-Turing Smoothing</h3>
+<p>A more principled approach based on <strong>frequency of frequencies</strong>:</p>
+<ul>
+<li>Estimate probability of unseen events from events seen exactly once</li>
+<li>Events seen r times: estimate their true frequency from events seen r+1 times</li>
+</ul>
+<p>Good-Turing provides better estimates but is mathematically intricate.</p>
+<h3 id="kneser-ney-smoothing">Kneser-Ney Smoothing</h3>
+<p>The gold standard for n-grams. Key insights:</p>
+<ol>
+<li><strong>Absolute discounting</strong>: Subtract a fixed δ from all counts, redistribute to unseen</li>
+<li><strong>Continuation probability</strong>: For backoff, use how many different contexts a word appears in, not raw frequency</li>
+</ol>
+<p>Kneser-Ney accounts for the fact that common words appear in many contexts while some words appear frequently but only in specific contexts.</p>
+<h2 id="backoff-and-interpolation">Backoff and Interpolation</h2>
+<p>When the context hasn&rsquo;t been seen, we need fallback strategies.</p>
+<h3 id="stupid-backoff">Stupid Backoff</h3>
+<p>Simple but effective (used in Google&rsquo;s web-scale LM):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | ABC) =
+</span></span><span class="line"><span class="cl">    if count(ABC) &gt; 0: count(ABCw) / count(ABC)
+</span></span><span class="line"><span class="cl">    else: 0.4 × P(w | BC)  # backoff with fixed discount
+</span></span></code></pre></div><h3 id="katz-backoff">Katz Backoff</h3>
+<p>Reserve probability mass for unseen events using Good-Turing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | ABC) =
+</span></span><span class="line"><span class="cl">    if count(ABCw) &gt; 0: discounted_count(ABCw) / count(ABC)
+</span></span><span class="line"><span class="cl">    else: α(ABC) × P(w | BC)
+</span></span></code></pre></div><p>Where α(ABC) normalizes the leftover probability mass.</p>
+<h3 id="interpolation">Interpolation</h3>
+<p>Always mix predictions from all context lengths:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | AB) = λ₃ × P(w | AB) + λ₂ × P(w | B) + λ₁ × P(w)
+</span></span></code></pre></div><p>Where λ₁ + λ₂ + λ₃ = 1, typically tuned on held-out data.</p>
+<h2 id="n-grams-vs-ctw">N-grams vs. CTW</h2>
+<p>CTW can be viewed as a principled form of interpolation with learned weights:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>N-gram</th>
+          <th>CTW</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Mixing weights</td>
+          <td>Fixed/tuned (λᵢ)</td>
+          <td>Learned from data</td>
+      </tr>
+      <tr>
+          <td>Context order</td>
+          <td>Fixed N</td>
+          <td>Adaptive per context</td>
+      </tr>
+      <tr>
+          <td>Smoothing</td>
+          <td>Heuristic (Kneser-Ney)</td>
+          <td>Principled (KT estimator)</td>
+      </tr>
+      <tr>
+          <td>Guarantees</td>
+          <td>Empirical</td>
+          <td>Theoretical bounds</td>
+      </tr>
+      <tr>
+          <td>Model class</td>
+          <td>Fixed-order Markov</td>
+          <td>All tree sources</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Key insight</strong>: CTW automatically learns appropriate interpolation weights based on how well each context depth predicts. It&rsquo;s what n-gram smoothing is trying to approximate, done optimally.</p>
+<h2 id="strengths-of-n-grams">Strengths of N-grams</h2>
+<p>Despite limitations, n-grams have real advantages:</p>
+<ol>
+<li><strong>Simple</strong>: Just counting and division</li>
+<li><strong>Fast</strong>: Single pass over training data</li>
+<li><strong>Interpretable</strong>: Can examine specific n-gram probabilities</li>
+<li><strong>Efficient</strong>: Hash tables or tries for storage</li>
+<li><strong>Baseline</strong>: Hard to beat for some tasks with limited compute</li>
+</ol>
+<h2 id="limitations">Limitations</h2>
+<ol>
+<li><strong>Fixed context</strong>: Can&rsquo;t capture dependencies beyond N-1</li>
+<li><strong>No generalization</strong>: &ldquo;cat sat&rdquo; and &ldquo;dog sat&rdquo; share nothing</li>
+<li><strong>Sparsity</strong>: Higher N = exponentially more unseen contexts</li>
+<li><strong>No compositionality</strong>: No notion of syntax or semantics</li>
+</ol>
+<p>These limitations motivated neural approaches that learn dense representations where similar contexts share information.</p>
+<h2 id="binary-vs-text">Binary vs. Text</h2>
+<p>For binary sequences (CTW&rsquo;s domain):</p>
+<ul>
+<li>Vocabulary |V| = 2</li>
+<li>Sparsity less severe: only 2^N contexts for N-gram</li>
+<li>CTW is essentially an optimal binary n-gram with learned interpolation</li>
+</ul>
+<p>For text:</p>
+<ul>
+<li>|V| ~ 10,000 - 100,000 words</li>
+<li>Sparsity is severe: 10,000³ = 10¹² trigram contexts</li>
+<li>Subword tokenization (BPE) helps</li>
+<li>Neural models now dominate</li>
+</ul>
+<h2 id="code-example">Code Example</h2>
+<p>A simple bigram model:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BigramModel</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">counts</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">context_counts</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>  <span class="c1"># smoothing</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">vocab_size</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># binary</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sequence</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="p">)):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">context</span> <span class="o">=</span> <span class="n">sequence</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="n">symbol</span> <span class="o">=</span> <span class="n">sequence</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">counts</span><span class="p">[</span><span class="n">context</span><span class="p">][</span><span class="n">symbol</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">context_counts</span><span class="p">[</span><span class="n">context</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Return P(next=1 | context).&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">c0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counts</span><span class="p">[</span><span class="n">context</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">c1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counts</span><span class="p">[</span><span class="n">context</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">total</span> <span class="o">=</span> <span class="n">c0</span> <span class="o">+</span> <span class="n">c1</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># Add-alpha smoothing</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">(</span><span class="n">c1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">total</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">vocab_size</span><span class="p">)</span>
+</span></span></code></pre></div><p>Compare to CTW: same basic structure (count statistics per context) but with principled Bayesian machinery.</p>
+<h2 id="historical-impact">Historical Impact</h2>
+<p>N-grams were the foundation of:</p>
+<ul>
+<li><strong>Speech recognition</strong> (before neural era)</li>
+<li><strong>Machine translation</strong> (phrase-based MT)</li>
+<li><strong>Spelling correction</strong></li>
+<li><strong>Text compression</strong> (PPM family)</li>
+</ul>
+<p>Understanding n-grams provides intuition for what neural language models are learning—but with representations that allow generalization.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>N-grams estimate P(next | context) by counting</li>
+<li><strong>Sparsity</strong> is the fundamental challenge</li>
+<li><strong>Smoothing</strong> (Kneser-Ney) redistributes mass to unseen events</li>
+<li><strong>Interpolation/backoff</strong> combines multiple context lengths</li>
+<li>CTW is like optimal n-gram interpolation with learned weights</li>
+<li>Limitations motivate <strong>neural approaches</strong> for text</li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2024-06-15-comparing-prediction-methods/">next post</a> compares CTW, n-grams, and neural language models head-to-head, examining when each approach excels and the fundamental trade-offs between sample efficiency and flexibility.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Jurafsky &amp; Martin. <em>Speech and Language Processing</em>. Chapter 3.</li>
+<li>Chen, S. F., &amp; Goodman, J. (1999). &ldquo;An empirical study of smoothing techniques for language modeling.&rdquo;</li>
+<li>Kneser, R., &amp; Ney, H. (1995). &ldquo;Improved backing-off for m-gram language modeling.&rdquo;</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>n-gram</category><category>language-models</category><category>smoothing</category><category>nlp</category><category>prediction</category></item></channel></rss>

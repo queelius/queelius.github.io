@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Kt-Estimator on metafunctor</title><link>https://metafunctor.com/tags/kt-estimator/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 05 Feb 2026 04:31:58 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/kt-estimator/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>The Bayesian Prediction Framework</title><link>https://metafunctor.com/post/2014-09-20-bayesian-prediction-framework/</link><pubDate>Sat, 20 Sep 2014 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2014-09-20-bayesian-prediction-framework/</guid><description>Model averaging over hypotheses—the principled approach to handling uncertainty in prediction</description><content:encoded><![CDATA[<p>In the <a href="/post/2012-03-15-solomonoff-induction-prediction/">previous post</a>, we saw that Solomonoff induction is optimal but incomputable. Its power comes from maintaining a distribution over <em>all</em> possible programs rather than committing to any single hypothesis.</p>
+<p>This is <strong>Bayesian model averaging</strong> in its purest form. In this post, we develop the Bayesian framework for sequential prediction and introduce the <strong>Krichevsky-Trofimov (KT) estimator</strong>—the mathematical engine powering Context Tree Weighting.</p>
+<h2 id="the-core-idea-embrace-uncertainty">The Core Idea: Embrace Uncertainty</h2>
+<p>The key insight of Bayesian prediction: <strong>don&rsquo;t pick a single model—average over all of them</strong>.</p>
+<h3 id="model-selection-the-wrong-way">Model Selection (the wrong way)</h3>
+<p>Traditional approach:</p>
+<ol>
+<li>Evaluate candidate models on data</li>
+<li>Pick the best one (by AIC, BIC, cross-validation, etc.)</li>
+<li>Make predictions using only the selected model</li>
+</ol>
+<p>Problems:</p>
+<ul>
+<li>Ignores uncertainty about which model is correct</li>
+<li>Overconfident predictions</li>
+<li>Winner-take-all loses information from runner-up models</li>
+</ul>
+<h3 id="model-averaging-the-right-way">Model Averaging (the right way)</h3>
+<p>Bayesian approach:</p>
+<ol>
+<li>Assign prior probabilities to models</li>
+<li>Update to posterior probabilities given data</li>
+<li>Average predictions across all models, weighted by posterior</li>
+</ol>
+<p>Benefits:</p>
+<ul>
+<li>Accounts for model uncertainty</li>
+<li>Better calibrated predictions</li>
+<li>More robust to model misspecification</li>
+<li>No need to &ldquo;select&rdquo; a model</li>
+</ul>
+<h2 id="the-bayesian-recipe">The Bayesian Recipe</h2>
+<h3 id="prior-distribution">Prior Distribution</h3>
+<p>We start with a prior P(θ) over model parameters (or model structures):</p>
+<ul>
+<li>Expresses beliefs before seeing data</li>
+<li>Should encode reasonable inductive biases</li>
+<li>In CTW: implicit prior over tree structures (0.5 weight to &ldquo;stop here&rdquo; vs &ldquo;go deeper&rdquo;)</li>
+</ul>
+<h3 id="likelihood">Likelihood</h3>
+<p>The likelihood P(data | θ) measures how well each model explains the observations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(x₁, x₂, ..., xₙ | θ) = ∏ᵢ P(xᵢ | x₁, ..., xᵢ₋₁, θ)
+</span></span></code></pre></div><h3 id="posterior-distribution">Posterior Distribution</h3>
+<p>After observing data D, we update via Bayes&rsquo; rule:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(θ | D) = P(D | θ) × P(θ) / P(D)
+</span></span></code></pre></div><p>The posterior concentrates on models that both:</p>
+<ol>
+<li>Had reasonable prior probability</li>
+<li>Explain the data well</li>
+</ol>
+<h3 id="posterior-predictive-distribution">Posterior Predictive Distribution</h3>
+<p>For prediction, we average over all models:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(xₙ | x₁...xₙ₋₁) = ∫ P(xₙ | θ) × P(θ | x₁...xₙ₋₁) dθ
+</span></span></code></pre></div><p>This is the <strong>Bayesian predictive distribution</strong>—each model votes, weighted by its posterior probability.</p>
+<h2 id="the-kt-estimator-bayesian-bernoulli-prediction">The KT Estimator: Bayesian Bernoulli Prediction</h2>
+<p>The <strong>Krichevsky-Trofimov (KT) estimator</strong> provides optimal Bayesian prediction for a sequence of coin flips.</p>
+<h3 id="setup">Setup</h3>
+<p>We observe a sequence of bits with:</p>
+<ul>
+<li>a zeros observed</li>
+<li>b ones observed</li>
+</ul>
+<p>Question: what&rsquo;s P(next bit = 1)?</p>
+<h3 id="maximum-likelihood-estimate-mle">Maximum Likelihood Estimate (MLE)</h3>
+<p>The obvious answer:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1) = b / (a + b)
+</span></span></code></pre></div><p><strong>Problem</strong>: After seeing only zeros, MLE predicts P(1) = 0 forever! One surprising 1 causes infinite surprise.</p>
+<h3 id="laplace-smoothing">Laplace Smoothing</h3>
+<p>Add-one smoothing (equivalent to Beta(1,1) = uniform prior):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1) = (b + 1) / (a + b + 2)
+</span></span></code></pre></div><p>Better, but not optimal.</p>
+<h3 id="kt-estimator">KT Estimator</h3>
+<p>Uses Beta(0.5, 0.5)—the <strong>Jeffreys prior</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1) = (b + 0.5) / (a + b + 1)
+</span></span></code></pre></div><p><strong>Why 0.5?</strong> The Jeffreys prior is:</p>
+<ul>
+<li>Uninformative (doesn&rsquo;t favor any probability)</li>
+<li>Minimax optimal (best worst-case redundancy)</li>
+<li>Theoretically justified for sequential prediction</li>
+</ul>
+<h3 id="sequential-probability">Sequential Probability</h3>
+<p>The KT probability of a sequence with a zeros and b ones:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Pₑ(a, b) = Γ(a + 0.5) × Γ(b + 0.5) / (Γ(1) × Γ(a + b + 1))
+</span></span></code></pre></div><p>This can be computed sequentially:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Pₑ(a+1, b) = Pₑ(a, b) × (a + 0.5) / (a + b + 1)
+</span></span><span class="line"><span class="cl">Pₑ(a, b+1) = Pₑ(a, b) × (b + 0.5) / (a + b + 1)
+</span></span></code></pre></div><p>No need to restart from scratch—just multiply by a simple factor.</p>
+<h2 id="ctws-bayesian-mixture">CTW&rsquo;s Bayesian Mixture</h2>
+<p>Context Tree Weighting uses the KT estimator at each node, then performs Bayesian averaging over tree structures.</p>
+<p>At each node with local KT estimate Pₑ and children with weighted estimates P_w(child_0) and P_w(child_1):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P_w = 0.5 × Pₑ + 0.5 × P_w(child_0) × P_w(child_1)
+</span></span></code></pre></div><p>This recursion:</p>
+<ul>
+<li>Assigns 0.5 prior weight to &ldquo;stop here&rdquo; (use local KT estimate)</li>
+<li>Assigns 0.5 prior weight to &ldquo;go deeper&rdquo; (use children&rsquo;s predictions)</li>
+<li>Implicitly averages over all possible tree structures</li>
+</ul>
+<h3 id="example-depth-2-tree">Example: Depth-2 Tree</h3>
+<p>For a depth-2 CTW, the root&rsquo;s P_w averages over:</p>
+<ol>
+<li>Use only root&rsquo;s KT estimate (weight ~0.5)</li>
+<li>Use root + one level of children (weight ~0.25 for each split pattern)</li>
+<li>Use full depth-2 tree (weight ~0.125 for each of 4 possible trees)</li>
+</ol>
+<p>All 2^(2^D - 1) possible tree structures are implicitly weighted!</p>
+<h2 id="why-bayesian-works">Why Bayesian Works</h2>
+<h3 id="automatic-complexity-control">Automatic Complexity Control</h3>
+<ul>
+<li>Simple models (shallow trees) are preferred a priori via the 0.5 split</li>
+<li>But if data supports complexity, posterior shifts to deeper trees</li>
+<li>No need to hand-tune regularization parameters</li>
+</ul>
+<h3 id="calibrated-uncertainty">Calibrated Uncertainty</h3>
+<ul>
+<li>Predictions reflect actual epistemic uncertainty</li>
+<li>Important for decision-making, active learning, exploration</li>
+<li>Better than overconfident point estimates</li>
+</ul>
+<h3 id="theoretical-guarantees">Theoretical Guarantees</h3>
+<p>For tree sources, CTW achieves:</p>
+<ul>
+<li>Redundancy bounded by O(k log n) for k-leaf optimal tree</li>
+<li>Converges to true distribution at optimal rate</li>
+<li>Minimax optimal within its model class</li>
+</ul>
+<h2 id="bayesian-vs-frequentist">Bayesian vs. Frequentist</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>Bayesian (CTW)</th>
+          <th>Frequentist (MLE)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Parameters</td>
+          <td>Distribution over values</td>
+          <td>Point estimate</td>
+      </tr>
+      <tr>
+          <td>Model selection</td>
+          <td>Average over models</td>
+          <td>Choose one</td>
+      </tr>
+      <tr>
+          <td>Small samples</td>
+          <td>Handles gracefully</td>
+          <td>Often overfits</td>
+      </tr>
+      <tr>
+          <td>Computation</td>
+          <td>Sometimes tractable</td>
+          <td>Usually simpler</td>
+      </tr>
+      <tr>
+          <td>Guarantees</td>
+          <td>Posterior consistency</td>
+          <td>Asymptotic normality</td>
+      </tr>
+  </tbody>
+</table>
+<p>For sequential prediction with limited data, the Bayesian approach dominates.</p>
+<h2 id="practical-implications">Practical Implications</h2>
+<h3 id="when-to-use-bayesian-model-averaging">When to Use Bayesian Model Averaging</h3>
+<ul>
+<li><strong>Limited data</strong>: Uncertainty matters more</li>
+<li><strong>Multiple plausible models</strong>: No clear winner</li>
+<li><strong>Calibration required</strong>: Need honest uncertainty</li>
+<li><strong>Online learning</strong>: Sequential updates natural</li>
+</ul>
+<h3 id="when-simpler-approaches-suffice">When Simpler Approaches Suffice</h3>
+<ul>
+<li><strong>Massive data</strong>: Posterior concentrates anyway</li>
+<li><strong>Single clearly best model</strong>: Averaging unnecessary</li>
+<li><strong>Computation constrained</strong>: MLE is faster</li>
+<li><strong>Interpretability</strong>: Single model easier to explain</li>
+</ul>
+<h2 id="the-hierarchy-of-estimation">The Hierarchy of Estimation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Full Bayesian (maintain full posterior)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">MAP (maximum a posteriori point estimate)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">MLE (maximum likelihood, flat prior)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">Heuristics (ad-hoc smoothing)
+</span></span></code></pre></div><p>CTW operates at the top level—full Bayesian averaging over tree structures with KT estimation at leaves.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><strong>Model averaging</strong> beats model selection when uncertainty matters</li>
+<li>The <strong>KT estimator</strong> provides optimal sequential Bernoulli prediction</li>
+<li>CTW combines KT estimation with <strong>Bayesian averaging over trees</strong></li>
+<li>The <strong>0.5/0.5 split</strong> implements an implicit Occam&rsquo;s razor prior</li>
+<li>Bayesian methods excel with <strong>limited data</strong> and <strong>online learning</strong></li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2015-11-10-data-generating-processes/">next post</a> examines the <em>data generating processes</em> that produce sequences. Understanding Markov processes and tree sources helps us see why CTW&rsquo;s model class is both tractable and powerful.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Gelman, A., et al. (2013). <em>Bayesian Data Analysis</em>.</li>
+<li>Bishop, C. M. (2006). <em>Pattern Recognition and Machine Learning</em>. Chapter 3.</li>
+<li>Rissanen, J. (1984). &ldquo;Universal coding, information, prediction, and estimation.&rdquo;</li>
+<li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>bayesian</category><category>model-averaging</category><category>kt-estimator</category><category>prediction</category><category>ctw</category></item></channel></rss>

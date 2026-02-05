@@ -1,0 +1,1705 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Sequential Prediction on metafunctor</title><link>https://metafunctor.com/series/sequential-prediction/</link><description>From Solomonoff induction to modern language models—exploring sequential prediction through information theory, Bayesian methods, and neural approaches</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 05 Feb 2026 04:31:57 -0600</lastBuildDate><atom:link href="https://metafunctor.com/series/sequential-prediction/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Introduction to Sequential Prediction</title><link>https://metafunctor.com/post/2010-06-01-intro-sequential-prediction/</link><pubDate>Tue, 01 Jun 2010 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2010-06-01-intro-sequential-prediction/</guid><description>The fundamental problem of predicting what comes next—from compression to language models</description><content:encoded><![CDATA[<p>What will the next symbol be?</p>
+<p>This deceptively simple question lies at the heart of some of the most important problems in computer science and statistics. Given a sequence of observations—bits in a file, words in a sentence, prices in a market—can we predict what comes next?</p>
+<h2 id="why-sequential-prediction-matters">Why Sequential Prediction Matters</h2>
+<p>The problem of sequential prediction underlies a remarkable range of applications:</p>
+<p><strong>Data Compression</strong>: Shannon&rsquo;s foundational insight connects prediction directly to compression. If you can predict the next symbol with probability p, you only need -log₂(p) bits to encode it. Better predictions → shorter codes. This is why modern compression algorithms like PAQ and CMIX use sophisticated predictors internally.</p>
+<p><strong>Language Modeling</strong>: Every large language model—GPT, Claude, LLaMA—is fundamentally a next-token predictor. The transformer architecture learns to estimate P(next token | previous tokens), then uses this to generate text, answer questions, and reason about problems.</p>
+<p><strong>Time Series Forecasting</strong>: Stock prices, weather patterns, sensor readings, patient vitals—all involve predicting future values from historical sequences.</p>
+<p><strong>Anomaly Detection</strong>: If we have a good model of &ldquo;normal&rdquo; sequences, then low-probability events signal anomalies. Network intrusion detection, fraud detection, and quality control all use this principle.</p>
+<p><strong>Reinforcement Learning</strong>: World models in model-based RL predict how states transition given actions. Better predictions enable better planning.</p>
+<h2 id="the-formal-problem">The Formal Problem</h2>
+<p>Let&rsquo;s be precise. We have:</p>
+<ul>
+<li>An alphabet A (could be binary {0, 1}, could be a vocabulary of 50,000 words)</li>
+<li>A sequence x₁, x₂, &hellip;, xₙ₋₁ of symbols from A</li>
+<li>The task: output a probability distribution P(xₙ | x₁, &hellip;, xₙ₋₁)</li>
+</ul>
+<p>For binary sequences, this simplifies to predicting a single probability:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">p = P(xₙ = 1 | x₁, ..., xₙ₋₁)
+</span></span></code></pre></div><p>Notice we&rsquo;re not just making a point prediction (&ldquo;the next bit will be 1&rdquo;). We&rsquo;re expressing our <em>uncertainty</em> as a full probability distribution. This matters because:</p>
+<ol>
+<li>We can be calibrated—if we say P=0.7, we should be right 70% of the time</li>
+<li>We can encode optimally using the predicted probabilities</li>
+<li>We can make decisions that account for risk</li>
+</ol>
+<h2 id="learning-paradigms">Learning Paradigms</h2>
+<h3 id="online-learning">Online Learning</h3>
+<p>In <strong>online learning</strong>, we make predictions one at a time:</p>
+<ol>
+<li>Observe x₁, &hellip;, xₙ₋₁</li>
+<li>Output prediction P(xₙ | history)</li>
+<li>Observe true xₙ</li>
+<li>Update our model</li>
+<li>Repeat</li>
+</ol>
+<p>This is the paradigm many classical algorithms like Context Tree Weighting (CTW) operate in. The model never sees the full sequence upfront—it learns and predicts simultaneously. There&rsquo;s no separate &ldquo;training phase.&rdquo;</p>
+<h3 id="batch-learning">Batch Learning</h3>
+<p>In <strong>batch learning</strong>, we have access to training data upfront:</p>
+<ol>
+<li>Train on sequence(s) D_train</li>
+<li>Evaluate on held-out D_test</li>
+</ol>
+<p>Most neural language models use batch learning, processing large corpora before deployment.</p>
+<h2 id="measuring-performance">Measuring Performance</h2>
+<p>How do we evaluate a predictor?</p>
+<h3 id="log-loss-cross-entropy">Log Loss (Cross-Entropy)</h3>
+<p>The most principled measure is <strong>log loss</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">L(p, x) = -log P(x | history)
+</span></span></code></pre></div><p>This measures &ldquo;surprise&rdquo;—how many bits we need to encode the actual outcome given our prediction. Key properties:</p>
+<ul>
+<li>Directly related to compression: optimal code length = -log₂ P(x)</li>
+<li><strong>Proper scoring rule</strong>: minimized when P equals the true distribution</li>
+<li>Heavily penalizes confident wrong predictions</li>
+</ul>
+<h3 id="prediction-accuracy">Prediction Accuracy</h3>
+<p>For binary prediction, we can threshold and measure accuracy:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">correct = 1 if (p ≥ 0.5 and x = 1) or (p &lt; 0.5 and x = 0) else 0
+</span></span></code></pre></div><p>Less informative than log loss, but more interpretable in many contexts.</p>
+<h3 id="regret">Regret</h3>
+<p><strong>Regret</strong> measures how much worse we do compared to the best predictor in some class:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Regret = Σ L(our predictor) - Σ L(best in class)
+</span></span></code></pre></div><p>For CTW, the regret relative to the best tree model is bounded by O(k log n) where k is the number of leaves. This <em>sublinear</em> growth means CTW&rsquo;s per-symbol performance approaches optimal.</p>
+<h2 id="the-approaches">The Approaches</h2>
+<p>Different algorithms make different trade-offs:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Approach</th>
+          <th>Key Idea</th>
+          <th>Strengths</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Solomonoff Induction</strong></td>
+          <td>Universal prior over computable sequences</td>
+          <td>Theoretically optimal</td>
+      </tr>
+      <tr>
+          <td><strong>CTW</strong></td>
+          <td>Bayesian averaging over tree structures</td>
+          <td>Sample efficient, strong guarantees</td>
+      </tr>
+      <tr>
+          <td><strong>N-grams</strong></td>
+          <td>Count-based conditional probabilities</td>
+          <td>Simple, interpretable, fast</td>
+      </tr>
+      <tr>
+          <td><strong>Neural LMs</strong></td>
+          <td>Learn representations from data</td>
+          <td>Flexible, scalable, powerful</td>
+      </tr>
+  </tbody>
+</table>
+<p>Solomonoff induction is the theoretical ideal—incomputable but optimal. CTW is a practical approximation that&rsquo;s provably optimal for an important subclass. N-grams are the classical baseline. Neural models dominate modern applications but lack theoretical guarantees.</p>
+<h2 id="the-bias-variance-trade-off">The Bias-Variance Trade-off</h2>
+<p>Every predictor faces a fundamental tension:</p>
+<ul>
+<li><strong>Simple models</strong> (short context): High bias, low variance. They can&rsquo;t capture complex patterns but don&rsquo;t need much data.</li>
+<li><strong>Complex models</strong> (long context): Low bias, high variance. They can capture any pattern but may overfit.</li>
+</ul>
+<p>CTW addresses this elegantly through Bayesian model averaging. Rather than choosing a single model complexity, it maintains a weighted mixture over all tree structures. Simple models get higher prior weight, but if the data supports complexity, the posterior shifts accordingly.</p>
+<p>Neural language models take a different approach: throw massive amounts of data at a very flexible model. The scale of modern pretraining (billions of tokens) makes the variance problem manageable.</p>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>This series will trace the path from theoretical foundations to practical algorithms:</p>
+<ol>
+<li><strong>Solomonoff Induction</strong>: The incomputable ideal—what perfect prediction would look like</li>
+<li><strong>Bayesian Prediction</strong>: The framework underlying all principled approaches</li>
+<li><strong>Data Generating Processes</strong>: Understanding the sources that produce sequences</li>
+<li><strong>N-gram Models</strong>: The classical approach and its limitations</li>
+<li><strong>Comparing Methods</strong>: Trade-offs between CTW, n-grams, and neural models</li>
+<li><strong>Neural Language Models</strong>: From RNNs to transformers</li>
+<li><strong>Experimental Results</strong>: Validating theory with practice</li>
+</ol>
+<p>The journey connects information theory from the 1960s to the transformer architectures of today. Understanding these foundations helps explain both why modern AI systems work and where their limitations come from.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Sequential prediction is fundamental to compression, language modeling, and learning</li>
+<li>We predict <em>distributions</em>, not just point estimates</li>
+<li>Log loss (cross-entropy) is the principled measure, connected to optimal coding</li>
+<li>Different approaches trade off sample efficiency against flexibility</li>
+<li>Bayesian model averaging handles the complexity trade-off elegantly</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>information-theory</category><category>compression</category><category>prediction</category><category>machine-learning</category></item><item><title>Solomonoff Induction: The Theoretical Ideal</title><link>https://metafunctor.com/post/2012-03-15-solomonoff-induction-prediction/</link><pubDate>Thu, 15 Mar 2012 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2012-03-15-solomonoff-induction-prediction/</guid><description>Why the optimal predictor is incomputable—and what we can learn from it anyway</description><content:encoded><![CDATA[<p>In the <a href="/post/2010-06-01-intro-sequential-prediction/">previous post</a>, we defined sequential prediction: given x₁, &hellip;, xₙ₋₁, predict xₙ. But what&rsquo;s the <em>best possible</em> predictor? Is there a theoretical gold standard against which we can measure all practical approaches?</p>
+<p>Yes—and it&rsquo;s called <strong>Solomonoff induction</strong>. The catch: it&rsquo;s incomputable.</p>
+<h2 id="the-dream-of-universal-prediction">The Dream of Universal Prediction</h2>
+<p>Imagine a predictor that could:</p>
+<ul>
+<li>Learn any computable pattern</li>
+<li>Converge to the true distribution faster than any competitor</li>
+<li>Never be fooled by spurious correlations</li>
+<li>Automatically apply Occam&rsquo;s razor</li>
+</ul>
+<p>This isn&rsquo;t science fiction—Solomonoff described exactly such a predictor in 1964. The only problem is that implementing it would require solving the halting problem.</p>
+<p>Understanding <em>why</em> this ideal exists and <em>why</em> it&rsquo;s incomputable illuminates the fundamental limits of learning and helps explain what practical algorithms are approximating.</p>
+<h2 id="kolmogorov-complexity">Kolmogorov Complexity</h2>
+<p>Before we can understand Solomonoff induction, we need <strong>Kolmogorov complexity</strong>.</p>
+<p>The Kolmogorov complexity K(x) of a string x is the length of the shortest program that outputs x:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">K(x) = min { |p| : U(p) = x }
+</span></span></code></pre></div><p>where U is a universal Turing machine and |p| is the length of program p in bits.</p>
+<h3 id="intuition">Intuition</h3>
+<p>Consider two strings:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">A: 010101010101010101010101010101010101...
+</span></span><span class="line"><span class="cl">B: 011001110010110001011010011101000111...
+</span></span></code></pre></div><p>String A has low Kolmogorov complexity: <code>print(&quot;01&quot; * 50)</code> is short.
+String B (random bits) has high complexity: the shortest program is essentially &ldquo;print the string.&rdquo;</p>
+<p>Kolmogorov complexity captures the intuitive notion of &ldquo;randomness&rdquo; or &ldquo;patternlessness.&rdquo; A string is random if and only if it&rsquo;s incompressible—if there&rsquo;s no program shorter than the string itself.</p>
+<h3 id="key-properties">Key Properties</h3>
+<ol>
+<li>
+<p><strong>Invariance</strong>: K(x) depends on the choice of universal machine only up to a constant. Different machines give K values that differ by at most O(1).</p>
+</li>
+<li>
+<p><strong>Uncomputability</strong>: K(x) is not computable. There&rsquo;s no algorithm that takes x and returns K(x). (Proof: if K were computable, we could solve the halting problem.)</p>
+</li>
+<li>
+<p><strong>Upper bound</strong>: K(x) ≤ |x| + O(1). You can always just &ldquo;print the string.&rdquo;</p>
+</li>
+</ol>
+<h2 id="algorithmic-probability">Algorithmic Probability</h2>
+<p>Solomonoff&rsquo;s <strong>algorithmic probability</strong> (or universal prior) assigns probability to each string x:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">M(x) = Σ 2^(-|p|) for all programs p that output x
+</span></span></code></pre></div><p>This sums over <em>all</em> programs that produce x, weighted by 2^(-length). Shorter programs contribute more.</p>
+<p>The key insight: <strong>simpler explanations get more probability mass</strong>.</p>
+<p>If x can be produced by a 10-bit program, it gets at least 2^(-10) = 0.001 probability. If the shortest program producing y is 1000 bits, y gets at most 2^(-1000) ≈ 0 probability.</p>
+<h2 id="solomonoffs-universal-prior">Solomonoff&rsquo;s Universal Prior</h2>
+<p>For sequential prediction, Solomonoff proposed using M as a prior over infinite sequences. The probability of the next bit being 1 given history h is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1 | h) = M(h·1) / M(h)
+</span></span></code></pre></div><p>where h·1 denotes h followed by 1, and M(h) is the probability of sequences starting with h.</p>
+<p>This is just Bayes&rsquo; rule: condition the universal prior on what we&rsquo;ve seen.</p>
+<h2 id="why-its-optimal">Why It&rsquo;s Optimal</h2>
+<p><strong>Theorem</strong> (Solomonoff, 1964): Solomonoff induction converges to the true distribution faster than any computable predictor, for any computable source.</p>
+<p>More precisely, if the true distribution is μ and we denote Solomonoff&rsquo;s predictor by M, then the expected total squared prediction error is bounded:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">E_μ[ Σₙ (M(xₙ | x&lt;n) - μ(xₙ | x&lt;n))² ] ≤ K(μ) × ln(2)
+</span></span></code></pre></div><p>where K(μ) is the Kolmogorov complexity of the true distribution.</p>
+<p>This means:</p>
+<ul>
+<li>Total error is finite, bounded by complexity of the true source</li>
+<li>Per-symbol error goes to zero</li>
+<li>Convergence is faster for &ldquo;simpler&rdquo; true distributions</li>
+</ul>
+<h2 id="why-its-incomputable">Why It&rsquo;s Incomputable</h2>
+<p>Solomonoff induction requires:</p>
+<ol>
+<li>
+<p><strong>Enumerating all programs</strong>: We&rsquo;d need to consider every possible Turing machine.</p>
+</li>
+<li>
+<p><strong>Solving the halting problem</strong>: To compute M(x), we need to know which programs halt and output x. But determining whether a program halts is undecidable.</p>
+</li>
+<li>
+<p><strong>Summing infinitely many terms</strong>: Even if each term were computable, we&rsquo;d need to sum over infinitely many programs.</p>
+</li>
+</ol>
+<p>The halting problem alone makes exact computation impossible. There&rsquo;s no algorithm that computes M(x) for arbitrary x.</p>
+<h2 id="practical-implications">Practical Implications</h2>
+<p>If we can&rsquo;t compute Solomonoff induction, why study it?</p>
+<h3 id="1-it-sets-the-standard">1. It Sets the Standard</h3>
+<p>Solomonoff induction is what we&rsquo;re <em>approximating</em> when we build practical predictors. It tells us what optimal looks like, even if we can&rsquo;t achieve it.</p>
+<h3 id="2-it-justifies-occams-razor">2. It Justifies Occam&rsquo;s Razor</h3>
+<p>The success of Solomonoff induction explains why preferring simpler hypotheses works. It&rsquo;s not just a heuristic—it&rsquo;s provably optimal (in a well-defined sense).</p>
+<h3 id="3-it-guides-algorithm-design">3. It Guides Algorithm Design</h3>
+<p>Good practical algorithms should:</p>
+<ul>
+<li>Have an implicit simplicity bias</li>
+<li>Perform some form of model averaging</li>
+<li>Be universal over some model class</li>
+</ul>
+<p>Context Tree Weighting, which we&rsquo;ll explore later in this series, can be seen as Solomonoff induction restricted to tree-generating programs.</p>
+<h2 id="computable-approximations">Computable Approximations</h2>
+<p>Since Solomonoff itself is out of reach, we use restricted model classes:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Model Class</th>
+          <th>Universality</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Solomonoff</td>
+          <td>All computable</td>
+          <td>Yes (but incomputable)</td>
+      </tr>
+      <tr>
+          <td>CTW</td>
+          <td>Tree sources</td>
+          <td>No, but includes Markov</td>
+      </tr>
+      <tr>
+          <td>PPM</td>
+          <td>Variable-order Markov</td>
+          <td>No, heuristic</td>
+      </tr>
+      <tr>
+          <td>Neural LMs</td>
+          <td>Learned representations</td>
+          <td>No, but very flexible</td>
+      </tr>
+  </tbody>
+</table>
+<p>CTW is particularly elegant: it performs exact Bayesian inference over all tree structures, giving provable optimality for a rich subclass of computable sources.</p>
+<h2 id="the-hierarchy-of-predictors">The Hierarchy of Predictors</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Solomonoff Induction (incomputable, optimal)
+</span></span><span class="line"><span class="cl">        ↓
+</span></span><span class="line"><span class="cl">    Restricted Model Classes
+</span></span><span class="line"><span class="cl">        ↓
+</span></span><span class="line"><span class="cl">┌───────┴────────┐
+</span></span><span class="line"><span class="cl">CTW             PPM        (efficient, provable for subclass)
+</span></span><span class="line"><span class="cl">(tree sources)  (heuristic)
+</span></span><span class="line"><span class="cl">        ↓
+</span></span><span class="line"><span class="cl">   N-gram Models           (simple, limited)
+</span></span><span class="line"><span class="cl">        ↓
+</span></span><span class="line"><span class="cl">   Neural LMs              (flexible, data-hungry)
+</span></span></code></pre></div><p>Each step down trades some generality for computability. CTW is special because it maintains Bayesian optimality within its (quite general) model class.</p>
+<h2 id="connection-to-learning-theory">Connection to Learning Theory</h2>
+<p>Solomonoff induction connects to broader themes in machine learning:</p>
+<p><strong>No Free Lunch</strong>: Any computable predictor will fail on some computable sequences. Solomonoff is the best we can do &ldquo;on average&rdquo; under the algorithmic probability measure.</p>
+<p><strong>Bias-Variance</strong>: Solomonoff&rsquo;s implicit prior implements perfect regularization—complex hypotheses are downweighted but not excluded.</p>
+<p><strong>PAC Learning</strong>: Solomonoff converges with finite expected error, satisfying a form of probably approximately correct learning.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><strong>Solomonoff induction</strong> is the theoretically optimal predictor for any computable sequence</li>
+<li>It assigns <strong>algorithmic probability</strong>: shorter programs → higher probability</li>
+<li>It&rsquo;s <strong>incomputable</strong> due to the halting problem</li>
+<li>Practical algorithms approximate it via <strong>restricted model classes</strong></li>
+<li>CTW achieves Solomonoff-like optimality for <strong>tree-structured sources</strong></li>
+<li>Understanding the ideal helps us design and evaluate practical methods</li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2014-09-20-bayesian-prediction-framework/">next post</a> develops the Bayesian framework that underlies both Solomonoff induction and its practical approximations like CTW. We&rsquo;ll see how model averaging—maintaining distributions over hypotheses rather than committing to one—is the key to robust prediction.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Solomonoff, R. J. (1964). &ldquo;A formal theory of inductive inference.&rdquo; <em>Information and Control</em>.</li>
+<li>Li, M., &amp; Vitányi, P. (2008). <em>An Introduction to Kolmogorov Complexity and Its Applications</em>.</li>
+<li>Hutter, M. (2005). <em>Universal Artificial Intelligence: Sequential Decisions Based on Algorithmic Probability</em>.</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>solomonoff</category><category>kolmogorov-complexity</category><category>algorithmic-information</category><category>prediction</category><category>computability</category></item><item><title>The Bayesian Prediction Framework</title><link>https://metafunctor.com/post/2014-09-20-bayesian-prediction-framework/</link><pubDate>Sat, 20 Sep 2014 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2014-09-20-bayesian-prediction-framework/</guid><description>Model averaging over hypotheses—the principled approach to handling uncertainty in prediction</description><content:encoded><![CDATA[<p>In the <a href="/post/2012-03-15-solomonoff-induction-prediction/">previous post</a>, we saw that Solomonoff induction is optimal but incomputable. Its power comes from maintaining a distribution over <em>all</em> possible programs rather than committing to any single hypothesis.</p>
+<p>This is <strong>Bayesian model averaging</strong> in its purest form. In this post, we develop the Bayesian framework for sequential prediction and introduce the <strong>Krichevsky-Trofimov (KT) estimator</strong>—the mathematical engine powering Context Tree Weighting.</p>
+<h2 id="the-core-idea-embrace-uncertainty">The Core Idea: Embrace Uncertainty</h2>
+<p>The key insight of Bayesian prediction: <strong>don&rsquo;t pick a single model—average over all of them</strong>.</p>
+<h3 id="model-selection-the-wrong-way">Model Selection (the wrong way)</h3>
+<p>Traditional approach:</p>
+<ol>
+<li>Evaluate candidate models on data</li>
+<li>Pick the best one (by AIC, BIC, cross-validation, etc.)</li>
+<li>Make predictions using only the selected model</li>
+</ol>
+<p>Problems:</p>
+<ul>
+<li>Ignores uncertainty about which model is correct</li>
+<li>Overconfident predictions</li>
+<li>Winner-take-all loses information from runner-up models</li>
+</ul>
+<h3 id="model-averaging-the-right-way">Model Averaging (the right way)</h3>
+<p>Bayesian approach:</p>
+<ol>
+<li>Assign prior probabilities to models</li>
+<li>Update to posterior probabilities given data</li>
+<li>Average predictions across all models, weighted by posterior</li>
+</ol>
+<p>Benefits:</p>
+<ul>
+<li>Accounts for model uncertainty</li>
+<li>Better calibrated predictions</li>
+<li>More robust to model misspecification</li>
+<li>No need to &ldquo;select&rdquo; a model</li>
+</ul>
+<h2 id="the-bayesian-recipe">The Bayesian Recipe</h2>
+<h3 id="prior-distribution">Prior Distribution</h3>
+<p>We start with a prior P(θ) over model parameters (or model structures):</p>
+<ul>
+<li>Expresses beliefs before seeing data</li>
+<li>Should encode reasonable inductive biases</li>
+<li>In CTW: implicit prior over tree structures (0.5 weight to &ldquo;stop here&rdquo; vs &ldquo;go deeper&rdquo;)</li>
+</ul>
+<h3 id="likelihood">Likelihood</h3>
+<p>The likelihood P(data | θ) measures how well each model explains the observations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(x₁, x₂, ..., xₙ | θ) = ∏ᵢ P(xᵢ | x₁, ..., xᵢ₋₁, θ)
+</span></span></code></pre></div><h3 id="posterior-distribution">Posterior Distribution</h3>
+<p>After observing data D, we update via Bayes&rsquo; rule:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(θ | D) = P(D | θ) × P(θ) / P(D)
+</span></span></code></pre></div><p>The posterior concentrates on models that both:</p>
+<ol>
+<li>Had reasonable prior probability</li>
+<li>Explain the data well</li>
+</ol>
+<h3 id="posterior-predictive-distribution">Posterior Predictive Distribution</h3>
+<p>For prediction, we average over all models:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(xₙ | x₁...xₙ₋₁) = ∫ P(xₙ | θ) × P(θ | x₁...xₙ₋₁) dθ
+</span></span></code></pre></div><p>This is the <strong>Bayesian predictive distribution</strong>—each model votes, weighted by its posterior probability.</p>
+<h2 id="the-kt-estimator-bayesian-bernoulli-prediction">The KT Estimator: Bayesian Bernoulli Prediction</h2>
+<p>The <strong>Krichevsky-Trofimov (KT) estimator</strong> provides optimal Bayesian prediction for a sequence of coin flips.</p>
+<h3 id="setup">Setup</h3>
+<p>We observe a sequence of bits with:</p>
+<ul>
+<li>a zeros observed</li>
+<li>b ones observed</li>
+</ul>
+<p>Question: what&rsquo;s P(next bit = 1)?</p>
+<h3 id="maximum-likelihood-estimate-mle">Maximum Likelihood Estimate (MLE)</h3>
+<p>The obvious answer:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1) = b / (a + b)
+</span></span></code></pre></div><p><strong>Problem</strong>: After seeing only zeros, MLE predicts P(1) = 0 forever! One surprising 1 causes infinite surprise.</p>
+<h3 id="laplace-smoothing">Laplace Smoothing</h3>
+<p>Add-one smoothing (equivalent to Beta(1,1) = uniform prior):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1) = (b + 1) / (a + b + 2)
+</span></span></code></pre></div><p>Better, but not optimal.</p>
+<h3 id="kt-estimator">KT Estimator</h3>
+<p>Uses Beta(0.5, 0.5)—the <strong>Jeffreys prior</strong>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(1) = (b + 0.5) / (a + b + 1)
+</span></span></code></pre></div><p><strong>Why 0.5?</strong> The Jeffreys prior is:</p>
+<ul>
+<li>Uninformative (doesn&rsquo;t favor any probability)</li>
+<li>Minimax optimal (best worst-case redundancy)</li>
+<li>Theoretically justified for sequential prediction</li>
+</ul>
+<h3 id="sequential-probability">Sequential Probability</h3>
+<p>The KT probability of a sequence with a zeros and b ones:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Pₑ(a, b) = Γ(a + 0.5) × Γ(b + 0.5) / (Γ(1) × Γ(a + b + 1))
+</span></span></code></pre></div><p>This can be computed sequentially:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Pₑ(a+1, b) = Pₑ(a, b) × (a + 0.5) / (a + b + 1)
+</span></span><span class="line"><span class="cl">Pₑ(a, b+1) = Pₑ(a, b) × (b + 0.5) / (a + b + 1)
+</span></span></code></pre></div><p>No need to restart from scratch—just multiply by a simple factor.</p>
+<h2 id="ctws-bayesian-mixture">CTW&rsquo;s Bayesian Mixture</h2>
+<p>Context Tree Weighting uses the KT estimator at each node, then performs Bayesian averaging over tree structures.</p>
+<p>At each node with local KT estimate Pₑ and children with weighted estimates P_w(child_0) and P_w(child_1):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P_w = 0.5 × Pₑ + 0.5 × P_w(child_0) × P_w(child_1)
+</span></span></code></pre></div><p>This recursion:</p>
+<ul>
+<li>Assigns 0.5 prior weight to &ldquo;stop here&rdquo; (use local KT estimate)</li>
+<li>Assigns 0.5 prior weight to &ldquo;go deeper&rdquo; (use children&rsquo;s predictions)</li>
+<li>Implicitly averages over all possible tree structures</li>
+</ul>
+<h3 id="example-depth-2-tree">Example: Depth-2 Tree</h3>
+<p>For a depth-2 CTW, the root&rsquo;s P_w averages over:</p>
+<ol>
+<li>Use only root&rsquo;s KT estimate (weight ~0.5)</li>
+<li>Use root + one level of children (weight ~0.25 for each split pattern)</li>
+<li>Use full depth-2 tree (weight ~0.125 for each of 4 possible trees)</li>
+</ol>
+<p>All 2^(2^D - 1) possible tree structures are implicitly weighted!</p>
+<h2 id="why-bayesian-works">Why Bayesian Works</h2>
+<h3 id="automatic-complexity-control">Automatic Complexity Control</h3>
+<ul>
+<li>Simple models (shallow trees) are preferred a priori via the 0.5 split</li>
+<li>But if data supports complexity, posterior shifts to deeper trees</li>
+<li>No need to hand-tune regularization parameters</li>
+</ul>
+<h3 id="calibrated-uncertainty">Calibrated Uncertainty</h3>
+<ul>
+<li>Predictions reflect actual epistemic uncertainty</li>
+<li>Important for decision-making, active learning, exploration</li>
+<li>Better than overconfident point estimates</li>
+</ul>
+<h3 id="theoretical-guarantees">Theoretical Guarantees</h3>
+<p>For tree sources, CTW achieves:</p>
+<ul>
+<li>Redundancy bounded by O(k log n) for k-leaf optimal tree</li>
+<li>Converges to true distribution at optimal rate</li>
+<li>Minimax optimal within its model class</li>
+</ul>
+<h2 id="bayesian-vs-frequentist">Bayesian vs. Frequentist</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>Bayesian (CTW)</th>
+          <th>Frequentist (MLE)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Parameters</td>
+          <td>Distribution over values</td>
+          <td>Point estimate</td>
+      </tr>
+      <tr>
+          <td>Model selection</td>
+          <td>Average over models</td>
+          <td>Choose one</td>
+      </tr>
+      <tr>
+          <td>Small samples</td>
+          <td>Handles gracefully</td>
+          <td>Often overfits</td>
+      </tr>
+      <tr>
+          <td>Computation</td>
+          <td>Sometimes tractable</td>
+          <td>Usually simpler</td>
+      </tr>
+      <tr>
+          <td>Guarantees</td>
+          <td>Posterior consistency</td>
+          <td>Asymptotic normality</td>
+      </tr>
+  </tbody>
+</table>
+<p>For sequential prediction with limited data, the Bayesian approach dominates.</p>
+<h2 id="practical-implications">Practical Implications</h2>
+<h3 id="when-to-use-bayesian-model-averaging">When to Use Bayesian Model Averaging</h3>
+<ul>
+<li><strong>Limited data</strong>: Uncertainty matters more</li>
+<li><strong>Multiple plausible models</strong>: No clear winner</li>
+<li><strong>Calibration required</strong>: Need honest uncertainty</li>
+<li><strong>Online learning</strong>: Sequential updates natural</li>
+</ul>
+<h3 id="when-simpler-approaches-suffice">When Simpler Approaches Suffice</h3>
+<ul>
+<li><strong>Massive data</strong>: Posterior concentrates anyway</li>
+<li><strong>Single clearly best model</strong>: Averaging unnecessary</li>
+<li><strong>Computation constrained</strong>: MLE is faster</li>
+<li><strong>Interpretability</strong>: Single model easier to explain</li>
+</ul>
+<h2 id="the-hierarchy-of-estimation">The Hierarchy of Estimation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Full Bayesian (maintain full posterior)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">MAP (maximum a posteriori point estimate)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">MLE (maximum likelihood, flat prior)
+</span></span><span class="line"><span class="cl">         ↓
+</span></span><span class="line"><span class="cl">Heuristics (ad-hoc smoothing)
+</span></span></code></pre></div><p>CTW operates at the top level—full Bayesian averaging over tree structures with KT estimation at leaves.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><strong>Model averaging</strong> beats model selection when uncertainty matters</li>
+<li>The <strong>KT estimator</strong> provides optimal sequential Bernoulli prediction</li>
+<li>CTW combines KT estimation with <strong>Bayesian averaging over trees</strong></li>
+<li>The <strong>0.5/0.5 split</strong> implements an implicit Occam&rsquo;s razor prior</li>
+<li>Bayesian methods excel with <strong>limited data</strong> and <strong>online learning</strong></li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2015-11-10-data-generating-processes/">next post</a> examines the <em>data generating processes</em> that produce sequences. Understanding Markov processes and tree sources helps us see why CTW&rsquo;s model class is both tractable and powerful.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Gelman, A., et al. (2013). <em>Bayesian Data Analysis</em>.</li>
+<li>Bishop, C. M. (2006). <em>Pattern Recognition and Machine Learning</em>. Chapter 3.</li>
+<li>Rissanen, J. (1984). &ldquo;Universal coding, information, prediction, and estimation.&rdquo;</li>
+<li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>bayesian</category><category>model-averaging</category><category>kt-estimator</category><category>prediction</category><category>ctw</category></item><item><title>Data Generating Processes for Sequential Prediction</title><link>https://metafunctor.com/post/2015-11-10-data-generating-processes/</link><pubDate>Tue, 10 Nov 2015 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2015-11-10-data-generating-processes/</guid><description>Markov processes and tree sources—understanding where sequences come from</description><content:encoded><![CDATA[<p>So far in this series, we&rsquo;ve discussed <em>how</em> to predict sequences. But where do sequences come from? What statistical properties do they have?</p>
+<p>Understanding the <strong>data generating process</strong> (DGP) is crucial for:</p>
+<ol>
+<li>Designing appropriate predictors</li>
+<li>Analyzing theoretical guarantees</li>
+<li>Interpreting experimental results</li>
+</ol>
+<p>This post explores Markov processes and tree sources—the model classes that CTW is provably optimal for.</p>
+<h2 id="what-is-a-data-generating-process">What is a Data Generating Process?</h2>
+<p>A DGP is the probabilistic mechanism that produces a sequence. It specifies:</p>
+<ul>
+<li>What symbols can appear (the alphabet)</li>
+<li>The probability of each symbol given the history</li>
+</ul>
+<p>Formally, a DGP is a distribution P(x₁, x₂, x₃, &hellip;) over infinite sequences.</p>
+<h2 id="markov-processes">Markov Processes</h2>
+<p>The most important class of DGPs is <strong>Markov processes</strong>.</p>
+<h3 id="definition">Definition</h3>
+<p>A <strong>k-th order Markov process</strong> is one where the next symbol depends only on the previous k symbols:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(xₙ | x₁, ..., xₙ₋₁) = P(xₙ | xₙ₋ₖ, ..., xₙ₋₁)
+</span></span></code></pre></div><p>The k previous symbols form the <strong>context</strong> or <strong>state</strong>.</p>
+<h3 id="example-first-order-binary-markov">Example: First-Order Binary Markov</h3>
+<p>Consider a first-order (k=1) process over {0, 1}:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Transition matrix:
+</span></span><span class="line"><span class="cl">       Next=0  Next=1
+</span></span><span class="line"><span class="cl">Prev=0 [0.2    0.8  ]  ← After seeing 0, P(1) = 0.8
+</span></span><span class="line"><span class="cl">Prev=1 [0.7    0.3  ]  ← After seeing 1, P(1) = 0.3
+</span></span></code></pre></div><p>This process tends to alternate—0s are followed by 1s (with p=0.8) and 1s by 0s (with p=0.7).</p>
+<h3 id="higher-order-markov">Higher-Order Markov</h3>
+<p>For a k-th order binary process:</p>
+<ul>
+<li>2^k possible contexts</li>
+<li>Each context has its own P(next = 1)</li>
+<li>Total: 2^k parameters</li>
+</ul>
+<p>This exponential growth limits practical Markov orders. But CTW handles it gracefully through model averaging.</p>
+<h2 id="tree-sources">Tree Sources</h2>
+<p>A <strong>tree source</strong> generalizes Markov processes by allowing different contexts to have different &ldquo;effective orders.&rdquo;</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">         Root
+</span></span><span class="line"><span class="cl">        /    \
+</span></span><span class="line"><span class="cl">       0      1
+</span></span><span class="line"><span class="cl">      / \      \
+</span></span><span class="line"><span class="cl">     0   1      (leaf: use context &#34;1&#34;)
+</span></span><span class="line"><span class="cl">   (leaf) (leaf)
+</span></span><span class="line"><span class="cl">   &#34;00&#34;   &#34;01&#34;
+</span></span></code></pre></div><p>In this tree source:</p>
+<ul>
+<li>Context &ldquo;00&rdquo; has its own distribution</li>
+<li>Context &ldquo;01&rdquo; has its own distribution</li>
+<li>Any context ending in &ldquo;1&rdquo; shares a single distribution</li>
+</ul>
+<p>Tree sources are more parsimonious than full Markov processes when some contexts don&rsquo;t need the full history.</p>
+<h3 id="why-tree-sources-matter">Why Tree Sources Matter</h3>
+<p>Tree sources are the natural model class for CTW:</p>
+<ul>
+<li>CTW averages over all possible tree structures up to a maximum depth</li>
+<li>For any tree source, CTW converges to the true distribution at the optimal rate</li>
+<li>CTW is provably minimax optimal for tree sources</li>
+</ul>
+<h2 id="example-sparse-markov-processes">Example: Sparse Markov Processes</h2>
+<p>Our experimental framework includes <strong>sparse Markov processes</strong> where most contexts are uninformative:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Context</th>
+          <th>P(next=1)</th>
+          <th>Description</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>000</td>
+          <td>0.99</td>
+          <td>High certainty → 1</td>
+      </tr>
+      <tr>
+          <td>100</td>
+          <td>0.99</td>
+          <td>High certainty → 1</td>
+      </tr>
+      <tr>
+          <td>010</td>
+          <td>0.025</td>
+          <td>High certainty → 0</td>
+      </tr>
+      <tr>
+          <td>101</td>
+          <td>0.025</td>
+          <td>High certainty → 0</td>
+      </tr>
+      <tr>
+          <td>011</td>
+          <td>0.25</td>
+          <td>Moderate certainty → 0</td>
+      </tr>
+      <tr>
+          <td>110</td>
+          <td>0.25</td>
+          <td>Moderate certainty → 0</td>
+      </tr>
+      <tr>
+          <td>001</td>
+          <td>0.5</td>
+          <td>Uniform (uninformative)</td>
+      </tr>
+      <tr>
+          <td>111</td>
+          <td>0.5</td>
+          <td>Uniform (uninformative)</td>
+      </tr>
+  </tbody>
+</table>
+<p>This 3rd-order process has:</p>
+<ul>
+<li>4 highly predictable contexts (near-deterministic)</li>
+<li>2 moderately predictable contexts</li>
+<li>2 completely random contexts</li>
+</ul>
+<p>The <strong>theoretical maximum accuracy</strong> for an oracle predictor is about 95%—achieved by predicting the more likely outcome for each context.</p>
+<h2 id="stationarity">Stationarity</h2>
+<p>A process is <strong>stationary</strong> if its statistics don&rsquo;t change over time:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(xₜ₊₁ | xₜ, ..., x₁) = P(xₛ₊₁ | xₛ, ..., x₁) for all t, s
+</span></span></code></pre></div><p>Markov processes with fixed transition probabilities are stationary.</p>
+<p><strong>Non-stationary</strong> processes (changing statistics over time) are harder to predict and require adaptive methods. Real-world sequences are often non-stationary:</p>
+<ul>
+<li>Language style varies within a document</li>
+<li>Financial markets have regime changes</li>
+<li>User behavior evolves</li>
+</ul>
+<p>CTW adapts somewhat through its recency-weighted updates, but explicit change-point detection may be needed for strongly non-stationary sources.</p>
+<h2 id="ergodicity">Ergodicity</h2>
+<p>A Markov process is <strong>ergodic</strong> if:</p>
+<ol>
+<li><strong>Irreducible</strong>: Can reach any state from any other state</li>
+<li><strong>Aperiodic</strong>: Doesn&rsquo;t cycle deterministically</li>
+</ol>
+<p>Ergodic processes have a unique <strong>stationary distribution</strong>—the long-run fraction of time spent in each state is well-defined and independent of the starting state.</p>
+<p>For ergodic processes, time averages equal ensemble averages. This justifies evaluating predictors on a single long sequence.</p>
+<h2 id="why-dgp-matters-for-model-selection">Why DGP Matters for Model Selection</h2>
+<p>The DGP determines which predictor is optimal:</p>
+<table>
+  <thead>
+      <tr>
+          <th>DGP Property</th>
+          <th>Optimal Approach</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>k-th order Markov</td>
+          <td>CTW with depth ≥ k</td>
+      </tr>
+      <tr>
+          <td>Tree source</td>
+          <td>CTW naturally handles</td>
+      </tr>
+      <tr>
+          <td>Long-range dependencies</td>
+          <td>Neural models (LSTM, Transformer)</td>
+      </tr>
+      <tr>
+          <td>Non-stationary</td>
+          <td>Adaptive methods, forgetting</td>
+      </tr>
+      <tr>
+          <td>Unknown structure</td>
+          <td>Universal methods (Solomonoff, CTW)</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Key finding from experiments</strong>: CTW achieves the theoretical maximum accuracy when its depth is set to at least the true order of the DGP.</p>
+<h2 id="creating-custom-dgps">Creating Custom DGPs</h2>
+<p>For experimentation, we can create various Markov processes:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">experiments.ctw.generators</span> <span class="kn">import</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">create_paper_markov</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">create_sparse_markov</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">create_structured_markov</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">create_random_markov</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sparse process (few informative contexts)</span>
+</span></span><span class="line"><span class="cl"><span class="n">sparse</span> <span class="o">=</span> <span class="n">create_sparse_markov</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">num_rules</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Structured: alternating, xor, majority, parity</span>
+</span></span><span class="line"><span class="cl"><span class="n">alt</span> <span class="o">=</span> <span class="n">create_structured_markov</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="s2">&#34;alternating&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">xor</span> <span class="o">=</span> <span class="n">create_structured_markov</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="s2">&#34;xor&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fully random transitions</span>
+</span></span><span class="line"><span class="cl"><span class="n">rand</span> <span class="o">=</span> <span class="n">create_random_markov</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compute theoretical maximum accuracy</span>
+</span></span><span class="line"><span class="cl"><span class="n">max_acc</span> <span class="o">=</span> <span class="n">sparse</span><span class="o">.</span><span class="n">theoretical_max_accuracy</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Theoretical max: </span><span class="si">{</span><span class="n">max_acc</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="structured-markov-processes">Structured Markov Processes</h3>
+<p>These have deterministic rules:</p>
+<ul>
+<li><strong>Alternating</strong>: Predict opposite of last bit</li>
+<li><strong>XOR</strong>: Predict XOR of context bits</li>
+<li><strong>Majority</strong>: Predict majority bit in context</li>
+<li><strong>Parity</strong>: Predict based on count of 1s mod 2</li>
+</ul>
+<p>These are useful for testing edge cases but don&rsquo;t represent typical real-world data.</p>
+<h2 id="the-theoretical-maximum">The Theoretical Maximum</h2>
+<p>For any Markov process, we can compute the <strong>Bayes-optimal accuracy</strong>—the best any predictor could achieve:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">theoretical_max_accuracy</span><span class="p">(</span><span class="n">transition_probs</span><span class="p">,</span> <span class="n">stationary_dist</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Oracle predicts the more likely outcome for each context.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">accuracy</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">context</span><span class="p">,</span> <span class="n">p1</span> <span class="ow">in</span> <span class="n">transition_probs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">        <span class="n">p_context</span> <span class="o">=</span> <span class="n">stationary_dist</span><span class="p">[</span><span class="n">context</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">accuracy</span> <span class="o">+=</span> <span class="n">p_context</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">p1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">accuracy</span>
+</span></span></code></pre></div><p>This represents the ceiling—no predictor can do better without additional information.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><strong>DGPs</strong> specify the probabilistic mechanism generating sequences</li>
+<li><strong>Markov processes</strong> have limited memory (only k previous symbols matter)</li>
+<li><strong>Tree sources</strong> generalize Markov with variable effective order</li>
+<li>CTW is <strong>provably optimal</strong> for tree sources</li>
+<li>The <strong>theoretical maximum</strong> provides an upper bound on prediction accuracy</li>
+<li>Real-world processes are often <strong>non-stationary</strong>—an active research area</li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2016-08-15-ngram-language-models/">next post</a> examines <strong>n-gram models</strong>—the classical approach to language modeling. We&rsquo;ll see how they relate to Markov processes and why their limitations motivated both CTW and neural approaches.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Cover, T. M., &amp; Thomas, J. A. (2006). <em>Elements of Information Theory</em>. Chapter 4.</li>
+<li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>markov-processes</category><category>data-generating-process</category><category>tree-sources</category><category>prediction</category></item><item><title>N-gram Language Models</title><link>https://metafunctor.com/post/2016-08-15-ngram-language-models/</link><pubDate>Mon, 15 Aug 2016 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2016-08-15-ngram-language-models/</guid><description>The classical approach to sequence prediction—counting and smoothing</description><content:encoded><![CDATA[<p>Before neural networks dominated NLP, <strong>n-gram models</strong> were the workhorse of language modeling. They remain foundational—understanding n-grams provides intuition for what modern LLMs are doing, and reveals why their limitations motivated both CTW and deep learning approaches.</p>
+<h2 id="the-n-gram-idea">The N-gram Idea</h2>
+<p>N-gram models make a Markov assumption: only the last N-1 symbols matter.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(xₙ | xₙ₋₁, xₙ₋₂, ..., x₁) ≈ P(xₙ | xₙ₋₁, ..., xₙ₋ₙ₊₁)
+</span></span></code></pre></div><p>For a <strong>bigram</strong> (N=2) model over words:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(word | prev_word) = count(prev_word, word) / count(prev_word)
+</span></span></code></pre></div><p>For a <strong>trigram</strong> (N=3):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(word | prev2, prev1) = count(prev2, prev1, word) / count(prev2, prev1)
+</span></span></code></pre></div><p>It&rsquo;s just counting how often sequences appear, then normalizing.</p>
+<h2 id="the-sparsity-problem">The Sparsity Problem</h2>
+<p>As N increases, n-gram models face severe data sparsity:</p>
+<table>
+  <thead>
+      <tr>
+          <th>N</th>
+          <th>Context size</th>
+          <th>English vocabulary</th>
+          <th>Possible contexts</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2</td>
+          <td>1 word</td>
+          <td>50,000</td>
+          <td>50,000</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>2 words</td>
+          <td>50,000</td>
+          <td>2.5 billion</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>3 words</td>
+          <td>50,000</td>
+          <td>125 trillion</td>
+      </tr>
+  </tbody>
+</table>
+<p>Most contexts never appear in any training corpus. Maximum likelihood gives P=0 for unseen contexts, leading to:</p>
+<ul>
+<li>Infinite perplexity on test data</li>
+<li>Zero probability for reasonable sentences</li>
+<li>Catastrophic failures in practice</li>
+</ul>
+<h2 id="smoothing-handling-unseen-events">Smoothing: Handling Unseen Events</h2>
+<p>Smoothing techniques reallocate probability mass to unseen events.</p>
+<h3 id="laplace-add-one-smoothing">Laplace (Add-One) Smoothing</h3>
+<p>The simplest fix:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | context) = (count(context, w) + 1) / (count(context) + |V|)
+</span></span></code></pre></div><p>Problems:</p>
+<ul>
+<li>Adds too much mass to unseen events</li>
+<li>Assumes all unseen events equally likely</li>
+<li>Performance is mediocre</li>
+</ul>
+<h3 id="add-k-smoothing">Add-k Smoothing</h3>
+<p>Generalized Laplace:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | context) = (count(context, w) + k) / (count(context) + k × |V|)
+</span></span></code></pre></div><p>Tune k on held-out data. Still relatively crude.</p>
+<h3 id="good-turing-smoothing">Good-Turing Smoothing</h3>
+<p>A more principled approach based on <strong>frequency of frequencies</strong>:</p>
+<ul>
+<li>Estimate probability of unseen events from events seen exactly once</li>
+<li>Events seen r times: estimate their true frequency from events seen r+1 times</li>
+</ul>
+<p>Good-Turing provides better estimates but is mathematically intricate.</p>
+<h3 id="kneser-ney-smoothing">Kneser-Ney Smoothing</h3>
+<p>The gold standard for n-grams. Key insights:</p>
+<ol>
+<li><strong>Absolute discounting</strong>: Subtract a fixed δ from all counts, redistribute to unseen</li>
+<li><strong>Continuation probability</strong>: For backoff, use how many different contexts a word appears in, not raw frequency</li>
+</ol>
+<p>Kneser-Ney accounts for the fact that common words appear in many contexts while some words appear frequently but only in specific contexts.</p>
+<h2 id="backoff-and-interpolation">Backoff and Interpolation</h2>
+<p>When the context hasn&rsquo;t been seen, we need fallback strategies.</p>
+<h3 id="stupid-backoff">Stupid Backoff</h3>
+<p>Simple but effective (used in Google&rsquo;s web-scale LM):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | ABC) =
+</span></span><span class="line"><span class="cl">    if count(ABC) &gt; 0: count(ABCw) / count(ABC)
+</span></span><span class="line"><span class="cl">    else: 0.4 × P(w | BC)  # backoff with fixed discount
+</span></span></code></pre></div><h3 id="katz-backoff">Katz Backoff</h3>
+<p>Reserve probability mass for unseen events using Good-Turing:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | ABC) =
+</span></span><span class="line"><span class="cl">    if count(ABCw) &gt; 0: discounted_count(ABCw) / count(ABC)
+</span></span><span class="line"><span class="cl">    else: α(ABC) × P(w | BC)
+</span></span></code></pre></div><p>Where α(ABC) normalizes the leftover probability mass.</p>
+<h3 id="interpolation">Interpolation</h3>
+<p>Always mix predictions from all context lengths:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">P(w | AB) = λ₃ × P(w | AB) + λ₂ × P(w | B) + λ₁ × P(w)
+</span></span></code></pre></div><p>Where λ₁ + λ₂ + λ₃ = 1, typically tuned on held-out data.</p>
+<h2 id="n-grams-vs-ctw">N-grams vs. CTW</h2>
+<p>CTW can be viewed as a principled form of interpolation with learned weights:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>N-gram</th>
+          <th>CTW</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Mixing weights</td>
+          <td>Fixed/tuned (λᵢ)</td>
+          <td>Learned from data</td>
+      </tr>
+      <tr>
+          <td>Context order</td>
+          <td>Fixed N</td>
+          <td>Adaptive per context</td>
+      </tr>
+      <tr>
+          <td>Smoothing</td>
+          <td>Heuristic (Kneser-Ney)</td>
+          <td>Principled (KT estimator)</td>
+      </tr>
+      <tr>
+          <td>Guarantees</td>
+          <td>Empirical</td>
+          <td>Theoretical bounds</td>
+      </tr>
+      <tr>
+          <td>Model class</td>
+          <td>Fixed-order Markov</td>
+          <td>All tree sources</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Key insight</strong>: CTW automatically learns appropriate interpolation weights based on how well each context depth predicts. It&rsquo;s what n-gram smoothing is trying to approximate, done optimally.</p>
+<h2 id="strengths-of-n-grams">Strengths of N-grams</h2>
+<p>Despite limitations, n-grams have real advantages:</p>
+<ol>
+<li><strong>Simple</strong>: Just counting and division</li>
+<li><strong>Fast</strong>: Single pass over training data</li>
+<li><strong>Interpretable</strong>: Can examine specific n-gram probabilities</li>
+<li><strong>Efficient</strong>: Hash tables or tries for storage</li>
+<li><strong>Baseline</strong>: Hard to beat for some tasks with limited compute</li>
+</ol>
+<h2 id="limitations">Limitations</h2>
+<ol>
+<li><strong>Fixed context</strong>: Can&rsquo;t capture dependencies beyond N-1</li>
+<li><strong>No generalization</strong>: &ldquo;cat sat&rdquo; and &ldquo;dog sat&rdquo; share nothing</li>
+<li><strong>Sparsity</strong>: Higher N = exponentially more unseen contexts</li>
+<li><strong>No compositionality</strong>: No notion of syntax or semantics</li>
+</ol>
+<p>These limitations motivated neural approaches that learn dense representations where similar contexts share information.</p>
+<h2 id="binary-vs-text">Binary vs. Text</h2>
+<p>For binary sequences (CTW&rsquo;s domain):</p>
+<ul>
+<li>Vocabulary |V| = 2</li>
+<li>Sparsity less severe: only 2^N contexts for N-gram</li>
+<li>CTW is essentially an optimal binary n-gram with learned interpolation</li>
+</ul>
+<p>For text:</p>
+<ul>
+<li>|V| ~ 10,000 - 100,000 words</li>
+<li>Sparsity is severe: 10,000³ = 10¹² trigram contexts</li>
+<li>Subword tokenization (BPE) helps</li>
+<li>Neural models now dominate</li>
+</ul>
+<h2 id="code-example">Code Example</h2>
+<p>A simple bigram model:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BigramModel</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">counts</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">context_counts</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>  <span class="c1"># smoothing</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">vocab_size</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># binary</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sequence</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sequence</span><span class="p">)):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">context</span> <span class="o">=</span> <span class="n">sequence</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="n">symbol</span> <span class="o">=</span> <span class="n">sequence</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">counts</span><span class="p">[</span><span class="n">context</span><span class="p">][</span><span class="n">symbol</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">context_counts</span><span class="p">[</span><span class="n">context</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Return P(next=1 | context).&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">c0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counts</span><span class="p">[</span><span class="n">context</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">c1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counts</span><span class="p">[</span><span class="n">context</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">total</span> <span class="o">=</span> <span class="n">c0</span> <span class="o">+</span> <span class="n">c1</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># Add-alpha smoothing</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">(</span><span class="n">c1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">total</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">vocab_size</span><span class="p">)</span>
+</span></span></code></pre></div><p>Compare to CTW: same basic structure (count statistics per context) but with principled Bayesian machinery.</p>
+<h2 id="historical-impact">Historical Impact</h2>
+<p>N-grams were the foundation of:</p>
+<ul>
+<li><strong>Speech recognition</strong> (before neural era)</li>
+<li><strong>Machine translation</strong> (phrase-based MT)</li>
+<li><strong>Spelling correction</strong></li>
+<li><strong>Text compression</strong> (PPM family)</li>
+</ul>
+<p>Understanding n-grams provides intuition for what neural language models are learning—but with representations that allow generalization.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>N-grams estimate P(next | context) by counting</li>
+<li><strong>Sparsity</strong> is the fundamental challenge</li>
+<li><strong>Smoothing</strong> (Kneser-Ney) redistributes mass to unseen events</li>
+<li><strong>Interpolation/backoff</strong> combines multiple context lengths</li>
+<li>CTW is like optimal n-gram interpolation with learned weights</li>
+<li>Limitations motivate <strong>neural approaches</strong> for text</li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2024-06-15-comparing-prediction-methods/">next post</a> compares CTW, n-grams, and neural language models head-to-head, examining when each approach excels and the fundamental trade-offs between sample efficiency and flexibility.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Jurafsky &amp; Martin. <em>Speech and Language Processing</em>. Chapter 3.</li>
+<li>Chen, S. F., &amp; Goodman, J. (1999). &ldquo;An empirical study of smoothing techniques for language modeling.&rdquo;</li>
+<li>Kneser, R., &amp; Ney, H. (1995). &ldquo;Improved backing-off for m-gram language modeling.&rdquo;</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>n-gram</category><category>language-models</category><category>smoothing</category><category>nlp</category><category>prediction</category></item><item><title>Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</title><link>https://metafunctor.com/post/2024-06-15-comparing-prediction-methods/</link><pubDate>Sat, 15 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-06-15-comparing-prediction-methods/</guid><description>Trade-offs between sample efficiency, scalability, and theoretical guarantees</description><content:encoded><![CDATA[<p>We&rsquo;ve now covered the theoretical foundations (Solomonoff, Bayesian prediction), the model classes (Markov processes, tree sources), and classical approaches (n-grams). In this post, we step back to compare the major approaches to sequential prediction head-to-head.</p>
+<p>The goal isn&rsquo;t to declare a winner—each method excels in different regimes. Understanding when to use each is the real insight.</p>
+<h2 id="summary-comparison">Summary Comparison</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Aspect</th>
+          <th>CTW</th>
+          <th>N-gram</th>
+          <th>Neural LM</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Sample efficiency</strong></td>
+          <td>Excellent</td>
+          <td>Good</td>
+          <td>Poor</td>
+      </tr>
+      <tr>
+          <td><strong>Scalability</strong></td>
+          <td>Limited</td>
+          <td>Good</td>
+          <td>Excellent</td>
+      </tr>
+      <tr>
+          <td><strong>Inductive bias</strong></td>
+          <td>Tree structures</td>
+          <td>Local context</td>
+          <td>Learned</td>
+      </tr>
+      <tr>
+          <td><strong>Interpretability</strong></td>
+          <td>High</td>
+          <td>High</td>
+          <td>Low</td>
+      </tr>
+      <tr>
+          <td><strong>Theoretical guarantees</strong></td>
+          <td>Strong</td>
+          <td>Moderate</td>
+          <td>Weak</td>
+      </tr>
+      <tr>
+          <td><strong>Compute requirements</strong></td>
+          <td>Minimal</td>
+          <td>Low</td>
+          <td>Massive</td>
+      </tr>
+      <tr>
+          <td><strong>Context modeling</strong></td>
+          <td>Adaptive depth</td>
+          <td>Fixed length</td>
+          <td>Flexible</td>
+      </tr>
+      <tr>
+          <td><strong>Vocabulary handling</strong></td>
+          <td>Binary optimal</td>
+          <td>Any size</td>
+          <td>Any size</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="sample-efficiency">Sample Efficiency</h2>
+<p>How much data does each method need?</p>
+<h3 id="ctw-excellent">CTW: Excellent</h3>
+<p>CTW learns from hundreds to thousands of examples. Why?</p>
+<ul>
+<li><strong>Strong inductive bias</strong>: Tree structures are a rich but constrained class</li>
+<li><strong>Bayesian prior</strong>: Automatically regularizes against overfitting</li>
+<li><strong>Efficient parameter estimation</strong>: KT estimator is statistically optimal</li>
+</ul>
+<p>For a 3rd-order Markov process with 8 contexts, CTW achieves near-optimal accuracy from ~1000 samples.</p>
+<h3 id="n-grams-good">N-grams: Good</h3>
+<p>Moderate data requirements:</p>
+<ul>
+<li>Count statistics converge reasonably fast</li>
+<li>Smoothing handles sparse data</li>
+<li>Higher orders need proportionally more data</li>
+</ul>
+<h3 id="neural-lms-poor">Neural LMs: Poor</h3>
+<p>Neural models are notoriously data-hungry:</p>
+<ul>
+<li>Modern LLMs train on hundreds of billions of tokens</li>
+<li>Must learn all structure from data</li>
+<li>No built-in inductive biases for sequence structure</li>
+</ul>
+<p>Transfer learning (pretraining + fine-tuning) helps but doesn&rsquo;t eliminate the fundamental requirement.</p>
+<h2 id="scalability">Scalability</h2>
+<p>How do the methods handle large problems?</p>
+<h3 id="ctw-limited">CTW: Limited</h3>
+<p>CTW faces inherent scaling challenges:</p>
+<ul>
+<li>2^D possible contexts at depth D (exponential)</li>
+<li>Pure binary—extensions to larger alphabets exist but less elegant</li>
+<li>Memory grows with sequence diversity</li>
+</ul>
+<p>Works well for binary sequences up to moderate depth (~10-15).</p>
+<h3 id="n-grams-good-1">N-grams: Good</h3>
+<p>Reasonable scaling properties:</p>
+<ul>
+<li>O(|V|^N) space for vocabulary V, order N</li>
+<li>Efficient implementations with tries, hashing</li>
+<li>Practical up to ~5-gram for large vocabularies</li>
+<li>Web-scale n-gram models exist (Google&rsquo;s)</li>
+</ul>
+<h3 id="neural-lms-excellent">Neural LMs: Excellent</h3>
+<p>Designed for scale:</p>
+<ul>
+<li>Billions of parameters</li>
+<li>GPU/TPU parallelization</li>
+<li>Handle long contexts (though attention is O(n²))</li>
+<li>Vocabulary of 50,000+ tokens</li>
+</ul>
+<p>The entire field has optimized for scaling neural models.</p>
+<h2 id="inductive-biases">Inductive Biases</h2>
+<p>What assumptions does each method make?</p>
+<h3 id="ctw-tree-structure-bias">CTW: Tree Structure Bias</h3>
+<p>CTW assumes the source is well-modeled by a tree:</p>
+<ul>
+<li>Perfect for Markov processes</li>
+<li>May miss patterns outside tree structure</li>
+<li>Implicit Occam&rsquo;s razor (prefers simpler trees)</li>
+</ul>
+<p>This is both a strength (sample efficiency) and limitation (can&rsquo;t capture non-tree patterns).</p>
+<h3 id="n-grams-fixed-context-length">N-grams: Fixed Context Length</h3>
+<p>N-grams assume all contexts of the same length are equally relevant:</p>
+<ul>
+<li>Works when assumption holds</li>
+<li>Can&rsquo;t adapt context length to data</li>
+<li>Smoothing adds bias toward shorter contexts</li>
+</ul>
+<h3 id="neural-lms-learned-biases">Neural LMs: Learned Biases</h3>
+<p>Neural models learn their biases from data:</p>
+<ul>
+<li>Attention patterns emerge from training</li>
+<li>Positional encodings provide some structure</li>
+<li>Very flexible but need data to specify</li>
+</ul>
+<p>The transformer architecture encodes some bias (attention, residual connections) but much less than CTW or n-grams.</p>
+<h2 id="theoretical-guarantees">Theoretical Guarantees</h2>
+<p>What can we prove about each method?</p>
+<h3 id="ctw-strong-guarantees">CTW: Strong Guarantees</h3>
+<p>For tree sources, CTW is provably optimal:</p>
+<ul>
+<li>Redundancy bounded by O(k log n) for k-leaf tree</li>
+<li>Converges to true distribution at minimax optimal rate</li>
+<li>Equivalent to Solomonoff induction restricted to trees</li>
+</ul>
+<p>These aren&rsquo;t just asymptotic results—they hold with finite data.</p>
+<h3 id="n-grams-moderate-guarantees">N-grams: Moderate Guarantees</h3>
+<p>Some theory exists:</p>
+<ul>
+<li>MLE is consistent (converges to true parameters)</li>
+<li>Cross-entropy bounds with smoothing</li>
+<li>No optimality for specific source classes</li>
+</ul>
+<p>The guarantees are weaker than CTW&rsquo;s.</p>
+<h3 id="neural-lms-weak-guarantees">Neural LMs: Weak Guarantees</h3>
+<p>Theory lags practice:</p>
+<ul>
+<li>Universal approximation (in principle, with enough capacity)</li>
+<li>No sample complexity bounds in realistic settings</li>
+<li>Generalization is mostly empirical</li>
+</ul>
+<p>We use neural LMs because they work, not because we can prove they should.</p>
+<h2 id="interpretability">Interpretability</h2>
+<p>Can we understand what the model learned?</p>
+<h3 id="ctw-high">CTW: High</h3>
+<p>The context tree is directly interpretable:</p>
+<ul>
+<li>Which contexts matter? Those with different statistics</li>
+<li>How confident? Counts at each node</li>
+<li>Model averaging weights show depth preferences</li>
+</ul>
+<p>This transparency aids debugging and building trust.</p>
+<h3 id="n-grams-high">N-grams: High</h3>
+<p>Direct access to probability tables:</p>
+<ul>
+<li>Which n-grams are common?</li>
+<li>What&rsquo;s P(word | context)?</li>
+<li>Clear model of what&rsquo;s being captured</li>
+</ul>
+<h3 id="neural-lms-low">Neural LMs: Low</h3>
+<p>Black boxes:</p>
+<ul>
+<li>Hidden representations hard to interpret</li>
+<li>Attention patterns provide some insight</li>
+<li>Active research area (mechanistic interpretability)</li>
+</ul>
+<p>We&rsquo;re improving, but neural LMs remain opaque.</p>
+<h2 id="when-to-use-each">When to Use Each</h2>
+<h3 id="use-ctw-when">Use CTW When:</h3>
+<ol>
+<li><strong>Data is limited</strong> (&lt; 100K samples)</li>
+<li><strong>Binary or small alphabet</strong> sequences</li>
+<li><strong>Strong guarantees needed</strong> (safety-critical applications)</li>
+<li><strong>Interpretability required</strong></li>
+<li><strong>Compute is constrained</strong></li>
+<li><strong>Source is likely tree-structured</strong> (Markov processes)</li>
+</ol>
+<p><strong>Examples</strong>: Binary file compression, network protocol analysis, genomic sequences, embedded systems.</p>
+<h3 id="use-n-grams-when">Use N-grams When:</h3>
+<ol>
+<li><strong>Baseline model needed</strong> (comparison point)</li>
+<li><strong>Fast training/inference required</strong></li>
+<li><strong>Moderate data available</strong></li>
+<li><strong>Simple deployment</strong></li>
+<li><strong>Interpretability desired</strong></li>
+</ol>
+<p><strong>Examples</strong>: Quick prototyping, spell checking, simple autocomplete, compression (PPM).</p>
+<h3 id="use-neural-lms-when">Use Neural LMs When:</h3>
+<ol>
+<li><strong>Massive training data available</strong></li>
+<li><strong>State-of-the-art performance needed</strong></li>
+<li><strong>Complex patterns expected</strong> (natural language, code)</li>
+<li><strong>Long-range dependencies important</strong></li>
+<li><strong>Can afford compute costs</strong></li>
+</ol>
+<p><strong>Examples</strong>: Chat assistants, machine translation, code generation, content creation.</p>
+<h2 id="the-bias-data-trade-off">The Bias-Data Trade-off</h2>
+<p>The fundamental relationship:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Strong bias (CTW) + Little data → Good performance
+</span></span><span class="line"><span class="cl">Weak bias (Neural) + Little data → Overfitting
+</span></span><span class="line"><span class="cl">Weak bias (Neural) + Massive data → Great performance
+</span></span><span class="line"><span class="cl">Strong bias (CTW) + Massive data → Limited by model class
+</span></span></code></pre></div><p>CTW trades off flexibility for sample efficiency. Neural LMs trade the opposite.</p>
+<h2 id="the-compression-prediction-duality">The Compression-Prediction Duality</h2>
+<p>All these models can be viewed as compressors:</p>
+<ul>
+<li><strong>CTW</strong>: Near-optimal compression for tree sources</li>
+<li><strong>N-grams</strong>: Underlie PPM compression family</li>
+<li><strong>Neural LMs</strong>: Achieve state-of-the-art compression rates</li>
+</ul>
+<p>Better prediction = better compression = lower cross-entropy. This equivalence is more than analogy—Shannon showed they&rsquo;re mathematically identical.</p>
+<h2 id="future-directions">Future Directions</h2>
+<p>The boundaries between approaches are blurring:</p>
+<ol>
+<li><strong>Hybrid models</strong>: Combine CTW&rsquo;s efficiency with neural flexibility</li>
+<li><strong>Bayesian neural networks</strong>: Add uncertainty to neural predictions</li>
+<li><strong>Neural architecture search</strong>: Learn inductive biases</li>
+<li><strong>Continual learning</strong>: Adapt online like CTW</li>
+<li><strong>Theoretical understanding</strong>: Better bounds for neural models</li>
+</ol>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><strong>No universally best approach</strong>—the right choice depends on context</li>
+<li>CTW wins on <strong>sample efficiency</strong> and <strong>guarantees</strong></li>
+<li>Neural LMs win on <strong>scalability</strong> and <strong>flexibility</strong></li>
+<li>N-grams remain useful as <strong>baselines</strong> and for <strong>interpretability</strong></li>
+<li>Understanding trade-offs is more valuable than declaring winners</li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2024-09-20-neural-language-models-transformers/">next post</a> dives deeper into neural language models—from RNNs to transformers to modern LLMs. We&rsquo;ll see how the architecture evolved to address sequential prediction at scale.</p>
+]]></content:encoded><category>sequential-prediction</category><category>ctw</category><category>neural-networks</category><category>language-models</category><category>comparison</category><category>trade-offs</category></item><item><title>Neural Language Models: From RNNs to Transformers</title><link>https://metafunctor.com/post/2024-09-20-neural-language-models-transformers/</link><pubDate>Fri, 20 Sep 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-09-20-neural-language-models-transformers/</guid><description>The evolution of neural sequence prediction—and how it connects to classical methods</description><content:encoded><![CDATA[<p>Neural language models have revolutionized how we approach sequential prediction. GPT, Claude, LLaMA—these systems achieve remarkable performance on tasks that seemed impossible a decade ago. In this post, we trace the architectural evolution from simple feedforward networks to transformers, connecting modern LLMs back to the information-theoretic foundations we developed earlier in this series.</p>
+<h2 id="the-core-task">The Core Task</h2>
+<p>Every neural language model solves the same fundamental problem:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Given x₁, x₂, ..., xₙ₋₁, estimate P(xₙ | x₁, ..., xₙ₋₁)
+</span></span></code></pre></div><p>This is exactly the sequential prediction problem from <a href="/post/2010-06-01-intro-sequential-prediction/">our first post</a>. The difference is how neural models parameterize the conditional distribution.</p>
+<h2 id="evolution-of-architectures">Evolution of Architectures</h2>
+<h3 id="feedforward-neural-lms-bengio-et-al-2003">Feedforward Neural LMs (Bengio et al., 2003)</h3>
+<p>The first neural language models used feedforward networks:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Input: one-hot encodings of last N words
+</span></span><span class="line"><span class="cl">     ↓
+</span></span><span class="line"><span class="cl">Embedding layer: learn dense representations
+</span></span><span class="line"><span class="cl">     ↓
+</span></span><span class="line"><span class="cl">Hidden layers: nonlinear transformations
+</span></span><span class="line"><span class="cl">     ↓
+</span></span><span class="line"><span class="cl">Output: softmax over vocabulary
+</span></span></code></pre></div><p>This is essentially a neural n-gram—fixed context window, but with learned representations that allow similar contexts to share information.</p>
+<p><strong>Key innovation</strong>: Word embeddings. Instead of treating each word as an atomic symbol, learn a dense vector where similar words have similar representations.</p>
+<h3 id="recurrent-neural-networks-rnns">Recurrent Neural Networks (RNNs)</h3>
+<p>RNNs process sequences with a hidden state that evolves over time:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">hₜ = f(W_h × hₜ₋₁ + W_x × xₜ)
+</span></span><span class="line"><span class="cl">yₜ = softmax(W_y × hₜ)
+</span></span></code></pre></div><p>The hidden state hₜ theoretically carries information from the entire history, not just the last N words.</p>
+<p><strong>Problems</strong>:</p>
+<ul>
+<li><strong>Vanishing gradients</strong>: Gradients shrink exponentially, limiting effective memory</li>
+<li><strong>Sequential computation</strong>: Can&rsquo;t parallelize—each step depends on the previous</li>
+<li><strong>Practical context</strong>: Only ~10-20 tokens effectively remembered</li>
+</ul>
+<h3 id="long-short-term-memory-lstm">Long Short-Term Memory (LSTM)</h3>
+<p>LSTMs add <strong>gating mechanisms</strong> to control information flow:</p>
+<ul>
+<li><strong>Forget gate</strong>: What to discard from cell state</li>
+<li><strong>Input gate</strong>: What new information to add</li>
+<li><strong>Output gate</strong>: What to expose to the next layer</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">fₜ = σ(W_f · [hₜ₋₁, xₜ] + b_f)     # forget gate
+</span></span><span class="line"><span class="cl">iₜ = σ(W_i · [hₜ₋₁, xₜ] + b_i)     # input gate
+</span></span><span class="line"><span class="cl">c̃ₜ = tanh(W_c · [hₜ₋₁, xₜ] + b_c)  # candidate cell state
+</span></span><span class="line"><span class="cl">cₜ = fₜ * cₜ₋₁ + iₜ * c̃ₜ           # new cell state
+</span></span><span class="line"><span class="cl">oₜ = σ(W_o · [hₜ₋₁, xₜ] + b_o)     # output gate
+</span></span><span class="line"><span class="cl">hₜ = oₜ * tanh(cₜ)                  # hidden state
+</span></span></code></pre></div><p>LSTMs capture longer dependencies than vanilla RNNs but still struggle beyond ~100 tokens.</p>
+<h3 id="transformers-vaswani-et-al-2017">Transformers (Vaswani et al., 2017)</h3>
+<p>The transformer architecture abandoned recurrence entirely:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Attention(Q, K, V) = softmax(QK^T / √d_k) V
+</span></span></code></pre></div><p><strong>Key innovations</strong>:</p>
+<ol>
+<li>
+<p><strong>Self-attention</strong>: Every position attends to every other position directly. No sequential bottleneck.</p>
+</li>
+<li>
+<p><strong>Parallelization</strong>: All positions computed simultaneously during training. Massive speedups on GPUs.</p>
+</li>
+<li>
+<p><strong>Positional encoding</strong>: Since there&rsquo;s no recurrence, position information must be explicitly injected.</p>
+</li>
+</ol>
+<p>The attention mechanism computes: &ldquo;For each position, how relevant is every other position?&rdquo; This allows direct information flow across arbitrary distances.</p>
+<p><strong>Complexity trade-off</strong>: O(n²) computation and memory for sequence length n. Long contexts are expensive.</p>
+<h2 id="modern-large-language-models">Modern Large Language Models</h2>
+<h3 id="scale">Scale</h3>
+<p>The scaling has been remarkable:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Model</th>
+          <th>Parameters</th>
+          <th>Training Data</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>GPT-2 (2019)</td>
+          <td>1.5B</td>
+          <td>40GB text</td>
+      </tr>
+      <tr>
+          <td>GPT-3 (2020)</td>
+          <td>175B</td>
+          <td>570GB text</td>
+      </tr>
+      <tr>
+          <td>GPT-4 (2023)</td>
+          <td>~1T?</td>
+          <td>Unknown</td>
+      </tr>
+      <tr>
+          <td>LLaMA (2023)</td>
+          <td>7B-70B</td>
+          <td>1-1.4T tokens</td>
+      </tr>
+      <tr>
+          <td>Claude 3 (2024)</td>
+          <td>Unknown</td>
+          <td>Unknown</td>
+      </tr>
+  </tbody>
+</table>
+<p>Each generation scales parameters, data, and compute roughly together.</p>
+<h3 id="training-paradigm">Training Paradigm</h3>
+<p>Modern LLM training has three phases:</p>
+<ol>
+<li>
+<p><strong>Pretraining</strong>: Predict next token on massive text corpora (books, web, code). Learn general language understanding.</p>
+</li>
+<li>
+<p><strong>Supervised Fine-tuning (SFT)</strong>: Train on curated examples of helpful assistant behavior.</p>
+</li>
+<li>
+<p><strong>RLHF</strong>: Reinforcement Learning from Human Feedback. Train a reward model from human preferences, then optimize the LLM against this reward.</p>
+</li>
+</ol>
+<p>The result: models that are not just good predictors, but helpful assistants.</p>
+<h3 id="emergent-capabilities">Emergent Capabilities</h3>
+<p>Scale brings emergent abilities:</p>
+<ul>
+<li><strong>In-context learning</strong>: Learn from examples in the prompt without weight updates</li>
+<li><strong>Chain-of-thought reasoning</strong>: Produce intermediate steps that improve final answers</li>
+<li><strong>Instruction following</strong>: Generalize from instructions, not just examples</li>
+<li><strong>Code generation</strong>: Write and debug programs</li>
+</ul>
+<p>These weren&rsquo;t explicitly trained for—they emerged from scale.</p>
+<h2 id="connection-to-classical-methods">Connection to Classical Methods</h2>
+<p>Despite their complexity, neural LMs are still doing sequential prediction:</p>
+<h3 id="the-compression-connection">The Compression Connection</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Cross-entropy loss = -Σ log P(xₙ | x&lt;n)
+</span></span></code></pre></div><p>This is identical to the code length in arithmetic coding. Neural LMs are implicitly learning to compress.</p>
+<p>State-of-the-art LLMs achieve ~1.5 bits per character on English text—approaching the estimated entropy of English.</p>
+<h3 id="what-neural-models-learn">What Neural Models Learn</h3>
+<p>Neural LMs implicitly learn:</p>
+<ul>
+<li><strong>Syntax and grammar</strong> (structure)</li>
+<li><strong>Semantic relationships</strong> (meaning)</li>
+<li><strong>World knowledge</strong> (facts)</li>
+<li><strong>Reasoning patterns</strong> (debated)</li>
+</ul>
+<p>They can be seen as learning a very flexible, high-capacity approximation to what CTW does with a restricted model class.</p>
+<h3 id="the-inductive-bias-trade-off">The Inductive Bias Trade-off</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Inductive Bias</th>
+          <th>Data Needed</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>CTW</td>
+          <td>Tree structures</td>
+          <td>Thousands</td>
+      </tr>
+      <tr>
+          <td>N-grams</td>
+          <td>Fixed context</td>
+          <td>Millions</td>
+      </tr>
+      <tr>
+          <td>Neural LMs</td>
+          <td>Minimal</td>
+          <td>Billions</td>
+      </tr>
+  </tbody>
+</table>
+<p>Neural models trade inductive bias for flexibility. With enough data, this wins. With limited data, CTW wins.</p>
+<h2 id="limitations-of-neural-lms">Limitations of Neural LMs</h2>
+<p>Modern LLMs are remarkable, but have clear limitations:</p>
+<h3 id="hallucination">Hallucination</h3>
+<p>LLMs generate plausible but false content. They model the <em>form</em> of text perfectly but have no grounding in truth.</p>
+<h3 id="no-uncertainty-quantification">No Uncertainty Quantification</h3>
+<p>Unlike Bayesian methods (CTW), neural LMs produce point estimates. They&rsquo;re confidently wrong with no warning.</p>
+<h3 id="black-box">Black Box</h3>
+<p>We don&rsquo;t understand how they work internally. Mechanistic interpretability is an active research area but we&rsquo;re far from complete understanding.</p>
+<h3 id="compute-cost">Compute Cost</h3>
+<p>Training GPT-4 reportedly cost &gt;$100M. Inference at scale requires significant GPU resources.</p>
+<h3 id="alignment-challenges">Alignment Challenges</h3>
+<p>Making LLMs reliably helpful, harmless, and honest is an unsolved problem. RLHF helps but doesn&rsquo;t guarantee safety.</p>
+<h2 id="when-to-use-neural-lms-vs-ctw">When to Use Neural LMs vs. CTW</h2>
+<h3 id="use-neural-lms-when">Use Neural LMs When:</h3>
+<ul>
+<li>Large vocabulary (natural language, code)</li>
+<li>Massive training data available</li>
+<li>Long-range dependencies matter</li>
+<li>State-of-the-art performance required</li>
+<li>Can afford compute costs</li>
+</ul>
+<h3 id="use-ctw-when">Use CTW When:</h3>
+<ul>
+<li>Binary or small alphabet</li>
+<li>Limited training data</li>
+<li>Need theoretical guarantees</li>
+<li>Interpretability required</li>
+<li>Compute constrained</li>
+<li>The source is plausibly tree-structured</li>
+</ul>
+<h2 id="hybrid-approaches">Hybrid Approaches</h2>
+<p>The future may combine strengths:</p>
+<ol>
+<li>
+<p><strong>CTW for low-resource adaptation</strong>: Use CTW-style Bayesian methods when fine-tuning data is limited.</p>
+</li>
+<li>
+<p><strong>Compression-based model selection</strong>: Use description length (related to CTW) to choose among neural models.</p>
+</li>
+<li>
+<p><strong>Bayesian neural networks</strong>: Add uncertainty estimation to neural predictions.</p>
+</li>
+<li>
+<p><strong>Neural architecture search</strong>: Learn architectures with appropriate inductive biases.</p>
+</li>
+</ol>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li>Neural LMs evolved from feedforward → RNN → LSTM → Transformer</li>
+<li><strong>Self-attention</strong> enables direct long-range dependencies</li>
+<li><strong>Scale</strong> (parameters, data, compute) drives emergent capabilities</li>
+<li>Neural LMs are still doing <strong>sequential prediction</strong>—just with massive flexibility</li>
+<li><strong>Trade-off</strong>: Flexibility vs. sample efficiency</li>
+<li>CTW and neural LMs serve different regimes</li>
+</ul>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>The <a href="/post/2025-01-15-ctw-experimental-results/">final post</a> presents experimental results validating CTW&rsquo;s theoretical properties. We&rsquo;ll see that when depth matches the true Markov order, CTW achieves the Bayes-optimal accuracy—confirming theory with practice.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Vaswani et al. (2017). &ldquo;Attention Is All You Need.&rdquo;</li>
+<li>Radford et al. (2019). &ldquo;Language Models are Unsupervised Multitask Learners.&rdquo;</li>
+<li>Brown et al. (2020). &ldquo;Language Models are Few-Shot Learners.&rdquo;</li>
+<li>Jurafsky &amp; Martin. <em>Speech and Language Processing</em>. Chapters 7-10.</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>neural-networks</category><category>transformers</category><category>language-models</category><category>attention</category><category>gpt</category><category>llm</category></item><item><title>CTW Experimental Results: Theory Meets Practice</title><link>https://metafunctor.com/post/2025-01-15-ctw-experimental-results/</link><pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-01-15-ctw-experimental-results/</guid><description>Validating Context Tree Weighting through experiments—including a bug that changed everything</description><content:encoded><![CDATA[<p>Throughout this series, we&rsquo;ve developed the theory of sequential prediction—from Solomonoff&rsquo;s incomputable ideal to CTW&rsquo;s practical Bayesian approach. Now we validate theory with experiments.</p>
+<p>This post presents experimental results showing that CTW achieves the Bayes-optimal accuracy when its depth matches the true Markov order. But the path to this finding included a bug that initially suggested the opposite—a reminder that even simple experiments can mislead.</p>
+<h2 id="the-experimental-setup">The Experimental Setup</h2>
+<h3 id="data-generating-process">Data Generating Process</h3>
+<p>We use sparse Markov processes where most contexts are uninformative:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">3rd-order Markov process:
+</span></span><span class="line"><span class="cl">Context  P(next=1)  Description
+</span></span><span class="line"><span class="cl">───────  ─────────  ──────────────────
+</span></span><span class="line"><span class="cl">000      0.99       High certainty → 1
+</span></span><span class="line"><span class="cl">100      0.99       High certainty → 1
+</span></span><span class="line"><span class="cl">010      0.025      High certainty → 0
+</span></span><span class="line"><span class="cl">101      0.025      High certainty → 0
+</span></span><span class="line"><span class="cl">011      0.25       Moderate → 0
+</span></span><span class="line"><span class="cl">110      0.25       Moderate → 0
+</span></span><span class="line"><span class="cl">001      0.5        Uniform (random)
+</span></span><span class="line"><span class="cl">111      0.5        Uniform (random)
+</span></span></code></pre></div><p>This process has:</p>
+<ul>
+<li>4 highly predictable contexts (~99% or ~97.5% certainty)</li>
+<li>2 moderately predictable contexts (~75% certainty)</li>
+<li>2 completely random contexts (50/50)</li>
+</ul>
+<h3 id="theoretical-maximum-accuracy">Theoretical Maximum Accuracy</h3>
+<p>An oracle predictor that knows the true transition probabilities achieves:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">theoretical_max</span><span class="p">(</span><span class="n">transition_probs</span><span class="p">,</span> <span class="n">stationary_dist</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Predict the more likely outcome for each context.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">stationary_dist</span><span class="p">[</span><span class="n">ctx</span><span class="p">]</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="o">-</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">transition_probs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span></code></pre></div><p>For our process, this is approximately <strong>95%</strong>—the ceiling for any predictor.</p>
+<h3 id="configuration">Configuration</h3>
+<ul>
+<li><strong>Training length</strong>: 50,000 bits</li>
+<li><strong>Test length</strong>: 10,000 bits</li>
+<li><strong>Seeds</strong>: 5 random seeds (averaged)</li>
+<li><strong>DGP orders</strong>: 1, 2, 3, 4, 5, 6</li>
+<li><strong>CTW depths</strong>: 1, 2, 3, 4, 5, 6, 8, 10</li>
+</ul>
+<h2 id="the-bug-a-cautionary-tale">The Bug: A Cautionary Tale</h2>
+<h3 id="initial-incorrect-results">Initial (Incorrect) Results</h3>
+<p>An early draft of this work reported surprising findings:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Max Depth</th>
+          <th>Accuracy (%)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>87.2</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><strong>96.8</strong> (peak)</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>93.8</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>89.4</td>
+      </tr>
+      <tr>
+          <td>8</td>
+          <td>76.2</td>
+      </tr>
+      <tr>
+          <td>12</td>
+          <td>66.4</td>
+      </tr>
+  </tbody>
+</table>
+<p>This suggested that accuracy <em>decreased</em> when CTW depth exceeded the true order. The paper hypothesized:</p>
+<ul>
+<li>Data sparsity at deeper contexts degraded KT estimates</li>
+<li>Overfitting to rare deep patterns</li>
+<li>Bayesian dilution as mixture flattened</li>
+</ul>
+<h3 id="the-problem">The Problem</h3>
+<p>These results were <strong>wrong</strong>. A bug in the evaluation code caused accuracy to degrade artificially at higher depths.</p>
+<h3 id="the-fix">The Fix</h3>
+<p>After careful debugging:</p>
+<ol>
+<li>Corrected the context indexing in the test harness</li>
+<li>Fixed how predictions were accumulated across depths</li>
+<li>Verified KT estimator updates were correctly propagated</li>
+</ol>
+<h3 id="corrected-results">Corrected Results</h3>
+<p>With the bug fixed, the true behavior emerged:</p>
+<table>
+  <thead>
+      <tr>
+          <th>DGP Order</th>
+          <th>Theo Max</th>
+          <th>D=1</th>
+          <th>D=2</th>
+          <th>D=3</th>
+          <th>D=4</th>
+          <th>D=5</th>
+          <th>D=6</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>~95%</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>~95%</td>
+          <td>✗</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>~95%</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>~95%</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✓</td>
+          <td>✓</td>
+          <td>✓</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>~95%</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✓</td>
+          <td>✓</td>
+      </tr>
+      <tr>
+          <td>6</td>
+          <td>~95%</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✗</td>
+          <td>✓</td>
+      </tr>
+  </tbody>
+</table>
+<p>✓ = Achieves theoretical maximum
+✗ = Below theoretical maximum</p>
+<h2 id="key-finding-no-overfitting-penalty">Key Finding: No Overfitting Penalty</h2>
+<p><strong>When CTW depth ≥ DGP order, CTW achieves Bayes-optimal accuracy.</strong></p>
+<p>The corrected experiments confirm:</p>
+<ol>
+<li><strong>Depth &lt; Order</strong>: Accuracy limited because CTW can&rsquo;t represent the true model</li>
+<li><strong>Depth = Order</strong>: Achieves theoretical maximum</li>
+<li><strong>Depth &gt; Order</strong>: <em>Also</em> achieves theoretical maximum (no degradation!)</li>
+</ol>
+<p>The third point is crucial: <strong>increasing depth beyond the true order does not hurt performance</strong>.</p>
+<h2 id="why-this-makes-sense">Why This Makes Sense</h2>
+<p>CTW&rsquo;s Bayesian model averaging naturally handles excessive depth:</p>
+<h3 id="the-prior-penalizes-depth">The Prior Penalizes Depth</h3>
+<p>At each node, CTW assigns:</p>
+<ul>
+<li>0.5 weight to &ldquo;stop here&rdquo; (use local KT estimate)</li>
+<li>0.5 weight to &ldquo;go deeper&rdquo; (use children)</li>
+</ul>
+<p>This compounds: a depth-D path has prior weight ~0.5^D. Deep trees are automatically downweighted.</p>
+<h3 id="sparse-data-at-depth-is-handled">Sparse Data at Depth is Handled</h3>
+<p>When deep contexts have few samples:</p>
+<ul>
+<li>KT estimator gives high uncertainty</li>
+<li>Bayesian mixture shifts weight toward shallower estimates</li>
+<li>Predictions remain calibrated</li>
+</ul>
+<h3 id="model-averaging-is-robust">Model Averaging is Robust</h3>
+<p>Even with depth set too high:</p>
+<ul>
+<li>The true model is in the mixture</li>
+<li>Posterior concentrates on the right tree structure</li>
+<li>Excess complexity is averaged away, not memorized</li>
+</ul>
+<h2 id="practical-implications">Practical Implications</h2>
+<h3 id="depth-selection">Depth Selection</h3>
+<ul>
+<li><strong>When true order is known</strong>: Set depth = order (or slightly higher)</li>
+<li><strong>When unknown</strong>: Set depth conservatively high</li>
+<li><strong>No penalty for overestimating</strong>: Better to err toward deeper</li>
+</ul>
+<h3 id="data-requirements">Data Requirements</h3>
+<p>Higher depths require more data to populate deep contexts, but CTW handles sparse contexts gracefully. Rule of thumb: need ~10× samples as number of contexts at target depth.</p>
+<h3 id="confidence-in-theory">Confidence in Theory</h3>
+<p>The experiments validate CTW&rsquo;s theoretical properties:</p>
+<ul>
+<li>Bayesian model averaging works as advertised</li>
+<li>The 0.5/0.5 prior provides appropriate regularization</li>
+<li>Optimality for tree sources holds empirically</li>
+</ul>
+<h2 id="lessons-learned">Lessons Learned</h2>
+<h3 id="1-trust-but-verify">1. Trust but Verify</h3>
+<p>The initial &ldquo;surprising&rdquo; result seemed plausible—deep models overfitting is a common story. But:</p>
+<ul>
+<li>It contradicted well-established theory</li>
+<li>The magnitude of degradation was suspicious</li>
+<li>Independent implementation checks were skipped</li>
+</ul>
+<h3 id="2-theory-as-a-guide">2. Theory as a Guide</h3>
+<p>When experiments contradict established theory, the experiment is often wrong. Theory provides expectations; deviations deserve scrutiny.</p>
+<h3 id="3-reproducibility-matters">3. Reproducibility Matters</h3>
+<p>The bug was found when trying to reproduce results with a different implementation. If we&rsquo;d only run the original code, the error might have persisted.</p>
+<h3 id="4-simple-experiments-can-fail">4. Simple Experiments Can Fail</h3>
+<p>This wasn&rsquo;t a complex distributed system. It was a few hundred lines of Python evaluating a well-understood algorithm. Bugs hide everywhere.</p>
+<h2 id="running-the-experiments">Running the Experiments</h2>
+<p>To reproduce:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">experiments.ctw_multiorder</span> <span class="kn">import</span> <span class="n">run_multiorder_experiment</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="n">run_multiorder_experiment</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dgp_orders</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ctw_depths</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">markov_type</span><span class="o">=</span><span class="s2">&#34;sparse&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">train_length</span><span class="o">=</span><span class="mi">50000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">test_length</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">num_seeds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Or via command line:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Quick sanity check</span>
+</span></span><span class="line"><span class="cl">python -m experiments.ctw.scripts.ctw_multiorder --quick
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Full experiment</span>
+</span></span><span class="line"><span class="cl">python -m experiments.ctw.scripts.ctw_multiorder
+</span></span></code></pre></div><h2 id="summary-of-results">Summary of Results</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Claim</th>
+          <th>Status</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>CTW achieves theoretical max when depth ≥ order</td>
+          <td><strong>Confirmed</strong></td>
+      </tr>
+      <tr>
+          <td>CTW degrades with excessive depth</td>
+          <td><strong>Refuted</strong> (was a bug)</td>
+      </tr>
+      <tr>
+          <td>Bayesian model averaging provides robustness</td>
+          <td><strong>Confirmed</strong></td>
+      </tr>
+      <tr>
+          <td>CTW is optimal for tree sources</td>
+          <td><strong>Confirmed</strong> (empirically)</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="series-conclusion">Series Conclusion</h2>
+<p>This series traced sequential prediction from Solomonoff&rsquo;s incomputable ideal to practical algorithms:</p>
+<ol>
+<li><strong>The problem</strong>: Predict the next symbol given history</li>
+<li><strong>The ideal</strong>: Solomonoff induction—optimal but incomputable</li>
+<li><strong>The framework</strong>: Bayesian model averaging over hypotheses</li>
+<li><strong>The model class</strong>: Markov processes and tree sources</li>
+<li><strong>The classical approach</strong>: N-grams and their limitations</li>
+<li><strong>The trade-offs</strong>: Sample efficiency vs. flexibility</li>
+<li><strong>The modern approach</strong>: Neural language models at scale</li>
+<li><strong>The validation</strong>: CTW achieves its theoretical guarantees</li>
+</ol>
+<p>CTW represents a sweet spot: provably optimal within a rich model class, computationally efficient, and interpretable. For the right problems—binary sequences, limited data, need for guarantees—it remains the right choice even in the age of LLMs.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li>
+<li>The <a href="https://github.com/queelius/sequential-prediction">code repository</a> contains the full CTW implementation and experimental scripts.</li>
+</ul>
+]]></content:encoded><category>sequential-prediction</category><category>ctw</category><category>experiments</category><category>bayesian</category><category>markov-processes</category><category>scientific-method</category></item></channel></rss>
