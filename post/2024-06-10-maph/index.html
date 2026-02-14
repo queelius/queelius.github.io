@@ -1,1824 +1,259 @@
-<!DOCTYPE html>
-<html lang="en-us" prefix="og: https://ogp.me/ns#">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-
-  
-  <title>maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage | metafunctor</title>
-  <meta name="title" content="maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage | metafunctor">
-  <meta name="description" content="A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. 10M ops/sec single-threaded, 98M ops/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB.">
-
-  
-  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
-  <meta name="author" content="Alex Towell">
-  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <link rel="canonical" href="https://metafunctor.com/post/2024-06-10-maph/">
-
-  
-  
-
-  
-  <link rel="alternate" hreflang="en" href="https://metafunctor.com/post/2024-06-10-maph/">
-  <link rel="alternate" hreflang="x-default" href="https://metafunctor.com/post/2024-06-10-maph/">
-
-  
-  
-<style>
- 
-
- 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  font-size: 17px;
-  line-height: 1.7;
-  color: #2c2c2c;
-  background: #ffffff;
-}
-
- 
-.elegant-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: rgba(254, 254, 254, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-}
-
-.header-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.site-logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2c2c2c;
-  text-decoration: none;
-}
-
-.nav-primary ul {
-  display: flex;
-  gap: 2rem;
-  list-style: none;
-}
-
-.nav-primary a {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #4a4a4a;
-  text-decoration: none;
-}
-
- 
-.hero-elegant {
-  padding: 5rem 2rem;
-  text-align: center;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
-}
-
-.hero-title {
-  font-size: 3.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.hero-subtitle {
-  font-size: 1.25rem;
-  color: #4a4a4a;
-  max-width: 600px;
-  margin: 0 auto 3rem;
-}
-
- 
-.skip-to-main {
-  position: absolute;
-  top: -100px;
-  left: 0;
-  background: #0050a0;
-  color: white;
-  padding: 0.5rem 1rem;
-  text-decoration: none;
-  font-weight: 600;
-  z-index: 10000;
-}
-
-.skip-to-main:focus {
-  top: 0;
-}
-
- 
-.preload * {
-  transition: none !important;
-}
-</style>
-
-
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="dns-prefetch" href="https://www.google-analytics.com">
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-
-  
-  <meta property="og:type" content="article">
-  <meta property="og:url" content="https://metafunctor.com/post/2024-06-10-maph/">
-  <meta property="og:title" content="maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage">
-  <meta property="og:description" content="A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. 10M ops/sec single-threaded, 98M ops/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB.">
-  <meta property="og:image" content="https://metafunctor.com/images/og-image.jpg">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:site_name" content="metafunctor">
-  <meta property="og:locale" content="en_US">
-  
-  <meta property="article:author" content="Alex Towell">
-  <meta property="article:published_time" content="2024-06-10T00:00:00Z">
-  <meta property="article:modified_time" content="2026-01-02T23:49:23-06:00">
-  <meta property="article:section" content="computer-science">
-  <meta property="article:tag" content="C&#43;&#43;"><meta property="article:tag" content="perfect-hashing"><meta property="article:tag" content="memory-mapped-IO"><meta property="article:tag" content="lock-free"><meta property="article:tag" content="key-value-store"><meta property="article:tag" content="zero-copy"><meta property="article:tag" content="SIMD"><meta property="article:tag" content="sub-microsecond-latency"><meta property="article:tag" content="mmap">
-  
-
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://metafunctor.com/post/2024-06-10-maph/">
-  <meta name="twitter:title" content="maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage">
-  <meta name="twitter:description" content="A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. 10M ops/sec single-threaded, 98M ops/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB.">
-  <meta name="twitter:image" content="https://metafunctor.com/images/og-image.jpg">
-  <meta name="twitter:site" content="@queelius">
-  <meta name="twitter:creator" content="@queelius">
-
-  
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Article",
-        "@id": "https:\/\/metafunctor.com\/post\/2024-06-10-maph\/#primaryContent",
-        
-        "headline": "maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage",
-        "description": "A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I\/O, approximate perfect hashing, and lock-free atomic operations. 10M ops\/sec single-threaded, 98M ops\/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB.",
-        "url": "https:\/\/metafunctor.com\/post\/2024-06-10-maph\/",
-        "inLanguage": "en-US",
-        "datePublished": "2024-06-10T00:00:00Z",
-        "dateModified": "2026-01-02T23:49:23-06:00",
-        "wordCount":  2036 ,
-        "timeRequired": "PT10M",
-        "author": {
-          "@type": "Person",
-          "@id": "https:\/\/metafunctor.com\/#author",
-          "name": "Alex Towell",
-          "url": "https:\/\/metafunctor.com\/about/"
-        },
-        "publisher": {
-          "@type": "Organization",
-          "@id": "https:\/\/metafunctor.com\/#organization",
-          "name": "metafunctor",
-          "url": "https:\/\/metafunctor.com\/",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https:\/\/metafunctor.com\/images\/og-image.jpg"
-          }
-        },
-        "keywords": ["C\u002b\u002b", "perfect-hashing", "memory-mapped-IO", "lock-free", "key-value-store", "zero-copy", "SIMD", "sub-microsecond-latency", "mmap"]
-        
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https:\/\/metafunctor.com\/post\/2024-06-10-maph\/#breadcrumb",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "https:\/\/metafunctor.com\/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "News",
-            "item": "https:\/\/metafunctor.com\/post\/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": "maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage",
-            "item": "https:\/\/metafunctor.com\/post\/2024-06-10-maph\/"
-          }
-        ]
-      }
-    ]
-  }
-  </script>
-
-  
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
-
-  
-  <link rel="stylesheet" href="../../css/refined-elegant.css">
-
-  
-  <link rel="stylesheet" href="../../css/micro-interactions.css">
-
-  
-  <link rel="stylesheet" href="../../css/elegant.css" media="print" onload="this.media='all'">
-
-  
-  <link rel="stylesheet" href="../../css/custom.css">
-
-  
-  <link rel="stylesheet" href="../../css/beautify.css">
-
-  
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
-  
-  
-  
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      renderMathInElement(document.body, {
-        delimiters: [
-          {left: "$$", right: "$$", display: true},
-          {left: "\\[", right: "\\]", display: true},
-          {left: "$", right: "$", display: false},
-          {left: "\\(", right: "\\)", display: false}
-        ]
-      });
-    });
-  </script>
-  
-
-  
-  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
-
-  
-  
-
-
-
-
-
-  
-  
-
-  
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
-      <script>
-        var doNotTrack = false;
-        if ( false ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-E08ZXTFTTY');
-        }
-      </script>
-  <meta name="generator" content="Hugo 0.152.2">
-</head>
-<body>
-  
-  <a href="#main-content" class="skip-to-main">Skip to main content</a>
-
-  <header class="elegant-header" role="banner">
-  <div class="header-inner">
-    <div class="site-identity">
-      <a href="https://metafunctor.com/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
-      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
-    </div>
-    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
-      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-      <ul role="list">
-        <li><a href="https://metafunctor.com/" >Home</a></li>
-        <li><a href="https://metafunctor.com/post/" class="active" aria-current="page">Posts</a></li>
-        <li><a href="https://metafunctor.com/series/" >Series</a></li>
-        <li class="nav-dropdown">
-          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
-            Academic <i class="fas fa-chevron-down dropdown-icon"></i>
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            <li role="menuitem"><a href="https://metafunctor.com/papers/" >Papers</a></li>
-            <li role="menuitem"><a href="https://metafunctor.com/publications/" >Publications</a></li>
-            <li role="menuitem"><a href="https://metafunctor.com/research/" >Research</a></li>
-          </ul>
-        </li>
-        <li class="nav-dropdown">
-          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
-            Creative <i class="fas fa-chevron-down dropdown-icon"></i>
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            <li role="menuitem"><a href="https://metafunctor.com/writing/" >Writing</a></li>
-            <li role="menuitem"><a href="https://metafunctor.com/media/" >Media</a></li>
-          </ul>
-        </li>
-        <li><a href="https://metafunctor.com/projects/" >Projects</a></li>
-        <li><a href="https://metafunctor.com/about/" >About</a></li>
-        <li><a href="https://metafunctor.com/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
-      </ul>
-    </nav>
-  </div>
-</header>
-
-<style>
- 
-.nav-dropdown {
-  position: relative;
-}
-
-.dropdown-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  cursor: pointer;
-}
-
-.dropdown-icon {
-  font-size: 0.6rem;
-  transition: transform 0.2s ease;
-}
-
-.nav-dropdown.open .dropdown-icon {
-  transform: rotate(180deg);
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 160px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 0.5rem 0;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 9999;
-  list-style: none;
-}
-
-.nav-dropdown.open .dropdown-menu {
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  transform: translateX(-50%) translateY(0) scale(1) !important;
-}
-
- 
-.dropdown-menu::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-bottom: 6px solid #fff;
-  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
-}
-
-.dropdown-menu li {
-  margin: 0;
-}
-
-.nav-dropdown .dropdown-menu a {
-  display: block !important;
-  padding: 0.6rem 1.25rem !important;
-  color: #4a4a4a !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  text-decoration: none !important;
-  transition: all 0.15s ease !important;
-  white-space: nowrap !important;
-  cursor: pointer !important;
-  pointer-events: auto !important;
-}
-
-.nav-dropdown .dropdown-menu a:hover {
-  background: #f3f4f6 !important;
-  color: #4f46e5 !important;
-}
-
-.nav-dropdown .dropdown-menu a.active {
-  color: #4f46e5 !important;
-}
-
- 
-@media (max-width: 768px) {
-  .dropdown-menu {
-    position: static;
-    transform: none;
-    box-shadow: none;
-    border: none;
-    background: rgba(0, 0, 0, 0.03);
-    border-radius: 0;
-    padding: 0;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 1;
-    visibility: visible;
-    transition: max-height 0.2s ease;
-  }
-
-  .dropdown-menu::before {
-    display: none;
-  }
-
-  .nav-dropdown.open .dropdown-menu {
-    max-height: 300px;
-    padding: 0.5rem 0;
-  }
-
-  .dropdown-menu a {
-    padding: 0.5rem 1.5rem 0.5rem 2rem;
-    font-size: 0.85rem;
-  }
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const dropdowns = document.querySelectorAll('.nav-dropdown');
-
-  dropdowns.forEach(dropdown => {
-    const toggle = dropdown.querySelector('.dropdown-toggle');
-
-    
-    toggle.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const wasOpen = dropdown.classList.contains('open');
-
-      
-      dropdowns.forEach(d => d.classList.remove('open'));
-
-      
-      if (!wasOpen) {
-        dropdown.classList.add('open');
-      }
-    });
-  });
-
-  
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.nav-dropdown')) {
-      dropdowns.forEach(d => d.classList.remove('open'));
-    }
-  });
-
-  
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      dropdowns.forEach(d => d.classList.remove('open'));
-    }
-  });
-});
-</script>
-
-
-  
-  
-  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
-    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <a itemprop="item" href="https://metafunctor.com/">
-          <span itemprop="name">Home</span>
-        </a>
-        <meta itemprop="position" content="1" />
-      </li>
-      
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <span class="breadcrumb-separator">/</span>
-        <a itemprop="item" href="https://metafunctor.com/post/">
-          <span itemprop="name">News</span>
-        </a>
-        <meta itemprop="position" content="2" />
-      </li>
-      
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <span class="breadcrumb-separator">/</span>
-        <span itemprop="name" aria-current="page">maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage</span>
-        <meta itemprop="position" content="3" />
-      </li>
-    </ol>
-  </nav>
-  
-
-  <main id="main-content" role="main" aria-label="Main content">
-    
-<div class="main-container">
-  <div class="single-post-layout">
-    
-    
-    <aside class="post-sidebar">
-      
-<aside class="toc-wrapper" aria-label="Table of contents">
-  <nav class="table-of-contents">
-    <h2 class="toc-title">Table of Contents</h2>
-    <div class="toc-content">
-      <nav id="TableOfContents">
-  <ul>
-    <li><a href="#the-performance-problem">The Performance Problem</a></li>
-    <li><a href="#core-innovation-three-key-techniques">Core Innovation: Three Key Techniques</a>
-      <ul>
-        <li><a href="#1-zero-copy-architecture-via-mmap">1. Zero-Copy Architecture via mmap</a></li>
-        <li><a href="#2-hybrid-hash-architecture">2. Hybrid Hash Architecture</a></li>
-        <li><a href="#3-lock-free-atomic-operations">3. Lock-Free Atomic Operations</a></li>
-      </ul>
-    </li>
-    <li><a href="#performance-results">Performance Results</a>
-      <ul>
-        <li><a href="#single-threaded-latency">Single-Threaded Latency</a></li>
-        <li><a href="#multi-threaded-scaling">Multi-Threaded Scaling</a></li>
-        <li><a href="#comparison-with-other-systems">Comparison with Other Systems</a></li>
-      </ul>
-    </li>
-    <li><a href="#memory-layout-and-slot-design">Memory Layout and Slot Design</a>
-      <ul>
-        <li><a href="#fixed-size-slots">Fixed-Size Slots</a></li>
-      </ul>
-    </li>
-    <li><a href="#architecture-components">Architecture Components</a></li>
-    <li><a href="#simd-batch-operations">SIMD Batch Operations</a></li>
-    <li><a href="#hybrid-deployment-architecture">Hybrid Deployment Architecture</a>
-      <ul>
-        <li><a href="#pattern-1-single-writer-multiple-readers-recommended">Pattern 1: Single Writer, Multiple Readers (Recommended)</a></li>
-        <li><a href="#pattern-2-multi-writer-with-coordination">Pattern 2: Multi-Writer with Coordination</a></li>
-      </ul>
-    </li>
-    <li><a href="#rest-api-server">REST API Server</a></li>
-    <li><a href="#access-pattern-performance-comparison">Access Pattern Performance Comparison</a></li>
-    <li><a href="#hash-function-selection">Hash Function Selection</a>
-      <ul>
-        <li><a href="#fnv-1a-hash-short-keys">FNV-1a Hash (Short Keys)</a></li>
-        <li><a href="#xxhash-long-keys">xxHash (Long Keys)</a></li>
-      </ul>
-    </li>
-    <li><a href="#durability-management">Durability Management</a>
-      <ul>
-        <li><a href="#asynchronous-durability">Asynchronous Durability</a></li>
-        <li><a href="#copy-on-write-snapshots">Copy-on-Write Snapshots</a></li>
-      </ul>
-    </li>
-    <li><a href="#parallel-scan-implementation">Parallel Scan Implementation</a></li>
-    <li><a href="#quick-start">Quick Start</a>
-      <ul>
-        <li><a href="#c-library-usage">C++ Library Usage</a></li>
-      </ul>
-    </li>
-    <li><a href="#use-cases">Use Cases</a></li>
-    <li><a href="#comparison-with-other-systems-1">Comparison with Other Systems</a></li>
-    <li><a href="#design-principles">Design Principles</a></li>
-    <li><a href="#limitations-and-trade-offs">Limitations and Trade-offs</a>
-      <ul>
-        <li><a href="#fixed-slot-size">Fixed Slot Size</a></li>
-        <li><a href="#dynamic-key-sets">Dynamic Key Sets</a></li>
-        <li><a href="#single-machine-scalability">Single-Machine Scalability</a></li>
-        <li><a href="#memory-overhead">Memory Overhead</a></li>
-      </ul>
-    </li>
-    <li><a href="#future-directions">Future Directions</a>
-      <ul>
-        <li><a href="#runtime-adaptive-slot-sizing">Runtime-Adaptive Slot Sizing</a></li>
-        <li><a href="#learned-indexing">Learned Indexing</a></li>
-        <li><a href="#persistent-memory-integration">Persistent Memory Integration</a></li>
-        <li><a href="#distributed-consensus">Distributed Consensus</a></li>
-      </ul>
-    </li>
-    <li><a href="#resources">Resources</a></li>
-    <li><a href="#license">License</a></li>
-  </ul>
-</nav>
-    </div>
-  </nav>
-</aside>
-
-<style>
-.toc-wrapper {
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
-  padding: var(--space-lg);
-  background: var(--paper-dark);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-xl);
-}
-
-.toc-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink);
-  margin: 0 0 var(--space-md) 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.875rem;
-}
-
-.toc-content {
-  font-size: 0.9rem;
-}
-
-.toc-content ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.toc-content > ul {
-  border-left: 2px solid var(--border-color);
-  padding-left: var(--space-md);
-}
-
-.toc-content li {
-  margin-bottom: var(--space-sm);
-}
-
-.toc-content a {
-  color: var(--ink-light);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-  display: block;
-  padding: var(--space-xs) 0;
-}
-
-.toc-content a:hover {
-  color: var(--accent);
-}
-
-.toc-content ul ul {
-  margin-top: var(--space-sm);
-  padding-left: var(--space-md);
-}
-
- 
-@media (max-width: 1024px) {
-  .toc-wrapper {
-    position: relative;
-    top: 0;
-    max-height: none;
-  }
-}
-</style>
-
-<script>
-
-document.addEventListener('DOMContentLoaded', function() {
-  const tocLinks = document.querySelectorAll('.toc-content a');
-  const sections = Array.from(tocLinks).map(link => {
-    const id = link.getAttribute('href').substring(1);
-    return document.getElementById(id);
-  }).filter(section => section !== null);
-
-  function highlightTOC() {
-    let current = '';
-    sections.forEach(section => {
-      const sectionTop = section.offsetTop;
-      const scrollPosition = window.scrollY + 100;
-      if (scrollPosition >= sectionTop) {
-        current = section.getAttribute('id');
-      }
-    });
-
-    tocLinks.forEach(link => {
-      link.classList.remove('active');
-      if (link.getAttribute('href') === '#' + current) {
-        link.classList.add('active');
-        link.style.color = 'var(--accent)';
-        link.style.fontWeight = '600';
-      } else {
-        link.style.color = '';
-        link.style.fontWeight = '';
-      }
-    });
-  }
-
-  window.addEventListener('scroll', highlightTOC);
-  highlightTOC();
-});
-</script>
-
-    </aside>
-    
-
-    
-    <article class="single-post" itemscope itemtype="https://schema.org/Article">
-      <header class="post-header">
-        <h1 class="post-title" itemprop="headline">maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage</h1>
-        <div class="post-meta">
-          
-          <span class="post-date">
-            <i class="far fa-calendar" aria-hidden="true"></i>
-            <time datetime="2024-06-10T00:00:00Z" itemprop="datePublished">
-              June 10, 2024
-            </time>
-          </span>
-          
-          
-          <span class="post-reading-time">
-            <i class="far fa-clock" aria-hidden="true"></i>
-            10 min read
-          </span>
-          
-          
-          <span class="post-updated">
-            <i class="far fa-edit" aria-hidden="true"></i>
-            Updated: <time datetime="2026-01-02T23:49:23-06:00" itemprop="dateModified">
-              January 2, 2026
-            </time>
-          </span>
-          
-          
-        </div>
-        
-        <div class="tags" role="list">
-          
-          <a href="https://metafunctor.com/tags/c&#43;&#43;/" class="tag" role="listitem">C&#43;&#43;</a>
-          
-          <a href="https://metafunctor.com/tags/perfect-hashing/" class="tag" role="listitem">perfect-hashing</a>
-          
-          <a href="https://metafunctor.com/tags/memory-mapped-io/" class="tag" role="listitem">memory-mapped-IO</a>
-          
-          <a href="https://metafunctor.com/tags/lock-free/" class="tag" role="listitem">lock-free</a>
-          
-          <a href="https://metafunctor.com/tags/key-value-store/" class="tag" role="listitem">key-value-store</a>
-          
-          <a href="https://metafunctor.com/tags/zero-copy/" class="tag" role="listitem">zero-copy</a>
-          
-          <a href="https://metafunctor.com/tags/simd/" class="tag" role="listitem">SIMD</a>
-          
-          <a href="https://metafunctor.com/tags/sub-microsecond-latency/" class="tag" role="listitem">sub-microsecond-latency</a>
-          
-          <a href="https://metafunctor.com/tags/mmap/" class="tag" role="listitem">mmap</a>
-          
-        </div>
-        
-      </header>
-
-      
-
-
-
-
-
-      <div class="content" itemprop="articleBody">
-        <p><strong><a href="https://github.com/queelius/maph">maph (Map based on Perfect Hash)</a></strong> is a high-performance key-value storage system that achieves <strong>sub-100 nanosecond latency</strong> through a novel combination of memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. Unlike traditional key-value stores that suffer from kernel/user space transitions and locking overhead, maph leverages direct memory access via <code>mmap(2)</code> to eliminate system call overhead on the critical path.</p>
-<h2 id="the-performance-problem">The Performance Problem</h2>
-<p>Modern distributed systems depend on key-value stores for caching, session management, and metadata storage. However, existing solutions face fundamental limitations when microsecond-level latency becomes critical:</p>
-<p><strong>Three fundamental bottlenecks</strong>:</p>
-<ol>
-<li><strong>Kernel overhead</strong>: System calls require expensive context switches (100-500ns per operation)</li>
-<li><strong>Memory copying</strong>: Traditional stores copy data multiple times—from kernel buffers to user space, between internal structures, for serialization</li>
-<li><strong>Synchronization overhead</strong>: Lock-based concurrency creates contention and unpredictable latency spikes</li>
-</ol>
-<p>These limitations are particularly acute in:</p>
-<ul>
-<li><strong>High-frequency trading</strong>: Every nanosecond translates to competitive advantage</li>
-<li><strong>ML feature stores</strong>: Inference pipelines require thousands of features within tight latency budgets</li>
-<li><strong>Real-time gaming and IoT</strong>: Predictable response times under concurrent access patterns</li>
-</ul>
-<h2 id="core-innovation-three-key-techniques">Core Innovation: Three Key Techniques</h2>
-<h3 id="1-zero-copy-architecture-via-mmap">1. Zero-Copy Architecture via mmap</h3>
-<p>By memory-mapping the entire database file, maph eliminates kernel/user space transitions:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Traditional approach: Multiple copies
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">data</span> <span class="o">=</span> <span class="n">read_from_disk</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>  <span class="c1">// Kernel → user copy
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">Value</span> <span class="n">v</span> <span class="o">=</span> <span class="n">deserialize</span><span class="p">(</span><span class="n">data</span><span class="p">);</span>                      <span class="c1">// Another copy
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">process</span><span class="p">(</span><span class="n">v</span><span class="p">);</span>                                        <span class="c1">// Yet another copy
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
-</span></span><span class="line"><span class="cl"><span class="c1">// maph approach: Direct memory access
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">store</span> <span class="o">=</span> <span class="n">maph</span><span class="o">::</span><span class="n">Maph</span><span class="o">::</span><span class="n">open</span><span class="p">(</span><span class="s">&#34;mystore.maph&#34;</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">value</span> <span class="o">=</span> <span class="n">store</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>  <span class="c1">// Zero copies! Direct pointer into mmap region
-</span></span></span></code></pre></div><p><strong>Key insight</strong>: The CPU&rsquo;s memory management unit (MMU) handles address translation transparently, providing the illusion of in-memory access with automatic persistence through the kernel page cache.</p>
-<h3 id="2-hybrid-hash-architecture">2. Hybrid Hash Architecture</h3>
-<p>maph uses a <strong>hybrid hasher</strong> that dynamically combines perfect hashing with standard hashing:</p>
-<p><strong>When optimized</strong> (via the <code>/optimize</code> REST API endpoint or <code>optimize()</code> C++ method), maph constructs a minimal perfect hash function for all keys present at optimization time:</p>
-\[
+<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage | metafunctor</title><meta name=title content="maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage | metafunctor"><meta name=description content="A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. 10M ops/sec single-threaded, 98M ops/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB."><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/post/2024-06-10-maph/><link rel=alternate hreflang=en href=https://metafunctor.com/post/2024-06-10-maph/><link rel=alternate hreflang=x-default href=https://metafunctor.com/post/2024-06-10-maph/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/post/2024-06-10-maph/"><meta property="og:title" content="maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage"><meta property="og:description" content="A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. 10M ops/sec single-threaded, 98M ops/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB."><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:published_time" content="2024-06-10T00:00:00Z"><meta property="article:modified_time" content="2026-01-02T23:49:23-06:00"><meta property="article:section" content="computer-science"><meta property="article:tag" content="C++"><meta property="article:tag" content="perfect-hashing"><meta property="article:tag" content="memory-mapped-IO"><meta property="article:tag" content="lock-free"><meta property="article:tag" content="key-value-store"><meta property="article:tag" content="zero-copy"><meta property="article:tag" content="SIMD"><meta property="article:tag" content="sub-microsecond-latency"><meta property="article:tag" content="mmap"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/post/2024-06-10-maph/"><meta name=twitter:title content="maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage"><meta name=twitter:description content="A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. 10M ops/sec single-threaded, 98M ops/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB."><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https:\/\/metafunctor.com\/post\/2024-06-10-maph\/#primaryContent","headline":"maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage","description":"A high-performance key-value storage system achieving sub-microsecond latency through memory-mapped I\/O, approximate perfect hashing, and lock-free atomic operations. 10M ops\/sec single-threaded, 98M ops\/sec with 16 threads—12× faster than Redis, 87× faster than RocksDB.","url":"https:\/\/metafunctor.com\/post\/2024-06-10-maph\/","inLanguage":"en-US","datePublished":"2024-06-10T00:00:00Z","dateModified":"2026-01-02T23:49:23-06:00","wordCount":2036,"timeRequired":"PT10M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}},"keywords":["C\u002b\u002b","perfect-hashing","memory-mapped-IO","lock-free","key-value-store","zero-copy","SIMD","sub-microsecond-latency","mmap"]},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/post\/2024-06-10-maph\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"News","item":"https:\/\/metafunctor.com\/post\/"},{"@type":"ListItem","position":3,"name":"maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage","item":"https:\/\/metafunctor.com\/post\/2024-06-10-maph\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=../../css/refined-elegant.css><link rel=stylesheet href=../../css/micro-interactions.css><link rel=stylesheet href=../../css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=../../css/custom.css><link rel=stylesheet href=../../css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var dnt,doNotTrack=!1;if(!1&&(dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes"),!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.152.2"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
+<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
+<span></span>
+<span></span>
+<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/post/ class=active aria-current=page>Posts</a></li><li><a href=https://metafunctor.com/series/>Series</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Academic <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li></ul></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Creative <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li><li role=menuitem><a href=https://metafunctor.com/media/>Media</a></li></ul></li><li><a href=https://metafunctor.com/projects/>Projects</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
+</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
+<a itemprop=item href=https://metafunctor.com/post/><span itemprop=name>News</span>
+</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
+<span itemprop=name aria-current=page>maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage</span>
+<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><div class=main-container><div class=single-post-layout><aside class=post-sidebar><aside class=toc-wrapper aria-label="Table of contents"><nav class=table-of-contents><h2 class=toc-title>Table of Contents</h2><div class=toc-content><nav id=TableOfContents><ul><li><a href=#the-performance-problem>The Performance Problem</a></li><li><a href=#core-innovation-three-key-techniques>Core Innovation: Three Key Techniques</a><ul><li><a href=#1-zero-copy-architecture-via-mmap>1. Zero-Copy Architecture via mmap</a></li><li><a href=#2-hybrid-hash-architecture>2. Hybrid Hash Architecture</a></li><li><a href=#3-lock-free-atomic-operations>3. Lock-Free Atomic Operations</a></li></ul></li><li><a href=#performance-results>Performance Results</a><ul><li><a href=#single-threaded-latency>Single-Threaded Latency</a></li><li><a href=#multi-threaded-scaling>Multi-Threaded Scaling</a></li><li><a href=#comparison-with-other-systems>Comparison with Other Systems</a></li></ul></li><li><a href=#memory-layout-and-slot-design>Memory Layout and Slot Design</a><ul><li><a href=#fixed-size-slots>Fixed-Size Slots</a></li></ul></li><li><a href=#architecture-components>Architecture Components</a></li><li><a href=#simd-batch-operations>SIMD Batch Operations</a></li><li><a href=#hybrid-deployment-architecture>Hybrid Deployment Architecture</a><ul><li><a href=#pattern-1-single-writer-multiple-readers-recommended>Pattern 1: Single Writer, Multiple Readers (Recommended)</a></li><li><a href=#pattern-2-multi-writer-with-coordination>Pattern 2: Multi-Writer with Coordination</a></li></ul></li><li><a href=#rest-api-server>REST API Server</a></li><li><a href=#access-pattern-performance-comparison>Access Pattern Performance Comparison</a></li><li><a href=#hash-function-selection>Hash Function Selection</a><ul><li><a href=#fnv-1a-hash-short-keys>FNV-1a Hash (Short Keys)</a></li><li><a href=#xxhash-long-keys>xxHash (Long Keys)</a></li></ul></li><li><a href=#durability-management>Durability Management</a><ul><li><a href=#asynchronous-durability>Asynchronous Durability</a></li><li><a href=#copy-on-write-snapshots>Copy-on-Write Snapshots</a></li></ul></li><li><a href=#parallel-scan-implementation>Parallel Scan Implementation</a></li><li><a href=#quick-start>Quick Start</a><ul><li><a href=#c-library-usage>C++ Library Usage</a></li></ul></li><li><a href=#use-cases>Use Cases</a></li><li><a href=#comparison-with-other-systems-1>Comparison with Other Systems</a></li><li><a href=#design-principles>Design Principles</a></li><li><a href=#limitations-and-trade-offs>Limitations and Trade-offs</a><ul><li><a href=#fixed-slot-size>Fixed Slot Size</a></li><li><a href=#dynamic-key-sets>Dynamic Key Sets</a></li><li><a href=#single-machine-scalability>Single-Machine Scalability</a></li><li><a href=#memory-overhead>Memory Overhead</a></li></ul></li><li><a href=#future-directions>Future Directions</a><ul><li><a href=#runtime-adaptive-slot-sizing>Runtime-Adaptive Slot Sizing</a></li><li><a href=#learned-indexing>Learned Indexing</a></li><li><a href=#persistent-memory-integration>Persistent Memory Integration</a></li><li><a href=#distributed-consensus>Distributed Consensus</a></li></ul></li><li><a href=#resources>Resources</a></li><li><a href=#license>License</a></li></ul></nav></div></nav></aside><style>.toc-wrapper{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;padding:var(--space-lg);background:var(--paper-dark);border:var(--border-width)solid var(--border-color);border-radius:var(--radius-lg);margin-bottom:var(--space-xl)}.toc-title{font-size:1rem;font-weight:600;color:var(--ink);margin:0 0 var(--space-md);text-transform:uppercase;letter-spacing:.05em;font-size:.875rem}.toc-content{font-size:.9rem}.toc-content ul{list-style:none;padding-left:0;margin:0}.toc-content>ul{border-left:2px solid var(--border-color);padding-left:var(--space-md)}.toc-content li{margin-bottom:var(--space-sm)}.toc-content a{color:var(--ink-light);text-decoration:none;transition:color var(--transition-fast);display:block;padding:var(--space-xs)0}.toc-content a:hover{color:var(--accent)}.toc-content ul ul{margin-top:var(--space-sm);padding-left:var(--space-md)}@media(max-width:1024px){.toc-wrapper{position:relative;top:0;max-height:none}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".toc-content a"),n=Array.from(e).map(e=>{const t=e.getAttribute("href").substring(1);return document.getElementById(t)}).filter(e=>e!==null);function t(){let t="";n.forEach(e=>{const n=e.offsetTop,s=window.scrollY+100;s>=n&&(t=e.getAttribute("id"))}),e.forEach(e=>{e.classList.remove("active"),e.getAttribute("href")==="#"+t?(e.classList.add("active"),e.style.color="var(--accent)",e.style.fontWeight="600"):(e.style.color="",e.style.fontWeight="")})}window.addEventListener("scroll",t),t()})</script></aside><article class=single-post itemscope itemtype=https://schema.org/Article><header class=post-header><h1 class=post-title itemprop=headline>maph: Maps Based on Perfect Hashing for Sub-Microsecond Key-Value Storage</h1><div class=post-meta><span class=post-date><i class="far fa-calendar" aria-hidden=true></i>
+<time datetime=2024-06-10T00:00:00Z itemprop=datePublished>June 10, 2024
+</time></span><span class=post-reading-time><i class="far fa-clock" aria-hidden=true></i>
+10 min read
+</span><span class=post-updated><i class="far fa-edit" aria-hidden=true></i>
+Updated: <time datetime=2026-01-02T23:49:23-06:00 itemprop=dateModified>January 2, 2026</time></span></div><div class=tags role=list><a href=https://metafunctor.com/tags/c++/ class=tag role=listitem>C++</a>
+<a href=https://metafunctor.com/tags/perfect-hashing/ class=tag role=listitem>perfect-hashing</a>
+<a href=https://metafunctor.com/tags/memory-mapped-io/ class=tag role=listitem>memory-mapped-IO</a>
+<a href=https://metafunctor.com/tags/lock-free/ class=tag role=listitem>lock-free</a>
+<a href=https://metafunctor.com/tags/key-value-store/ class=tag role=listitem>key-value-store</a>
+<a href=https://metafunctor.com/tags/zero-copy/ class=tag role=listitem>zero-copy</a>
+<a href=https://metafunctor.com/tags/simd/ class=tag role=listitem>SIMD</a>
+<a href=https://metafunctor.com/tags/sub-microsecond-latency/ class=tag role=listitem>sub-microsecond-latency</a>
+<a href=https://metafunctor.com/tags/mmap/ class=tag role=listitem>mmap</a></div></header><div class=content itemprop=articleBody><p><strong><a href=https://github.com/queelius/maph>maph (Map based on Perfect Hash)</a></strong> is a high-performance key-value storage system that achieves <strong>sub-100 nanosecond latency</strong> through a novel combination of memory-mapped I/O, approximate perfect hashing, and lock-free atomic operations. Unlike traditional key-value stores that suffer from kernel/user space transitions and locking overhead, maph leverages direct memory access via <code>mmap(2)</code> to eliminate system call overhead on the critical path.</p><h2 id=the-performance-problem>The Performance Problem</h2><p>Modern distributed systems depend on key-value stores for caching, session management, and metadata storage. However, existing solutions face fundamental limitations when microsecond-level latency becomes critical:</p><p><strong>Three fundamental bottlenecks</strong>:</p><ol><li><strong>Kernel overhead</strong>: System calls require expensive context switches (100-500ns per operation)</li><li><strong>Memory copying</strong>: Traditional stores copy data multiple times—from kernel buffers to user space, between internal structures, for serialization</li><li><strong>Synchronization overhead</strong>: Lock-based concurrency creates contention and unpredictable latency spikes</li></ol><p>These limitations are particularly acute in:</p><ul><li><strong>High-frequency trading</strong>: Every nanosecond translates to competitive advantage</li><li><strong>ML feature stores</strong>: Inference pipelines require thousands of features within tight latency budgets</li><li><strong>Real-time gaming and IoT</strong>: Predictable response times under concurrent access patterns</li></ul><h2 id=core-innovation-three-key-techniques>Core Innovation: Three Key Techniques</h2><h3 id=1-zero-copy-architecture-via-mmap>1. Zero-Copy Architecture via mmap</h3><p>By memory-mapping the entire database file, maph eliminates kernel/user space transitions:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// Traditional approach: Multiple copies
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>uint8_t</span><span class=o>&gt;</span> <span class=n>data</span> <span class=o>=</span> <span class=n>read_from_disk</span><span class=p>(</span><span class=n>key</span><span class=p>);</span>  <span class=c1>// Kernel → user copy
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>Value</span> <span class=n>v</span> <span class=o>=</span> <span class=n>deserialize</span><span class=p>(</span><span class=n>data</span><span class=p>);</span>                      <span class=c1>// Another copy
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>process</span><span class=p>(</span><span class=n>v</span><span class=p>);</span>                                        <span class=c1>// Yet another copy
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// maph approach: Direct memory access
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>store</span> <span class=o>=</span> <span class=n>maph</span><span class=o>::</span><span class=n>Maph</span><span class=o>::</span><span class=n>open</span><span class=p>(</span><span class=s>&#34;mystore.maph&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>value</span> <span class=o>=</span> <span class=n>store</span><span class=o>-&gt;</span><span class=n>get</span><span class=p>(</span><span class=n>key</span><span class=p>);</span>  <span class=c1>// Zero copies! Direct pointer into mmap region
+</span></span></span></code></pre></div><p><strong>Key insight</strong>: The CPU&rsquo;s memory management unit (MMU) handles address translation transparently, providing the illusion of in-memory access with automatic persistence through the kernel page cache.</p><h3 id=2-hybrid-hash-architecture>2. Hybrid Hash Architecture</h3><p>maph uses a <strong>hybrid hasher</strong> that dynamically combines perfect hashing with standard hashing:</p><p><strong>When optimized</strong> (via the <code>/optimize</code> REST API endpoint or <code>optimize()</code> C++ method), maph constructs a minimal perfect hash function for all keys present at optimization time:</p>\[
 \forall k_i, k_j \in K_{\text{known}}, i \neq j : h_p(k_i) \neq h_p(k_j)
-\]<p><strong>For known keys</strong>: The perfect hasher provides <strong>O(1) worst-case lookup</strong> with exactly one memory access—no probing required.</p>
-<p><strong>For new keys</strong> (inserted after optimization): The hybrid hasher automatically falls back to standard FNV-1a hashing with linear probing:</p>
-\[
+\]<p><strong>For known keys</strong>: The perfect hasher provides <strong>O(1) worst-case lookup</strong> with exactly one memory access—no probing required.</p><p><strong>For new keys</strong> (inserted after optimization): The hybrid hasher automatically falls back to standard FNV-1a hashing with linear probing:</p>\[
 \text{slot}_i = (h_s(k) + i) \bmod n, \quad i \in [0, \text{MAX\_PROBES} - 1]
-\]<p>The maximum probe distance (default 10) ensures bounded worst-case latency.</p>
-<p><strong>Key insight</strong>: The same slot array serves both purposes. The hybrid hasher checks if a key was in the original optimized set (<code>is_perfect_for(key)</code>), and uses the appropriate hash function accordingly. No static partitioning is needed.</p>
-<h3 id="3-lock-free-atomic-operations">3. Lock-Free Atomic Operations</h3>
-<p>All operations use compare-and-swap (CAS) primitives and atomic versioning:</p>
-<p><strong>Atomic Slot Versioning</strong>: Each slot maintains a 64-bit atomic value combining key hash (high 32 bits) and version number (low 32 bits):</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Lock-free read
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">uint64_t</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">slot</span><span class="p">.</span><span class="n">hash_version</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">acquire</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="kt">uint32_t</span> <span class="n">hash</span> <span class="o">=</span> <span class="n">v1</span> <span class="o">&gt;&gt;</span> <span class="mi">32</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">hash</span> <span class="o">!=</span> <span class="n">hash</span><span class="p">(</span><span class="n">key</span><span class="p">))</span> <span class="k">return</span> <span class="n">nullopt</span><span class="p">;</span>  <span class="c1">// Key not found
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
-</span></span><span class="line"><span class="cl"><span class="c1">// Copy data while checking version
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">data</span> <span class="o">=</span> <span class="n">copy</span><span class="p">(</span><span class="n">slot</span><span class="p">.</span><span class="n">data</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="kt">uint64_t</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">slot</span><span class="p">.</span><span class="n">hash_version</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">acquire</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">v1</span> <span class="o">==</span> <span class="n">v2</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">v1</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>  <span class="c1">// Even version = consistent
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">return</span> <span class="n">data</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// Retry if version changed
-</span></span></span></code></pre></div><p><strong>Writers use a two-phase protocol</strong>:</p>
-<ol>
-<li>Increment version to odd (marking slot as updating)</li>
-<li>Write new data</li>
-<li>Increment version to even (marking update complete)</li>
-</ol>
-<p>Readers either see old value or new value completely—never partial updates.</p>
-<h2 id="performance-results">Performance Results</h2>
-<h3 id="single-threaded-latency">Single-Threaded Latency</h3>
-<table>
-  <thead>
-      <tr>
-          <th>Operation</th>
-          <th>p50</th>
-          <th>p90</th>
-          <th>p99</th>
-          <th>p99.9</th>
-          <th>p99.99</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Random GET</td>
-          <td>351ns</td>
-          <td>601ns</td>
-          <td>972ns</td>
-          <td>1,342ns</td>
-          <td>7,844ns</td>
-      </tr>
-      <tr>
-          <td>Sequential GET</td>
-          <td>221ns</td>
-          <td>301ns</td>
-          <td>752ns</td>
-          <td>922ns</td>
-          <td>8,736ns</td>
-      </tr>
-  </tbody>
-</table>
-<p><strong>Sub-microsecond median latency</strong> with predictable tail latency under 10µs.</p>
-<h3 id="multi-threaded-scaling">Multi-Threaded Scaling</h3>
-<table>
-  <thead>
-      <tr>
-          <th>Threads</th>
-          <th>Throughput (M ops/sec)</th>
-          <th>Avg Latency (ns)</th>
-          <th>Speedup</th>
-          <th>Efficiency</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>1</td>
-          <td>2.69</td>
-          <td>347</td>
-          <td>1.00×</td>
-          <td>100%</td>
-      </tr>
-      <tr>
-          <td>2</td>
-          <td>5.71</td>
-          <td>325</td>
-          <td>2.12×</td>
-          <td>106%</td>
-      </tr>
-      <tr>
-          <td>4</td>
-          <td>11.90</td>
-          <td>309</td>
-          <td>4.42×</td>
-          <td>110%</td>
-      </tr>
-      <tr>
-          <td>8</td>
-          <td>17.24</td>
-          <td>375</td>
-          <td>6.40×</td>
-          <td>80%</td>
-      </tr>
-      <tr>
-          <td>16</td>
-          <td>98.00</td>
-          <td>-</td>
-          <td>36.43×</td>
-          <td>-</td>
-      </tr>
-  </tbody>
-</table>
-<p><strong>Near-linear scaling</strong> up to 4 threads (110% efficiency), demonstrating the effectiveness of lock-free design.</p>
-<h3 id="comparison-with-other-systems">Comparison with Other Systems</h3>
-<table>
-  <thead>
-      <tr>
-          <th>System</th>
-          <th>Throughput</th>
-          <th>Speedup vs maph</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>maph</strong></td>
-          <td>10M ops/sec</td>
-          <td>1.00× (baseline)</td>
-      </tr>
-      <tr>
-          <td>Redis</td>
-          <td>0.8M ops/sec</td>
-          <td>12× slower</td>
-      </tr>
-      <tr>
-          <td>RocksDB</td>
-          <td>0.11M ops/sec</td>
-          <td>87× slower</td>
-      </tr>
-      <tr>
-          <td>Memcached</td>
-          <td>1.6M ops/sec</td>
-          <td>6× slower</td>
-      </tr>
-  </tbody>
-</table>
-<h2 id="memory-layout-and-slot-design">Memory Layout and Slot Design</h2>
-<h3 id="fixed-size-slots">Fixed-Size Slots</h3>
-<p>Each slot is <strong>512 bytes</strong>, aligned to 64-byte cache lines:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Slot Structure (512 bytes):
-</span></span><span class="line"><span class="cl">┌─────────────────────────────┐
-</span></span><span class="line"><span class="cl">│ Metadata (16 bytes)         │
-</span></span><span class="line"><span class="cl">│  - hash_version (8B atomic) │  Upper 32 bits: hash identifier
-</span></span><span class="line"><span class="cl">│  - size (4B)                │  Lower 32 bits: version counter
-</span></span><span class="line"><span class="cl">│  - reserved (4B)            │
-</span></span><span class="line"><span class="cl">├─────────────────────────────┤
-</span></span><span class="line"><span class="cl">│ Data (496 bytes)            │  Actual value storage
-</span></span><span class="line"><span class="cl">└─────────────────────────────┘
-</span></span></code></pre></div><p><strong>Why 512 bytes?</strong></p>
-<ul>
-<li><strong>Cache alignment</strong>: 8× 64-byte cache lines prevents false sharing</li>
-<li><strong>Typical JSON docs</strong>: 100-400 bytes with acceptable overhead</li>
-<li><strong>Direct computation</strong>: <code>slot_addr = base_addr + slot_index × 512</code></li>
-<li><strong>SIMD friendly</strong>: Enables vectorized operations</li>
-</ul>
-<p>The fixed size is configurable at compile time:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Small values
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">mmap_storage</span><span class="o">&lt;</span><span class="mi">128</span><span class="o">&gt;</span> <span class="n">counters</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Default
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">mmap_storage</span><span class="o">&lt;</span><span class="mi">512</span><span class="o">&gt;</span> <span class="n">json_store</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Large values
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">mmap_storage</span><span class="o">&lt;</span><span class="mi">4096</span><span class="o">&gt;</span> <span class="n">documents</span><span class="p">;</span>
-</span></span></code></pre></div><h2 id="architecture-components">Architecture Components</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">File Structure:
-</span></span><span class="line"><span class="cl">┌────────────────┐
-</span></span><span class="line"><span class="cl">│ Header (512B)  │  Magic, version, slot counts, generation
-</span></span><span class="line"><span class="cl">├────────────────┤
-</span></span><span class="line"><span class="cl">│ Slot 0 (512B)  │  Hash (32b) + Version (32b) + Data (496B)
-</span></span><span class="line"><span class="cl">├────────────────┤
-</span></span><span class="line"><span class="cl">│ Slot 1 (512B)  │
-</span></span><span class="line"><span class="cl">├────────────────┤
-</span></span><span class="line"><span class="cl">│      ...       │
-</span></span><span class="line"><span class="cl">└────────────────┘
-</span></span></code></pre></div><h2 id="simd-batch-operations">SIMD Batch Operations</h2>
-<p>AVX2 instructions enable parallel processing of 8 keys simultaneously:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">compute_batch_avx2</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">keys</span><span class="p">,</span> <span class="kt">uint32_t</span><span class="o">*</span> <span class="n">hashes</span><span class="p">,</span> <span class="n">size_t</span> <span class="n">count</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">__m256i</span> <span class="n">fnv_prime</span> <span class="o">=</span> <span class="n">_mm256_set1_epi32</span><span class="p">(</span><span class="mi">16777619u</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="n">__m256i</span> <span class="n">fnv_offset</span> <span class="o">=</span> <span class="n">_mm256_set1_epi32</span><span class="p">(</span><span class="mi">2166136261u</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">&lt;=</span> <span class="n">count</span><span class="p">;</span> <span class="n">i</span> <span class="o">+=</span> <span class="mi">8</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">__m256i</span> <span class="n">h</span> <span class="o">=</span> <span class="n">fnv_offset</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">size_t</span> <span class="n">min_len</span> <span class="o">=</span> <span class="n">find_min_length</span><span class="p">(</span><span class="n">keys</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="mi">8</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">min_len</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">            <span class="n">__m256i</span> <span class="n">chars</span> <span class="o">=</span> <span class="n">gather_chars</span><span class="p">(</span><span class="n">keys</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">            <span class="n">h</span> <span class="o">=</span> <span class="n">_mm256_xor_si256</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">chars</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">            <span class="n">h</span> <span class="o">=</span> <span class="n">_mm256_mullo_epi32</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">fnv_prime</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">        <span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">_mm256_storeu_si256</span><span class="p">((</span><span class="n">__m256i</span><span class="o">*</span><span class="p">)(</span><span class="n">hashes</span> <span class="o">+</span> <span class="n">i</span><span class="p">),</span> <span class="n">h</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p><strong>Result</strong>: ~5× throughput improvement for batch operations, achieving <strong>50M keys/sec</strong> for parallel lookups.</p>
-<h2 id="hybrid-deployment-architecture">Hybrid Deployment Architecture</h2>
-<p>The mmap-based design enables a powerful pattern:</p>
-<h3 id="pattern-1-single-writer-multiple-readers-recommended">Pattern 1: Single Writer, Multiple Readers (Recommended)</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">+----------------------------------+
-</span></span><span class="line"><span class="cl">| Shared mmap Files (data/*.maph)  |
-</span></span><span class="line"><span class="cl">+----------+-------------+---------+
-</span></span><span class="line"><span class="cl">           |             |
-</span></span><span class="line"><span class="cl">     (write)|             |(read-only)
-</span></span><span class="line"><span class="cl">   +--------v---+  +------v----------+
-</span></span><span class="line"><span class="cl">   | REST API   |  | C++ App         |
-</span></span><span class="line"><span class="cl">   | Server     |  | (direct mmap)   |
-</span></span><span class="line"><span class="cl">   +------------+  +-----------------+
-</span></span><span class="line"><span class="cl">        |
-</span></span><span class="line"><span class="cl">   (HTTP)|
-</span></span><span class="line"><span class="cl">   +-----v----------+
-</span></span><span class="line"><span class="cl">   | Remote Clients |
-</span></span><span class="line"><span class="cl">   +----------------+
-</span></span></code></pre></div><p><strong>Direct mmap read access (C++ app)</strong>:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Local C++ application: Direct read-only access (~300ns latency)
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">db</span> <span class="o">=</span> <span class="n">maph</span><span class="o">::</span><span class="n">Maph</span><span class="o">::</span><span class="n">open</span><span class="p">(</span><span class="s">&#34;/var/lib/maph/data/cache.maph&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">                           <span class="nb">true</span><span class="p">);</span>  <span class="c1">// readonly
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">value</span> <span class="o">=</span> <span class="n">db</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="s">&#34;hot_key&#34;</span><span class="p">);</span>  <span class="c1">// Zero IPC overhead!
-</span></span></span></code></pre></div><p><strong>Benefits</strong>:</p>
-<ul>
-<li><strong>Zero-IPC overhead</strong>: Local reads bypass HTTP entirely (300ns vs 1-2ms)</li>
-<li><strong>5,000× speedup</strong>: Direct mmap reads are ~5,000× faster than HTTP requests</li>
-<li><strong>Safety</strong>: Single writer eliminates race conditions without coordination</li>
-<li><strong>Flexibility</strong>: Remote clients use HTTP, local apps use direct mmap</li>
-</ul>
-<h3 id="pattern-2-multi-writer-with-coordination">Pattern 2: Multi-Writer with Coordination</h3>
-<p>For multiple C++ writers, explicit synchronization is necessary:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Acquire exclusive lock before writing
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">int</span> <span class="n">lock_fd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">&#34;cache.maph.lock&#34;</span><span class="p">,</span> <span class="n">O_CREAT</span> <span class="o">|</span> <span class="n">O_RDWR</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="n">flock</span><span class="p">(</span><span class="n">lock_fd</span><span class="p">,</span> <span class="n">LOCK_EX</span><span class="p">);</span>  <span class="c1">// Exclusive lock (~2µs overhead)
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">db</span> <span class="o">=</span> <span class="n">maph</span><span class="o">::</span><span class="n">Maph</span><span class="o">::</span><span class="n">open</span><span class="p">(</span><span class="s">&#34;cache.maph&#34;</span><span class="p">,</span> <span class="nb">false</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="n">db</span><span class="o">-&gt;</span><span class="n">set</span><span class="p">(</span><span class="s">&#34;key&#34;</span><span class="p">,</span> <span class="s">&#34;value&#34;</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">flock</span><span class="p">(</span><span class="n">lock_fd</span><span class="p">,</span> <span class="n">LOCK_UN</span><span class="p">);</span>  <span class="c1">// Release lock
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">close</span><span class="p">(</span><span class="n">lock_fd</span><span class="p">);</span>
-</span></span></code></pre></div><p><strong>Alternative coordination mechanisms</strong>:</p>
-<ul>
-<li>Application-level tokens (Redis, etcd)</li>
-<li>Partitioning (different processes own different key ranges)</li>
-<li>Message queue coordination</li>
-</ul>
-<h2 id="rest-api-server">REST API Server</h2>
-<p>The provided REST API server demonstrates practical deployment:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Start daemon</span>
-</span></span><span class="line"><span class="cl">./maph_daemon --port <span class="m">8080</span> --threads <span class="m">4</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># CLI operations</span>
-</span></span><span class="line"><span class="cl">./maph_cli <span class="nb">set</span> mystore <span class="s1">&#39;{&#34;key&#34;: &#34;user:1&#34;}&#39;</span> <span class="s1">&#39;{&#34;name&#34;: &#34;Alice&#34;, &#34;age&#34;: 30}&#39;</span>
-</span></span><span class="line"><span class="cl">./maph_cli get mystore <span class="s1">&#39;{&#34;key&#34;: &#34;user:1&#34;}&#39;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># REST API</span>
-</span></span><span class="line"><span class="cl">curl -X POST http://localhost:8080/stores <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -d <span class="s1">&#39;{&#34;name&#34;: &#34;products&#34;, &#34;slots&#34;: 1000000}&#39;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">curl -X PUT <span class="s1">&#39;http://localhost:8080/stores/products/keys/&#34;sku:12345&#34;&#39;</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>  -d <span class="s1">&#39;{&#34;name&#34;: &#34;Laptop&#34;, &#34;price&#34;: 999}&#39;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">curl <span class="s1">&#39;http://localhost:8080/stores/products/keys/&#34;sku:12345&#34;&#39;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Optimize for perfect hash (O(1) guaranteed)</span>
-</span></span><span class="line"><span class="cl">curl -X POST http://localhost:8080/stores/products/optimize
-</span></span></code></pre></div><h2 id="access-pattern-performance-comparison">Access Pattern Performance Comparison</h2>
-<table>
-  <thead>
-      <tr>
-          <th>Access Pattern</th>
-          <th>Latency</th>
-          <th>Use Case</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>Direct mmap (C++)</td>
-          <td>300ns</td>
-          <td>Local high-performance reads</td>
-      </tr>
-      <tr>
-          <td>REST API (local)</td>
-          <td>1-2ms</td>
-          <td>Remote or cross-language access</td>
-      </tr>
-      <tr>
-          <td>REST API (network)</td>
-          <td>5-10ms</td>
-          <td>Distributed systems</td>
-      </tr>
-  </tbody>
-</table>
-<h2 id="hash-function-selection">Hash Function Selection</h2>
-<h3 id="fnv-1a-hash-short-keys">FNV-1a Hash (Short Keys)</h3>
-<p>For keys under 16 bytes, FNV-1a provides excellent distribution with minimal overhead:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">uint32_t</span> <span class="nf">fnv1a</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">key</span><span class="p">,</span> <span class="n">size_t</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">h</span> <span class="o">=</span> <span class="mi">2166136261u</span><span class="p">;</span>  <span class="c1">// offset basis
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">len</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">h</span> <span class="o">^=</span> <span class="p">(</span><span class="kt">uint8_t</span><span class="p">)</span><span class="n">key</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
-</span></span><span class="line"><span class="cl">        <span class="n">h</span> <span class="o">*=</span> <span class="mi">16777619u</span><span class="p">;</span>  <span class="c1">// FNV prime
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">h</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p><strong>Performance</strong>: 3-4 cycles per byte on modern CPUs.</p>
-<h3 id="xxhash-long-keys">xxHash (Long Keys)</h3>
-<p>For longer keys, xxHash processes 32-bit chunks for superior throughput:</p>
-<ul>
-<li>Processes 4 bytes per iteration</li>
-<li>Exploits instruction-level parallelism</li>
-<li>Achieves <strong>13 GB/s</strong> on a single core</li>
-</ul>
-<h2 id="durability-management">Durability Management</h2>
-<h3 id="asynchronous-durability">Asynchronous Durability</h3>
-<p>While mmap provides automatic persistence, explicit control is available:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DurabilityManager</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">sync_thread</span><span class="p">()</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">running</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">            <span class="n">sleep_for</span><span class="p">(</span><span class="n">sync_interval</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">            <span class="n">msync</span><span class="p">(</span><span class="n">mapped_region</span><span class="p">,</span> <span class="n">region_size</span><span class="p">,</span> <span class="n">MS_ASYNC</span><span class="p">);</span>  <span class="c1">// Async writeback
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">};</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Configure background sync
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">manager</span> <span class="o">=</span> <span class="n">store</span><span class="o">-&gt;</span><span class="n">start_durability_manager</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">chrono</span><span class="o">::</span><span class="n">seconds</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span>  <span class="c1">// Sync every 5 seconds
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="mi">1000</span>                       <span class="c1">// Or after 1000 operations
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Manual sync for strong durability
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">store</span><span class="o">-&gt;</span><span class="n">sync</span><span class="p">();</span>  <span class="c1">// MS_SYNC forces synchronous write
-</span></span></span></code></pre></div><h3 id="copy-on-write-snapshots">Copy-on-Write Snapshots</h3>
-<p>The OS&rsquo;s copy-on-write mechanism enables efficient point-in-time backups:</p>
-<ol>
-<li>Fork the process to create a snapshot</li>
-<li>Child process inherits the memory mapping</li>
-<li>Pages are copied only when modified</li>
-<li>Snapshot remains consistent during export</li>
-</ol>
-<h2 id="parallel-scan-implementation">Parallel Scan Implementation</h2>
-<p>Table scans partition the slot array across threads with work-stealing:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">parallel_scan</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">function</span><span class="o">&lt;</span><span class="kt">void</span><span class="p">(</span><span class="n">Slot</span><span class="o">&amp;</span><span class="p">)</span><span class="o">&gt;</span> <span class="n">visitor</span><span class="p">,</span> <span class="n">size_t</span> <span class="n">num_threads</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="n">size_t</span><span class="o">&gt;</span> <span class="n">next_chunk</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
-</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="n">size_t</span> <span class="n">CHUNK_SIZE</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kr">thread</span><span class="o">&gt;</span> <span class="n">threads</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">t</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">num_threads</span><span class="p">;</span> <span class="o">++</span><span class="n">t</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">threads</span><span class="p">.</span><span class="n">emplace_back</span><span class="p">([</span><span class="o">&amp;</span><span class="p">]</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">            <span class="n">size_t</span> <span class="n">chunk</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">            <span class="k">while</span> <span class="p">((</span><span class="n">chunk</span> <span class="o">=</span> <span class="n">next_chunk</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">total_slots</span> <span class="o">/</span> <span class="n">CHUNK_SIZE</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">                <span class="n">size_t</span> <span class="n">start</span> <span class="o">=</span> <span class="n">chunk</span> <span class="o">*</span> <span class="n">CHUNK_SIZE</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">                <span class="n">size_t</span> <span class="n">end</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">min</span><span class="p">(</span><span class="n">start</span> <span class="o">+</span> <span class="n">CHUNK_SIZE</span><span class="p">,</span> <span class="n">total_slots</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">                <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="n">start</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">                    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">slots</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">empty</span><span class="p">())</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">                        <span class="n">visitor</span><span class="p">(</span><span class="n">slots</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
-</span></span><span class="line"><span class="cl">                    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">                <span class="p">}</span>
-</span></span><span class="line"><span class="cl">            <span class="p">}</span>
-</span></span><span class="line"><span class="cl">        <span class="p">});</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="nl">t</span> <span class="p">:</span> <span class="n">threads</span><span class="p">)</span> <span class="n">t</span><span class="p">.</span><span class="n">join</span><span class="p">();</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p><strong>Performance</strong>: 100M items/sec for sequential memory access.</p>
-<h2 id="quick-start">Quick Start</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Clone and build</span>
-</span></span><span class="line"><span class="cl">git clone https://github.com/queelius/maph.git
-</span></span><span class="line"><span class="cl"><span class="nb">cd</span> maph
-</span></span><span class="line"><span class="cl">mkdir build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
-</span></span><span class="line"><span class="cl">cmake .. -DCMAKE_BUILD_TYPE<span class="o">=</span>Release <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>         -DBUILD_TESTS<span class="o">=</span>ON <span class="se">\
-</span></span></span><span class="line"><span class="cl"><span class="se"></span>         -DBUILD_REST_API<span class="o">=</span>ON
-</span></span><span class="line"><span class="cl">make -j<span class="k">$(</span>nproc<span class="k">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Run tests</span>
-</span></span><span class="line"><span class="cl">ctest --verbose
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Install</span>
-</span></span><span class="line"><span class="cl">sudo make install
-</span></span></code></pre></div><h3 id="c-library-usage">C++ Library Usage</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;maph.hpp&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
-</span></span><span class="line"><span class="cl"><span class="c1">// Create a new maph store
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">store</span> <span class="o">=</span> <span class="n">maph</span><span class="o">::</span><span class="n">Maph</span><span class="o">::</span><span class="n">create</span><span class="p">(</span><span class="s">&#34;mystore.maph&#34;</span><span class="p">,</span> <span class="mi">1000000</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Store JSON key-value pairs
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">store</span><span class="o">-&gt;</span><span class="n">set</span><span class="p">(</span><span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">user</span><span class="s">&#34;: &#34;</span><span class="n">alice</span><span class="s">&#34;})&#34;</span><span class="p">,</span> <span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">score</span><span class="s">&#34;: 95})&#34;</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Retrieve with O(1) lookup
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">auto</span> <span class="n">value</span> <span class="o">=</span> <span class="n">store</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">user</span><span class="s">&#34;: &#34;</span><span class="n">alice</span><span class="s">&#34;})&#34;</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="o">*</span><span class="n">value</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span>  <span class="c1">// {&#34;score&#34;: 95}
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Batch operations for high throughput
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">JsonView</span><span class="p">,</span> <span class="n">JsonView</span><span class="o">&gt;&gt;</span> <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">id</span><span class="s">&#34;: 1})&#34;</span><span class="p">,</span> <span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">name</span><span class="s">&#34;: &#34;</span><span class="n">item1</span><span class="s">&#34;})&#34;</span><span class="p">},</span>
-</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">id</span><span class="s">&#34;: 2})&#34;</span><span class="p">,</span> <span class="n">R</span><span class="s">&#34;({&#34;</span><span class="n">name</span><span class="s">&#34;: &#34;</span><span class="n">item2</span><span class="s">&#34;})&#34;</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">};</span>
-</span></span><span class="line"><span class="cl"><span class="n">store</span><span class="o">-&gt;</span><span class="n">mset</span><span class="p">(</span><span class="n">batch</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Parallel batch processing
-</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="n">store</span><span class="o">-&gt;</span><span class="n">parallel_mset</span><span class="p">(</span><span class="n">large_batch</span><span class="p">,</span> <span class="mi">8</span><span class="p">);</span>  <span class="c1">// Use 8 threads
-</span></span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
-<ul>
-<li><strong>High-Performance Cache</strong>: Sub-microsecond lookups for hot data</li>
-<li><strong>Feature Stores</strong>: ML feature serving with guaranteed latency</li>
-<li><strong>Session Storage</strong>: Web session data with instant access</li>
-<li><strong>Rate Limiting</strong>: Token bucket implementation with O(1) checks</li>
-<li><strong>Deduplication</strong>: Fast duplicate detection in data streams</li>
-<li><strong>Graph Databases</strong>: Adjacency list storage with perfect hashing</li>
-<li><strong>Time-Series Index</strong>: Fast timestamp to data mapping</li>
-</ul>
-<h2 id="comparison-with-other-systems-1">Comparison with Other Systems</h2>
-<table>
-  <thead>
-      <tr>
-          <th>System</th>
-          <th>Lookup</th>
-          <th>Space</th>
-          <th>Persistence</th>
-          <th>Concurrent</th>
-          <th>Use Case</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>maph</strong></td>
-          <td>O(1)</td>
-          <td>Optimal</td>
-          <td>mmap</td>
-          <td>Lock-free</td>
-          <td>General K/V, high-perf</td>
-      </tr>
-      <tr>
-          <td>Redis</td>
-          <td>O(1) avg</td>
-          <td>10× overhead</td>
-          <td>AOF/RDB</td>
-          <td>Single-thread</td>
-          <td>Cache, sessions</td>
-      </tr>
-      <tr>
-          <td>RocksDB</td>
-          <td>O(log n)</td>
-          <td>Compressed</td>
-          <td>SST files</td>
-          <td>Multi-thread</td>
-          <td>Large persistent data</td>
-      </tr>
-      <tr>
-          <td>Memcached</td>
-          <td>O(1) avg</td>
-          <td>In-memory</td>
-          <td>None</td>
-          <td>Multi-thread</td>
-          <td>Simple cache</td>
-      </tr>
-      <tr>
-          <td>LMDB</td>
-          <td>O(log n)</td>
-          <td>B+tree</td>
-          <td>mmap</td>
-          <td>MVCC</td>
-          <td>Transactional K/V</td>
-      </tr>
-  </tbody>
-</table>
-<h2 id="design-principles">Design Principles</h2>
-<p><strong>🚀 Eliminate Kernel Crossings</strong>: Every system call incurs 100-200ns overhead</p>
-<p><strong>0️⃣ Zero-Copy</strong>: Data remains in place from storage to application</p>
-<p><strong>⚡ Hardware Parallelism</strong>: Leverage ILP (pipelining), SIMD, and multi-core</p>
-<p><strong>🎯 Optimize Common Case</strong>: Read-heavy workloads with temporal locality</p>
-<h2 id="limitations-and-trade-offs">Limitations and Trade-offs</h2>
-<h3 id="fixed-slot-size">Fixed Slot Size</h3>
-<p>Each storage instantiation uses a fixed slot size chosen at compile time. Applications with heterogeneous value sizes may experience space overhead. Mitigate by:</p>
-<ul>
-<li>Choosing appropriate slot sizes for workload</li>
-<li>Using multiple stores with different slot sizes</li>
-</ul>
-<h3 id="dynamic-key-sets">Dynamic Key Sets</h3>
-<p>Perfect hash optimization provides O(1) lookups only for keys in the original dataset. New keys use standard hashing with linear probing. Workloads with highly dynamic key sets must:</p>
-<ul>
-<li>Provision sufficient slots</li>
-<li>Periodically rebuild perfect hash function</li>
-</ul>
-<h3 id="single-machine-scalability">Single-Machine Scalability</h3>
-<p>maph operates on a single machine, limited by available memory and CPU cores. Applications requiring horizontal scaling must implement sharding at the application level.</p>
-<h3 id="memory-overhead">Memory Overhead</h3>
-<p>maph uses 2.85× more memory than <code>std::unordered_map</code> due to fixed 512-byte slots versus variable-size allocations. This overhead is the price paid for:</p>
-<ul>
-<li>Predictable memory layout</li>
-<li>Efficient memory-mapped I/O</li>
-<li>Multi-process sharing</li>
-</ul>
-<h2 id="future-directions">Future Directions</h2>
-<h3 id="runtime-adaptive-slot-sizing">Runtime-Adaptive Slot Sizing</h3>
-<p>Hybrid approach with multiple slot classes (64B, 512B, 4KB) dynamically selected based on value size could reduce waste while maintaining predictability.</p>
-<h3 id="learned-indexing">Learned Indexing</h3>
-<p>Machine learning models could replace perfect hash functions, learning the key distribution online for better collision rates with skewed distributions.</p>
-<h3 id="persistent-memory-integration">Persistent Memory Integration</h3>
-<p>Intel Optane DC Persistent Memory provides byte-addressable persistence with DRAM-like latency. Adapting maph for persistent memory could eliminate the page cache layer.</p>
-<h3 id="distributed-consensus">Distributed Consensus</h3>
-<p>Integrating consensus protocols like Raft could enable distributed operation while maintaining consistency, with carefully designed protocols minimizing latency impact.</p>
-<h2 id="resources">Resources</h2>
-<ul>
-<li><strong>Repository</strong>: <a href="https://github.com/queelius/maph">github.com/queelius/maph</a></li>
-<li><strong>Technical Report</strong>: <a href="https://github.com/queelius/maph/blob/master/docs/maph_technical_report.pdf">docs/maph_technical_report.pdf</a></li>
-<li><strong>REST API</strong>: See <code>integrations/rest_api/</code> directory</li>
-<li><strong>Examples</strong>: See <code>examples/</code> directory</li>
-<li><strong>Tests</strong>: Comprehensive test suite in <code>tests/</code></li>
-</ul>
-<h2 id="license">License</h2>
-<p>MIT</p>
-<hr>
-<p><em>maph: Where memory-mapped I/O meets perfect hashing for sub-microsecond key-value storage. Zero-copy architecture through mmap, O(1) guarantees through perfect hashing, and linear scalability through lock-free algorithms.</em></p>
-
-      </div>
-
-    
-    <nav class="post-navigation">
-      
-      <a href="../../post/2024-06-pfc/" class="nav-prev">
-        <span class="nav-label">← Previous</span>
-        <span class="nav-title">PFC: Zero-Copy Data Compression Through Prefix-Free Codecs</span>
-      </a>
-      
-      
-      <a href="../../post/2024-06-15-reliability-estimation-in-series-systems/" class="nav-next">
-        <span class="nav-label">Next →</span>
-        <span class="nav-title">Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</span>
-      </a>
-      
-    </nav>
-    
-
-    
-    
-
-    
-    
-    
-    <section class="related-posts">
-      <h2 class="related-posts-title">Related Posts</h2>
-      <div class="related-posts-grid">
-        
-        <article class="related-post-card">
-          <a href="../../post/2025-01-zeroipc/" class="related-post-link">
-            <h3 class="related-post-title">ZeroIPC: Transforming Shared Memory into an Active Computational Substrate</h3>
-            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/zeroipc">ZeroIPC</a></strong> reimagines inter-process communication by treating shared memory not as passive storage, but as an <strong>active …</strong></p></p>
-            <div class="related-post-meta">
-              <span class="related-post-date">
-                <i class="far fa-calendar" aria-hidden="true"></i>
-                Oct 6, 2025
-              </span>
-              
-              <span class="related-post-tags">
-                
-                  <span class="mini-tag">C&#43;&#43;</span>
-                
-                  <span class="mini-tag">Python</span>
-                
-              </span>
-              
-            </div>
-          </a>
-        </article>
-        
-        <article class="related-post-card">
-          <a href="../../post/2024-06-pfc/" class="related-post-link">
-            <h3 class="related-post-title">PFC: Zero-Copy Data Compression Through Prefix-Free Codecs</h3>
-            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/pfc">PFC (Prefix-Free Codecs)</a></strong> is a header-only C++20 library that demonstrates data compression and zero-copy access are …</p></p>
-            <div class="related-post-meta">
-              <span class="related-post-date">
-                <i class="far fa-calendar" aria-hidden="true"></i>
-                Jun 10, 2024
-              </span>
-              
-              <span class="related-post-tags">
-                
-                  <span class="mini-tag">C&#43;&#43;</span>
-                
-                  <span class="mini-tag">compression</span>
-                
-              </span>
-              
-            </div>
-          </a>
-        </article>
-        
-        <article class="related-post-card">
-          <a href="../../post/2024-03-01-accumux/" class="related-post-link">
-            <h3 class="related-post-title">Accumux: Compositional Online Statistical Reductions in C&#43;&#43;</h3>
-            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/accumux">Accumux</a></strong> provides a framework for combining statistical accumulators using algebraic composition. Built on solid …</p></p>
-            <div class="related-post-meta">
-              <span class="related-post-date">
-                <i class="far fa-calendar" aria-hidden="true"></i>
-                Mar 1, 2024
-              </span>
-              
-              <span class="related-post-tags">
-                
-                  <span class="mini-tag">C&#43;&#43;</span>
-                
-                  <span class="mini-tag">statistics</span>
-                
-              </span>
-              
-            </div>
-          </a>
-        </article>
-        
-        <article class="related-post-card">
-          <a href="../../post/2025-11-30-alga/" class="related-post-link">
-            <h3 class="related-post-title">Alga: Algebraic Text Processing with Fuzzy Matching</h3>
-            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/alga">Alga</a></strong> is a C++20 header-only library that transforms text manipulation from imperative string processing into declarative …</p></p>
-            <div class="related-post-meta">
-              <span class="related-post-date">
-                <i class="far fa-calendar" aria-hidden="true"></i>
-                Nov 30, 2025
-              </span>
-              
-              <span class="related-post-tags">
-                
-                  <span class="mini-tag">C&#43;&#43;</span>
-                
-                  <span class="mini-tag">parsing</span>
-                
-              </span>
-              
-            </div>
-          </a>
-        </article>
-        
-        <article class="related-post-card">
-          <a href="../../post/2025-11-30-cbt/" class="related-post-link">
-            <h3 class="related-post-title">CBT: Computational Basis Transforms - A Unified Framework</h3>
-            <p class="related-post-excerpt"><p><strong><a href="https://github.com/queelius/cbt">CBT</a></strong> (Computational Basis Transforms) is a C++17 header-only library that formalizes a fundamental principle underlying …</p></p>
-            <div class="related-post-meta">
-              <span class="related-post-date">
-                <i class="far fa-calendar" aria-hidden="true"></i>
-                Nov 30, 2025
-              </span>
-              
-              <span class="related-post-tags">
-                
-                  <span class="mini-tag">C&#43;&#43;</span>
-                
-                  <span class="mini-tag">numerical-computing</span>
-                
-              </span>
-              
-            </div>
-          </a>
-        </article>
-        
-      </div>
-    </section>
-
-    <style>
-    .related-posts {
-      margin-top: 4rem;
-      padding-top: 3rem;
-      border-top: 1px solid var(--border-color, #e5e7eb);
-    }
-
-    .related-posts-title {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
-      color: var(--ink, #1a1a1a);
-      font-family: 'Lora', Georgia, serif;
-    }
-
-    .related-posts-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .related-post-card {
-      background: var(--paper, #fff);
-      border: 1px solid var(--border-color, #e5e7eb);
-      border-radius: 12px;
-      padding: 1.5rem;
-      transition: all 0.3s ease;
-    }
-
-    .related-post-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-      border-color: var(--accent, #667eea);
-    }
-
-    .related-post-link {
-      text-decoration: none;
-      color: inherit;
-      display: block;
-    }
-
-    .related-post-title {
-      font-size: 1.125rem;
-      font-weight: 600;
-      margin-bottom: 0.75rem;
-      color: var(--ink, #1a1a1a);
-      font-family: 'Lora', Georgia, serif;
-      line-height: 1.4;
-    }
-
-    .related-post-card:hover .related-post-title {
-      color: var(--accent, #667eea);
-    }
-
-    .related-post-excerpt {
-      font-size: 0.9rem;
-      color: var(--ink-light, #666);
-      line-height: 1.6;
-      margin-bottom: 1rem;
-    }
-
-    .related-post-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      font-size: 0.8rem;
-      color: var(--ink-light, #999);
-    }
-
-    .related-post-date i {
-      margin-right: 0.25rem;
-    }
-
-    .related-post-tags {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .related-post-tags .mini-tag {
-      background: var(--paper-dark, #f5f5f5);
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      color: var(--ink, #1a1a1a);
-    }
-
-    [data-theme="dark"] .related-posts {
-      border-top-color: rgba(255, 255, 255, 0.1);
-    }
-
-    [data-theme="dark"] .related-posts-title {
-      color: var(--ink, #e8e8e8);
-    }
-
-    [data-theme="dark"] .related-post-card {
-      background: var(--paper-dark, #222);
-      border-color: rgba(255, 255, 255, 0.1);
-    }
-
-    [data-theme="dark"] .related-post-card:hover {
-      border-color: var(--accent, #667eea);
-    }
-
-    [data-theme="dark"] .related-post-title {
-      color: var(--ink, #e8e8e8);
-    }
-
-    [data-theme="dark"] .related-post-tags .mini-tag {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--ink, #e8e8e8);
-    }
-    </style>
-    
-
-    
-    <section class="comments-section">
-      <h2 class="comments-title">Discussion</h2>
-      <div class="giscus-container"></div>
-      <script src="https://giscus.app/client.js"
-              data-repo="queelius/metafunctor"
-              data-repo-id="R_kgDONbcL1g"
-              data-category="General"
-              data-category-id="DIC_kwDONbcL1s4CwFJ7"
-              data-mapping="pathname"
-              data-strict="0"
-              data-reactions-enabled="1"
-              data-emit-metadata="0"
-              data-input-position="bottom"
-              data-theme="preferred_color_scheme"
-              data-lang="en"
-              crossorigin="anonymous"
-              async>
-      </script>
-    </section>
-  </article>
-</div>
-
-<style>
-.comments-section {
-  margin-top: 4rem;
-  padding-top: 3rem;
-  border-top: 1px solid var(--border-color, #e5e7eb);
-}
-
-.comments-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: var(--ink, #1a1a1a);
-  font-family: 'Lora', Georgia, serif;
-}
-
-.giscus-container {
-  margin-top: 1rem;
-}
-
- 
-[data-theme="dark"] .comments-section {
-  border-top-color: rgba(255, 255, 255, 0.1);
-}
-
-[data-theme="dark"] .comments-title {
-  color: var(--ink, #e8e8e8);
-}
-</style>
-
-<script>
-
-function updateGiscusTheme() {
-  const theme = document.documentElement.getAttribute('data-theme') || 'light';
-  const giscusTheme = theme === 'dark' ? 'dark' : 'light';
-
-  const iframe = document.querySelector('iframe.giscus-frame');
-  if (iframe) {
-    iframe.contentWindow.postMessage({
-      giscus: {
-        setConfig: {
-          theme: giscusTheme
-        }
-      }
-    }, 'https://giscus.app');
-  }
-}
-
-
-const observer = new MutationObserver(updateGiscusTheme);
-observer.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ['data-theme']
-});
-
-
-setTimeout(updateGiscusTheme, 1000);
-</script>
-  </div>
-</div>
-
-  </main>
-  
-  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
-    <div class="footer-content">
-      <div class="footer-about">
-        <h3>metafunctor</h3>
-        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
-        <nav aria-label="Social media links" class="social-links">
-          
-          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-            <i class="fab fa-twitter" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-            <i class="fab fa-github" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-            <i class="fab fa-linkedin" aria-hidden="true"></i>
-          </a>
-          
-          <a href="../../index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
-            <i class="fas fa-rss" aria-hidden="true"></i>
-          </a>
-          
-          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
-            <i class="fas fa-envelope" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
-            <i class="fab fa-keybase" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-            <i class="fab fa-youtube" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
-            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
-            <i class="fab fa-orcid" aria-hidden="true"></i>
-          </a>
-          
-        </nav>
-      </div>
-
-      <nav class="footer-section" aria-labelledby="footer-content">
-        <h4 id="footer-content">Content</h4>
-        <div class="footer-links">
-          <a href="https://metafunctor.com/post/">Posts</a>
-          <a href="https://metafunctor.com/papers/">Papers</a>
-          <a href="https://metafunctor.com/series/">Series</a>
-          <a href="https://metafunctor.com/publications/">Publications</a>
-          <a href="https://metafunctor.com/writing/">Writing</a>
-        </div>
-      </nav>
-
-      <nav class="footer-section" aria-labelledby="footer-code">
-        <h4 id="footer-code">Code</h4>
-        <div class="footer-links">
-          <a href="https://metafunctor.com/projects/">Projects</a>
-          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
-        </div>
-      </nav>
-
-      <nav class="footer-section" aria-labelledby="footer-connect">
-        <h4 id="footer-connect">Connect</h4>
-        <div class="footer-links">
-          <a href="https://metafunctor.com/about/">About</a>
-          <a href="mailto:lex@metafunctor.com">Contact</a>
-          <a href="https://metafunctor.com/index.xml" type="application/rss+xml">RSS Feed</a>
-        </div>
-      </nav>
-    </div>
-    <div class="footer-bottom">
-      <p class="copyright">
-        © 2026 Alex Towell. All rights reserved.
-      </p>
-      <p class="accessibility-note">
-        <a href="#main-content">Back to top</a>
-      </p>
-    </div>
-  </footer>
-
-  
-  <script src="../../js/performance-optimizations.js" defer></script>
-  <script src="../../js/performance-enhancements.js" defer></script>
-
-  
-  <script src="../../js/mobile-menu.js" defer></script>
-  <script src="../../js/modern-interactions.js" defer></script>
-  <script src="../../js/search.js" defer></script>
-
-  
-  <script src="../../js/reading-progress.js" defer></script>
-  <script src="../../js/copy-code.js" defer></script>
-  <script src="../../js/anchor-links.js" defer></script>
-
-  
-  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
-    <i class="fas fa-arrow-up"></i>
-  </button>
-
-  <script>
-    
-    const backToTop = document.getElementById('back-to-top');
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 300) {
-        backToTop.style.display = 'block';
-      } else {
-        backToTop.style.display = 'none';
-      }
-    });
-    backToTop.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  </script>
-
-  
-  <script data-goatcounter="https://queelius.goatcounter.com/count"
-          async src="//gc.zgo.at/count.js"></script>
-</body>
-</html>
+\]<p>The maximum probe distance (default 10) ensures bounded worst-case latency.</p><p><strong>Key insight</strong>: The same slot array serves both purposes. The hybrid hasher checks if a key was in the original optimized set (<code>is_perfect_for(key)</code>), and uses the appropriate hash function accordingly. No static partitioning is needed.</p><h3 id=3-lock-free-atomic-operations>3. Lock-Free Atomic Operations</h3><p>All operations use compare-and-swap (CAS) primitives and atomic versioning:</p><p><strong>Atomic Slot Versioning</strong>: Each slot maintains a 64-bit atomic value combining key hash (high 32 bits) and version number (low 32 bits):</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// Lock-free read
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>uint64_t</span> <span class=n>v1</span> <span class=o>=</span> <span class=n>slot</span><span class=p>.</span><span class=n>hash_version</span><span class=p>.</span><span class=n>load</span><span class=p>(</span><span class=n>acquire</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>uint32_t</span> <span class=n>hash</span> <span class=o>=</span> <span class=n>v1</span> <span class=o>&gt;&gt;</span> <span class=mi>32</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=n>hash</span> <span class=o>!=</span> <span class=n>hash</span><span class=p>(</span><span class=n>key</span><span class=p>))</span> <span class=k>return</span> <span class=n>nullopt</span><span class=p>;</span>  <span class=c1>// Key not found
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// Copy data while checking version
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>data</span> <span class=o>=</span> <span class=n>copy</span><span class=p>(</span><span class=n>slot</span><span class=p>.</span><span class=n>data</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>uint64_t</span> <span class=n>v2</span> <span class=o>=</span> <span class=n>slot</span><span class=p>.</span><span class=n>hash_version</span><span class=p>.</span><span class=n>load</span><span class=p>(</span><span class=n>acquire</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=n>v1</span> <span class=o>==</span> <span class=n>v2</span> <span class=o>&amp;&amp;</span> <span class=p>(</span><span class=n>v1</span> <span class=o>&amp;</span> <span class=mi>1</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>  <span class=c1>// Even version = consistent
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>return</span> <span class=n>data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// Retry if version changed
+</span></span></span></code></pre></div><p><strong>Writers use a two-phase protocol</strong>:</p><ol><li>Increment version to odd (marking slot as updating)</li><li>Write new data</li><li>Increment version to even (marking update complete)</li></ol><p>Readers either see old value or new value completely—never partial updates.</p><h2 id=performance-results>Performance Results</h2><h3 id=single-threaded-latency>Single-Threaded Latency</h3><table><thead><tr><th>Operation</th><th>p50</th><th>p90</th><th>p99</th><th>p99.9</th><th>p99.99</th></tr></thead><tbody><tr><td>Random GET</td><td>351ns</td><td>601ns</td><td>972ns</td><td>1,342ns</td><td>7,844ns</td></tr><tr><td>Sequential GET</td><td>221ns</td><td>301ns</td><td>752ns</td><td>922ns</td><td>8,736ns</td></tr></tbody></table><p><strong>Sub-microsecond median latency</strong> with predictable tail latency under 10µs.</p><h3 id=multi-threaded-scaling>Multi-Threaded Scaling</h3><table><thead><tr><th>Threads</th><th>Throughput (M ops/sec)</th><th>Avg Latency (ns)</th><th>Speedup</th><th>Efficiency</th></tr></thead><tbody><tr><td>1</td><td>2.69</td><td>347</td><td>1.00×</td><td>100%</td></tr><tr><td>2</td><td>5.71</td><td>325</td><td>2.12×</td><td>106%</td></tr><tr><td>4</td><td>11.90</td><td>309</td><td>4.42×</td><td>110%</td></tr><tr><td>8</td><td>17.24</td><td>375</td><td>6.40×</td><td>80%</td></tr><tr><td>16</td><td>98.00</td><td>-</td><td>36.43×</td><td>-</td></tr></tbody></table><p><strong>Near-linear scaling</strong> up to 4 threads (110% efficiency), demonstrating the effectiveness of lock-free design.</p><h3 id=comparison-with-other-systems>Comparison with Other Systems</h3><table><thead><tr><th>System</th><th>Throughput</th><th>Speedup vs maph</th></tr></thead><tbody><tr><td><strong>maph</strong></td><td>10M ops/sec</td><td>1.00× (baseline)</td></tr><tr><td>Redis</td><td>0.8M ops/sec</td><td>12× slower</td></tr><tr><td>RocksDB</td><td>0.11M ops/sec</td><td>87× slower</td></tr><tr><td>Memcached</td><td>1.6M ops/sec</td><td>6× slower</td></tr></tbody></table><h2 id=memory-layout-and-slot-design>Memory Layout and Slot Design</h2><h3 id=fixed-size-slots>Fixed-Size Slots</h3><p>Each slot is <strong>512 bytes</strong>, aligned to 64-byte cache lines:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Slot Structure (512 bytes):
+</span></span><span class=line><span class=cl>┌─────────────────────────────┐
+</span></span><span class=line><span class=cl>│ Metadata (16 bytes)         │
+</span></span><span class=line><span class=cl>│  - hash_version (8B atomic) │  Upper 32 bits: hash identifier
+</span></span><span class=line><span class=cl>│  - size (4B)                │  Lower 32 bits: version counter
+</span></span><span class=line><span class=cl>│  - reserved (4B)            │
+</span></span><span class=line><span class=cl>├─────────────────────────────┤
+</span></span><span class=line><span class=cl>│ Data (496 bytes)            │  Actual value storage
+</span></span><span class=line><span class=cl>└─────────────────────────────┘
+</span></span></code></pre></div><p><strong>Why 512 bytes?</strong></p><ul><li><strong>Cache alignment</strong>: 8× 64-byte cache lines prevents false sharing</li><li><strong>Typical JSON docs</strong>: 100-400 bytes with acceptable overhead</li><li><strong>Direct computation</strong>: <code>slot_addr = base_addr + slot_index × 512</code></li><li><strong>SIMD friendly</strong>: Enables vectorized operations</li></ul><p>The fixed size is configurable at compile time:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// Small values
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>mmap_storage</span><span class=o>&lt;</span><span class=mi>128</span><span class=o>&gt;</span> <span class=n>counters</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Default
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>mmap_storage</span><span class=o>&lt;</span><span class=mi>512</span><span class=o>&gt;</span> <span class=n>json_store</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Large values
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>mmap_storage</span><span class=o>&lt;</span><span class=mi>4096</span><span class=o>&gt;</span> <span class=n>documents</span><span class=p>;</span>
+</span></span></code></pre></div><h2 id=architecture-components>Architecture Components</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>File Structure:
+</span></span><span class=line><span class=cl>┌────────────────┐
+</span></span><span class=line><span class=cl>│ Header (512B)  │  Magic, version, slot counts, generation
+</span></span><span class=line><span class=cl>├────────────────┤
+</span></span><span class=line><span class=cl>│ Slot 0 (512B)  │  Hash (32b) + Version (32b) + Data (496B)
+</span></span><span class=line><span class=cl>├────────────────┤
+</span></span><span class=line><span class=cl>│ Slot 1 (512B)  │
+</span></span><span class=line><span class=cl>├────────────────┤
+</span></span><span class=line><span class=cl>│      ...       │
+</span></span><span class=line><span class=cl>└────────────────┘
+</span></span></code></pre></div><h2 id=simd-batch-operations>SIMD Batch Operations</h2><p>AVX2 instructions enable parallel processing of 8 keys simultaneously:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>compute_batch_avx2</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span><span class=o>**</span> <span class=n>keys</span><span class=p>,</span> <span class=kt>uint32_t</span><span class=o>*</span> <span class=n>hashes</span><span class=p>,</span> <span class=n>size_t</span> <span class=n>count</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>__m256i</span> <span class=n>fnv_prime</span> <span class=o>=</span> <span class=n>_mm256_set1_epi32</span><span class=p>(</span><span class=mi>16777619u</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>__m256i</span> <span class=n>fnv_offset</span> <span class=o>=</span> <span class=n>_mm256_set1_epi32</span><span class=p>(</span><span class=mi>2166136261u</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>+</span> <span class=mi>8</span> <span class=o>&lt;=</span> <span class=n>count</span><span class=p>;</span> <span class=n>i</span> <span class=o>+=</span> <span class=mi>8</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>__m256i</span> <span class=n>h</span> <span class=o>=</span> <span class=n>fnv_offset</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>size_t</span> <span class=n>min_len</span> <span class=o>=</span> <span class=n>find_min_length</span><span class=p>(</span><span class=n>keys</span> <span class=o>+</span> <span class=n>i</span><span class=p>,</span> <span class=mi>8</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>j</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>j</span> <span class=o>&lt;</span> <span class=n>min_len</span><span class=p>;</span> <span class=o>++</span><span class=n>j</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>__m256i</span> <span class=n>chars</span> <span class=o>=</span> <span class=n>gather_chars</span><span class=p>(</span><span class=n>keys</span> <span class=o>+</span> <span class=n>i</span><span class=p>,</span> <span class=n>j</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>h</span> <span class=o>=</span> <span class=n>_mm256_xor_si256</span><span class=p>(</span><span class=n>h</span><span class=p>,</span> <span class=n>chars</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>h</span> <span class=o>=</span> <span class=n>_mm256_mullo_epi32</span><span class=p>(</span><span class=n>h</span><span class=p>,</span> <span class=n>fnv_prime</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>_mm256_storeu_si256</span><span class=p>((</span><span class=n>__m256i</span><span class=o>*</span><span class=p>)(</span><span class=n>hashes</span> <span class=o>+</span> <span class=n>i</span><span class=p>),</span> <span class=n>h</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>Result</strong>: ~5× throughput improvement for batch operations, achieving <strong>50M keys/sec</strong> for parallel lookups.</p><h2 id=hybrid-deployment-architecture>Hybrid Deployment Architecture</h2><p>The mmap-based design enables a powerful pattern:</p><h3 id=pattern-1-single-writer-multiple-readers-recommended>Pattern 1: Single Writer, Multiple Readers (Recommended)</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>+----------------------------------+
+</span></span><span class=line><span class=cl>| Shared mmap Files (data/*.maph)  |
+</span></span><span class=line><span class=cl>+----------+-------------+---------+
+</span></span><span class=line><span class=cl>           |             |
+</span></span><span class=line><span class=cl>     (write)|             |(read-only)
+</span></span><span class=line><span class=cl>   +--------v---+  +------v----------+
+</span></span><span class=line><span class=cl>   | REST API   |  | C++ App         |
+</span></span><span class=line><span class=cl>   | Server     |  | (direct mmap)   |
+</span></span><span class=line><span class=cl>   +------------+  +-----------------+
+</span></span><span class=line><span class=cl>        |
+</span></span><span class=line><span class=cl>   (HTTP)|
+</span></span><span class=line><span class=cl>   +-----v----------+
+</span></span><span class=line><span class=cl>   | Remote Clients |
+</span></span><span class=line><span class=cl>   +----------------+
+</span></span></code></pre></div><p><strong>Direct mmap read access (C++ app)</strong>:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// Local C++ application: Direct read-only access (~300ns latency)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>db</span> <span class=o>=</span> <span class=n>maph</span><span class=o>::</span><span class=n>Maph</span><span class=o>::</span><span class=n>open</span><span class=p>(</span><span class=s>&#34;/var/lib/maph/data/cache.maph&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                           <span class=nb>true</span><span class=p>);</span>  <span class=c1>// readonly
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>value</span> <span class=o>=</span> <span class=n>db</span><span class=o>-&gt;</span><span class=n>get</span><span class=p>(</span><span class=s>&#34;hot_key&#34;</span><span class=p>);</span>  <span class=c1>// Zero IPC overhead!
+</span></span></span></code></pre></div><p><strong>Benefits</strong>:</p><ul><li><strong>Zero-IPC overhead</strong>: Local reads bypass HTTP entirely (300ns vs 1-2ms)</li><li><strong>5,000× speedup</strong>: Direct mmap reads are ~5,000× faster than HTTP requests</li><li><strong>Safety</strong>: Single writer eliminates race conditions without coordination</li><li><strong>Flexibility</strong>: Remote clients use HTTP, local apps use direct mmap</li></ul><h3 id=pattern-2-multi-writer-with-coordination>Pattern 2: Multi-Writer with Coordination</h3><p>For multiple C++ writers, explicit synchronization is necessary:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// Acquire exclusive lock before writing
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=n>lock_fd</span> <span class=o>=</span> <span class=n>open</span><span class=p>(</span><span class=s>&#34;cache.maph.lock&#34;</span><span class=p>,</span> <span class=n>O_CREAT</span> <span class=o>|</span> <span class=n>O_RDWR</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>flock</span><span class=p>(</span><span class=n>lock_fd</span><span class=p>,</span> <span class=n>LOCK_EX</span><span class=p>);</span>  <span class=c1>// Exclusive lock (~2µs overhead)
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>db</span> <span class=o>=</span> <span class=n>maph</span><span class=o>::</span><span class=n>Maph</span><span class=o>::</span><span class=n>open</span><span class=p>(</span><span class=s>&#34;cache.maph&#34;</span><span class=p>,</span> <span class=nb>false</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>db</span><span class=o>-&gt;</span><span class=n>set</span><span class=p>(</span><span class=s>&#34;key&#34;</span><span class=p>,</span> <span class=s>&#34;value&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>flock</span><span class=p>(</span><span class=n>lock_fd</span><span class=p>,</span> <span class=n>LOCK_UN</span><span class=p>);</span>  <span class=c1>// Release lock
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>close</span><span class=p>(</span><span class=n>lock_fd</span><span class=p>);</span>
+</span></span></code></pre></div><p><strong>Alternative coordination mechanisms</strong>:</p><ul><li>Application-level tokens (Redis, etcd)</li><li>Partitioning (different processes own different key ranges)</li><li>Message queue coordination</li></ul><h2 id=rest-api-server>REST API Server</h2><p>The provided REST API server demonstrates practical deployment:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Start daemon</span>
+</span></span><span class=line><span class=cl>./maph_daemon --port <span class=m>8080</span> --threads <span class=m>4</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># CLI operations</span>
+</span></span><span class=line><span class=cl>./maph_cli <span class=nb>set</span> mystore <span class=s1>&#39;{&#34;key&#34;: &#34;user:1&#34;}&#39;</span> <span class=s1>&#39;{&#34;name&#34;: &#34;Alice&#34;, &#34;age&#34;: 30}&#39;</span>
+</span></span><span class=line><span class=cl>./maph_cli get mystore <span class=s1>&#39;{&#34;key&#34;: &#34;user:1&#34;}&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># REST API</span>
+</span></span><span class=line><span class=cl>curl -X POST http://localhost:8080/stores <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -d <span class=s1>&#39;{&#34;name&#34;: &#34;products&#34;, &#34;slots&#34;: 1000000}&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>curl -X PUT <span class=s1>&#39;http://localhost:8080/stores/products/keys/&#34;sku:12345&#34;&#39;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -d <span class=s1>&#39;{&#34;name&#34;: &#34;Laptop&#34;, &#34;price&#34;: 999}&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>curl <span class=s1>&#39;http://localhost:8080/stores/products/keys/&#34;sku:12345&#34;&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Optimize for perfect hash (O(1) guaranteed)</span>
+</span></span><span class=line><span class=cl>curl -X POST http://localhost:8080/stores/products/optimize
+</span></span></code></pre></div><h2 id=access-pattern-performance-comparison>Access Pattern Performance Comparison</h2><table><thead><tr><th>Access Pattern</th><th>Latency</th><th>Use Case</th></tr></thead><tbody><tr><td>Direct mmap (C++)</td><td>300ns</td><td>Local high-performance reads</td></tr><tr><td>REST API (local)</td><td>1-2ms</td><td>Remote or cross-language access</td></tr><tr><td>REST API (network)</td><td>5-10ms</td><td>Distributed systems</td></tr></tbody></table><h2 id=hash-function-selection>Hash Function Selection</h2><h3 id=fnv-1a-hash-short-keys>FNV-1a Hash (Short Keys)</h3><p>For keys under 16 bytes, FNV-1a provides excellent distribution with minimal overhead:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>uint32_t</span> <span class=nf>fnv1a</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span><span class=o>*</span> <span class=n>key</span><span class=p>,</span> <span class=n>size_t</span> <span class=n>len</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>uint32_t</span> <span class=n>h</span> <span class=o>=</span> <span class=mi>2166136261u</span><span class=p>;</span>  <span class=c1>// offset basis
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>len</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>h</span> <span class=o>^=</span> <span class=p>(</span><span class=kt>uint8_t</span><span class=p>)</span><span class=n>key</span><span class=p>[</span><span class=n>i</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>        <span class=n>h</span> <span class=o>*=</span> <span class=mi>16777619u</span><span class=p>;</span>  <span class=c1>// FNV prime
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>h</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>Performance</strong>: 3-4 cycles per byte on modern CPUs.</p><h3 id=xxhash-long-keys>xxHash (Long Keys)</h3><p>For longer keys, xxHash processes 32-bit chunks for superior throughput:</p><ul><li>Processes 4 bytes per iteration</li><li>Exploits instruction-level parallelism</li><li>Achieves <strong>13 GB/s</strong> on a single core</li></ul><h2 id=durability-management>Durability Management</h2><h3 id=asynchronous-durability>Asynchronous Durability</h3><p>While mmap provides automatic persistence, explicit control is available:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>DurabilityManager</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>sync_thread</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>while</span> <span class=p>(</span><span class=n>running</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>sleep_for</span><span class=p>(</span><span class=n>sync_interval</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>msync</span><span class=p>(</span><span class=n>mapped_region</span><span class=p>,</span> <span class=n>region_size</span><span class=p>,</span> <span class=n>MS_ASYNC</span><span class=p>);</span>  <span class=c1>// Async writeback
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Configure background sync
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>manager</span> <span class=o>=</span> <span class=n>store</span><span class=o>-&gt;</span><span class=n>start_durability_manager</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>chrono</span><span class=o>::</span><span class=n>seconds</span><span class=p>(</span><span class=mi>5</span><span class=p>),</span>  <span class=c1>// Sync every 5 seconds
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=mi>1000</span>                       <span class=c1>// Or after 1000 operations
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Manual sync for strong durability
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>store</span><span class=o>-&gt;</span><span class=n>sync</span><span class=p>();</span>  <span class=c1>// MS_SYNC forces synchronous write
+</span></span></span></code></pre></div><h3 id=copy-on-write-snapshots>Copy-on-Write Snapshots</h3><p>The OS&rsquo;s copy-on-write mechanism enables efficient point-in-time backups:</p><ol><li>Fork the process to create a snapshot</li><li>Child process inherits the memory mapping</li><li>Pages are copied only when modified</li><li>Snapshot remains consistent during export</li></ol><h2 id=parallel-scan-implementation>Parallel Scan Implementation</h2><p>Table scans partition the slot array across threads with work-stealing:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>parallel_scan</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>function</span><span class=o>&lt;</span><span class=kt>void</span><span class=p>(</span><span class=n>Slot</span><span class=o>&amp;</span><span class=p>)</span><span class=o>&gt;</span> <span class=n>visitor</span><span class=p>,</span> <span class=n>size_t</span> <span class=n>num_threads</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>atomic</span><span class=o>&lt;</span><span class=n>size_t</span><span class=o>&gt;</span> <span class=n>next_chunk</span><span class=p>{</span><span class=mi>0</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=n>size_t</span> <span class=n>CHUNK_SIZE</span> <span class=o>=</span> <span class=mi>1024</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=kr>thread</span><span class=o>&gt;</span> <span class=n>threads</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>t</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>t</span> <span class=o>&lt;</span> <span class=n>num_threads</span><span class=p>;</span> <span class=o>++</span><span class=n>t</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>threads</span><span class=p>.</span><span class=n>emplace_back</span><span class=p>([</span><span class=o>&amp;</span><span class=p>]</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>size_t</span> <span class=n>chunk</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>while</span> <span class=p>((</span><span class=n>chunk</span> <span class=o>=</span> <span class=n>next_chunk</span><span class=p>.</span><span class=n>fetch_add</span><span class=p>(</span><span class=mi>1</span><span class=p>))</span> <span class=o>&lt;</span> <span class=n>total_slots</span> <span class=o>/</span> <span class=n>CHUNK_SIZE</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>size_t</span> <span class=n>start</span> <span class=o>=</span> <span class=n>chunk</span> <span class=o>*</span> <span class=n>CHUNK_SIZE</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>size_t</span> <span class=n>end</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>min</span><span class=p>(</span><span class=n>start</span> <span class=o>+</span> <span class=n>CHUNK_SIZE</span><span class=p>,</span> <span class=n>total_slots</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>i</span> <span class=o>=</span> <span class=n>start</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>end</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>slots</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>empty</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                        <span class=n>visitor</span><span class=p>(</span><span class=n>slots</span><span class=p>[</span><span class=n>i</span><span class=p>]);</span>
+</span></span><span class=line><span class=cl>                    <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>});</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=k>auto</span><span class=o>&amp;</span> <span class=nl>t</span> <span class=p>:</span> <span class=n>threads</span><span class=p>)</span> <span class=n>t</span><span class=p>.</span><span class=n>join</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>Performance</strong>: 100M items/sec for sequential memory access.</p><h2 id=quick-start>Quick Start</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Clone and build</span>
+</span></span><span class=line><span class=cl>git clone https://github.com/queelius/maph.git
+</span></span><span class=line><span class=cl><span class=nb>cd</span> maph
+</span></span><span class=line><span class=cl>mkdir build <span class=o>&amp;&amp;</span> <span class=nb>cd</span> build
+</span></span><span class=line><span class=cl>cmake .. -DCMAKE_BUILD_TYPE<span class=o>=</span>Release <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>         -DBUILD_TESTS<span class=o>=</span>ON <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>         -DBUILD_REST_API<span class=o>=</span>ON
+</span></span><span class=line><span class=cl>make -j<span class=k>$(</span>nproc<span class=k>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Run tests</span>
+</span></span><span class=line><span class=cl>ctest --verbose
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># Install</span>
+</span></span><span class=line><span class=cl>sudo make install
+</span></span></code></pre></div><h3 id=c-library-usage>C++ Library Usage</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;maph.hpp&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=c1>// Create a new maph store
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>store</span> <span class=o>=</span> <span class=n>maph</span><span class=o>::</span><span class=n>Maph</span><span class=o>::</span><span class=n>create</span><span class=p>(</span><span class=s>&#34;mystore.maph&#34;</span><span class=p>,</span> <span class=mi>1000000</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Store JSON key-value pairs
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>store</span><span class=o>-&gt;</span><span class=n>set</span><span class=p>(</span><span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>user</span><span class=s>&#34;: &#34;</span><span class=n>alice</span><span class=s>&#34;})&#34;</span><span class=p>,</span> <span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>score</span><span class=s>&#34;: 95})&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Retrieve with O(1) lookup
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>value</span> <span class=o>=</span> <span class=n>store</span><span class=o>-&gt;</span><span class=n>get</span><span class=p>(</span><span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>user</span><span class=s>&#34;: &#34;</span><span class=n>alice</span><span class=s>&#34;})&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=n>value</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=o>*</span><span class=n>value</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>  <span class=c1>// {&#34;score&#34;: 95}
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Batch operations for high throughput
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>pair</span><span class=o>&lt;</span><span class=n>JsonView</span><span class=p>,</span> <span class=n>JsonView</span><span class=o>&gt;&gt;</span> <span class=n>batch</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>id</span><span class=s>&#34;: 1})&#34;</span><span class=p>,</span> <span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>name</span><span class=s>&#34;: &#34;</span><span class=n>item1</span><span class=s>&#34;})&#34;</span><span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span><span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>id</span><span class=s>&#34;: 2})&#34;</span><span class=p>,</span> <span class=n>R</span><span class=s>&#34;({&#34;</span><span class=n>name</span><span class=s>&#34;: &#34;</span><span class=n>item2</span><span class=s>&#34;})&#34;</span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>store</span><span class=o>-&gt;</span><span class=n>mset</span><span class=p>(</span><span class=n>batch</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Parallel batch processing
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>store</span><span class=o>-&gt;</span><span class=n>parallel_mset</span><span class=p>(</span><span class=n>large_batch</span><span class=p>,</span> <span class=mi>8</span><span class=p>);</span>  <span class=c1>// Use 8 threads
+</span></span></span></code></pre></div><h2 id=use-cases>Use Cases</h2><ul><li><strong>High-Performance Cache</strong>: Sub-microsecond lookups for hot data</li><li><strong>Feature Stores</strong>: ML feature serving with guaranteed latency</li><li><strong>Session Storage</strong>: Web session data with instant access</li><li><strong>Rate Limiting</strong>: Token bucket implementation with O(1) checks</li><li><strong>Deduplication</strong>: Fast duplicate detection in data streams</li><li><strong>Graph Databases</strong>: Adjacency list storage with perfect hashing</li><li><strong>Time-Series Index</strong>: Fast timestamp to data mapping</li></ul><h2 id=comparison-with-other-systems-1>Comparison with Other Systems</h2><table><thead><tr><th>System</th><th>Lookup</th><th>Space</th><th>Persistence</th><th>Concurrent</th><th>Use Case</th></tr></thead><tbody><tr><td><strong>maph</strong></td><td>O(1)</td><td>Optimal</td><td>mmap</td><td>Lock-free</td><td>General K/V, high-perf</td></tr><tr><td>Redis</td><td>O(1) avg</td><td>10× overhead</td><td>AOF/RDB</td><td>Single-thread</td><td>Cache, sessions</td></tr><tr><td>RocksDB</td><td>O(log n)</td><td>Compressed</td><td>SST files</td><td>Multi-thread</td><td>Large persistent data</td></tr><tr><td>Memcached</td><td>O(1) avg</td><td>In-memory</td><td>None</td><td>Multi-thread</td><td>Simple cache</td></tr><tr><td>LMDB</td><td>O(log n)</td><td>B+tree</td><td>mmap</td><td>MVCC</td><td>Transactional K/V</td></tr></tbody></table><h2 id=design-principles>Design Principles</h2><p><strong>🚀 Eliminate Kernel Crossings</strong>: Every system call incurs 100-200ns overhead</p><p><strong>0️⃣ Zero-Copy</strong>: Data remains in place from storage to application</p><p><strong>⚡ Hardware Parallelism</strong>: Leverage ILP (pipelining), SIMD, and multi-core</p><p><strong>🎯 Optimize Common Case</strong>: Read-heavy workloads with temporal locality</p><h2 id=limitations-and-trade-offs>Limitations and Trade-offs</h2><h3 id=fixed-slot-size>Fixed Slot Size</h3><p>Each storage instantiation uses a fixed slot size chosen at compile time. Applications with heterogeneous value sizes may experience space overhead. Mitigate by:</p><ul><li>Choosing appropriate slot sizes for workload</li><li>Using multiple stores with different slot sizes</li></ul><h3 id=dynamic-key-sets>Dynamic Key Sets</h3><p>Perfect hash optimization provides O(1) lookups only for keys in the original dataset. New keys use standard hashing with linear probing. Workloads with highly dynamic key sets must:</p><ul><li>Provision sufficient slots</li><li>Periodically rebuild perfect hash function</li></ul><h3 id=single-machine-scalability>Single-Machine Scalability</h3><p>maph operates on a single machine, limited by available memory and CPU cores. Applications requiring horizontal scaling must implement sharding at the application level.</p><h3 id=memory-overhead>Memory Overhead</h3><p>maph uses 2.85× more memory than <code>std::unordered_map</code> due to fixed 512-byte slots versus variable-size allocations. This overhead is the price paid for:</p><ul><li>Predictable memory layout</li><li>Efficient memory-mapped I/O</li><li>Multi-process sharing</li></ul><h2 id=future-directions>Future Directions</h2><h3 id=runtime-adaptive-slot-sizing>Runtime-Adaptive Slot Sizing</h3><p>Hybrid approach with multiple slot classes (64B, 512B, 4KB) dynamically selected based on value size could reduce waste while maintaining predictability.</p><h3 id=learned-indexing>Learned Indexing</h3><p>Machine learning models could replace perfect hash functions, learning the key distribution online for better collision rates with skewed distributions.</p><h3 id=persistent-memory-integration>Persistent Memory Integration</h3><p>Intel Optane DC Persistent Memory provides byte-addressable persistence with DRAM-like latency. Adapting maph for persistent memory could eliminate the page cache layer.</p><h3 id=distributed-consensus>Distributed Consensus</h3><p>Integrating consensus protocols like Raft could enable distributed operation while maintaining consistency, with carefully designed protocols minimizing latency impact.</p><h2 id=resources>Resources</h2><ul><li><strong>Repository</strong>: <a href=https://github.com/queelius/maph>github.com/queelius/maph</a></li><li><strong>Technical Report</strong>: <a href=https://github.com/queelius/maph/blob/master/docs/maph_technical_report.pdf>docs/maph_technical_report.pdf</a></li><li><strong>REST API</strong>: See <code>integrations/rest_api/</code> directory</li><li><strong>Examples</strong>: See <code>examples/</code> directory</li><li><strong>Tests</strong>: Comprehensive test suite in <code>tests/</code></li></ul><h2 id=license>License</h2><p>MIT</p><hr><p><em>maph: Where memory-mapped I/O meets perfect hashing for sub-microsecond key-value storage. Zero-copy architecture through mmap, O(1) guarantees through perfect hashing, and linear scalability through lock-free algorithms.</em></p></div><nav class=post-navigation><a href=../../post/2024-06-pfc/ class=nav-prev><span class=nav-label>← Previous</span>
+<span class=nav-title>PFC: Zero-Copy Data Compression Through Prefix-Free Codecs</span>
+</a><a href=../../post/2024-06-15-reliability-estimation-in-series-systems/ class=nav-next><span class=nav-label>Next →</span>
+<span class=nav-title>Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</span></a></nav><section class=related-posts><h2 class=related-posts-title>Related Posts</h2><div class=related-posts-grid><article class=related-post-card><a href=../../post/2025-01-zeroipc/ class=related-post-link><h3 class=related-post-title>ZeroIPC: Transforming Shared Memory into an Active Computational Substrate</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/zeroipc>ZeroIPC</a></strong> reimagines inter-process communication by treating shared memory not as passive storage, but as an <strong>active …</strong></p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
+Oct 6, 2025
+</span><span class=related-post-tags><span class=mini-tag>C++</span>
+<span class=mini-tag>Python</span></span></div></a></article><article class=related-post-card><a href=../../post/2024-06-pfc/ class=related-post-link><h3 class=related-post-title>PFC: Zero-Copy Data Compression Through Prefix-Free Codecs</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/pfc>PFC (Prefix-Free Codecs)</a></strong> is a header-only C++20 library that demonstrates data compression and zero-copy access are …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
+Jun 10, 2024
+</span><span class=related-post-tags><span class=mini-tag>C++</span>
+<span class=mini-tag>compression</span></span></div></a></article><article class=related-post-card><a href=../../post/2024-03-01-accumux/ class=related-post-link><h3 class=related-post-title>Accumux: Compositional Online Statistical Reductions in C++</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/accumux>Accumux</a></strong> provides a framework for combining statistical accumulators using algebraic composition. Built on solid …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
+Mar 1, 2024
+</span><span class=related-post-tags><span class=mini-tag>C++</span>
+<span class=mini-tag>statistics</span></span></div></a></article><article class=related-post-card><a href=../../post/2025-11-30-alga/ class=related-post-link><h3 class=related-post-title>Alga: Algebraic Text Processing with Fuzzy Matching</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/alga>Alga</a></strong> is a C++20 header-only library that transforms text manipulation from imperative string processing into declarative …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
+Nov 30, 2025
+</span><span class=related-post-tags><span class=mini-tag>C++</span>
+<span class=mini-tag>parsing</span></span></div></a></article><article class=related-post-card><a href=../../post/2025-11-30-cbt/ class=related-post-link><h3 class=related-post-title>CBT: Computational Basis Transforms - A Unified Framework</h3><p class=related-post-excerpt><p><strong><a href=https://github.com/queelius/cbt>CBT</a></strong> (Computational Basis Transforms) is a C++17 header-only library that formalizes a fundamental principle underlying …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
+Nov 30, 2025
+</span><span class=related-post-tags><span class=mini-tag>C++</span>
+<span class=mini-tag>numerical-computing</span></span></div></a></article></div></section><style>.related-posts{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.related-posts-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.related-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem}.related-post-card{background:var(--paper,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:1.5rem;transition:all .3s ease}.related-post-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);border-color:var(--accent,#667eea)}.related-post-link{text-decoration:none;color:inherit;display:block}.related-post-title{font-size:1.125rem;font-weight:600;margin-bottom:.75rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif;line-height:1.4}.related-post-card:hover .related-post-title{color:var(--accent,#667eea)}.related-post-excerpt{font-size:.9rem;color:var(--ink-light,#666);line-height:1.6;margin-bottom:1rem}.related-post-meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.8rem;color:var(--ink-light,#999)}.related-post-date i{margin-right:.25rem}.related-post-tags{display:flex;gap:.5rem}.related-post-tags .mini-tag{background:var(--paper-dark,#f5f5f5);padding:.25rem .5rem;border-radius:4px;font-size:.7rem;color:var(--ink,#1a1a1a)}[data-theme=dark] .related-posts{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .related-posts-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-card{background:var(--paper-dark,#222);border-color:rgba(255,255,255,.1)}[data-theme=dark] .related-post-card:hover{border-color:var(--accent,#667eea)}[data-theme=dark] .related-post-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-tags .mini-tag{background:rgba(255,255,255,5%);color:var(--ink,#e8e8e8)}</style><section class=comments-section><h2 class=comments-title>Discussion</h2><div class=giscus-container></div><script src=https://giscus.app/client.js data-repo=queelius/metafunctor data-repo-id=R_kgDONbcL1g data-category=General data-category-id=DIC_kwDONbcL1s4CwFJ7 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=preferred_color_scheme data-lang=en crossorigin=anonymous async></script></section></article></div><style>.comments-section{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.comments-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.giscus-container{margin-top:1rem}[data-theme=dark] .comments-section{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .comments-title{color:var(--ink,#e8e8e8)}</style><script>function updateGiscusTheme(){const t=document.documentElement.getAttribute("data-theme")||"light",n=t==="dark"?"dark":"light",e=document.querySelector("iframe.giscus-frame");e&&e.contentWindow.postMessage({giscus:{setConfig:{theme:n}}},"https://giscus.app")}const observer=new MutationObserver(updateGiscusTheme);observer.observe(document.documentElement,{attributes:!0,attributeFilter:["data-theme"]}),setTimeout(updateGiscusTheme,1e3)</script></div></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
+</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
+</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
+</a><a href=../../index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
+</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
+</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
+</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
+</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
+</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-content><h4 id=footer-content>Content</h4><div class=footer-links><a href=https://metafunctor.com/post/>Posts</a>
+<a href=https://metafunctor.com/papers/>Papers</a>
+<a href=https://metafunctor.com/series/>Series</a>
+<a href=https://metafunctor.com/publications/>Publications</a>
+<a href=https://metafunctor.com/writing/>Writing</a></div></nav><nav class=footer-section aria-labelledby=footer-code><h4 id=footer-code>Code</h4><div class=footer-links><a href=https://metafunctor.com/projects/>Projects</a>
+<a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
+<a href=mailto:lex@metafunctor.com>Contact</a>
+<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=../../js/performance-optimizations.js defer></script><script src=../../js/performance-enhancements.js defer></script><script src=../../js/mobile-menu.js defer></script><script src=../../js/modern-interactions.js defer></script><script src=../../js/search.js defer></script><script src=../../js/reading-progress.js defer></script><script src=../../js/copy-code.js defer></script><script src=../../js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
+<i class="fas fa-arrow-up"></i>
+</button>
+<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
