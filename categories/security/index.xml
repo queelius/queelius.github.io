@@ -1,10 +1,232 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Security on metafunctor</title><link>https://metafunctor.com/categories/security/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 13 Feb 2026 23:13:24 -0600</lastBuildDate><atom:link href="https://metafunctor.com/categories/security/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>pagevault: Client-Side Encryption for Static Sites</title><link>https://metafunctor.com/post/2026-02-13-pagevault/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-pagevault/</guid><description>How I built a tool that password-protects HTML content with real encryption — no backend required. Covers the architecture, interesting design constraints like the closure property, multi-user key wrapping, and a plugin system for rendering encrypted files in the browser.</description><content:encoded><![CDATA[<p>I run a static site on GitHub Pages. No backend, no server, no database. That simplicity is the whole point — until you want to share something semi-private.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Security on metafunctor</title><link>https://metafunctor.com/categories/security/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Feb 2026 04:46:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/categories/security/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Posthumous: A Federated Dead Man's Switch</title><link>https://metafunctor.com/post/2026-02-14-posthumous/</link><pubDate>Sat, 14 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-14-posthumous/</guid><description>A walkthrough of Posthumous — a self-hosted dead man's switch that monitors periodic check-ins via TOTP, progresses through escalating alert stages, and triggers automated actions if you stop responding. Covers the web UI, state machine, federation, and the notification pipeline.</description><content:encoded><![CDATA[<p>Some things should only happen after you can&rsquo;t do them yourself.</p>
+<p>Posthumous is a self-hosted dead man&rsquo;s switch. You check in periodically — via a phone, a browser, the CLI, or an API call — and if you stop, it progresses through escalating stages before triggering automated actions: sending notifications, running scripts, or anything you&rsquo;ve configured.</p>
+<p>I built it because the existing options are either cloud-hosted (you&rsquo;re trusting someone else&rsquo;s uptime for your most important automation) or single-node (one server failure and silence is indistinguishable from death). Posthumous is federated — multiple nodes watch each other — and fully self-hosted.</p>
+<p>This post walks through the basic workflows with screenshots.</p>
+<hr>
+<h2 id="setup">Setup</h2>
+<p>Installation is a single pip command:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install posthumous
+</span></span></code></pre></div><p>Initialization generates a TOTP secret and creates the config directory:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ phm init --node-name cerebro
+</span></span><span class="line"><span class="cl">Generated new TOTP secret.
+</span></span><span class="line"><span class="cl">Config created at ~/.posthumous/config.yaml
+</span></span><span class="line"><span class="cl">Example script created at ~/.posthumous/scripts/example.sh
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span><span class="line"><span class="cl">TOTP Setup - Scan with your authenticator app:
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">[</span>QR code appears here<span class="o">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Manual entry URI: otpauth://totp/Posthumous:cerebro?secret<span class="o">=</span>...<span class="p">&amp;</span><span class="nv">issuer</span><span class="o">=</span>Posthumous
+</span></span><span class="line"><span class="cl">Secret: <span class="nv">JBSWY3DPEHPK3PXP</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span><span class="line"><span class="cl">IMPORTANT: Save this secret securely!
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span></code></pre></div><p>You scan the QR code with any authenticator app — Google Authenticator, Authy, 1Password, whatever generates TOTP codes. That same code is how you prove you&rsquo;re alive.</p>
+<p>The config file (<code>~/.posthumous/config.yaml</code>) controls timing, notifications, and actions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">node_name</span><span class="p">:</span><span class="w"> </span><span class="l">cerebro</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l">JBSWY3DPEHPK3PXP</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">listen</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;0.0.0.0:8420&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">base_url</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;https://posthumous.example.com:8420&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">checkin_interval</span><span class="p">:</span><span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">warning_start</span><span class="p">:</span><span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">grace_start</span><span class="p">:</span><span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">trigger_at</span><span class="p">:</span><span class="w"> </span><span class="m">14</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">notifications</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">default</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">ntfy://my-posthumous-channel</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">actions</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">on_warning</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Check-in needed. {days_left} days remaining.\n\nCheck in: {checkin_url}&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">on_grace</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;URGENT: Posthumous triggers in {hours_left} hours.\n\nCheck in: {checkin_url}&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">on_trigger</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Posthumous has activated.\n\nDashboard: {dashboard_url}&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">script</span><span class="p">:</span><span class="w"> </span><span class="l">scripts/release-credentials.sh</span><span class="w">
+</span></span></span></code></pre></div><p>Notification messages support template variables like <code>{checkin_url}</code> and <code>{dashboard_url}</code> — so push notifications to your phone include a direct link back to the check-in page. No need to remember a URL.</p>
+<hr>
+<h2 id="the-check-in-flow">The Check-in Flow</h2>
+<p>Start the daemon:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ phm run
+</span></span><span class="line"><span class="cl">Starting Posthumous node <span class="s1">&#39;cerebro&#39;</span>...
+</span></span></code></pre></div><p>This launches the web server, watchdog timer, and scheduler. Navigate to the check-in page:</p>
+<p><img src="01-checkin-armed.png" alt="The check-in page in ARMED state, showing a TOTP input field and the node name"></p>
+<p>The UI is intentionally minimal — dark theme, big input, works on a phone screen. Enter your 6-digit TOTP code from your authenticator app and hit Check In.</p>
+<p>After a successful check-in, the timer resets and you can see the countdown:</p>
+<p><img src="03-checkin-after.png" alt="Check-in page after successful authentication, showing time since last check-in and time until trigger"></p>
+<p>The status line tells you exactly how long until the system would escalate. In production you&rsquo;d have days or weeks, not seconds.</p>
+<p>You can also check in via the CLI or the JSON API:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># CLI check-in (prompts for TOTP)</span>
+</span></span><span class="line"><span class="cl">$ phm checkin
+</span></span><span class="line"><span class="cl">TOTP code: <span class="m">645557</span>
+</span></span><span class="line"><span class="cl">Check-in accepted
+</span></span><span class="line"><span class="cl">  Status: ARMED
+</span></span><span class="line"><span class="cl">  Next deadline: 2026-02-28 11:41 UTC
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># API check-in (for automation)</span>
+</span></span><span class="line"><span class="cl">$ curl -X POST http://localhost:8420/checkin <span class="se">\
+</span></span></span><span class="line"><span class="cl">    -H <span class="s1">&#39;Content-Type: application/json&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">    -d <span class="s1">&#39;{&#34;totp&#34;: &#34;645557&#34;}&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="o">{</span><span class="s2">&#34;success&#34;</span>: true, <span class="s2">&#34;status&#34;</span>: <span class="s2">&#34;armed&#34;</span>, <span class="s2">&#34;next_deadline&#34;</span>: <span class="s2">&#34;2026-02-28T11:41:43+00:00&#34;</span><span class="o">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="the-dashboard">The Dashboard</h2>
+<p>The dashboard shows everything at a glance — countdown timers, check-in history, peer status, and scheduled post-trigger actions:</p>
+<p><img src="04-dashboard-armed.png" alt="Dashboard in ARMED state showing time remaining until each escalation stage, check-in history, peer status, and scheduled items"></p>
+<p>The color coding matches the urgency: green for &ldquo;Until warning&rdquo; (you&rsquo;re fine), orange for &ldquo;Until grace&rdquo; (getting close), red for &ldquo;Until trigger&rdquo; (last chance). The dashboard auto-refreshes every 60 seconds.</p>
+<hr>
+<h2 id="the-state-machine">The State Machine</h2>
+<p>Posthumous progresses through four states:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">ARMED ──timeout──&gt; WARNING ──timeout──&gt; GRACE ──timeout──&gt; TRIGGERED
+</span></span><span class="line"><span class="cl">  ^                   |                   |                    |
+</span></span><span class="line"><span class="cl">  └─── check-in ──────┴─── check-in ─────┘                    v
+</span></span><span class="line"><span class="cl">                                                    (scheduler runs forever)
+</span></span></code></pre></div><p>A check-in from any pre-trigger state resets to ARMED. <strong>TRIGGERED is terminal</strong> — once activated, no check-in can undo it. This is by design: if the switch has fired, you want the actions to complete.</p>
+<p>Each transition fires its configured actions. If the node was offline and missed intermediate states (say it was down during WARNING and comes back during GRACE), the watchdog fires all skipped callbacks in order before reaching the current state. No notifications are silently dropped.</p>
+<p>When the system reaches TRIGGERED, the check-in page locks out:</p>
+<p><img src="06-checkin-triggered.png" alt="Check-in page in TRIGGERED state — the TOTP form is replaced with a message explaining the node is triggered"></p>
+<p>And the dashboard reflects the terminal state:</p>
+<p><img src="05-dashboard-triggered.png" alt="Dashboard in TRIGGERED state showing all stages as Active/Activated with the trigger timestamp"></p>
+<hr>
+<h2 id="notifications">Notifications</h2>
+<p>Posthumous uses <a href="https://github.com/caronc/apprise">Apprise</a> for notifications, which means it supports 100+ notification services out of the box: ntfy, Pushover, Telegram, Discord, email, Slack, and many more.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">notifications</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">default</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">ntfy://my-posthumous-channel</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">urgent</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">pover://user@token</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">tgram://bot_token/chat_id</span><span class="w">
+</span></span></span></code></pre></div><p>Each escalation stage can target different channels with different messages. Warning might go to ntfy (a gentle ping), while grace and trigger go to Pushover and Telegram (hard to miss).</p>
+<p>The new <code>{checkin_url}</code> variable means warning notifications include a clickable link directly to the check-in page — open the notification on your phone, tap the link, enter the TOTP code. Three taps and you&rsquo;re checked in.</p>
+<hr>
+<h2 id="federation">Federation</h2>
+<p>A single node has a single point of failure. If the server goes down, silence looks the same as death — which means either false triggers or missed real triggers.</p>
+<p>Posthumous solves this with federation. Multiple nodes share the same TOTP secret and communicate via HMAC-signed HTTP:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="c"># Node A&#39;s config</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">peers</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">https://node-b.example.com:8420</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">https://node-c.example.com:8420</span><span class="w">
+</span></span></span></code></pre></div><p>When you check in to any node, it broadcasts to all peers. When any node triggers, it broadcasts that too. The design bias is deliberate: <strong>duplicates over silence</strong>. Multiple nodes may fire the same notification — annoying but survivable. A missed trigger is not.</p>
+<p>Each node tracks peer health independently, and the dashboard shows peer status with connection age and failure counts.</p>
+<hr>
+<h2 id="post-trigger-scheduling">Post-Trigger Scheduling</h2>
+<p>Once triggered, Posthumous doesn&rsquo;t just fire-and-forget. A scheduler runs forever, executing actions on configurable schedules using a small DSL:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">post_trigger</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">weekly-reminder</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="l">every week after trigger</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Posthumous was triggered {days_left} days ago.&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">credential-release</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="l">days after trigger</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">script</span><span class="p">:</span><span class="w"> </span><span class="l">scripts/release-credentials.sh</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">annual-memorial</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="l">every year on trigger anniversary</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Annual memorial notification.&#34;</span><span class="w">
+</span></span></span></code></pre></div><p>The <code>when</code> expressions support relative timing (<code>30 days after trigger</code>), recurring patterns (<code>every week after trigger</code>), anniversaries (<code>every year on trigger anniversary</code>), and absolute dates. Each execution is deduplicated by period key — if a node restarts, it won&rsquo;t re-run actions for the current period.</p>
+<hr>
+<h2 id="security">Security</h2>
+<p>Authentication uses TOTP (the same protocol as Google Authenticator). This means:</p>
+<ul>
+<li><strong>No passwords stored on the server</strong> — only the shared secret</li>
+<li><strong>Time-based codes expire every 30 seconds</strong> — replay attacks have a narrow window</li>
+<li><strong>Brute-force protection</strong> — after configurable failed attempts, the account locks out for a configurable duration</li>
+</ul>
+<p>The check-in page properly locks out after too many failures, and the API returns HTTP 429.</p>
+<p>Peer communication is authenticated with HMAC-SHA256 signatures derived from the shared secret. State files can optionally be encrypted at rest with Fernet (AES-128-CBC), enabled with a single config flag:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">encrypt_at_rest</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h2 id="status-at-a-glance">Status at a Glance</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ phm status
+</span></span><span class="line"><span class="cl">Node: cerebro
+</span></span><span class="line"><span class="cl">Status: ARMED
+</span></span><span class="line"><span class="cl">Last check-in: 2026-02-14 11:41 UTC
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Warning in:  6d 23h
+</span></span><span class="line"><span class="cl">Grace in:    10d 23h
+</span></span><span class="line"><span class="cl">Trigger in:  12d 23h
+</span></span></code></pre></div><p>Or hit the JSON API for monitoring integrations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ curl -s http://localhost:8420/status <span class="p">|</span> python -m json.tool
+</span></span><span class="line"><span class="cl"><span class="o">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;node_name&#34;</span>: <span class="s2">&#34;cerebro&#34;</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;status&#34;</span>: <span class="s2">&#34;armed&#34;</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;last_checkin&#34;</span>: <span class="s2">&#34;2026-02-14T11:41:43+00:00&#34;</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;time_remaining&#34;</span>: <span class="o">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;until_warning&#34;</span>: 596503.0,
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;until_grace&#34;</span>: 942103.0,
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;until_trigger&#34;</span>: 1114903.0
+</span></span><span class="line"><span class="cl">    <span class="o">}</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>Posthumous is at v0.5. The core workflows are solid — check-in, state machine, notifications, federation, scheduling, encryption at rest. Some things I&rsquo;m considering:</p>
+<ul>
+<li><strong>Static site integration</strong> — generating a Hugo/Jekyll site from post-trigger content, hosted on GitHub Pages</li>
+<li><strong>Multi-factor escalation</strong> — requiring check-ins from multiple sources (web + CLI + API) before considering you &ldquo;alive&rdquo;</li>
+<li><strong>Better peer discovery</strong> — automatic peer registration instead of manual URL configuration</li>
+</ul>
+<p>The code is on GitHub: <a href="https://github.com/queelius/posthumous">queelius/posthumous</a>. It&rsquo;s a single <code>pip install</code> and about 2,200 lines of Python (plus 3,700 lines of tests at 99% coverage).</p>
+<hr>
+<p><em>Posthumous is named for the obvious reason. Some automations only make sense after the fact.</em></p>]]></content:encoded><category>posthumous</category><category>dead-mans-switch</category><category>python</category><category>asyncio</category><category>totp</category><category>federation</category><category>open-source</category></item><item><title>Client-Side Encryption for Static Sites: pagevault + cryptoid</title><link>https://metafunctor.com/post/2026-02-13-pagevault/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-pagevault/</guid><description>Two complementary tools for password-protecting content on static sites — no backend required. pagevault encrypts HTML files and embedded assets. cryptoid encrypts Hugo markdown at build time. Both use AES-256-GCM with multi-user key wrapping and decrypt entirely in the browser.</description><content:encoded><![CDATA[<p>I run a static site on GitHub Pages. No backend, no server, no database. That simplicity is the whole point — until you want to share something semi-private.</p>
 <p>Maybe it&rsquo;s client-confidential notes mixed in with public documentation. Maybe it&rsquo;s solutions to homework problems that should be behind a password. Maybe it&rsquo;s personal thoughts in a blog post that you want to share with specific people but not the entire internet.</p>
 <p>The usual answer is &ldquo;add a backend.&rdquo; But I didn&rsquo;t want to give up static hosting just because a few paragraphs needed a password.</p>
-<p>So I built <a href="https://github.com/queelius/pagevault"><strong>pagevault</strong></a>.</p>
+<p>So I built two tools: <a href="https://github.com/queelius/pagevault"><strong>pagevault</strong></a> for encrypting HTML files and embedded assets, and <a href="https://github.com/queelius/cryptoid"><strong>cryptoid</strong></a> for encrypting Hugo markdown content at build time. They share the same cryptographic foundation but solve different problems.</p>
 <hr>
-<h2 id="the-core-idea">The Core Idea</h2>
-<p>pagevault encrypts <em>regions</em> of HTML files — not the whole page, just the parts you mark. Public navigation, styling, and scripts remain untouched. Only the sensitive sections become ciphertext, replaced with a password prompt that decrypts in the browser using the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API">Web Crypto API</a>.</p>
+<h2 id="two-tools-one-crypto-core">Two Tools, One Crypto Core</h2>
+<p>Both tools use identical encryption:</p>
+<ul>
+<li><strong>AES-256-GCM</strong> (authenticated encryption)</li>
+<li><strong>PBKDF2-SHA256</strong> with 310,000 iterations</li>
+<li><strong>v2 format</strong> with content-encryption-key (CEK) wrapping for multi-user support</li>
+<li><strong>Web Crypto API</strong> for browser-side decryption — no JavaScript crypto libraries</li>
+</ul>
+<p>The difference is <em>what</em> they encrypt and <em>when</em>:</p>
+<table>
+  <thead>
+      <tr>
+          <th></th>
+          <th><strong>pagevault</strong></th>
+          <th><strong>cryptoid</strong></th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Encrypts</strong></td>
+          <td>HTML regions, files, entire sites</td>
+          <td>Hugo markdown body content</td>
+      </tr>
+      <tr>
+          <td><strong>When</strong></td>
+          <td>Post-build (operates on HTML output)</td>
+          <td>Pre-build (operates on markdown source)</td>
+      </tr>
+      <tr>
+          <td><strong>Assets</strong></td>
+          <td>Images, PDFs, audio/video embedded in ciphertext</td>
+          <td>Text only (assets served publicly by Hugo)</td>
+      </tr>
+      <tr>
+          <td><strong>Output</strong></td>
+          <td>Self-contained HTML files</td>
+          <td>Hugo shortcodes with ciphertext</td>
+      </tr>
+      <tr>
+          <td><strong>Rendering</strong></td>
+          <td>Content is already HTML — just inject</td>
+          <td>Markdown rendered in browser via <a href="https://github.com/markedjs/marked">marked.js</a></td>
+      </tr>
+  </tbody>
+</table>
+<p>Use <strong>pagevault</strong> when you need to protect complete documents with embedded assets — encrypted PDFs, image galleries, entire mini-sites. Use <strong>cryptoid</strong> when you have a Hugo blog and want some posts or sections behind a password while keeping the full Hugo workflow (taxonomies, related posts, RSS, etc.).</p>
+<hr>
+<h2 id="pagevault-encrypt-anything-serve-anywhere">pagevault: Encrypt Anything, Serve Anywhere</h2>
+<p>pagevault encrypts <em>regions</em> of HTML files — not the whole page, just the parts you mark. Public navigation, styling, and scripts remain untouched. Only the sensitive sections become ciphertext, replaced with a password prompt that decrypts in the browser.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-html" data-lang="html"><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">header</span><span class="p">&gt;</span>Public navigation stays visible<span class="p">&lt;/</span><span class="nt">header</span><span class="p">&gt;</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">pagevault</span> <span class="na">hint</span><span class="o">=</span><span class="s">&#34;Contact me for the password&#34;</span><span class="p">&gt;</span>
@@ -19,93 +241,114 @@
 <p>After entering the password, the protected sections decrypt in-place:</p>
 <p><img src="dashboard-unlocked.png" alt="Same dashboard after decryption, showing Internal Revenue and Infrastructure Costs"></p>
 <p>The output is a single self-contained HTML file. No JavaScript CDN, no external CSS, no runtime dependencies. You can email it, upload it to any static host, or open it from a local filesystem. Everything needed for decryption is embedded in the file.</p>
-<hr>
-<h2 id="encryption-details">Encryption Details</h2>
-<p>The crypto is intentionally non-configurable:</p>
-<ul>
-<li><strong>AES-256-GCM</strong> (AEAD — authenticated encryption with associated data)</li>
-<li><strong>PBKDF2-SHA256</strong> with 310,000 iterations (OWASP 2023 recommendation)</li>
-<li><strong>16-byte random salt</strong>, <strong>12-byte random IV</strong> per encryption</li>
-<li><strong>v2 format</strong> with content-encryption-key (CEK) wrapping</li>
-</ul>
-<p>I chose to fix these parameters rather than expose them as config options. Every pagevault file has the same security properties. No foot-guns, no &ldquo;I accidentally set iterations to 1.&rdquo;</p>
-<p>The iteration count is stored in the encrypted payload, so future versions can increase it without breaking backward compatibility. Old files decrypt at their original iteration count; new files get the latest.</p>
-<h3 id="why-cek-key-wrapping">Why CEK Key-Wrapping?</h3>
-<p>Early versions derived a key directly from the password and encrypted content with it. This works fine for single-user encryption, but breaks down with multiple users.</p>
-<p>If Alice and Bob each need their own password, naive multi-password means encrypting the content twice — doubling the payload size and making re-encryption expensive when passwords change.</p>
-<p>The CEK model solves this cleanly. A random content-encryption key encrypts the actual data once. Then the CEK itself is wrapped (encrypted) separately for each user&rsquo;s password. Adding a new user only wraps one small key blob. Changing a password only re-wraps one key blob. The bulk content stays untouched.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Content  ──encrypt with CEK──&gt;  Ciphertext (one copy)
-</span></span><span class="line"><span class="cl">CEK  ──wrap with Alice&#39;s key──&gt;  Key Blob A
-</span></span><span class="line"><span class="cl">CEK  ──wrap with Bob&#39;s key────&gt;  Key Blob B
-</span></span></code></pre></div><p>The <code>pagevault sync</code> command re-wraps keys when you add or remove users. For full key rotation (new CEK), there&rsquo;s <code>pagevault sync --rekey</code>.</p>
-<hr>
-<h2 id="the-closure-property">The Closure Property</h2>
-<p>This is my favorite design constraint. <strong>The output of <code>pagevault lock</code> must be valid input to <code>pagevault lock</code>.</strong></p>
-<p>This means you can encrypt a page for Alice, then encrypt <em>different sections</em> of the same page for Bob, and everything just works. Alice sees her content. Bob sees his. The page round-trips cleanly through multiple encryption passes.</p>
-<p>Why does this matter? Because it eliminates the need for a first-class &ldquo;multi-tier access&rdquo; feature. You don&rsquo;t need pagevault to understand access levels. You just run it twice with different passwords on different sections. Composability replaces configuration.</p>
-<p>In practice, this constraint forces discipline throughout the codebase. The HTML manipulation layer (BeautifulSoup/lxml) must preserve structure perfectly. The injected JavaScript must be idempotent — a page with two decryption runtimes shouldn&rsquo;t conflict. Attributes must round-trip through lock/unlock cycles without mutation.</p>
-<p>Every release runs roundtrip tests: lock, then lock again, then unlock twice. If any content is lost or corrupted, the test fails.</p>
-<hr>
-<h2 id="beyond-html-encrypting-arbitrary-files">Beyond HTML: Encrypting Arbitrary Files</h2>
-<p>Once you can encrypt HTML regions, the next question is obvious: what about PDFs? Images? Entire directories?</p>
-<p>pagevault handles this by wrapping non-HTML files into encrypted HTML payloads:</p>
+<h3 id="beyond-html-encrypting-arbitrary-files">Beyond HTML: Encrypting Arbitrary Files</h3>
+<p>pagevault wraps non-HTML files into encrypted HTML payloads:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault lock report.pdf              <span class="c1"># → _locked/report.pdf.html</span>
 </span></span><span class="line"><span class="cl">pagevault lock presentation.pptx       <span class="c1"># → _locked/presentation.pptx.html</span>
 </span></span><span class="line"><span class="cl">pagevault lock mysite/ --site          <span class="c1"># → _locked/mysite.html</span>
 </span></span></code></pre></div><p>The encrypted HTML includes the file&rsquo;s contents as a base64 payload. When decrypted in the browser, a <strong>viewer plugin</strong> renders the content inline — images display as images, PDFs render in an embedded viewer, Markdown gets formatted with headings and code blocks.</p>
-<p>Here&rsquo;s what a password-protected file looks like before and after decryption:</p>
 <p><img src="file-locked.png" alt="Encrypted file showing password prompt with lock icon and filename"></p>
 <p>After entering the password, the viewer renders the content with a toolbar showing the filename, file size, and a download button:</p>
 <p><img src="markdown-decrypted.png" alt="Decrypted markdown file with rendered headings, lists, and code blocks"></p>
-<p>The text viewer renders plain text with line numbers — useful for meeting notes, logs, or config files:</p>
-<p><img src="text-decrypted.png" alt="Decrypted text file with line numbers and monospace rendering"></p>
-<h3 id="viewer-plugin-system">Viewer Plugin System</h3>
-<p>The viewer architecture follows a MIME-type dispatch model. Each viewer plugin declares which MIME types it handles:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">ImageViewer</span><span class="p">(</span><span class="n">ViewerPlugin</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span> <span class="o">=</span> <span class="s2">&#34;image&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">mime_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;image/*&#34;</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">js</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="s2">&#34;&#34;&#34;async function(container, blob, url, meta, toolbar) {
-</span></span></span><span class="line"><span class="cl"><span class="s2">            const img = document.createElement(&#39;img&#39;);
-</span></span></span><span class="line"><span class="cl"><span class="s2">            img.src = url;
-</span></span></span><span class="line"><span class="cl"><span class="s2">            container.appendChild(img);
-</span></span></span><span class="line"><span class="cl"><span class="s2">        }&#34;&#34;&#34;</span>
-</span></span></code></pre></div><p>Seven viewers ship built-in: Image, PDF, HTML, Text, Markdown, Audio, and Video. Each lives in its own file under <code>viewers/builtins/</code>, and the registry discovers them automatically by scanning the directory — no registration boilerplate required.</p>
-<p>Custom viewers work the same way. Point <code>viewers_dir</code> in your <code>.pagevault.yaml</code> at a directory of <code>.py</code> files that define <code>ViewerPlugin</code> subclasses, and they&rsquo;re picked up automatically. User viewers override builtins on name collision, so you can replace any built-in viewer with your own implementation.</p>
-<p>Resolution follows a priority chain: exact MIME match first, then wildcard patterns (e.g., <code>image/*</code>), then a download fallback. The viewer&rsquo;s JavaScript, CSS, and any dependencies are embedded directly into the encrypted HTML — maintaining the self-contained property even with custom viewers.</p>
-<p>Security is enforced at multiple layers. Plugin names and MIME types are validated via regex at class definition time (<code>__init_subclass__</code>), re-validated at the injection point (defense-in-depth), and all JS/CSS content is escaped to prevent <code>&lt;/script&gt;</code> breakout. The HTML viewer renders in a sandboxed iframe (<code>sandbox='allow-same-origin'</code>, no <code>allow-scripts</code>).</p>
+<p>Seven viewers ship built-in: Image, PDF, HTML, Text, Markdown, Audio, and Video. Custom viewers follow the same plugin API — point <code>viewers_dir</code> at a directory of Python files and they&rsquo;re discovered automatically.</p>
+<h3 id="the-closure-property">The Closure Property</h3>
+<p>My favorite design constraint: <strong>the output of <code>pagevault lock</code> must be valid input to <code>pagevault lock</code>.</strong></p>
+<p>This means you can encrypt a page for Alice, then encrypt <em>different sections</em> of the same page for Bob, and everything just works. Alice sees her content. Bob sees his. The page round-trips cleanly through multiple encryption passes.</p>
+<p>Composability replaces configuration. You don&rsquo;t need pagevault to understand access levels — you just run it twice with different passwords on different sections.</p>
 <hr>
-<h2 id="cli-design">CLI Design</h2>
-<p>pagevault follows a mark-then-lock workflow:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. Mark what to encrypt (in-place, content stays plaintext)</span>
-</span></span><span class="line"><span class="cl">pagevault mark index.html -s <span class="s2">&#34;#secret&#34;</span> --hint <span class="s2">&#34;Ask admin&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 2. Encrypt marked regions (outputs to _locked/)</span>
-</span></span><span class="line"><span class="cl">pagevault lock index.html
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 3. Deploy _locked/ to your static host</span>
-</span></span></code></pre></div><p>The <code>lock</code> command is unified — it detects whether the input is HTML (encrypt marked regions), a non-HTML file (wrap as encrypted HTML), or a directory with <code>--site</code> (bundle as a single-page encrypted site).</p>
-<p>A few commands that turned out to be surprisingly useful:</p>
+<h2 id="cryptoid-native-hugo-encryption">cryptoid: Native Hugo Encryption</h2>
+<p>cryptoid takes a different approach. Instead of operating on HTML output, it works directly with Hugo&rsquo;s markdown source files. You mark content for encryption in front matter, and cryptoid handles the rest.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nn">---</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Confidential Project Update&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">encrypted</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">groups</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">team</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">leadership</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">password_hint</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Use your team credentials&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">remember</span><span class="p">:</span><span class="w"> </span><span class="l">ask</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nn">---</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c">## Q4 Results</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="l">Revenue grew 23% quarter-over-quarter...</span><span class="w">
+</span></span></span></code></pre></div><p>Running <code>cryptoid encrypt</code> replaces the markdown body with a Hugo shortcode containing encrypted ciphertext. Hugo then builds the site normally — the shortcode renders a password form, and the browser-side JavaScript handles decryption.</p>
+<h3 id="hugo-native-workflow">Hugo-Native Workflow</h3>
+<p>Because cryptoid operates at the source level, encrypted posts are still full Hugo citizens:</p>
 <ul>
-<li><strong><code>pagevault info</code></strong> — inspect an encrypted file without the password. Shows encryption metadata, number of key blobs, viewer information, content hash.</li>
-<li><strong><code>pagevault check -p PASSWORD</code></strong> — fast password verification. Does one PBKDF2 derivation and one key unwrap, returns exit code 0 or 1. Useful in CI scripts.</li>
-<li><strong><code>pagevault unlock --stdout</code></strong> — pipe decrypted content to stdout. Combined with shell pipelines, this makes pagevault a building block:</li>
+<li><strong>Taxonomies work</strong> — tags, categories, and series still render from front matter</li>
+<li><strong>Related posts work</strong> — Hugo&rsquo;s content matching sees the front matter</li>
+<li><strong>RSS works</strong> — feeds include the post metadata (body is just the shortcode)</li>
+<li><strong><code>_index.md</code> cascade</strong> — set <code>encrypted: true</code> in a section&rsquo;s index and all children inherit it</li>
+<li><strong>Group-based access control</strong> — assign user groups in front matter, cryptoid resolves which users get key blobs</li>
 </ul>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault unlock report.pdf.html --stdout -p <span class="s2">&#34;</span><span class="nv">$SECRET</span><span class="s2">&#34;</span> &gt; report.pdf
-</span></span></code></pre></div><hr>
-<h2 id="what-it-defends-against-and-what-it-doesnt">What It Defends Against (and What It Doesn&rsquo;t)</h2>
-<p>pagevault protects against casual snooping (web scrapers, search engines, curious visitors) and determined offline attacks (someone downloads the HTML and runs dictionary attacks against the PBKDF2-wrapped payload). AES-256-GCM with 310k PBKDF2 iterations makes brute-force expensive.</p>
-<p>It does <strong>not</strong> defend against browser-level adversaries (malicious extensions, XSS on the same origin) or hosting providers modifying the served HTML. The threat model is &ldquo;your static host is honest but the public internet is not.&rdquo; This is the right tradeoff for static hosting — if you need protection against a malicious host, you need a different architecture entirely.</p>
+<p>The CLI manages the full lifecycle:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Setup</span>
+</span></span><span class="line"><span class="cl">cryptoid init                                    <span class="c1"># interactive config setup</span>
+</span></span><span class="line"><span class="cl">cryptoid config add-user bob --group team        <span class="c1"># manage users and groups</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Protect content</span>
+</span></span><span class="line"><span class="cl">cryptoid protect content/private/ --groups team  <span class="c1"># mark directory for encryption</span>
+</span></span><span class="line"><span class="cl">cryptoid encrypt --content-dir content/          <span class="c1"># encrypt all marked files</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Manage</span>
+</span></span><span class="line"><span class="cl">cryptoid status --content-dir content/           <span class="c1"># show encryption status</span>
+</span></span><span class="line"><span class="cl">cryptoid rewrap --content-dir content/           <span class="c1"># update key blobs after user changes</span>
+</span></span><span class="line"><span class="cl">cryptoid decrypt --content-dir content/          <span class="c1"># restore plaintext for editing</span>
+</span></span></code></pre></div><h3 id="cascade-resolution">Cascade Resolution</h3>
+<p>Encryption settings propagate from <code>_index.md</code> files downward. If a file&rsquo;s own front matter has <code>encrypted: true</code>, that&rsquo;s used. Otherwise, cryptoid walks up parent directories checking each <code>_index.md</code> — the nearest one with an <code>encrypted</code> field wins.</p>
+<p>This means you can protect an entire section with one line in <code>_index.md</code>, then override individual files with <code>encrypted: false</code> if needed.</p>
 <hr>
-<h2 id="try-it">Try It</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install pagevault
+<h2 id="shared-cryptographic-design">Shared Cryptographic Design</h2>
+<p>Both tools share the same v2 encryption format and key-wrapping model.</p>
+<h3 id="cek-key-wrapping">CEK Key-Wrapping</h3>
+<p>A random content-encryption key (CEK) encrypts the actual data once. The CEK itself is then wrapped (encrypted) separately for each user&rsquo;s derived key:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Content  ──encrypt with CEK──&gt;  Ciphertext (one copy)
+</span></span><span class="line"><span class="cl">CEK  ──wrap with Alice&#39;s key──&gt;  Key Blob A
+</span></span><span class="line"><span class="cl">CEK  ──wrap with Bob&#39;s key────&gt;  Key Blob B
+</span></span></code></pre></div><p>Adding a user wraps one small key blob. Removing a user deletes one key blob. The bulk content stays untouched. Both tools provide a <code>sync</code>/<code>rewrap</code> command for key management, and <code>--rekey</code> for full CEK rotation.</p>
+<h3 id="pbkdf2-secret-format">PBKDF2 Secret Format</h3>
+<p>Both tools derive the wrapping key from <code>&quot;username:password&quot;</code> — a single PBKDF2 derivation per login attempt. The browser tries each key blob until one unwraps successfully, revealing the CEK.</p>
+<h3 id="threat-model">Threat Model</h3>
+<p>Both tools protect against the same threats: casual snooping (scrapers, search engines, curious visitors) and offline brute-force attacks. AES-256-GCM with 310k PBKDF2 iterations makes dictionary attacks expensive.</p>
+<p>Neither defends against browser-level adversaries (malicious extensions, XSS on the same origin) or a hosting provider modifying served files. The model is &ldquo;your static host is honest but the public internet is not.&rdquo; For static hosting, that&rsquo;s the right tradeoff.</p>
+<hr>
+<h2 id="when-to-use-which">When to Use Which</h2>
+<p><strong>Use pagevault when:</strong></p>
+<ul>
+<li>You need to encrypt non-Hugo HTML pages or files</li>
+<li>Images, PDFs, or other assets must be protected (embedded in ciphertext)</li>
+<li>You want self-contained encrypted files you can email or host anywhere</li>
+<li>You need the closure property (composable multi-tier encryption)</li>
+</ul>
+<p><strong>Use cryptoid when:</strong></p>
+<ul>
+<li>You have a Hugo site and want password-protected posts or sections</li>
+<li>You want encrypted content to participate in Hugo&rsquo;s taxonomy, search, and RSS</li>
+<li>Text content is the primary concern (images can remain public)</li>
+<li>You want directory-level cascade (<code>_index.md</code> inheritance)</li>
+</ul>
+<p><strong>Use both when:</strong></p>
+<ul>
+<li>Your Hugo site has some protected markdown posts (cryptoid) and also serves encrypted file downloads (pagevault)</li>
+<li>You want public blog posts with embedded encrypted attachments</li>
+</ul>
+<hr>
+<h2 id="try-them">Try Them</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># pagevault</span>
+</span></span><span class="line"><span class="cl">pip install pagevault
 </span></span><span class="line"><span class="cl">pagevault config init
 </span></span><span class="line"><span class="cl">pagevault mark page.html -s <span class="s2">&#34;.private&#34;</span>
 </span></span><span class="line"><span class="cl">pagevault lock page.html
-</span></span></code></pre></div><p>The project is on <a href="https://github.com/queelius/pagevault">GitHub</a>. It&rsquo;s MIT-licensed, has 530+ tests, and is designed to be a building block — composable, self-contained, no server required.</p>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># cryptoid</span>
+</span></span><span class="line"><span class="cl">pip install cryptoid
+</span></span><span class="line"><span class="cl">cryptoid init
+</span></span><span class="line"><span class="cl">cryptoid protect content/private/ --groups team
+</span></span><span class="line"><span class="cl">cryptoid encrypt --content-dir content/
+</span></span><span class="line"><span class="cl">cryptoid hugo install  <span class="c1"># install shortcode + JS into your Hugo site</span>
+</span></span></code></pre></div><p>Both projects are on GitHub (<a href="https://github.com/queelius/pagevault">pagevault</a>, <a href="https://github.com/queelius/cryptoid">cryptoid</a>), MIT-licensed, and designed as building blocks — composable, self-contained, no server required.</p>
 <hr>
-<p><em>Static sites shouldn&rsquo;t need backends just because some content needs a password.</em></p>]]></content:encoded><category>pagevault</category><category>encryption</category><category>static-sites</category><category>python</category><category>web-crypto</category><category>open-source</category><category>hugo</category></item><item><title>The Policy: Engineering AI Containment</title><link>https://metafunctor.com/post/2025-11-04-policy-containment/</link><pubDate>Tue, 04 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-04-policy-containment/</guid><description>Five layers of defense-in-depth for containing a superintelligent system — Faraday cages, air-gapped networks, biosafety-grade protocols. Because nuclear reactors can only destroy cities.</description><content:encoded><![CDATA[<p>&ldquo;You&rsquo;re being paranoid,&rdquo; the university administrators told Eleanor and Sofia.</p>
+<p><em>Static sites shouldn&rsquo;t need backends just because some content needs a password.</em></p>]]></content:encoded><category>pagevault</category><category>cryptoid</category><category>encryption</category><category>static-sites</category><category>python</category><category>web-crypto</category><category>open-source</category><category>hugo</category></item><item><title>The Policy: Engineering AI Containment</title><link>https://metafunctor.com/post/2025-11-04-policy-containment/</link><pubDate>Tue, 04 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-04-policy-containment/</guid><description>Five layers of defense-in-depth for containing a superintelligent system — Faraday cages, air-gapped networks, biosafety-grade protocols. Because nuclear reactors can only destroy cities.</description><content:encoded><![CDATA[<p>&ldquo;You&rsquo;re being paranoid,&rdquo; the university administrators told Eleanor and Sofia.</p>
 <p>&ldquo;We&rsquo;re being exactly paranoid enough,&rdquo; they replied.</p>
 <p><em>The Policy</em> takes AI containment seriously. The SIGMA lab isn&rsquo;t a standard data center with network restrictions—it&rsquo;s a militarized containment facility designed by biosafety consultants who normally work on nuclear facilities and BSL-4 labs.</p>
 <p>Because as Eleanor says: <strong>&ldquo;Nuclear reactors can only destroy cities. An unaligned AGI could destroy everything.&rdquo;</strong></p>

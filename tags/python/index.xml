@@ -1,4 +1,427 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Python on metafunctor</title><link>https://metafunctor.com/tags/python/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 13 Feb 2026 23:13:25 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/python/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Navigating the Metafunctor Ecosystem: A Map of 120+ Open Source Projects</title><link>https://metafunctor.com/post/2026-02-07-ecosystem-overview/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-07-ecosystem-overview/</guid><description>A guided tour through my open-source ecosystem—from encrypted search theory and statistical reliability to Unix-philosophy CLI tools, AI research, and speculative fiction. How 120+ projects connect, where the gaps are, and where to start.</description><content:encoded><![CDATA[<p>Over the past decade, I&rsquo;ve published more than 120 open-source repositories on <a href="https://github.com/queelius">GitHub</a>. They span encrypted search theory, statistical reliability engineering, generic programming, fuzzy logic, AI tools, Unix-philosophy CLI utilities, three novels, a community math database, and a digital legacy project motivated by the possibility that I might not be around to maintain any of it.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Python on metafunctor</title><link>https://metafunctor.com/tags/python/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Feb 2026 04:46:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/python/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>dapple 0.6: Composition and Layout for Terminal Graphics</title><link>https://metafunctor.com/post/2026-02-15-dapple-composition-layout/</link><pubDate>Sun, 15 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-15-dapple-composition-layout/</guid><description>How extracting repeated sizing logic into a layout engine made seven new terminal tools trivial to build. On Canvas.fit(), Frame, Grid, and the charts API.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/dapple">dapple</a> started as a rendering library: bitmap in, text out. One Canvas API, seven renderers (braille, quadrants, sextants, ASCII, sixel, kitty, fingerprint). But as the CLI tools grew, they kept reinventing the same code.</p>
+<p>Every tool calculated terminal width, corrected aspect ratios, handled kitty vs sixel vs braille sizing differently. imgcat had 50 lines of sizing logic. pdfcat had 70. mdcat had 40. They all did the same thing, slightly differently, with slightly different bugs.</p>
+<p>0.6 extracts this into a layout engine and adds composition primitives that make multi-panel terminal displays trivial.</p>
+<h2 id="the-sizing-problem">The Sizing Problem</h2>
+<p>A terminal character cell is not square. It&rsquo;s roughly twice as tall as it is wide. A 100x100 pixel image rendered into 50x25 braille characters (2x4 dots each) looks squashed &ndash; the aspect ratio is wrong because we forgot to account for cell shape.</p>
+<p>Every dapple extra solved this independently. And each handled kitty, sixel, and character renderers with separate code paths, because pixel renderers don&rsquo;t need aspect correction at all.</p>
+<p><code>Canvas.fit()</code> consolidates this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">fitted</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">braille</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+</span></span></code></pre></div><p>One method. It knows the renderer&rsquo;s cell dimensions (braille is 2x4, sextants is 2x3), calculates the pixel width, preserves the aspect ratio with cell correction, and returns a resized canvas. For pixel renderers, it returns the canvas unchanged.</p>
+<p><code>terminal_fit()</code> goes further, handling renderer-specific protocol differences:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dapple.layout</span> <span class="kn">import</span> <span class="n">terminal_fit</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">canvas</span><span class="p">,</span> <span class="n">renderer</span> <span class="o">=</span> <span class="n">terminal_fit</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">sextants</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">canvas</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="n">renderer</span><span class="p">)</span>
+</span></span></code></pre></div><p>Kitty gets <code>columns=80</code> passed to the renderer. Sixel gets pixel-resized. Character renderers get <code>Canvas.fit()</code>. Three code paths, one function, zero decisions for the caller.</p>
+<h2 id="frame-and-grid">Frame and Grid</h2>
+<p>With sizing solved, composition becomes straightforward. A <code>Frame</code> wraps a canvas with optional title, border, and padding. A <code>Grid</code> arranges frames in rows.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dapple</span> <span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Frame</span><span class="p">,</span> <span class="n">Grid</span><span class="p">,</span> <span class="n">sextants</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">Frame</span><span class="p">(</span><span class="n">img1</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&#34;before&#34;</span><span class="p">),</span> <span class="n">Frame</span><span class="p">(</span><span class="n">img2</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&#34;after&#34;</span><span class="p">)],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">Frame</span><span class="p">(</span><span class="n">chart</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&#34;diff&#34;</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl"><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">grid</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">sextants</span><span class="p">)</span>
+</span></span></code></pre></div><p>This is the foundation for seven new CLI extras in 0.6:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>compcat</strong></td>
+          <td>Compare renderers side by side</td>
+      </tr>
+      <tr>
+          <td><strong>thumbcat</strong></td>
+          <td>Image contact sheet</td>
+      </tr>
+      <tr>
+          <td><strong>diffcat</strong></td>
+          <td>Visual image diff</td>
+      </tr>
+      <tr>
+          <td><strong>storycat</strong></td>
+          <td>Video storyboard grid</td>
+      </tr>
+      <tr>
+          <td><strong>ansicat</strong></td>
+          <td>ANSI art viewer</td>
+      </tr>
+      <tr>
+          <td><strong>plotcat</strong></td>
+          <td>Faceted data plots</td>
+      </tr>
+      <tr>
+          <td><strong>dashcat</strong></td>
+          <td>YAML-driven dashboards</td>
+      </tr>
+  </tbody>
+</table>
+<p>Each is under 150 lines. Most of the logic is argument parsing &ndash; the actual composition is a few lines of Frame and Grid calls.</p>
+<h2 id="charts-api">Charts API</h2>
+<p>The other addition is <code>dapple.charts</code> &ndash; character-dimension wrappers around the existing vizlib chart primitives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dapple.charts</span> <span class="kn">import</span> <span class="n">sparkline</span><span class="p">,</span> <span class="n">line_plot</span><span class="p">,</span> <span class="n">bar_chart</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">chart</span> <span class="o">=</span> <span class="n">sparkline</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">chart</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="n">braille</span><span class="p">)</span>
+</span></span></code></pre></div><p>Small thing, but it eliminates the &ldquo;how many pixels is 40 columns?&rdquo; arithmetic that every caller had to do.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<p>Good abstractions emerge from noticing repeated code. Three implementations of the same sizing logic is a clear signal that an abstraction is missing. Once the abstraction exists, new tools become composition: load content, fit to terminal, render. The seven new extras are proof &ndash; each is short because the hard problems are solved once in the layout engine.</p>
+<p>dapple 0.6 is on <a href="https://pypi.org/project/dapple/0.6.0/">PyPI</a>. Install with <code>pip install dapple[all-tools]</code>. Docs at <a href="https://queelius.github.io/dapple/">queelius.github.io/dapple</a>.</p>]]></content:encoded><category>dapple</category><category>terminal-graphics</category><category>python</category><category>open-source</category><category>composition</category><category>layout</category></item><item><title>Posthumous: A Federated Dead Man's Switch</title><link>https://metafunctor.com/post/2026-02-14-posthumous/</link><pubDate>Sat, 14 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-14-posthumous/</guid><description>A walkthrough of Posthumous — a self-hosted dead man's switch that monitors periodic check-ins via TOTP, progresses through escalating alert stages, and triggers automated actions if you stop responding. Covers the web UI, state machine, federation, and the notification pipeline.</description><content:encoded><![CDATA[<p>Some things should only happen after you can&rsquo;t do them yourself.</p>
+<p>Posthumous is a self-hosted dead man&rsquo;s switch. You check in periodically — via a phone, a browser, the CLI, or an API call — and if you stop, it progresses through escalating stages before triggering automated actions: sending notifications, running scripts, or anything you&rsquo;ve configured.</p>
+<p>I built it because the existing options are either cloud-hosted (you&rsquo;re trusting someone else&rsquo;s uptime for your most important automation) or single-node (one server failure and silence is indistinguishable from death). Posthumous is federated — multiple nodes watch each other — and fully self-hosted.</p>
+<p>This post walks through the basic workflows with screenshots.</p>
+<hr>
+<h2 id="setup">Setup</h2>
+<p>Installation is a single pip command:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install posthumous
+</span></span></code></pre></div><p>Initialization generates a TOTP secret and creates the config directory:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ phm init --node-name cerebro
+</span></span><span class="line"><span class="cl">Generated new TOTP secret.
+</span></span><span class="line"><span class="cl">Config created at ~/.posthumous/config.yaml
+</span></span><span class="line"><span class="cl">Example script created at ~/.posthumous/scripts/example.sh
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span><span class="line"><span class="cl">TOTP Setup - Scan with your authenticator app:
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">[</span>QR code appears here<span class="o">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Manual entry URI: otpauth://totp/Posthumous:cerebro?secret<span class="o">=</span>...<span class="p">&amp;</span><span class="nv">issuer</span><span class="o">=</span>Posthumous
+</span></span><span class="line"><span class="cl">Secret: <span class="nv">JBSWY3DPEHPK3PXP</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span><span class="line"><span class="cl">IMPORTANT: Save this secret securely!
+</span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
+</span></span></code></pre></div><p>You scan the QR code with any authenticator app — Google Authenticator, Authy, 1Password, whatever generates TOTP codes. That same code is how you prove you&rsquo;re alive.</p>
+<p>The config file (<code>~/.posthumous/config.yaml</code>) controls timing, notifications, and actions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">node_name</span><span class="p">:</span><span class="w"> </span><span class="l">cerebro</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l">JBSWY3DPEHPK3PXP</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">listen</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;0.0.0.0:8420&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">base_url</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;https://posthumous.example.com:8420&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">checkin_interval</span><span class="p">:</span><span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">warning_start</span><span class="p">:</span><span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">grace_start</span><span class="p">:</span><span class="w"> </span><span class="m">12</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">trigger_at</span><span class="p">:</span><span class="w"> </span><span class="m">14</span><span class="w"> </span><span class="l">days</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">notifications</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">default</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">ntfy://my-posthumous-channel</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">actions</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">on_warning</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Check-in needed. {days_left} days remaining.\n\nCheck in: {checkin_url}&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">on_grace</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;URGENT: Posthumous triggers in {hours_left} hours.\n\nCheck in: {checkin_url}&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">on_trigger</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Posthumous has activated.\n\nDashboard: {dashboard_url}&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">script</span><span class="p">:</span><span class="w"> </span><span class="l">scripts/release-credentials.sh</span><span class="w">
+</span></span></span></code></pre></div><p>Notification messages support template variables like <code>{checkin_url}</code> and <code>{dashboard_url}</code> — so push notifications to your phone include a direct link back to the check-in page. No need to remember a URL.</p>
+<hr>
+<h2 id="the-check-in-flow">The Check-in Flow</h2>
+<p>Start the daemon:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ phm run
+</span></span><span class="line"><span class="cl">Starting Posthumous node <span class="s1">&#39;cerebro&#39;</span>...
+</span></span></code></pre></div><p>This launches the web server, watchdog timer, and scheduler. Navigate to the check-in page:</p>
+<p><img src="01-checkin-armed.png" alt="The check-in page in ARMED state, showing a TOTP input field and the node name"></p>
+<p>The UI is intentionally minimal — dark theme, big input, works on a phone screen. Enter your 6-digit TOTP code from your authenticator app and hit Check In.</p>
+<p>After a successful check-in, the timer resets and you can see the countdown:</p>
+<p><img src="03-checkin-after.png" alt="Check-in page after successful authentication, showing time since last check-in and time until trigger"></p>
+<p>The status line tells you exactly how long until the system would escalate. In production you&rsquo;d have days or weeks, not seconds.</p>
+<p>You can also check in via the CLI or the JSON API:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># CLI check-in (prompts for TOTP)</span>
+</span></span><span class="line"><span class="cl">$ phm checkin
+</span></span><span class="line"><span class="cl">TOTP code: <span class="m">645557</span>
+</span></span><span class="line"><span class="cl">Check-in accepted
+</span></span><span class="line"><span class="cl">  Status: ARMED
+</span></span><span class="line"><span class="cl">  Next deadline: 2026-02-28 11:41 UTC
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># API check-in (for automation)</span>
+</span></span><span class="line"><span class="cl">$ curl -X POST http://localhost:8420/checkin <span class="se">\
+</span></span></span><span class="line"><span class="cl">    -H <span class="s1">&#39;Content-Type: application/json&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">    -d <span class="s1">&#39;{&#34;totp&#34;: &#34;645557&#34;}&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="o">{</span><span class="s2">&#34;success&#34;</span>: true, <span class="s2">&#34;status&#34;</span>: <span class="s2">&#34;armed&#34;</span>, <span class="s2">&#34;next_deadline&#34;</span>: <span class="s2">&#34;2026-02-28T11:41:43+00:00&#34;</span><span class="o">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="the-dashboard">The Dashboard</h2>
+<p>The dashboard shows everything at a glance — countdown timers, check-in history, peer status, and scheduled post-trigger actions:</p>
+<p><img src="04-dashboard-armed.png" alt="Dashboard in ARMED state showing time remaining until each escalation stage, check-in history, peer status, and scheduled items"></p>
+<p>The color coding matches the urgency: green for &ldquo;Until warning&rdquo; (you&rsquo;re fine), orange for &ldquo;Until grace&rdquo; (getting close), red for &ldquo;Until trigger&rdquo; (last chance). The dashboard auto-refreshes every 60 seconds.</p>
+<hr>
+<h2 id="the-state-machine">The State Machine</h2>
+<p>Posthumous progresses through four states:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">ARMED ──timeout──&gt; WARNING ──timeout──&gt; GRACE ──timeout──&gt; TRIGGERED
+</span></span><span class="line"><span class="cl">  ^                   |                   |                    |
+</span></span><span class="line"><span class="cl">  └─── check-in ──────┴─── check-in ─────┘                    v
+</span></span><span class="line"><span class="cl">                                                    (scheduler runs forever)
+</span></span></code></pre></div><p>A check-in from any pre-trigger state resets to ARMED. <strong>TRIGGERED is terminal</strong> — once activated, no check-in can undo it. This is by design: if the switch has fired, you want the actions to complete.</p>
+<p>Each transition fires its configured actions. If the node was offline and missed intermediate states (say it was down during WARNING and comes back during GRACE), the watchdog fires all skipped callbacks in order before reaching the current state. No notifications are silently dropped.</p>
+<p>When the system reaches TRIGGERED, the check-in page locks out:</p>
+<p><img src="06-checkin-triggered.png" alt="Check-in page in TRIGGERED state — the TOTP form is replaced with a message explaining the node is triggered"></p>
+<p>And the dashboard reflects the terminal state:</p>
+<p><img src="05-dashboard-triggered.png" alt="Dashboard in TRIGGERED state showing all stages as Active/Activated with the trigger timestamp"></p>
+<hr>
+<h2 id="notifications">Notifications</h2>
+<p>Posthumous uses <a href="https://github.com/caronc/apprise">Apprise</a> for notifications, which means it supports 100+ notification services out of the box: ntfy, Pushover, Telegram, Discord, email, Slack, and many more.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">notifications</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">default</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">ntfy://my-posthumous-channel</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">urgent</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">pover://user@token</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">tgram://bot_token/chat_id</span><span class="w">
+</span></span></span></code></pre></div><p>Each escalation stage can target different channels with different messages. Warning might go to ntfy (a gentle ping), while grace and trigger go to Pushover and Telegram (hard to miss).</p>
+<p>The new <code>{checkin_url}</code> variable means warning notifications include a clickable link directly to the check-in page — open the notification on your phone, tap the link, enter the TOTP code. Three taps and you&rsquo;re checked in.</p>
+<hr>
+<h2 id="federation">Federation</h2>
+<p>A single node has a single point of failure. If the server goes down, silence looks the same as death — which means either false triggers or missed real triggers.</p>
+<p>Posthumous solves this with federation. Multiple nodes share the same TOTP secret and communicate via HMAC-signed HTTP:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="c"># Node A&#39;s config</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">peers</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">https://node-b.example.com:8420</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">https://node-c.example.com:8420</span><span class="w">
+</span></span></span></code></pre></div><p>When you check in to any node, it broadcasts to all peers. When any node triggers, it broadcasts that too. The design bias is deliberate: <strong>duplicates over silence</strong>. Multiple nodes may fire the same notification — annoying but survivable. A missed trigger is not.</p>
+<p>Each node tracks peer health independently, and the dashboard shows peer status with connection age and failure counts.</p>
+<hr>
+<h2 id="post-trigger-scheduling">Post-Trigger Scheduling</h2>
+<p>Once triggered, Posthumous doesn&rsquo;t just fire-and-forget. A scheduler runs forever, executing actions on configurable schedules using a small DSL:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">post_trigger</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">weekly-reminder</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="l">every week after trigger</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Posthumous was triggered {days_left} days ago.&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">credential-release</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="l">days after trigger</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">script</span><span class="p">:</span><span class="w"> </span><span class="l">scripts/release-credentials.sh</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">annual-memorial</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="l">every year on trigger anniversary</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Annual memorial notification.&#34;</span><span class="w">
+</span></span></span></code></pre></div><p>The <code>when</code> expressions support relative timing (<code>30 days after trigger</code>), recurring patterns (<code>every week after trigger</code>), anniversaries (<code>every year on trigger anniversary</code>), and absolute dates. Each execution is deduplicated by period key — if a node restarts, it won&rsquo;t re-run actions for the current period.</p>
+<hr>
+<h2 id="security">Security</h2>
+<p>Authentication uses TOTP (the same protocol as Google Authenticator). This means:</p>
+<ul>
+<li><strong>No passwords stored on the server</strong> — only the shared secret</li>
+<li><strong>Time-based codes expire every 30 seconds</strong> — replay attacks have a narrow window</li>
+<li><strong>Brute-force protection</strong> — after configurable failed attempts, the account locks out for a configurable duration</li>
+</ul>
+<p>The check-in page properly locks out after too many failures, and the API returns HTTP 429.</p>
+<p>Peer communication is authenticated with HMAC-SHA256 signatures derived from the shared secret. State files can optionally be encrypted at rest with Fernet (AES-128-CBC), enabled with a single config flag:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">encrypt_at_rest</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span></span></span></code></pre></div><hr>
+<h2 id="status-at-a-glance">Status at a Glance</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ phm status
+</span></span><span class="line"><span class="cl">Node: cerebro
+</span></span><span class="line"><span class="cl">Status: ARMED
+</span></span><span class="line"><span class="cl">Last check-in: 2026-02-14 11:41 UTC
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Warning in:  6d 23h
+</span></span><span class="line"><span class="cl">Grace in:    10d 23h
+</span></span><span class="line"><span class="cl">Trigger in:  12d 23h
+</span></span></code></pre></div><p>Or hit the JSON API for monitoring integrations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ curl -s http://localhost:8420/status <span class="p">|</span> python -m json.tool
+</span></span><span class="line"><span class="cl"><span class="o">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;node_name&#34;</span>: <span class="s2">&#34;cerebro&#34;</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;status&#34;</span>: <span class="s2">&#34;armed&#34;</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;last_checkin&#34;</span>: <span class="s2">&#34;2026-02-14T11:41:43+00:00&#34;</span>,
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;time_remaining&#34;</span>: <span class="o">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;until_warning&#34;</span>: 596503.0,
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;until_grace&#34;</span>: 942103.0,
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;until_trigger&#34;</span>: 1114903.0
+</span></span><span class="line"><span class="cl">    <span class="o">}</span>
+</span></span><span class="line"><span class="cl"><span class="o">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>Posthumous is at v0.5. The core workflows are solid — check-in, state machine, notifications, federation, scheduling, encryption at rest. Some things I&rsquo;m considering:</p>
+<ul>
+<li><strong>Static site integration</strong> — generating a Hugo/Jekyll site from post-trigger content, hosted on GitHub Pages</li>
+<li><strong>Multi-factor escalation</strong> — requiring check-ins from multiple sources (web + CLI + API) before considering you &ldquo;alive&rdquo;</li>
+<li><strong>Better peer discovery</strong> — automatic peer registration instead of manual URL configuration</li>
+</ul>
+<p>The code is on GitHub: <a href="https://github.com/queelius/posthumous">queelius/posthumous</a>. It&rsquo;s a single <code>pip install</code> and about 2,200 lines of Python (plus 3,700 lines of tests at 99% coverage).</p>
+<hr>
+<p><em>Posthumous is named for the obvious reason. Some automations only make sense after the fact.</em></p>]]></content:encoded><category>posthumous</category><category>dead-mans-switch</category><category>python</category><category>asyncio</category><category>totp</category><category>federation</category><category>open-source</category></item><item><title>Client-Side Encryption for Static Sites: pagevault + cryptoid</title><link>https://metafunctor.com/post/2026-02-13-pagevault/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-pagevault/</guid><description>Two complementary tools for password-protecting content on static sites — no backend required. pagevault encrypts HTML files and embedded assets. cryptoid encrypts Hugo markdown at build time. Both use AES-256-GCM with multi-user key wrapping and decrypt entirely in the browser.</description><content:encoded><![CDATA[<p>I run a static site on GitHub Pages. No backend, no server, no database. That simplicity is the whole point — until you want to share something semi-private.</p>
+<p>Maybe it&rsquo;s client-confidential notes mixed in with public documentation. Maybe it&rsquo;s solutions to homework problems that should be behind a password. Maybe it&rsquo;s personal thoughts in a blog post that you want to share with specific people but not the entire internet.</p>
+<p>The usual answer is &ldquo;add a backend.&rdquo; But I didn&rsquo;t want to give up static hosting just because a few paragraphs needed a password.</p>
+<p>So I built two tools: <a href="https://github.com/queelius/pagevault"><strong>pagevault</strong></a> for encrypting HTML files and embedded assets, and <a href="https://github.com/queelius/cryptoid"><strong>cryptoid</strong></a> for encrypting Hugo markdown content at build time. They share the same cryptographic foundation but solve different problems.</p>
+<hr>
+<h2 id="two-tools-one-crypto-core">Two Tools, One Crypto Core</h2>
+<p>Both tools use identical encryption:</p>
+<ul>
+<li><strong>AES-256-GCM</strong> (authenticated encryption)</li>
+<li><strong>PBKDF2-SHA256</strong> with 310,000 iterations</li>
+<li><strong>v2 format</strong> with content-encryption-key (CEK) wrapping for multi-user support</li>
+<li><strong>Web Crypto API</strong> for browser-side decryption — no JavaScript crypto libraries</li>
+</ul>
+<p>The difference is <em>what</em> they encrypt and <em>when</em>:</p>
+<table>
+  <thead>
+      <tr>
+          <th></th>
+          <th><strong>pagevault</strong></th>
+          <th><strong>cryptoid</strong></th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Encrypts</strong></td>
+          <td>HTML regions, files, entire sites</td>
+          <td>Hugo markdown body content</td>
+      </tr>
+      <tr>
+          <td><strong>When</strong></td>
+          <td>Post-build (operates on HTML output)</td>
+          <td>Pre-build (operates on markdown source)</td>
+      </tr>
+      <tr>
+          <td><strong>Assets</strong></td>
+          <td>Images, PDFs, audio/video embedded in ciphertext</td>
+          <td>Text only (assets served publicly by Hugo)</td>
+      </tr>
+      <tr>
+          <td><strong>Output</strong></td>
+          <td>Self-contained HTML files</td>
+          <td>Hugo shortcodes with ciphertext</td>
+      </tr>
+      <tr>
+          <td><strong>Rendering</strong></td>
+          <td>Content is already HTML — just inject</td>
+          <td>Markdown rendered in browser via <a href="https://github.com/markedjs/marked">marked.js</a></td>
+      </tr>
+  </tbody>
+</table>
+<p>Use <strong>pagevault</strong> when you need to protect complete documents with embedded assets — encrypted PDFs, image galleries, entire mini-sites. Use <strong>cryptoid</strong> when you have a Hugo blog and want some posts or sections behind a password while keeping the full Hugo workflow (taxonomies, related posts, RSS, etc.).</p>
+<hr>
+<h2 id="pagevault-encrypt-anything-serve-anywhere">pagevault: Encrypt Anything, Serve Anywhere</h2>
+<p>pagevault encrypts <em>regions</em> of HTML files — not the whole page, just the parts you mark. Public navigation, styling, and scripts remain untouched. Only the sensitive sections become ciphertext, replaced with a password prompt that decrypts in the browser.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-html" data-lang="html"><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">header</span><span class="p">&gt;</span>Public navigation stays visible<span class="p">&lt;/</span><span class="nt">header</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">pagevault</span> <span class="na">hint</span><span class="o">=</span><span class="s">&#34;Contact me for the password&#34;</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>Private thoughts on this topic<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>This section is encrypted with AES-256-GCM...<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="p">&lt;/</span><span class="nt">pagevault</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">footer</span><span class="p">&gt;</span>Public footer stays visible<span class="p">&lt;/</span><span class="nt">footer</span><span class="p">&gt;</span>
+</span></span></code></pre></div><p>After running <code>pagevault lock</code>, the <code>&lt;pagevault&gt;</code> block becomes an opaque blob of base64. Visitors see a styled password prompt. If they have the password, the content decrypts instantly in their browser. If they don&rsquo;t, they see nothing — not even the size of what they&rsquo;re missing (with the <code>--pad</code> flag).</p>
+<p>Here&rsquo;s a real example — a team dashboard where public metrics are visible but financial data is encrypted:</p>
+<p><img src="dashboard-locked.png" alt="Dashboard with encrypted region showing password prompt between public sections"></p>
+<p>After entering the password, the protected sections decrypt in-place:</p>
+<p><img src="dashboard-unlocked.png" alt="Same dashboard after decryption, showing Internal Revenue and Infrastructure Costs"></p>
+<p>The output is a single self-contained HTML file. No JavaScript CDN, no external CSS, no runtime dependencies. You can email it, upload it to any static host, or open it from a local filesystem. Everything needed for decryption is embedded in the file.</p>
+<h3 id="beyond-html-encrypting-arbitrary-files">Beyond HTML: Encrypting Arbitrary Files</h3>
+<p>pagevault wraps non-HTML files into encrypted HTML payloads:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault lock report.pdf              <span class="c1"># → _locked/report.pdf.html</span>
+</span></span><span class="line"><span class="cl">pagevault lock presentation.pptx       <span class="c1"># → _locked/presentation.pptx.html</span>
+</span></span><span class="line"><span class="cl">pagevault lock mysite/ --site          <span class="c1"># → _locked/mysite.html</span>
+</span></span></code></pre></div><p>The encrypted HTML includes the file&rsquo;s contents as a base64 payload. When decrypted in the browser, a <strong>viewer plugin</strong> renders the content inline — images display as images, PDFs render in an embedded viewer, Markdown gets formatted with headings and code blocks.</p>
+<p><img src="file-locked.png" alt="Encrypted file showing password prompt with lock icon and filename"></p>
+<p>After entering the password, the viewer renders the content with a toolbar showing the filename, file size, and a download button:</p>
+<p><img src="markdown-decrypted.png" alt="Decrypted markdown file with rendered headings, lists, and code blocks"></p>
+<p>Seven viewers ship built-in: Image, PDF, HTML, Text, Markdown, Audio, and Video. Custom viewers follow the same plugin API — point <code>viewers_dir</code> at a directory of Python files and they&rsquo;re discovered automatically.</p>
+<h3 id="the-closure-property">The Closure Property</h3>
+<p>My favorite design constraint: <strong>the output of <code>pagevault lock</code> must be valid input to <code>pagevault lock</code>.</strong></p>
+<p>This means you can encrypt a page for Alice, then encrypt <em>different sections</em> of the same page for Bob, and everything just works. Alice sees her content. Bob sees his. The page round-trips cleanly through multiple encryption passes.</p>
+<p>Composability replaces configuration. You don&rsquo;t need pagevault to understand access levels — you just run it twice with different passwords on different sections.</p>
+<hr>
+<h2 id="cryptoid-native-hugo-encryption">cryptoid: Native Hugo Encryption</h2>
+<p>cryptoid takes a different approach. Instead of operating on HTML output, it works directly with Hugo&rsquo;s markdown source files. You mark content for encryption in front matter, and cryptoid handles the rest.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nn">---</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Confidential Project Update&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">encrypted</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">groups</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">team</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">leadership</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">password_hint</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Use your team credentials&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nt">remember</span><span class="p">:</span><span class="w"> </span><span class="l">ask</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="nn">---</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="c">## Q4 Results</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="l">Revenue grew 23% quarter-over-quarter...</span><span class="w">
+</span></span></span></code></pre></div><p>Running <code>cryptoid encrypt</code> replaces the markdown body with a Hugo shortcode containing encrypted ciphertext. Hugo then builds the site normally — the shortcode renders a password form, and the browser-side JavaScript handles decryption.</p>
+<h3 id="hugo-native-workflow">Hugo-Native Workflow</h3>
+<p>Because cryptoid operates at the source level, encrypted posts are still full Hugo citizens:</p>
+<ul>
+<li><strong>Taxonomies work</strong> — tags, categories, and series still render from front matter</li>
+<li><strong>Related posts work</strong> — Hugo&rsquo;s content matching sees the front matter</li>
+<li><strong>RSS works</strong> — feeds include the post metadata (body is just the shortcode)</li>
+<li><strong><code>_index.md</code> cascade</strong> — set <code>encrypted: true</code> in a section&rsquo;s index and all children inherit it</li>
+<li><strong>Group-based access control</strong> — assign user groups in front matter, cryptoid resolves which users get key blobs</li>
+</ul>
+<p>The CLI manages the full lifecycle:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Setup</span>
+</span></span><span class="line"><span class="cl">cryptoid init                                    <span class="c1"># interactive config setup</span>
+</span></span><span class="line"><span class="cl">cryptoid config add-user bob --group team        <span class="c1"># manage users and groups</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Protect content</span>
+</span></span><span class="line"><span class="cl">cryptoid protect content/private/ --groups team  <span class="c1"># mark directory for encryption</span>
+</span></span><span class="line"><span class="cl">cryptoid encrypt --content-dir content/          <span class="c1"># encrypt all marked files</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Manage</span>
+</span></span><span class="line"><span class="cl">cryptoid status --content-dir content/           <span class="c1"># show encryption status</span>
+</span></span><span class="line"><span class="cl">cryptoid rewrap --content-dir content/           <span class="c1"># update key blobs after user changes</span>
+</span></span><span class="line"><span class="cl">cryptoid decrypt --content-dir content/          <span class="c1"># restore plaintext for editing</span>
+</span></span></code></pre></div><h3 id="cascade-resolution">Cascade Resolution</h3>
+<p>Encryption settings propagate from <code>_index.md</code> files downward. If a file&rsquo;s own front matter has <code>encrypted: true</code>, that&rsquo;s used. Otherwise, cryptoid walks up parent directories checking each <code>_index.md</code> — the nearest one with an <code>encrypted</code> field wins.</p>
+<p>This means you can protect an entire section with one line in <code>_index.md</code>, then override individual files with <code>encrypted: false</code> if needed.</p>
+<hr>
+<h2 id="shared-cryptographic-design">Shared Cryptographic Design</h2>
+<p>Both tools share the same v2 encryption format and key-wrapping model.</p>
+<h3 id="cek-key-wrapping">CEK Key-Wrapping</h3>
+<p>A random content-encryption key (CEK) encrypts the actual data once. The CEK itself is then wrapped (encrypted) separately for each user&rsquo;s derived key:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Content  ──encrypt with CEK──&gt;  Ciphertext (one copy)
+</span></span><span class="line"><span class="cl">CEK  ──wrap with Alice&#39;s key──&gt;  Key Blob A
+</span></span><span class="line"><span class="cl">CEK  ──wrap with Bob&#39;s key────&gt;  Key Blob B
+</span></span></code></pre></div><p>Adding a user wraps one small key blob. Removing a user deletes one key blob. The bulk content stays untouched. Both tools provide a <code>sync</code>/<code>rewrap</code> command for key management, and <code>--rekey</code> for full CEK rotation.</p>
+<h3 id="pbkdf2-secret-format">PBKDF2 Secret Format</h3>
+<p>Both tools derive the wrapping key from <code>&quot;username:password&quot;</code> — a single PBKDF2 derivation per login attempt. The browser tries each key blob until one unwraps successfully, revealing the CEK.</p>
+<h3 id="threat-model">Threat Model</h3>
+<p>Both tools protect against the same threats: casual snooping (scrapers, search engines, curious visitors) and offline brute-force attacks. AES-256-GCM with 310k PBKDF2 iterations makes dictionary attacks expensive.</p>
+<p>Neither defends against browser-level adversaries (malicious extensions, XSS on the same origin) or a hosting provider modifying served files. The model is &ldquo;your static host is honest but the public internet is not.&rdquo; For static hosting, that&rsquo;s the right tradeoff.</p>
+<hr>
+<h2 id="when-to-use-which">When to Use Which</h2>
+<p><strong>Use pagevault when:</strong></p>
+<ul>
+<li>You need to encrypt non-Hugo HTML pages or files</li>
+<li>Images, PDFs, or other assets must be protected (embedded in ciphertext)</li>
+<li>You want self-contained encrypted files you can email or host anywhere</li>
+<li>You need the closure property (composable multi-tier encryption)</li>
+</ul>
+<p><strong>Use cryptoid when:</strong></p>
+<ul>
+<li>You have a Hugo site and want password-protected posts or sections</li>
+<li>You want encrypted content to participate in Hugo&rsquo;s taxonomy, search, and RSS</li>
+<li>Text content is the primary concern (images can remain public)</li>
+<li>You want directory-level cascade (<code>_index.md</code> inheritance)</li>
+</ul>
+<p><strong>Use both when:</strong></p>
+<ul>
+<li>Your Hugo site has some protected markdown posts (cryptoid) and also serves encrypted file downloads (pagevault)</li>
+<li>You want public blog posts with embedded encrypted attachments</li>
+</ul>
+<hr>
+<h2 id="try-them">Try Them</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># pagevault</span>
+</span></span><span class="line"><span class="cl">pip install pagevault
+</span></span><span class="line"><span class="cl">pagevault config init
+</span></span><span class="line"><span class="cl">pagevault mark page.html -s <span class="s2">&#34;.private&#34;</span>
+</span></span><span class="line"><span class="cl">pagevault lock page.html
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># cryptoid</span>
+</span></span><span class="line"><span class="cl">pip install cryptoid
+</span></span><span class="line"><span class="cl">cryptoid init
+</span></span><span class="line"><span class="cl">cryptoid protect content/private/ --groups team
+</span></span><span class="line"><span class="cl">cryptoid encrypt --content-dir content/
+</span></span><span class="line"><span class="cl">cryptoid hugo install  <span class="c1"># install shortcode + JS into your Hugo site</span>
+</span></span></code></pre></div><p>Both projects are on GitHub (<a href="https://github.com/queelius/pagevault">pagevault</a>, <a href="https://github.com/queelius/cryptoid">cryptoid</a>), MIT-licensed, and designed as building blocks — composable, self-contained, no server required.</p>
+<hr>
+<p><em>Static sites shouldn&rsquo;t need backends just because some content needs a password.</em></p>]]></content:encoded><category>pagevault</category><category>cryptoid</category><category>encryption</category><category>static-sites</category><category>python</category><category>web-crypto</category><category>open-source</category><category>hugo</category></item><item><title>Navigating the Metafunctor Ecosystem: A Map of 120+ Open Source Projects</title><link>https://metafunctor.com/post/2026-02-07-ecosystem-overview/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-07-ecosystem-overview/</guid><description>A guided tour through my open-source ecosystem—from encrypted search theory and statistical reliability to Unix-philosophy CLI tools, AI research, and speculative fiction. How 120+ projects connect, where the gaps are, and where to start.</description><content:encoded><![CDATA[<p>Over the past decade, I&rsquo;ve published more than 120 open-source repositories on <a href="https://github.com/queelius">GitHub</a>. They span encrypted search theory, statistical reliability engineering, generic programming, fuzzy logic, AI tools, Unix-philosophy CLI utilities, three novels, a community math database, and a digital legacy project motivated by the possibility that I might not be around to maintain any of it.</p>
 <p>From the outside, it probably looks like a sprawl. From the inside, almost everything connects.</p>
 <p>This post is the map I wish I&rsquo;d written years ago. It&rsquo;s for anyone who stumbles into my GitHub profile and wonders: <em>what is all this, and how does it fit together?</em></p>
 <p>Two threads run through everything:</p>
@@ -39,7 +462,7 @@
 </span></span><span class="line"><span class="cl">  ↓
 </span></span><span class="line"><span class="cl">likelihood.model             — Composable likelihood framework (submitted to CRAN)
 </span></span><span class="line"><span class="cl">  ↓
-</span></span><span class="line"><span class="cl">likelihood.model.series.md   — Masked series systems (next CRAN submission)
+</span></span><span class="line"><span class="cl">maskedcauses   — Masked series systems (next CRAN submission)
 </span></span><span class="line"><span class="cl">  ↓
 </span></span><span class="line"><span class="cl">wei.series.md.c1.c2.c3       — Weibull series estimation (the applied capstone)
 </span></span></code></pre></div><p>I&rsquo;ll detail the full R ecosystem below, but the key point is this: the theoretical work on masked data produced a general-purpose framework for composable statistical inference. The specific reliability application is just one instance of the pattern.</p>
@@ -80,7 +503,7 @@
           <td>Submitted to CRAN</td>
       </tr>
       <tr>
-          <td><a href="/projects/likelihood.model.series.md/">likelihood.model.series.md</a></td>
+          <td><a href="/projects/maskedcauses/">maskedcauses</a></td>
           <td>Series system MLE with masked failure causes</td>
           <td>Next CRAN submission</td>
       </tr>
@@ -373,7 +796,7 @@
 <h2 id="gap-analysis-whats-missing">Gap Analysis: What&rsquo;s Missing</h2>
 <p>Looking at 120+ projects as a whole, several gaps become visible:</p>
 <h3 id="no-unified-documentation-portal">No Unified Documentation Portal</h3>
-<p>Sixty-two repos have GitHub Pages sites, but there&rsquo;s no cross-project index. If you want to understand how <code>algebraic.mle</code> connects to <code>likelihood.model</code> connects to <code>likelihood.model.series.md</code>, you have to read three separate documentation sites and mentally stitch them together. <strong>A single documentation portal</strong> with cross-linked API docs and a dependency graph would make the ecosystem navigable.</p>
+<p>Sixty-two repos have GitHub Pages sites, but there&rsquo;s no cross-project index. If you want to understand how <code>algebraic.mle</code> connects to <code>likelihood.model</code> connects to <code>maskedcauses</code>, you have to read three separate documentation sites and mentally stitch them together. <strong>A single documentation portal</strong> with cross-linked API docs and a dependency graph would make the ecosystem navigable.</p>
 <h3 id="missing-ci-infrastructure">Missing CI Infrastructure</h3>
 <p>Many beta-stage repositories lack continuous integration. The R packages have CI through r-universe, but the Python and C++ projects are inconsistent. A standardized CI template across the ecosystem would catch breakage earlier.</p>
 <h3 id="no-rich-python-package-index">No Rich Python Package Index</h3>
@@ -396,7 +819,7 @@
 <h2 id="where-to-start">Where to Start</h2>
 <p>If you&rsquo;ve read this far and want to explore, here are entry points by interest:</p>
 <p><strong>If you&rsquo;re a statistician or reliability engineer:</strong>
-Start with <a href="/projects/algebraic.mle/">algebraic.mle</a> (on CRAN), then read the <a href="/post/2026-02-05-likelihood-model-series-md/">likelihood.model.series.md post</a>. The composable likelihood architecture is the most mature part of the ecosystem.</p>
+Start with <a href="/projects/algebraic.mle/">algebraic.mle</a> (on CRAN), then read the <a href="/post/2026-02-05-likelihood-model-series-md/">maskedcauses post</a>. The composable likelihood architecture is the most mature part of the ecosystem.</p>
 <p><strong>If you&rsquo;re a C++ programmer interested in generic programming:</strong>
 Start with the <a href="/series/stepanov/">Stepanov series</a>, especially <a href="/post/2026-01-18-synthesis-stepanov/">Seeing Structure First</a>. Then look at the C++ libraries (algebraic_hashing, maph, pfc) for worked examples of the philosophy.</p>
 <p><strong>If you work with trees or graphs in Python:</strong>
@@ -432,114 +855,7 @@ In digital legacy, the noise is time itself—bit rot, platform decay, forgettin
 <li><a href="https://queelius.r-universe.dev">R-universe packages</a></li>
 <li><a href="/series/">All blog series</a></li>
 <li><a href="/projects/">All project pages</a></li>
-</ul>]]></content:encoded><category>ecosystem</category><category>open-source</category><category>overview</category><category>oblivious-computing</category><category>statistics</category><category>reliability</category><category>generic-programming</category><category>unix-philosophy</category><category>digital-legacy</category><category>AI</category><category>LLM</category><category>R</category><category>C++</category><category>Python</category></item><item><title>pagevault: Client-Side Encryption for Static Sites</title><link>https://metafunctor.com/post/2026-02-13-pagevault/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-pagevault/</guid><description>How I built a tool that password-protects HTML content with real encryption — no backend required. Covers the architecture, interesting design constraints like the closure property, multi-user key wrapping, and a plugin system for rendering encrypted files in the browser.</description><content:encoded><![CDATA[<p>I run a static site on GitHub Pages. No backend, no server, no database. That simplicity is the whole point — until you want to share something semi-private.</p>
-<p>Maybe it&rsquo;s client-confidential notes mixed in with public documentation. Maybe it&rsquo;s solutions to homework problems that should be behind a password. Maybe it&rsquo;s personal thoughts in a blog post that you want to share with specific people but not the entire internet.</p>
-<p>The usual answer is &ldquo;add a backend.&rdquo; But I didn&rsquo;t want to give up static hosting just because a few paragraphs needed a password.</p>
-<p>So I built <a href="https://github.com/queelius/pagevault"><strong>pagevault</strong></a>.</p>
-<hr>
-<h2 id="the-core-idea">The Core Idea</h2>
-<p>pagevault encrypts <em>regions</em> of HTML files — not the whole page, just the parts you mark. Public navigation, styling, and scripts remain untouched. Only the sensitive sections become ciphertext, replaced with a password prompt that decrypts in the browser using the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API">Web Crypto API</a>.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-html" data-lang="html"><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">header</span><span class="p">&gt;</span>Public navigation stays visible<span class="p">&lt;/</span><span class="nt">header</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">pagevault</span> <span class="na">hint</span><span class="o">=</span><span class="s">&#34;Contact me for the password&#34;</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">  <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>Private thoughts on this topic<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">  <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>This section is encrypted with AES-256-GCM...<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl"><span class="p">&lt;/</span><span class="nt">pagevault</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">footer</span><span class="p">&gt;</span>Public footer stays visible<span class="p">&lt;/</span><span class="nt">footer</span><span class="p">&gt;</span>
-</span></span></code></pre></div><p>After running <code>pagevault lock</code>, the <code>&lt;pagevault&gt;</code> block becomes an opaque blob of base64. Visitors see a styled password prompt. If they have the password, the content decrypts instantly in their browser. If they don&rsquo;t, they see nothing — not even the size of what they&rsquo;re missing (with the <code>--pad</code> flag).</p>
-<p>Here&rsquo;s a real example — a team dashboard where public metrics are visible but financial data is encrypted:</p>
-<p><img src="dashboard-locked.png" alt="Dashboard with encrypted region showing password prompt between public sections"></p>
-<p>After entering the password, the protected sections decrypt in-place:</p>
-<p><img src="dashboard-unlocked.png" alt="Same dashboard after decryption, showing Internal Revenue and Infrastructure Costs"></p>
-<p>The output is a single self-contained HTML file. No JavaScript CDN, no external CSS, no runtime dependencies. You can email it, upload it to any static host, or open it from a local filesystem. Everything needed for decryption is embedded in the file.</p>
-<hr>
-<h2 id="encryption-details">Encryption Details</h2>
-<p>The crypto is intentionally non-configurable:</p>
-<ul>
-<li><strong>AES-256-GCM</strong> (AEAD — authenticated encryption with associated data)</li>
-<li><strong>PBKDF2-SHA256</strong> with 310,000 iterations (OWASP 2023 recommendation)</li>
-<li><strong>16-byte random salt</strong>, <strong>12-byte random IV</strong> per encryption</li>
-<li><strong>v2 format</strong> with content-encryption-key (CEK) wrapping</li>
-</ul>
-<p>I chose to fix these parameters rather than expose them as config options. Every pagevault file has the same security properties. No foot-guns, no &ldquo;I accidentally set iterations to 1.&rdquo;</p>
-<p>The iteration count is stored in the encrypted payload, so future versions can increase it without breaking backward compatibility. Old files decrypt at their original iteration count; new files get the latest.</p>
-<h3 id="why-cek-key-wrapping">Why CEK Key-Wrapping?</h3>
-<p>Early versions derived a key directly from the password and encrypted content with it. This works fine for single-user encryption, but breaks down with multiple users.</p>
-<p>If Alice and Bob each need their own password, naive multi-password means encrypting the content twice — doubling the payload size and making re-encryption expensive when passwords change.</p>
-<p>The CEK model solves this cleanly. A random content-encryption key encrypts the actual data once. Then the CEK itself is wrapped (encrypted) separately for each user&rsquo;s password. Adding a new user only wraps one small key blob. Changing a password only re-wraps one key blob. The bulk content stays untouched.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Content  ──encrypt with CEK──&gt;  Ciphertext (one copy)
-</span></span><span class="line"><span class="cl">CEK  ──wrap with Alice&#39;s key──&gt;  Key Blob A
-</span></span><span class="line"><span class="cl">CEK  ──wrap with Bob&#39;s key────&gt;  Key Blob B
-</span></span></code></pre></div><p>The <code>pagevault sync</code> command re-wraps keys when you add or remove users. For full key rotation (new CEK), there&rsquo;s <code>pagevault sync --rekey</code>.</p>
-<hr>
-<h2 id="the-closure-property">The Closure Property</h2>
-<p>This is my favorite design constraint. <strong>The output of <code>pagevault lock</code> must be valid input to <code>pagevault lock</code>.</strong></p>
-<p>This means you can encrypt a page for Alice, then encrypt <em>different sections</em> of the same page for Bob, and everything just works. Alice sees her content. Bob sees his. The page round-trips cleanly through multiple encryption passes.</p>
-<p>Why does this matter? Because it eliminates the need for a first-class &ldquo;multi-tier access&rdquo; feature. You don&rsquo;t need pagevault to understand access levels. You just run it twice with different passwords on different sections. Composability replaces configuration.</p>
-<p>In practice, this constraint forces discipline throughout the codebase. The HTML manipulation layer (BeautifulSoup/lxml) must preserve structure perfectly. The injected JavaScript must be idempotent — a page with two decryption runtimes shouldn&rsquo;t conflict. Attributes must round-trip through lock/unlock cycles without mutation.</p>
-<p>Every release runs roundtrip tests: lock, then lock again, then unlock twice. If any content is lost or corrupted, the test fails.</p>
-<hr>
-<h2 id="beyond-html-encrypting-arbitrary-files">Beyond HTML: Encrypting Arbitrary Files</h2>
-<p>Once you can encrypt HTML regions, the next question is obvious: what about PDFs? Images? Entire directories?</p>
-<p>pagevault handles this by wrapping non-HTML files into encrypted HTML payloads:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault lock report.pdf              <span class="c1"># → _locked/report.pdf.html</span>
-</span></span><span class="line"><span class="cl">pagevault lock presentation.pptx       <span class="c1"># → _locked/presentation.pptx.html</span>
-</span></span><span class="line"><span class="cl">pagevault lock mysite/ --site          <span class="c1"># → _locked/mysite.html</span>
-</span></span></code></pre></div><p>The encrypted HTML includes the file&rsquo;s contents as a base64 payload. When decrypted in the browser, a <strong>viewer plugin</strong> renders the content inline — images display as images, PDFs render in an embedded viewer, Markdown gets formatted with headings and code blocks.</p>
-<p>Here&rsquo;s what a password-protected file looks like before and after decryption:</p>
-<p><img src="file-locked.png" alt="Encrypted file showing password prompt with lock icon and filename"></p>
-<p>After entering the password, the viewer renders the content with a toolbar showing the filename, file size, and a download button:</p>
-<p><img src="markdown-decrypted.png" alt="Decrypted markdown file with rendered headings, lists, and code blocks"></p>
-<p>The text viewer renders plain text with line numbers — useful for meeting notes, logs, or config files:</p>
-<p><img src="text-decrypted.png" alt="Decrypted text file with line numbers and monospace rendering"></p>
-<h3 id="viewer-plugin-system">Viewer Plugin System</h3>
-<p>The viewer architecture follows a MIME-type dispatch model. Each viewer plugin declares which MIME types it handles:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">ImageViewer</span><span class="p">(</span><span class="n">ViewerPlugin</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span> <span class="o">=</span> <span class="s2">&#34;image&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">mime_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;image/*&#34;</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">js</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="s2">&#34;&#34;&#34;async function(container, blob, url, meta, toolbar) {
-</span></span></span><span class="line"><span class="cl"><span class="s2">            const img = document.createElement(&#39;img&#39;);
-</span></span></span><span class="line"><span class="cl"><span class="s2">            img.src = url;
-</span></span></span><span class="line"><span class="cl"><span class="s2">            container.appendChild(img);
-</span></span></span><span class="line"><span class="cl"><span class="s2">        }&#34;&#34;&#34;</span>
-</span></span></code></pre></div><p>Seven viewers ship built-in: Image, PDF, HTML, Text, Markdown, Audio, and Video. Each lives in its own file under <code>viewers/builtins/</code>, and the registry discovers them automatically by scanning the directory — no registration boilerplate required.</p>
-<p>Custom viewers work the same way. Point <code>viewers_dir</code> in your <code>.pagevault.yaml</code> at a directory of <code>.py</code> files that define <code>ViewerPlugin</code> subclasses, and they&rsquo;re picked up automatically. User viewers override builtins on name collision, so you can replace any built-in viewer with your own implementation.</p>
-<p>Resolution follows a priority chain: exact MIME match first, then wildcard patterns (e.g., <code>image/*</code>), then a download fallback. The viewer&rsquo;s JavaScript, CSS, and any dependencies are embedded directly into the encrypted HTML — maintaining the self-contained property even with custom viewers.</p>
-<p>Security is enforced at multiple layers. Plugin names and MIME types are validated via regex at class definition time (<code>__init_subclass__</code>), re-validated at the injection point (defense-in-depth), and all JS/CSS content is escaped to prevent <code>&lt;/script&gt;</code> breakout. The HTML viewer renders in a sandboxed iframe (<code>sandbox='allow-same-origin'</code>, no <code>allow-scripts</code>).</p>
-<hr>
-<h2 id="cli-design">CLI Design</h2>
-<p>pagevault follows a mark-then-lock workflow:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># 1. Mark what to encrypt (in-place, content stays plaintext)</span>
-</span></span><span class="line"><span class="cl">pagevault mark index.html -s <span class="s2">&#34;#secret&#34;</span> --hint <span class="s2">&#34;Ask admin&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 2. Encrypt marked regions (outputs to _locked/)</span>
-</span></span><span class="line"><span class="cl">pagevault lock index.html
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># 3. Deploy _locked/ to your static host</span>
-</span></span></code></pre></div><p>The <code>lock</code> command is unified — it detects whether the input is HTML (encrypt marked regions), a non-HTML file (wrap as encrypted HTML), or a directory with <code>--site</code> (bundle as a single-page encrypted site).</p>
-<p>A few commands that turned out to be surprisingly useful:</p>
-<ul>
-<li><strong><code>pagevault info</code></strong> — inspect an encrypted file without the password. Shows encryption metadata, number of key blobs, viewer information, content hash.</li>
-<li><strong><code>pagevault check -p PASSWORD</code></strong> — fast password verification. Does one PBKDF2 derivation and one key unwrap, returns exit code 0 or 1. Useful in CI scripts.</li>
-<li><strong><code>pagevault unlock --stdout</code></strong> — pipe decrypted content to stdout. Combined with shell pipelines, this makes pagevault a building block:</li>
-</ul>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault unlock report.pdf.html --stdout -p <span class="s2">&#34;</span><span class="nv">$SECRET</span><span class="s2">&#34;</span> &gt; report.pdf
-</span></span></code></pre></div><hr>
-<h2 id="what-it-defends-against-and-what-it-doesnt">What It Defends Against (and What It Doesn&rsquo;t)</h2>
-<p>pagevault protects against casual snooping (web scrapers, search engines, curious visitors) and determined offline attacks (someone downloads the HTML and runs dictionary attacks against the PBKDF2-wrapped payload). AES-256-GCM with 310k PBKDF2 iterations makes brute-force expensive.</p>
-<p>It does <strong>not</strong> defend against browser-level adversaries (malicious extensions, XSS on the same origin) or hosting providers modifying the served HTML. The threat model is &ldquo;your static host is honest but the public internet is not.&rdquo; This is the right tradeoff for static hosting — if you need protection against a malicious host, you need a different architecture entirely.</p>
-<hr>
-<h2 id="try-it">Try It</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install pagevault
-</span></span><span class="line"><span class="cl">pagevault config init
-</span></span><span class="line"><span class="cl">pagevault mark page.html -s <span class="s2">&#34;.private&#34;</span>
-</span></span><span class="line"><span class="cl">pagevault lock page.html
-</span></span></code></pre></div><p>The project is on <a href="https://github.com/queelius/pagevault">GitHub</a>. It&rsquo;s MIT-licensed, has 530+ tests, and is designed to be a building block — composable, self-contained, no server required.</p>
-<hr>
-<p><em>Static sites shouldn&rsquo;t need backends just because some content needs a password.</em></p>]]></content:encoded><category>pagevault</category><category>encryption</category><category>static-sites</category><category>python</category><category>web-crypto</category><category>open-source</category><category>hugo</category></item><item><title>Long Echo Comes Alive: From Philosophy to Orchestration</title><link>https://metafunctor.com/post/2026-01-longecho-orchestration/</link><pubDate>Tue, 20 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-longecho-orchestration/</guid><description>longecho evolves from specification to implementation with build, serve, and manifest features.</description><content:encoded><![CDATA[<p>A year ago, I wrote about <a href="/post/2025-01-long-echo/">Long Echo</a> as a philosophy for preserving AI conversations across decades. The key insight was graceful degradation: design archives that work progressively even as technology disappears.</p>
+</ul>]]></content:encoded><category>ecosystem</category><category>open-source</category><category>overview</category><category>oblivious-computing</category><category>statistics</category><category>reliability</category><category>generic-programming</category><category>unix-philosophy</category><category>digital-legacy</category><category>AI</category><category>LLM</category><category>R</category><category>C++</category><category>Python</category></item><item><title>Long Echo Comes Alive: From Philosophy to Orchestration</title><link>https://metafunctor.com/post/2026-01-longecho-orchestration/</link><pubDate>Tue, 20 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-longecho-orchestration/</guid><description>longecho evolves from specification to implementation with build, serve, and manifest features.</description><content:encoded><![CDATA[<p>A year ago, I wrote about <a href="/post/2025-01-long-echo/">Long Echo</a> as a philosophy for preserving AI conversations across decades. The key insight was graceful degradation: design archives that work progressively even as technology disappears.</p>
 <p>That philosophy has now become a tool.</p>
 <h2 id="from-philosophy-to-tool">From Philosophy to Tool</h2>
 <p>The original Long Echo was intentionally not code. It was a set of principles documented in CTK&rsquo;s repository. The hard problems of conversation parsing, storage, and search were already solved by toolkits like CTK, BTK, and EBK.</p>
@@ -2940,964 +3256,4 @@ In digital legacy, the noise is time itself—bit rot, platform decay, forgettin
 </ul>
 <hr>
 <p><em>XTK: Where pattern matching meets symbolic computation. Define the rules, let the engine do the rest.</em></p>
-]]></content:encoded><category>Python</category><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>REPL</category><category>mathematics</category></item><item><title>Everything is a File: Applying Unix Philosophy to Modern Data Management</title><link>https://metafunctor.com/post/2025-10-20-vfs-cli-tools/</link><pubDate>Mon, 20 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-10-20-vfs-cli-tools/</guid><description>How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems</description><content:encoded><![CDATA[<p><em>How virtual filesystem interfaces turned my scattered data tools into navigable, composable systems</em></p>
-<h2 id="the-problem-clis-that-dont-scale-with-complexity">The Problem: CLIs That Don&rsquo;t Scale With Complexity</h2>
-<p>I had a bookmark manager. Then an ebook library manager. Then a chat history manager. Each started simple:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Traditional CRUD approach</span>
-</span></span><span class="line"><span class="cl">btk add https://example.com --tags python,tutorial
-</span></span><span class="line"><span class="cl">btk list --tag python
-</span></span><span class="line"><span class="cl">btk search <span class="s2">&#34;async&#34;</span>
-</span></span><span class="line"><span class="cl">btk delete <span class="m">1234</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
-</span></span><span class="line"><span class="cl">ebk list --author Knuth
-</span></span><span class="line"><span class="cl">ebk search <span class="s2">&#34;algorithms&#34;</span>
-</span></span></code></pre></div><p>This works fine&hellip; until it doesn&rsquo;t.</p>
-<p><strong>The breaking point:</strong> I had 10,000+ bookmarks organized with hierarchical tags like <code>programming/python/async</code>, <code>research/ml/transformers</code>, <code>work/clients/acme</code>. My ebook library had similar structure. My exported chat conversations from Claude, ChatGPT, and Copilot were piling up.</p>
-<p>Traditional CRUD commands became unwieldy:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Getting specific without a VFS</span>
-</span></span><span class="line"><span class="cl">btk list --tag programming/python/async/io --format json <span class="p">|</span> jq <span class="s1">&#39;.[].title&#39;</span>
-</span></span><span class="line"><span class="cl">ebk list --category <span class="s2">&#34;Computer Science/Algorithms/Graph Theory&#34;</span> --limit <span class="m">50</span>
-</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;machine learning&#34;</span> --source ChatGPT --date-from 2024-01-01
-</span></span></code></pre></div><p>Each command required precise arguments. Each tool had different flag conventions. I couldn&rsquo;t <em>navigate</em> my data—I could only <em>query</em> it. And queries require knowing exactly what you&rsquo;re looking for.</p>
-<h2 id="the-unix-revelation-everything-is-a-file">The Unix Revelation: Everything is a File</h2>
-<p>The insight came from an unlikely place: managing files on my system.</p>
-<p>When I have thousands of source files organized in directories, I don&rsquo;t run:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">list-files --path /src/components/auth --extension .tsx
-</span></span></code></pre></div><p>I run:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> src/components/auth
-</span></span><span class="line"><span class="cl">ls *.tsx
-</span></span></code></pre></div><p><strong>The difference is profound:</strong> With a filesystem, I can:</p>
-<ul>
-<li><strong>Navigate incrementally</strong>: <code>cd</code> from general to specific</li>
-<li><strong>Explore</strong>: <code>ls</code> to see what&rsquo;s there</li>
-<li><strong>Compose</strong>: <code>cat file | grep pattern | wc -l</code></li>
-<li><strong>Use familiar tools</strong>: <code>find</code>, <code>grep</code>, <code>xargs</code>, pipes, redirection</li>
-</ul>
-<p>What if my bookmarks, ebooks, and chat histories were filesystems?</p>
-<h2 id="the-pattern-virtual-filesystems--posix-commands">The Pattern: Virtual Filesystems + POSIX Commands</h2>
-<p>Over the past year, I&rsquo;ve built six Python tools that all follow the same architectural pattern:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Tool</th>
-          <th>Domain</th>
-          <th>VFS Root Structure</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>btk</strong></td>
-          <td>Bookmarks</td>
-          <td><code>/bookmarks/</code>, <code>/tags/</code>, <code>/recent/</code>, <code>/domains/</code>, <code>/unread/</code>, <code>/popular/</code></td>
-      </tr>
-      <tr>
-          <td><strong>ebk</strong></td>
-          <td>Ebook library</td>
-          <td><code>/books/</code>, <code>/authors/</code>, <code>/series/</code>, <code>/subjects/</code>, <code>/recent/</code>, <code>/unread/</code></td>
-      </tr>
-      <tr>
-          <td><strong>ctk</strong></td>
-          <td>Chat conversations</td>
-          <td><code>/conversations/</code>, <code>/sources/</code>, <code>/topics/</code>, <code>/starred/</code>, <code>/recent/</code></td>
-      </tr>
-      <tr>
-          <td><strong>ghops</strong></td>
-          <td>Git repositories</td>
-          <td><code>/repos/</code>, <code>/languages/</code>, <code>/topics/</code>, <code>/stars/</code>, <code>/recent/</code></td>
-      </tr>
-      <tr>
-          <td><strong>infinigram</strong></td>
-          <td>N-gram models</td>
-          <td><code>/datasets/</code>, <code>/models/</code>, <code>/corpora/</code></td>
-      </tr>
-      <tr>
-          <td><strong>AlgoTree</strong></td>
-          <td>Tree structures</td>
-          <td><code>/nodes/</code>, <code>/paths/</code>, <code>/subtrees/</code></td>
-      </tr>
-  </tbody>
-</table>
-<p>Each tool provides:</p>
-<ol>
-<li><strong>A stateless CLI</strong> for scriptability: <code>btk bookmark add URL</code>, <code>ebk import book.pdf</code></li>
-<li><strong>An interactive shell</strong> with a virtual filesystem: <code>btk shell</code>, <code>ebk shell</code>, <code>ctk chat</code></li>
-<li><strong>POSIX-like commands</strong>: <code>cd</code>, <code>ls</code>, <code>pwd</code>, <code>cat</code>, <code>mv</code>, <code>cp</code>, <code>rm</code>, <code>find</code>, <code>grep</code></li>
-<li><strong>Unix pipeline support</strong>: Most commands output JSONL by default for piping</li>
-</ol>
-<p>The magic is in the shell. Let me show you.</p>
-<h2 id="live-session-navigating-10000-bookmarks">Live Session: Navigating 10,000 Bookmarks</h2>
-<p><strong>Watch the shell in action:</strong></p>
-<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.js"></script>
-<div id="btk-demo"></div>
-<script>
-AsciinemaPlayer.create('btk.cast', document.getElementById('btk-demo'), {
-  cols: 94,
-  rows: 49,
-  speed: 1,
-  idleTimeLimit: 2,
-  theme: 'monokai',
-  poster: 'npt:0:06'
-});
-</script>
-<p><em>This is a live recording captured with <a href="https://asciinema.org/">asciinema</a>. You can pause, copy text, and replay. The entire recording is just 78KB of text.</em></p>
-<h3 id="traditional-approach-crud-cli">Traditional Approach (CRUD CLI)</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk search <span class="s2">&#34;python async&#34;</span> --tag programming --limit <span class="m">10</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Returns JSON blob... now what?</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">$ btk list --tag <span class="s2">&#34;programming/python/async&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Hope I remembered the exact tag path</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">$ btk bookmark get <span class="m">4095</span> --format json <span class="p">|</span> jq <span class="s1">&#39;.tags&#39;</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># One bookmark at a time, verbose</span>
-</span></span></code></pre></div><h3 id="vfs-approach-interactive-shell">VFS Approach (Interactive Shell)</h3>
-<p>The recording above shows the shell in action. Here&rsquo;s what&rsquo;s happening:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk shell
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">      __    __  __
-</span></span><span class="line"><span class="cl">     / /_  / /_/ /__
-</span></span><span class="line"><span class="cl">    / __ <span class="se">\/</span> __/ //_/
-</span></span><span class="line"><span class="cl">   / /_/ / /_/ ,&lt;
-</span></span><span class="line"><span class="cl">  /_.___/<span class="se">\_</span>_/_/<span class="p">|</span>_<span class="p">|</span>  v0.7.1
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">  Bookmark Toolkit - Virtual Filesystem Shell
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/$ ls
-</span></span><span class="line"><span class="cl">bookmarks/    <span class="o">(</span>10,247<span class="o">)</span>    All bookmarks
-</span></span><span class="line"><span class="cl">tags/                    Tag hierarchy
-</span></span><span class="line"><span class="cl">recent/                  Time-based navigation
-</span></span><span class="line"><span class="cl">domains/                 Browse by domain
-</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    Never visited
-</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      Most visited
-</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       Dead links
-</span></span><span class="line"><span class="cl">starred/      <span class="o">(</span>156<span class="o">)</span>      Starred bookmarks
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming/python
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ ls
-</span></span><span class="line"><span class="cl">async/        <span class="o">(</span>87<span class="o">)</span>
-</span></span><span class="line"><span class="cl">web/          <span class="o">(</span>124<span class="o">)</span>
-</span></span><span class="line"><span class="cl">data/         <span class="o">(</span>156<span class="o">)</span>
-</span></span><span class="line"><span class="cl">ml/           <span class="o">(</span>89<span class="o">)</span>
-</span></span><span class="line"><span class="cl">testing/      <span class="o">(</span>45<span class="o">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls <span class="p">|</span> head -5
-</span></span><span class="line"><span class="cl"><span class="m">4095</span>  <span class="m">5234</span>  <span class="m">6012</span>  <span class="m">6891</span>  <span class="m">7234</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/title
-</span></span><span class="line"><span class="cl">Real Python - Async IO in Python: A Complete Walkthrough
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/url
-</span></span><span class="line"><span class="cl">https://realpython.com/async-io-python/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ star <span class="m">4095</span>
-</span></span><span class="line"><span class="cl">★ Starred bookmark <span class="c1">#4095</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ <span class="nb">cd</span> /recent/today/added
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/recent/today/added$ ls
-</span></span><span class="line"><span class="cl"><span class="m">8901</span>  <span class="m">8902</span>  <span class="m">8903</span>  <span class="m">8904</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag <span class="m">8901</span> <span class="m">8902</span> <span class="m">8903</span> todo
-</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">3</span> bookmarks
-</span></span></code></pre></div><p><strong>Notice what just happened:</strong></p>
-<ul>
-<li><strong>No flag memorization</strong>: Just <code>cd</code> and <code>ls</code></li>
-<li><strong>Incremental exploration</strong>: Narrow down step by step</li>
-<li><strong>Context-aware commands</strong>: <code>tag</code> and <code>star</code> work on IDs in current directory</li>
-<li><strong>Familiar mental model</strong>: It&rsquo;s just directories and files</li>
-</ul>
-<h2 id="the-same-pattern-different-data">The Same Pattern, Different Data</h2>
-<p>This pattern works beautifully across domains:</p>
-<h3 id="managing-ebooks-ebk">Managing Ebooks (ebk)</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk:/$ <span class="nb">cd</span> subjects/Computer<span class="se">\ </span>Science/Algorithms
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ ls
-</span></span><span class="line"><span class="cl">Introduction to Algorithms.pdf
-</span></span><span class="line"><span class="cl">The Algorithm Design Manual.pdf
-</span></span><span class="line"><span class="cl">Algorithms <span class="o">(</span>Sedgewick<span class="o">)</span>.pdf
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ cat <span class="s2">&#34;Introduction to Algorithms.pdf&#34;</span>/metadata
-</span></span><span class="line"><span class="cl">Title: Introduction to Algorithms
-</span></span><span class="line"><span class="cl">Authors: Cormen, Leiserson, Rivest, Stein
-</span></span><span class="line"><span class="cl">ISBN: 978-0262033848
-</span></span><span class="line"><span class="cl">Pages: <span class="m">1312</span>
-</span></span><span class="line"><span class="cl">Rating: 5/5
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ rate * <span class="m">5</span>
-</span></span><span class="line"><span class="cl">✓ Rated <span class="m">3</span> books
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ <span class="nb">cd</span> /recent/this-week/added
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk:/recent/this-week/added$ ls
-</span></span><span class="line"><span class="cl">Advanced Programming in the Unix Environment.pdf
-</span></span><span class="line"><span class="cl">Designing Data-Intensive Applications.pdf
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ebk:/recent/this-week/added$ tag * must-read
-</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">2</span> books
-</span></span></code></pre></div><h3 id="exploring-chat-history-ctk">Exploring Chat History (ctk)</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk:/$ <span class="nb">cd</span> sources/ChatGPT
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ ls <span class="p">|</span> wc -l
-</span></span><span class="line"><span class="cl"><span class="m">423</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ <span class="nb">cd</span> /topics/machine-learning
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ ls
-</span></span><span class="line"><span class="cl">conv_a1b2c3  conv_d4e5f6  conv_g7h8i9
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ show conv_a1b2c3
-</span></span><span class="line"><span class="cl"><span class="o">[</span>Shows conversation tree with messages<span class="o">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ star conv_a1b2c3
-</span></span><span class="line"><span class="cl">★ Starred conversation
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ <span class="nb">cd</span> /starred
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ctk:/starred$ <span class="nb">export</span> --format markdown &gt; starred_ml_convos.md
-</span></span><span class="line"><span class="cl">✓ Exported <span class="m">5</span> starred conversations to starred_ml_convos.md
-</span></span></code></pre></div><h3 id="managing-git-repositories-ghops">Managing Git Repositories (ghops)</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ghops:/$ <span class="nb">cd</span> languages/Python
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ghops:/languages/Python$ ls
-</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/  infinigram/  AlgoTree/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ghops:/languages/Python$ <span class="nb">cd</span> btk
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ status
-</span></span><span class="line"><span class="cl">Branch: master
-</span></span><span class="line"><span class="cl">Commits ahead: <span class="m">0</span>
-</span></span><span class="line"><span class="cl">Uncommitted changes: <span class="m">0</span>
-</span></span><span class="line"><span class="cl">Last commit: Release v0.7.1 <span class="o">(</span><span class="m">2</span> days ago<span class="o">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ <span class="nb">cd</span> /topics/cli-tools
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ghops:/topics/cli-tools$ ls
-</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">ghops:/topics/cli-tools$ audit all --fix
-</span></span><span class="line"><span class="cl">✓ Added .gitignore to <span class="m">2</span> repositories
-</span></span><span class="line"><span class="cl">✓ Added LICENSE to <span class="m">1</span> repository
-</span></span><span class="line"><span class="cl">✓ Updated README badges in <span class="m">4</span> repositories
-</span></span></code></pre></div><h2 id="design-principles-what-makes-this-work">Design Principles: What Makes This Work</h2>
-<p>After building six of these tools, clear patterns emerged:</p>
-<h3 id="1-local-first-stateless-cli--stateful-shell">1. <strong>Local-First, Stateless CLI + Stateful Shell</strong></h3>
-<p>Every tool offers two interfaces:</p>
-<p><strong>CLI (stateless, scriptable):</strong></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk bookmark add https://example.com --tags python,tutorial
-</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
-</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> --format jsonl &gt; training.jsonl
-</span></span></code></pre></div><p><strong>Shell (stateful, exploratory):</strong></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk shell
-</span></span><span class="line"><span class="cl"><span class="nb">cd</span> tags/python
-</span></span><span class="line"><span class="cl">star *
-</span></span></code></pre></div><p>The CLI is for automation and scripting. The shell is for humans.</p>
-<h3 id="2-everything-is-a-file-even-dynamic-data">2. <strong>Everything is a File, Even Dynamic Data</strong></h3>
-<p>Traditional filesystems are static. Our VFS exposes dynamic, computed views:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ ls
-</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    <span class="c1"># SELECT * WHERE visit_count = 0</span>
-</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      <span class="c1"># SELECT * ORDER BY visit_count DESC LIMIT 100</span>
-</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       <span class="c1"># SELECT * WHERE reachable = false</span>
-</span></span><span class="line"><span class="cl">recent/today/added/      <span class="c1"># SELECT * WHERE added &gt;= TODAY</span>
-</span></span></code></pre></div><p>These &ldquo;directories&rdquo; don&rsquo;t exist on disk—they&rsquo;re computed queries. But they <em>feel</em> like directories.</p>
-<h3 id="3-context-aware-commands">3. <strong>Context-Aware Commands</strong></h3>
-<p>Commands understand where you are:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/bookmarks/4095$ cat title
-</span></span><span class="line"><span class="cl"><span class="c1"># Shows title of bookmark 4095</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/python$ star *
-</span></span><span class="line"><span class="cl"><span class="c1"># Stars all Python-tagged bookmarks</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag * review
-</span></span><span class="line"><span class="cl"><span class="c1"># Tags today&#39;s additions</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/broken$ rm *
-</span></span><span class="line"><span class="cl"><span class="c1"># Removes all broken bookmarks</span>
-</span></span></code></pre></div><p>The current path becomes implicit context. No need to repeat IDs or filters.</p>
-<h3 id="4-jsonl-by-default-pretty-on-demand">4. <strong>JSONL by Default, Pretty on Demand</strong></h3>
-<p>All commands output newline-delimited JSON (JSONL) by default:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Pipe to jq, grep, awk, any Unix tool</span>
-</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span>
-</span></span><span class="line"><span class="cl">ebk status <span class="p">|</span> grep <span class="s2">&#34;rating: 5&#34;</span>
-</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;python&#34;</span> <span class="p">|</span> jq <span class="s1">&#39;.id&#39;</span> <span class="p">|</span> xargs ctk <span class="nb">export</span> --ids
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Pretty-print for humans</span>
-</span></span><span class="line"><span class="cl">btk list --pretty
-</span></span><span class="line"><span class="cl">ebk status --pretty
-</span></span></code></pre></div><p>This makes tools composable with the Unix ecosystem.</p>
-<h3 id="5-hierarchical-tags--navigable-directories">5. <strong>Hierarchical Tags = Navigable Directories</strong></h3>
-<p>The killer feature: hierarchical tags map directly to filesystem paths.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Tag with hierarchy</span>
-</span></span><span class="line"><span class="cl">btk tag <span class="m">4095</span> programming/python/async/io
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Navigate the hierarchy</span>
-</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming
-</span></span><span class="line"><span class="cl">btk:/tags/programming$ ls
-</span></span><span class="line"><span class="cl">python/  javascript/  rust/  go/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/tags/programming$ <span class="nb">cd</span> python/async
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls
-</span></span><span class="line"><span class="cl">io/  frameworks/  patterns/
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Bulk operations on a hierarchy</span>
-</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ star */advanced/*
-</span></span><span class="line"><span class="cl"><span class="c1"># Stars all bookmarks under any advanced subtag</span>
-</span></span></code></pre></div><p><strong>Compare with flat tags:</strong></p>
-<ul>
-<li>Flat: <code>python</code>, <code>python-async</code>, <code>python-async-io</code>, <code>python-web</code>, <code>python-web-django</code></li>
-<li>Hierarchical: <code>python/async/io</code>, <code>python/web/django</code></li>
-</ul>
-<p>Hierarchical tags give you free navigation and organization.</p>
-<h3 id="6-smart-collections-dynamic-virtual-directories">6. <strong>Smart Collections: Dynamic Virtual Directories</strong></h3>
-<p>Beyond tags, we can expose any query as a &ldquo;directory&rdquo;:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> unread
-</span></span><span class="line"><span class="cl">btk:/unread$ ls <span class="p">|</span> wc -l
-</span></span><span class="line"><span class="cl"><span class="m">2431</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Visit one, it disappears from /unread</span>
-</span></span><span class="line"><span class="cl">btk:/unread$ visit <span class="m">5234</span>
-</span></span><span class="line"><span class="cl">✓ Opened bookmark <span class="m">5234</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/unread$ ls <span class="p">|</span> wc -l
-</span></span><span class="line"><span class="cl"><span class="m">2430</span>
-</span></span></code></pre></div><p>Collections auto-update based on state changes. It&rsquo;s like smart playlists for data.</p>
-<h3 id="7-time-based-navigation">7. <strong>Time-Based Navigation</strong></h3>
-<p>Recency is a dimension worth navigating:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/today/visited
-</span></span><span class="line"><span class="cl">btk:/recent/today/visited$ ls
-</span></span><span class="line"><span class="cl"><span class="m">5001</span>  <span class="m">4987</span>  <span class="m">4923</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/this-week/added
-</span></span><span class="line"><span class="cl">btk:/recent/this-week/added$ tag * weekly-review
-</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">47</span> bookmarks
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> recent/last-month/starred
-</span></span><span class="line"><span class="cl">btk:/recent/last-month/starred$ <span class="nb">export</span> &gt; highlights.md
-</span></span></code></pre></div><p>This beats remembering exact date ranges in queries.</p>
-<h2 id="implementation-how-its-built">Implementation: How It&rsquo;s Built</h2>
-<p>Each tool shares a similar architecture:</p>
-<h3 id="core-components">Core Components</h3>
-<ol>
-<li>
-<p><strong>Database Layer</strong> (SQLAlchemy + SQLite)</p>
-<ul>
-<li>Normalized schema for entities (bookmarks, books, conversations)</li>
-<li>Full-text search with FTS5</li>
-<li>Efficient indexing for common queries</li>
-</ul>
-</li>
-<li>
-<p><strong>VFS Layer</strong> (Python <code>cmd.Cmd</code>)</p>
-<ul>
-<li>Path parsing: <code>/tags/programming/python</code> → context</li>
-<li>Context detection: &ldquo;Where am I? What objects are here?&rdquo;</li>
-<li>Command routing: context + command → appropriate handler</li>
-</ul>
-</li>
-<li>
-<p><strong>Command Layer</strong></p>
-<ul>
-<li>Context-aware implementations: <code>do_ls()</code>, <code>do_cd()</code>, <code>do_cat()</code>, etc.</li>
-<li>Smart defaults based on current path</li>
-<li>Pretty printing vs. JSONL output</li>
-</ul>
-</li>
-<li>
-<p><strong>CLI Layer</strong> (Typer/argparse)</p>
-<ul>
-<li>Stateless commands for scripting</li>
-<li>Output as JSONL for Unix pipes</li>
-<li>Shares same database as shell</li>
-</ul>
-</li>
-</ol>
-<h3 id="example-context-detection-in-btk">Example: Context Detection in BTK</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">_get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Determine what &#39;directory&#39; we&#39;re in.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span> <span class="o">==</span> <span class="s2">&#34;/&#34;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;root&#39;</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="c1"># /tags/programming/python</span>
-</span></span><span class="line"><span class="cl">        <span class="n">tag_path</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter_by_tag_prefix</span><span class="p">(</span><span class="n">tag_path</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tag&#39;</span><span class="p">,</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="n">tag_path</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="c1"># /recent/today/added</span>
-</span></span><span class="line"><span class="cl">        <span class="n">period</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># &#39;today&#39;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">activity</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;visited&#39;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="n">filter_by_time_and_activity</span><span class="p">(</span><span class="n">period</span><span class="p">,</span> <span class="n">activity</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">,</span> <span class="s1">&#39;period&#39;</span><span class="p">:</span> <span class="n">period</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">                <span class="s1">&#39;activity&#39;</span><span class="p">:</span> <span class="n">activity</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;unread&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="c1"># /unread - smart collection</span>
-</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">visit_count</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;unread&#39;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmarks&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="c1"># /bookmarks/4095</span>
-</span></span><span class="line"><span class="cl">        <span class="n">bookmark_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">        <span class="n">bookmark</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bookmark_id</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">,</span> <span class="s1">&#39;bookmark_id&#39;</span><span class="p">:</span> <span class="n">bookmark_id</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span> <span class="n">bookmark</span><span class="p">}</span>
-</span></span></code></pre></div><p>Once we know the context, commands adapt:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;List items in current directory.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_context</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;root&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_root</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_tag</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;tag&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmarks</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_collection</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmark</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmark&#39;</span><span class="p">])</span>
-</span></span></code></pre></div><p>This pattern—<strong>context detection + polymorphic commands</strong>—is the secret sauce.</p>
-<h2 id="beyond-these-six-the-pattern-scales">Beyond These Six: The Pattern Scales</h2>
-<p>The VFS + POSIX pattern isn&rsquo;t limited to these tools. I&rsquo;ve applied it to:</p>
-<ul>
-<li>
-<p><strong>json-algebra</strong>: Navigate and manipulate JSON structures as filesystems</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">json:/$ <span class="nb">cd</span> users/<span class="o">[</span>0<span class="o">]</span>/posts/<span class="o">[</span>2<span class="o">]</span>
-</span></span><span class="line"><span class="cl">json:/users/<span class="o">[</span>0<span class="o">]</span>/posts/<span class="o">[</span>2<span class="o">]</span>$ cat title
-</span></span><span class="line"><span class="cl"><span class="s2">&#34;My First Post&#34;</span>
-</span></span></code></pre></div></li>
-<li>
-<p><strong>log-analyzer</strong>: Navigate structured logs as directories</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">logs:/$ <span class="nb">cd</span> errors/2024-01/
-</span></span><span class="line"><span class="cl">logs:/errors/2024-01$ group-by level
-</span></span></code></pre></div></li>
-<li>
-<p><strong>api-explorer</strong>: Explore REST APIs as navigable resources</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">api:/$ <span class="nb">cd</span> users/123/posts
-</span></span><span class="line"><span class="cl">api:/users/123/posts$ ls
-</span></span><span class="line"><span class="cl">post_456  post_789  post_012
-</span></span></code></pre></div></li>
-</ul>
-<p>The pattern is <strong>universally applicable to hierarchical data</strong>.</p>
-<h2 id="why-this-matters-cognitive-fit">Why This Matters: Cognitive Fit</h2>
-<p>Traditional CLIs force you to:</p>
-<ol>
-<li><strong>Remember exact syntax</strong>: <code>--filter-by-tag</code>, <code>--limit</code>, <code>--format</code></li>
-<li><strong>Construct precise queries</strong>: Get it wrong, start over</li>
-<li><strong>Process JSON blobs</strong>: Pipe to <code>jq</code> for every operation</li>
-</ol>
-<p>VFS interfaces let you:</p>
-<ol>
-<li><strong>Explore incrementally</strong>: <code>cd</code> → <code>ls</code> → <code>cd</code> → <code>ls</code></li>
-<li><strong>Discover what exists</strong>: See tags/categories you forgot about</li>
-<li><strong>Operate on context</strong>: &ldquo;Star everything here&rdquo; not &ldquo;Star IDs 1,2,3,&hellip;&rdquo;</li>
-</ol>
-<p>It matches how humans think: <strong>spatial navigation</strong> over <strong>query construction</strong>.</p>
-<p>We already know filesystems. We already know <code>cd</code>, <code>ls</code>, <code>grep</code>, <code>find</code>. Why not leverage that knowledge?</p>
-<h2 id="the-unix-philosophy-lives">The Unix Philosophy Lives</h2>
-<p>Doug McIlroy&rsquo;s Unix philosophy (1978):</p>
-<blockquote>
-<ol>
-<li>Make each program do one thing well.</li>
-<li>Expect the output of every program to become the input to another.</li>
-<li>Design and build software to be tried early.</li>
-</ol>
-</blockquote>
-<p>We&rsquo;ve applied this to data:</p>
-<ol>
-<li><strong>One thing well</strong>: Each tool manages one domain (bookmarks, ebooks, chats)</li>
-<li><strong>Composable output</strong>: JSONL everywhere, pipe to jq/grep/awk</li>
-<li><strong>Interactive experimentation</strong>: Shell for exploration, CLI for automation</li>
-</ol>
-<p>And we&rsquo;ve extended it:</p>
-<ol start="4">
-<li><strong>Everything is a file</strong>: Even dynamic queries and computed collections</li>
-<li><strong>Navigation over query</strong>: <code>cd</code> to context before operating</li>
-<li><strong>Context is king</strong>: Current directory implies scope</li>
-</ol>
-<h2 id="getting-started-build-your-own">Getting Started: Build Your Own</h2>
-<p>Want to apply this pattern to your data? Here&rsquo;s the recipe:</p>
-<h3 id="1-identify-your-hierarchies">1. Identify Your Hierarchies</h3>
-<p>What natural hierarchies exist in your domain?</p>
-<ul>
-<li><strong>Bookmarks</strong>: Tags, domains, time</li>
-<li><strong>Ebooks</strong>: Authors, subjects, series</li>
-<li><strong>Chats</strong>: Sources, topics, time</li>
-<li><strong>Your domain</strong>: ?</li>
-</ul>
-<h3 id="2-design-your-vfs-root">2. Design Your VFS Root</h3>
-<p>What &ldquo;directories&rdquo; should exist at the top level?</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">/
-</span></span><span class="line"><span class="cl">├── &lt;primary-entities&gt;/    # /bookmarks, /books, /conversations
-</span></span><span class="line"><span class="cl">├── &lt;hierarchy-1&gt;/          # /tags, /authors, /sources
-</span></span><span class="line"><span class="cl">├── &lt;hierarchy-2&gt;/          # /domains, /subjects, /topics
-</span></span><span class="line"><span class="cl">├── &lt;time-based&gt;/           # /recent/today, /recent/this-week
-</span></span><span class="line"><span class="cl">└── &lt;smart-collections&gt;/    # /unread, /starred, /popular
-</span></span></code></pre></div><h3 id="3-implement-context-detection">3. Implement Context Detection</h3>
-<p>Map paths to database queries:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Tag</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by_prefix</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
-</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Recent</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">filter_by_time</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># ... etc</span>
-</span></span></code></pre></div><h3 id="4-add-posix-commands">4. Add POSIX Commands</h3>
-<p>Start with the essentials:</p>
-<ul>
-<li><code>cd</code> - Change context</li>
-<li><code>ls</code> - List items in context</li>
-<li><code>pwd</code> - Show current path</li>
-<li><code>cat</code> - Show item details</li>
-<li><code>find</code> - Search within subtree</li>
-<li><code>grep</code> - Filter items</li>
-</ul>
-<p>Then add domain-specific commands:</p>
-<ul>
-<li>Bookmarks: <code>visit</code>, <code>star</code>, <code>tag</code></li>
-<li>Ebooks: <code>rate</code>, <code>read</code>, <code>export</code></li>
-<li>Your domain: ?</li>
-</ul>
-<h3 id="5-provide-both-interfaces">5. Provide Both Interfaces</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Shell (stateful, cmd.Cmd-based)</span>
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DataShell</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Cmd</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">do_cd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span> <span class="o">...</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span> <span class="o">...</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># ...</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># CLI (stateless, Typer/argparse-based)</span>
-</span></span><span class="line"><span class="cl"><span class="nd">@app.command</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tags</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span> <span class="o">...</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="nd">@app.command</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">list</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
-</span></span></code></pre></div><p>Users choose based on use case:</p>
-<ul>
-<li><strong>Automation</strong>: Use CLI with pipes</li>
-<li><strong>Exploration</strong>: Use shell with <code>cd</code>/<code>ls</code></li>
-</ul>
-<h3 id="6-output-jsonl-by-default">6. Output JSONL by Default</h3>
-<p>Every command should output newline-delimited JSON unless <code>--pretty</code> is specified:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">output</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pretty</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">pretty</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="n">print_table</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># Rich table</span>
-</span></span><span class="line"><span class="cl">    <span class="k">else</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">item</span><span class="p">))</span>  <span class="c1"># JSONL</span>
-</span></span></code></pre></div><p>This makes your tool a first-class Unix citizen.</p>
-<h2 id="real-world-benefits-what-ive-gained">Real-World Benefits: What I&rsquo;ve Gained</h2>
-<p>Since building these tools, I&rsquo;ve:</p>
-<ol>
-<li><strong>Found forgotten treasures</strong>: Exploring <code>/tags/</code> revealed bookmark categories I&rsquo;d forgotten</li>
-<li><strong>Automated workflows</strong>: <code>cd /recent/this-week/added &amp;&amp; tag * weekly-review</code></li>
-<li><strong>Composed with Unix tools</strong>: <code>btk list | jq '.url' | xargs -I {} curl -I {}</code></li>
-<li><strong>Reduced cognitive load</strong>: No memorizing flags; just <code>cd</code> and <code>ls</code></li>
-<li><strong>Built faster</strong>: New tools reuse the same VFS pattern</li>
-</ol>
-<p>Most importantly: <strong>I actually use these tools daily.</strong> They&rsquo;re not abandoned side projects—they&rsquo;re integral to my workflow.</p>
-<h2 id="the-repository">The Repository</h2>
-<p>All six tools are open source:</p>
-<ul>
-<li><strong>btk</strong> (Bookmark Toolkit): <a href="https://github.com/queelius/btk">github.com/queelius/btk</a></li>
-<li><strong>ebk</strong> (eBook Manager): <a href="https://github.com/queelius/ebk">github.com/queelius/ebk</a></li>
-<li><strong>ctk</strong> (Conversation Toolkit): <a href="https://github.com/queelius/ctk">github.com/queelius/ctk</a></li>
-<li><strong>ghops</strong> (Git Repository Manager): <a href="https://github.com/queelius/ghops">github.com/queelius/ghops</a></li>
-<li><strong>infinigram</strong> (N-gram Models): <a href="https://github.com/queelius/infinigram">github.com/queelius/infinigram</a></li>
-<li><strong>AlgoTree</strong> (Tree Structures): <a href="https://github.com/queelius/AlgoTree">github.com/queelius/AlgoTree</a></li>
-</ul>
-<p>Each is on PyPI, fully documented, and well-tested.</p>
-<h2 id="call-to-action-join-the-movement">Call to Action: Join the Movement</h2>
-<p><strong>If you build CLI tools for hierarchical data:</strong></p>
-<p>Consider the VFS pattern. Your users already know <code>cd</code> and <code>ls</code>. Why make them learn 47 flags?</p>
-<p><strong>If you maintain complex data:</strong></p>
-<p>Try one of these tools. Install with <code>pip install btk</code> or <code>pip install ebk</code>. See if the VFS interface clicks.</p>
-<p><strong>If you want to contribute:</strong></p>
-<p>All six projects welcome contributors. The pattern is proven; the features are endless. Pick your domain (bookmarks, ebooks, chats, repos) and add:</p>
-<ul>
-<li>New smart collections</li>
-<li>New commands</li>
-<li>Better visualizations</li>
-<li>MCP integrations</li>
-<li>Browser extensions</li>
-</ul>
-<p><strong>If you&rsquo;re just here for the philosophy:</strong></p>
-<p>Spread the word. The Unix philosophy isn&rsquo;t dead—it&rsquo;s <em>evolving</em>. We&rsquo;ve gone from &ldquo;everything is a file&rdquo; to &ldquo;everything <em>can be presented as</em> a file.&rdquo;</p>
-<p>Your data deserves to be navigable. Make it a filesystem.</p>
-<hr>
-<h2 id="technical-notes">Technical Notes</h2>
-<h3 id="on-recording-shell-sessions">On Recording Shell Sessions</h3>
-<p>The interactive shell demo at the top of this post is a real <a href="https://asciinema.org/">asciinema</a> recording (78KB):</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">asciinema rec btk-demo.cast
-</span></span><span class="line"><span class="cl">btk shell
-</span></span><span class="line"><span class="cl"><span class="c1"># ... do your demo ...</span>
-</span></span><span class="line"><span class="cl"><span class="nb">exit</span>
-</span></span></code></pre></div><p>The resulting <code>.cast</code> file is pure text (JSON), usually just a few KB. Benefits:</p>
-<ul>
-<li><strong>Embeddable</strong>: Use <a href="https://github.com/asciinema/asciinema-player">asciinema-player</a> for interactive playback</li>
-<li><strong>Copy-pasteable</strong>: Viewers can copy text directly from the recording</li>
-<li><strong>Lightweight</strong>: 78KB for several minutes of demo vs. megabytes for video/GIF</li>
-<li><strong>Shareable</strong>: Host on asciinema.org for free or self-host</li>
-</ul>
-<p>This is <em>way</em> better than GIFs or videos for terminal demos. The player works in all modern browsers and supports pause/resume, speed control, and text selection.</p>
-<h3 id="on-jsonl-vs-pretty-printing">On JSONL vs. Pretty Printing</h3>
-<p>JSONL (newline-delimited JSON) is crucial for Unix composability:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Each line is valid JSON</span>
-</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span> <span class="p">|</span> jq <span class="s1">&#39;.title&#39;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># vs. array JSON (breaks streaming)</span>
-</span></span><span class="line"><span class="cl">btk list --format json <span class="p">|</span> jq <span class="s1">&#39;.[] | select(.stars == true) | .title&#39;</span>
-</span></span></code></pre></div><p>JSONL is:</p>
-<ul>
-<li><strong>Streamable</strong>: Process line-by-line, no need to load entire array</li>
-<li><strong>Appendable</strong>: <code>echo '{&quot;new&quot;:&quot;item&quot;}' &gt;&gt; data.jsonl</code></li>
-<li><strong>Grepable</strong>: <code>grep '&quot;stars&quot;:true' data.jsonl</code></li>
-<li><strong>Robust</strong>: One malformed record doesn&rsquo;t break the entire file</li>
-</ul>
-<p>Make it your default. Provide <code>--pretty</code> for humans.</p>
-<h3 id="on-test-coverage">On Test Coverage</h3>
-<p>All six tools have comprehensive test suites:</p>
-<ul>
-<li><strong>btk</strong>: 515 tests (53% shell coverage, 23% CLI coverage)</li>
-<li><strong>ebk</strong>: Similar architecture, similar coverage</li>
-<li><strong>ctk</strong>: Extensive integration tests with multiple LLM providers</li>
-<li><strong>ghops</strong>: 138 tests, 86% coverage</li>
-<li><strong>infinigram</strong>: 36 tests with benchmarks</li>
-<li><strong>AlgoTree</strong>: 197 tests, 86% coverage</li>
-</ul>
-<p>The VFS pattern is <em>highly testable</em>:</p>
-<ol>
-<li>Mock database queries</li>
-<li>Test path parsing</li>
-<li>Test context detection</li>
-<li>Test command handlers</li>
-</ol>
-<p>Each component is isolated and pure.</p>
-<hr>
-<h2 id="conclusion-the-future-is-navigable">Conclusion: The Future is Navigable</h2>
-<p>We&rsquo;ve spent 50 years making filesystems fast, reliable, and ubiquitous. Every operating system has them. Every programmer understands them.</p>
-<p>Why build new mental models for every data domain?</p>
-<p><strong>Make your data navigable. Make it a filesystem.</strong></p>
-<p>The tools are here. The pattern is proven. The Unix philosophy endures.</p>
-<p>Now go forth and <code>cd</code> into your data.</p>
-<hr>
-<p><em>Alex Towell builds tools at the intersection of systems programming, language models, and data wrangling. Find more at <a href="https://metafunctor.com">metafunctor.com</a> or follow the projects on <a href="https://github.com/queelius">GitHub</a>.</em></p>
-]]></content:encoded><category>unix-philosophy</category><category>cli-tools</category><category>python</category><category>data-management</category><category>virtual-filesystem</category><category>software-design</category><category>open-source</category></item><item><title>EBK: A Modern eBook Management System with AI-Powered Features</title><link>https://metafunctor.com/post/2025-10-ebk/</link><pubDate>Mon, 13 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-10-ebk/</guid><description>EBK is a comprehensive eBook metadata management tool that combines a robust SQLite backend with AI-powered features including knowledge graphs, semantic search, and MCP server integration for AI assistants.</description><content:encoded><![CDATA[<p>Managing a large eBook collection can quickly become overwhelming. Different formats, inconsistent metadata, duplicate files, and the challenge of actually <em>finding</em> what you need when you need it—these problems compound as your library grows.</p>
-<p><strong><a href="https://github.com/queelius/ebk">EBK</a></strong> addresses these challenges with a modern, Python-based solution that treats your eBook library as a queryable, searchable, AI-enhanced knowledge base.</p>
-<p>Your books represent decades of accumulated knowledge—technical references, formative texts, research that shaped your thinking. They deserve better than scattered files on a hard drive. EBK is part of the <a href="/post/2025-01-long-echo/">Long Echo</a> toolkit: tools for preserving your digital intellectual life in formats you control, queryable long after the cloud services have changed their APIs.</p>
-<h2 id="the-core-value-proposition">The Core Value Proposition</h2>
-<p>EBK isn&rsquo;t just another file organizer. It&rsquo;s built on several key principles:</p>
-<h3 id="1-database-first-architecture">1. Database-First Architecture</h3>
-<p>At its heart, EBK uses <strong>SQLAlchemy + SQLite</strong> with a normalized schema and proper relationships. This means:</p>
-<ul>
-<li><strong>Fast queries</strong> through indexed fields and relationships</li>
-<li><strong>FTS5 full-text search</strong> across titles, descriptions, and extracted content</li>
-<li><strong>Transaction safety</strong> ensuring your metadata is never corrupted</li>
-<li><strong>SQL power</strong> when you need complex queries</li>
-</ul>
-<h3 id="2-automatic-intelligence">2. Automatic Intelligence</h3>
-<p>The system automatically extracts and processes information:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Simple import with auto-extraction</span>
-</span></span><span class="line"><span class="cl"><span class="n">ebk</span> <span class="n">db</span><span class="o">-</span><span class="kn">import</span> <span class="nn">my</span><span class="o">-</span><span class="n">book</span><span class="o">.</span><span class="n">pdf</span> <span class="o">~/</span><span class="n">my</span><span class="o">-</span><span class="n">library</span>
-</span></span></code></pre></div><p>Behind the scenes, EBK:</p>
-<ul>
-<li><strong>Extracts text</strong> from PDFs (PyMuPDF + pypdf fallback) and EPUBs (ebooklib)</li>
-<li><strong>Generates chunks</strong> (500-word overlapping segments) for semantic search</li>
-<li><strong>Computes SHA256 hashes</strong> for deduplication</li>
-<li><strong>Extracts covers</strong> (first page for PDFs, metadata for EPUBs)</li>
-<li><strong>Creates thumbnails</strong> for display</li>
-<li><strong>Indexes everything</strong> in FTS5 for instant search</li>
-</ul>
-<h3 id="3-hash-based-deduplication">3. Hash-Based Deduplication</h3>
-<p>EBK implements intelligent file handling:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Same file (same hash)          → Skip (already imported)
-</span></span><span class="line"><span class="cl">Same book, different format    → Add as additional format
-</span></span><span class="line"><span class="cl">Different book                 → Import as new entry
-</span></span></code></pre></div><p>Books are stored in hash-prefixed directories (<code>ab/cd/ef/abcdef123456...pdf</code>) for scalability—no more massive flat directories.</p>
-<h2 id="the-fluent-python-api">The Fluent Python API</h2>
-<p>EBK provides a powerful, chainable API for programmatic access:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">ebk</span> <span class="kn">import</span> <span class="n">Library</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Open library and build complex queries</span>
-</span></span><span class="line"><span class="cl"><span class="n">lib</span> <span class="o">=</span> <span class="n">Library</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&#34;~/ebooks&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;language&#34;</span><span class="p">,</span> <span class="s2">&#34;en&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="s2">&#34;2020&#34;</span><span class="p">,</span> <span class="s2">&#34;&gt;=&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;subjects&#34;</span><span class="p">,</span> <span class="s2">&#34;Python&#34;</span><span class="p">,</span> <span class="s2">&#34;contains&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s2">&#34;title&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">execute</span><span class="p">())</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Method chaining for operations</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;rating&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">4</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">tag_all</span><span class="p">(</span><span class="s2">&#34;recommended&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">export_to_hugo</span><span class="p">(</span><span class="s2">&#34;/path/to/site&#34;</span><span class="p">,</span> <span class="n">organize_by</span><span class="o">=</span><span class="s2">&#34;subject&#34;</span><span class="p">))</span>
-</span></span></code></pre></div><p>This API makes it trivial to:</p>
-<ul>
-<li>Build complex queries without writing SQL</li>
-<li>Filter and transform collections</li>
-<li>Export subsets to different formats</li>
-<li>Analyze reading patterns and statistics</li>
-</ul>
-<h2 id="ai-powered-features">AI-Powered Features</h2>
-<p>EBK&rsquo;s optional AI features transform it from a management tool into a knowledge assistant:</p>
-<h3 id="knowledge-graphs">Knowledge Graphs</h3>
-<p>Using <strong>NetworkX</strong>, EBK can extract and visualize concept relationships:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Extract knowledge graph from library</span>
-</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">build_knowledge_graph</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">extract_entities</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">min_connection_strength</span><span class="o">=</span><span class="mf">0.3</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Visualize relationships between topics</span>
-</span></span><span class="line"><span class="cl"><span class="n">graph</span><span class="o">.</span><span class="n">visualize</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&#34;library_knowledge.html&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><p>This reveals hidden connections: &ldquo;These books about functional programming also discuss category theory.&rdquo;</p>
-<h3 id="semantic-search">Semantic Search</h3>
-<p>Beyond keyword matching, EBK can find books by <em>meaning</em>:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Find books semantically similar to a query</span>
-</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">semantic_search</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;explaining complex mathematical concepts simply&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">threshold</span><span class="o">=</span><span class="mf">0.7</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p>The system uses vector embeddings (with TF-IDF fallback for offline use) to understand intent, not just keywords.</p>
-<h3 id="reading-companion">Reading Companion</h3>
-<p>Track your reading journey with timestamps and context:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">session</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">start_reading_session</span><span class="p">(</span><span class="n">book_id</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">session</span><span class="o">.</span><span class="n">add_note</span><span class="p">(</span><span class="s2">&#34;Chapter 3: Key insight about...&#34;</span><span class="p">,</span> <span class="n">page</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">session</span><span class="o">.</span><span class="n">complete</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Later: &#34;What was I reading about X-rays last month?&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">search_reading_history</span><span class="p">(</span><span class="s2">&#34;X-rays&#34;</span><span class="p">,</span> <span class="n">date_range</span><span class="o">=</span><span class="s2">&#34;last_month&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="mcp-server-integration">MCP Server Integration</h2>
-<p>One of EBK&rsquo;s most powerful features is its <strong>Model Context Protocol (MCP) server</strong>:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install ebk<span class="o">[</span>mcp<span class="o">]</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Configure your AI assistant (Claude, etc.) to use the MCP server</span>
-</span></span></code></pre></div><p>This allows AI assistants to:</p>
-<ul>
-<li>Query your library directly</li>
-<li>Retrieve relevant passages during conversations</li>
-<li>Suggest books based on discussion context</li>
-<li>Answer questions using your personal knowledge base</li>
-</ul>
-<p>Imagine asking your AI: &ldquo;What books do I have about transformer architectures?&rdquo; and getting instant, accurate results from <em>your own library</em>.</p>
-<h2 id="rich-cli-experience">Rich CLI Experience</h2>
-<p>EBK uses <strong>Typer + Rich</strong> for a beautiful command-line experience:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Initialize new library</span>
-</span></span><span class="line"><span class="cl">ebk db-init ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Import from Calibre</span>
-</span></span><span class="line"><span class="cl">ebk db-import-calibre ~/Calibre/Library ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Full-text search with colorized output</span>
-</span></span><span class="line"><span class="cl">ebk db-search <span class="s2">&#34;quantum computing&#34;</span> ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Statistics with rich tables</span>
-</span></span><span class="line"><span class="cl">ebk db-stats ~/my-library
-</span></span></code></pre></div><p>The CLI features:</p>
-<ul>
-<li><strong>Progress bars</strong> for long operations</li>
-<li><strong>Colorized output</strong> for readability</li>
-<li><strong>Clickable file links</strong> (terminal permitting)</li>
-<li><strong>Rich tables</strong> for results</li>
-<li><strong>JSON output</strong> when scripting</li>
-</ul>
-<h2 id="flexible-export-options">Flexible Export Options</h2>
-<p>EBK can transform your library into various formats:</p>
-<h3 id="hugo-static-site">Hugo Static Site</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk <span class="nb">export</span> hugo ~/library ~/hugo-site <span class="se">\
-</span></span></span><span class="line"><span class="cl">    --jinja <span class="se">\
-</span></span></span><span class="line"><span class="cl">    --organize-by subject <span class="se">\
-</span></span></span><span class="line"><span class="cl">    --include-covers <span class="se">\
-</span></span></span><span class="line"><span class="cl">    --include-files
-</span></span></code></pre></div><p>Creates a browsable website with:</p>
-<ul>
-<li>Subject-based organization</li>
-<li>Cover image display</li>
-<li>Full-text content</li>
-<li>Download links</li>
-</ul>
-<h3 id="symlink-dag">Symlink DAG</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk export-dag ~/library ~/output
-</span></span></code></pre></div><p>Creates a navigable directory structure where:</p>
-<ul>
-<li>Tags become folders</li>
-<li>Books appear via symlinks</li>
-<li>Multiple paths lead to the same book</li>
-<li>File managers can browse it naturally</li>
-</ul>
-<h2 id="import-from-anywhere">Import from Anywhere</h2>
-<p>EBK handles multiple import sources:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># From Calibre library</span>
-</span></span><span class="line"><span class="cl">ebk db-import-calibre ~/Calibre/Library ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Individual files with auto-extraction</span>
-</span></span><span class="line"><span class="cl">ebk db-import book.pdf ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Batch import with progress tracking</span>
-</span></span><span class="line"><span class="cl">ebk db-import ~/Downloads/*.epub ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># From ZIP archives</span>
-</span></span><span class="line"><span class="cl">ebk import-zip library-backup.zip --output-dir ~/my-library
-</span></span></code></pre></div><p>Each import source is handled appropriately:</p>
-<ul>
-<li><strong>Calibre</strong>: Reads <code>metadata.opf</code> files</li>
-<li><strong>Raw files</strong>: Auto-extracts metadata from PDF/EPUB</li>
-<li><strong>ZIP archives</strong>: Preserves existing EBK structure</li>
-</ul>
-<h2 id="set-theoretic-operations">Set-Theoretic Operations</h2>
-<p>Merge multiple libraries with mathematical precision:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Union: All unique books from all libraries</span>
-</span></span><span class="line"><span class="cl">ebk merge union ~/merged ~/lib1 ~/lib2 ~/lib3
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Intersection: Only books present in ALL libraries</span>
-</span></span><span class="line"><span class="cl">ebk merge intersect ~/common ~/lib1 ~/lib2
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Difference: Books in lib1 NOT in lib2</span>
-</span></span><span class="line"><span class="cl">ebk merge diff ~/lib1-only ~/lib1 ~/lib2
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Symmetric difference: Books in exactly ONE library</span>
-</span></span><span class="line"><span class="cl">ebk merge symdiff ~/unique ~/lib1 ~/lib2
-</span></span></code></pre></div><p>Perfect for:</p>
-<ul>
-<li>Consolidating backups</li>
-<li>Finding duplicates across libraries</li>
-<li>Identifying unique collections</li>
-<li>Deduplicating merged sources</li>
-</ul>
-<h2 id="architecture-modular-and-extensible">Architecture: Modular and Extensible</h2>
-<p>EBK follows a clean, layered design:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">┌─────────────────────────────────────┐
-</span></span><span class="line"><span class="cl">│        Integrations Layer           │  ← Streamlit, MCP, Viz
-</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
-</span></span><span class="line"><span class="cl">│           CLI Layer                 │  ← Typer commands
-</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
-</span></span><span class="line"><span class="cl">│        Core Library Layer           │  ← Fluent API
-</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
-</span></span><span class="line"><span class="cl">│      Import/Export Layer            │  ← Format handlers
-</span></span><span class="line"><span class="cl">├─────────────────────────────────────┤
-</span></span><span class="line"><span class="cl">│        Database Layer               │  ← SQLAlchemy + SQLite
-</span></span><span class="line"><span class="cl">└─────────────────────────────────────┘
-</span></span></code></pre></div><p>This design ensures:</p>
-<ul>
-<li><strong>Core remains lightweight</strong> (minimal dependencies)</li>
-<li><strong>Extensions are optional</strong> (<code>pip install ebk[streamlit]</code>)</li>
-<li><strong>APIs are stable</strong> (database changes don&rsquo;t affect CLI)</li>
-<li><strong>Testing is isolated</strong> (each layer independently testable)</li>
-</ul>
-<h2 id="optional-integrations">Optional Integrations</h2>
-<h3 id="streamlit-dashboard">Streamlit Dashboard</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install ebk<span class="o">[</span>streamlit<span class="o">]</span>
-</span></span><span class="line"><span class="cl">streamlit run -m ebk.integrations.streamlit.app -- ~/library
-</span></span></code></pre></div><p>Provides a web interface for:</p>
-<ul>
-<li>Visual browsing with cover thumbnails</li>
-<li>Advanced search and filtering</li>
-<li>Statistics and visualizations</li>
-<li>Batch operations</li>
-<li>Export management</li>
-</ul>
-<h3 id="visualization-tools">Visualization Tools</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install ebk<span class="o">[</span>viz<span class="o">]</span>
-</span></span></code></pre></div><p>Enables:</p>
-<ul>
-<li><strong>Network graphs</strong> showing book relationships</li>
-<li><strong>Tag clouds</strong> for subject distribution</li>
-<li><strong>Timeline views</strong> of publication dates</li>
-<li><strong>Author collaboration networks</strong></li>
-</ul>
-<h2 id="real-world-use-cases">Real-World Use Cases</h2>
-<h3 id="academic-research">Academic Research</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">lib</span> <span class="o">=</span> <span class="n">Library</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&#34;~/research-library&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Find papers on a specific topic with high citations</span>
-</span></span><span class="line"><span class="cl"><span class="n">papers</span> <span class="o">=</span> <span class="p">(</span><span class="n">lib</span><span class="o">.</span><span class="n">query</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;subjects&#34;</span><span class="p">,</span> <span class="s2">&#34;machine-learning&#34;</span><span class="p">,</span> <span class="s2">&#34;contains&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="s2">&#34;custom.citations&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&#34;&gt;=&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">execute</span><span class="p">())</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Export to Hugo for lab website</span>
-</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">export_to_hugo</span><span class="p">(</span><span class="s2">&#34;/lab-website/content/papers&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="personal-knowledge-base">Personal Knowledge Base</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Build knowledge graph of your interests</span>
-</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">build_knowledge_graph</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Find books that bridge two topics</span>
-</span></span><span class="line"><span class="cl"><span class="n">bridges</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">find_bridges</span><span class="p">(</span><span class="s2">&#34;programming&#34;</span><span class="p">,</span> <span class="s2">&#34;philosophy&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Get reading recommendations</span>
-</span></span><span class="line"><span class="cl"><span class="n">recommended</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">recommend</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">based_on</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;favorite_book_1&#34;</span><span class="p">,</span> <span class="s2">&#34;favorite_book_2&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="n">diversity</span><span class="o">=</span><span class="mf">0.6</span>  <span class="c1"># Balance similarity with variety</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><h3 id="curation-and-sharing">Curation and Sharing</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Create curated collections</span>
-</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">b</span><span class="p">:</span> <span class="s2">&#34;beginner-friendly&#34;</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;tags&#34;</span><span class="p">,</span> <span class="p">[]))</span>
-</span></span><span class="line"><span class="cl">   <span class="o">.</span><span class="n">tag_all</span><span class="p">(</span><span class="s2">&#34;recommended-for-beginners&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">   <span class="o">.</span><span class="n">export_to_zip</span><span class="p">(</span><span class="s2">&#34;beginner-collection.zip&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Share with Calibre users</span>
-</span></span><span class="line"><span class="cl"><span class="n">lib</span><span class="o">.</span><span class="n">export_to_calibre</span><span class="p">(</span><span class="s2">&#34;/shared/calibre-library&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="development-philosophy">Development Philosophy</h2>
-<p>EBK embraces modern Python best practices:</p>
-<ul>
-<li><strong>Type hints throughout</strong> for IDE support</li>
-<li><strong>Comprehensive testing</strong> with pytest</li>
-<li><strong>Documentation</strong> via docstrings and Markdown</li>
-<li><strong>Makefile automation</strong> for common tasks</li>
-<li><strong>Modular design</strong> for easy extension</li>
-</ul>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Development workflow</span>
-</span></span><span class="line"><span class="cl">make venv      <span class="c1"># Create virtual environment</span>
-</span></span><span class="line"><span class="cl">make setup     <span class="c1"># Install in development mode</span>
-</span></span><span class="line"><span class="cl">make <span class="nb">test</span>      <span class="c1"># Run test suite</span>
-</span></span><span class="line"><span class="cl">make coverage  <span class="c1"># Check coverage</span>
-</span></span></code></pre></div><h2 id="future-directions">Future Directions</h2>
-<p>EBK is actively developed with several exciting features planned:</p>
-<ul>
-<li><strong>Enhanced AI features</strong>: Question generation for active recall</li>
-<li><strong>Mobile app</strong>: React Native app using SQLite directly</li>
-<li><strong>Cloud sync</strong>: Optional encrypted cloud backup</li>
-<li><strong>Plugin system</strong>: Community-contributed importers/exporters</li>
-<li><strong>Advanced analytics</strong>: Reading time tracking, difficulty estimation</li>
-</ul>
-<h2 id="getting-started">Getting Started</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install with all features</span>
-</span></span><span class="line"><span class="cl">pip install ebk<span class="o">[</span>all<span class="o">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Initialize a library</span>
-</span></span><span class="line"><span class="cl">ebk db-init ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Import your first book</span>
-</span></span><span class="line"><span class="cl">ebk db-import ~/Documents/book.pdf ~/my-library
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Search and explore</span>
-</span></span><span class="line"><span class="cl">ebk db-search <span class="s2">&#34;topic&#34;</span> ~/my-library
-</span></span><span class="line"><span class="cl">ebk db-stats ~/my-library
-</span></span></code></pre></div><h2 id="why-ebk">Why EBK?</h2>
-<p>The eBook ecosystem is fragmented. Files are scattered, metadata is inconsistent, and powerful operations (like &ldquo;find all books about X published after Y that I haven&rsquo;t read&rdquo;) are impossible without custom scripts.</p>
-<p>EBK provides:</p>
-<ul>
-<li><strong>A single source of truth</strong> for your eBook metadata</li>
-<li><strong>Powerful querying</strong> without writing SQL</li>
-<li><strong>AI-enhanced discovery</strong> for better insights</li>
-<li><strong>Format independence</strong> (import/export to many formats)</li>
-<li><strong>Future-proof storage</strong> (open SQLite + documented schema)</li>
-</ul>
-<p>Your books represent significant investment—both financial and intellectual. They deserve better than a pile of files in a directory.</p>
-<p>EBK treats your library as what it truly is: a personal knowledge base worth curating, querying, and exploring.</p>
-<hr>
-<p><strong>Resources:</strong></p>
-<ul>
-<li><a href="https://github.com/queelius/ebk">GitHub Repository</a></li>
-<li><a href="/projects/ebk/">Project Page</a></li>
-<li><a href="https://metafunctor.com">Author&rsquo;s Website</a></li>
-</ul>
-<p><strong>Questions or feedback?</strong> Open an issue on GitHub or reach out at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a>.</p>
-<p>Happy reading! 📚✨</p>
-]]></content:encoded><category>Python</category><category>ebook-manager</category><category>SQLite</category><category>SQLAlchemy</category><category>full-text-search</category><category>knowledge-graphs</category><category>semantic-search</category><category>MCP</category><category>AI</category><category>cli</category><category>data-management</category></item></channel></rss>
+]]></content:encoded><category>Python</category><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>REPL</category><category>mathematics</category></item></channel></rss>

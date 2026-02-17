@@ -1,4 +1,77 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Composition on metafunctor</title><link>https://metafunctor.com/tags/composition/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 13 Feb 2026 23:13:24 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/composition/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>An Algebraic Framework for Language Model Composition: Unifying Projections, Mixtures, and Constraints</title><link>https://metafunctor.com/papers/langcalc/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/langcalc/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Composition on metafunctor</title><link>https://metafunctor.com/tags/composition/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Feb 2026 04:46:23 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/composition/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>dapple 0.6: Composition and Layout for Terminal Graphics</title><link>https://metafunctor.com/post/2026-02-15-dapple-composition-layout/</link><pubDate>Sun, 15 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-15-dapple-composition-layout/</guid><description>How extracting repeated sizing logic into a layout engine made seven new terminal tools trivial to build. On Canvas.fit(), Frame, Grid, and the charts API.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/dapple">dapple</a> started as a rendering library: bitmap in, text out. One Canvas API, seven renderers (braille, quadrants, sextants, ASCII, sixel, kitty, fingerprint). But as the CLI tools grew, they kept reinventing the same code.</p>
+<p>Every tool calculated terminal width, corrected aspect ratios, handled kitty vs sixel vs braille sizing differently. imgcat had 50 lines of sizing logic. pdfcat had 70. mdcat had 40. They all did the same thing, slightly differently, with slightly different bugs.</p>
+<p>0.6 extracts this into a layout engine and adds composition primitives that make multi-panel terminal displays trivial.</p>
+<h2 id="the-sizing-problem">The Sizing Problem</h2>
+<p>A terminal character cell is not square. It&rsquo;s roughly twice as tall as it is wide. A 100x100 pixel image rendered into 50x25 braille characters (2x4 dots each) looks squashed &ndash; the aspect ratio is wrong because we forgot to account for cell shape.</p>
+<p>Every dapple extra solved this independently. And each handled kitty, sixel, and character renderers with separate code paths, because pixel renderers don&rsquo;t need aspect correction at all.</p>
+<p><code>Canvas.fit()</code> consolidates this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">fitted</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">braille</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+</span></span></code></pre></div><p>One method. It knows the renderer&rsquo;s cell dimensions (braille is 2x4, sextants is 2x3), calculates the pixel width, preserves the aspect ratio with cell correction, and returns a resized canvas. For pixel renderers, it returns the canvas unchanged.</p>
+<p><code>terminal_fit()</code> goes further, handling renderer-specific protocol differences:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dapple.layout</span> <span class="kn">import</span> <span class="n">terminal_fit</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">canvas</span><span class="p">,</span> <span class="n">renderer</span> <span class="o">=</span> <span class="n">terminal_fit</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">sextants</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">canvas</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="n">renderer</span><span class="p">)</span>
+</span></span></code></pre></div><p>Kitty gets <code>columns=80</code> passed to the renderer. Sixel gets pixel-resized. Character renderers get <code>Canvas.fit()</code>. Three code paths, one function, zero decisions for the caller.</p>
+<h2 id="frame-and-grid">Frame and Grid</h2>
+<p>With sizing solved, composition becomes straightforward. A <code>Frame</code> wraps a canvas with optional title, border, and padding. A <code>Grid</code> arranges frames in rows.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dapple</span> <span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Frame</span><span class="p">,</span> <span class="n">Grid</span><span class="p">,</span> <span class="n">sextants</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">Frame</span><span class="p">(</span><span class="n">img1</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&#34;before&#34;</span><span class="p">),</span> <span class="n">Frame</span><span class="p">(</span><span class="n">img2</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&#34;after&#34;</span><span class="p">)],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">Frame</span><span class="p">(</span><span class="n">chart</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&#34;diff&#34;</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl"><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">grid</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">sextants</span><span class="p">)</span>
+</span></span></code></pre></div><p>This is the foundation for seven new CLI extras in 0.6:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>Purpose</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>compcat</strong></td>
+          <td>Compare renderers side by side</td>
+      </tr>
+      <tr>
+          <td><strong>thumbcat</strong></td>
+          <td>Image contact sheet</td>
+      </tr>
+      <tr>
+          <td><strong>diffcat</strong></td>
+          <td>Visual image diff</td>
+      </tr>
+      <tr>
+          <td><strong>storycat</strong></td>
+          <td>Video storyboard grid</td>
+      </tr>
+      <tr>
+          <td><strong>ansicat</strong></td>
+          <td>ANSI art viewer</td>
+      </tr>
+      <tr>
+          <td><strong>plotcat</strong></td>
+          <td>Faceted data plots</td>
+      </tr>
+      <tr>
+          <td><strong>dashcat</strong></td>
+          <td>YAML-driven dashboards</td>
+      </tr>
+  </tbody>
+</table>
+<p>Each is under 150 lines. Most of the logic is argument parsing &ndash; the actual composition is a few lines of Frame and Grid calls.</p>
+<h2 id="charts-api">Charts API</h2>
+<p>The other addition is <code>dapple.charts</code> &ndash; character-dimension wrappers around the existing vizlib chart primitives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dapple.charts</span> <span class="kn">import</span> <span class="n">sparkline</span><span class="p">,</span> <span class="n">line_plot</span><span class="p">,</span> <span class="n">bar_chart</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">chart</span> <span class="o">=</span> <span class="n">sparkline</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">chart</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="n">braille</span><span class="p">)</span>
+</span></span></code></pre></div><p>Small thing, but it eliminates the &ldquo;how many pixels is 40 columns?&rdquo; arithmetic that every caller had to do.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<p>Good abstractions emerge from noticing repeated code. Three implementations of the same sizing logic is a clear signal that an abstraction is missing. Once the abstraction exists, new tools become composition: load content, fit to terminal, render. The seven new extras are proof &ndash; each is short because the hard problems are solved once in the layout engine.</p>
+<p>dapple 0.6 is on <a href="https://pypi.org/project/dapple/0.6.0/">PyPI</a>. Install with <code>pip install dapple[all-tools]</code>. Docs at <a href="https://queelius.github.io/dapple/">queelius.github.io/dapple</a>.</p>]]></content:encoded><category>dapple</category><category>terminal-graphics</category><category>python</category><category>open-source</category><category>composition</category><category>layout</category></item><item><title>An Algebraic Framework for Language Model Composition: Unifying Projections, Mixtures, and Constraints</title><link>https://metafunctor.com/papers/langcalc/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/langcalc/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
 .iframe-wrap {
   width: 100%;
   max-width: 100%;
