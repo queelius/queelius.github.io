@@ -258,6 +258,36 @@
   }
 
   /**
+   * Show the unlock state: render content, hide form, add lock button if credentials are saved.
+   */
+  function showUnlocked(container, plaintext) {
+    const form = container.querySelector(".cryptoid-form");
+    const contentDiv = container.querySelector(".cryptoid-content");
+    const containerId = container.id;
+
+    contentDiv.innerHTML = renderContent(plaintext);
+    contentDiv.style.display = "block";
+    form.style.display = "none";
+    container.classList.add("cryptoid-unlocked");
+
+    // Add lock button if credentials are saved
+    if (getSavedCredentials(containerId)) {
+      const lockBtn = document.createElement("button");
+      lockBtn.className = "cryptoid-lock-btn";
+      lockBtn.textContent = "Lock";
+      lockBtn.addEventListener("click", function () {
+        clearSavedCredentials(containerId);
+        contentDiv.style.display = "none";
+        contentDiv.innerHTML = "";
+        lockBtn.remove();
+        form.style.display = "";
+        container.classList.remove("cryptoid-unlocked");
+      });
+      contentDiv.parentNode.insertBefore(lockBtn, contentDiv);
+    }
+  }
+
+  /**
    * Render decrypted markdown as HTML using marked.js.
    * Falls back to basic escaping if marked is not loaded.
    */
@@ -331,12 +361,8 @@
         rememberCheckbox?.checked
       );
 
-      // Render and display content — markdown is from trusted encrypted source,
-      // rendered through marked.js which escapes raw HTML by default
-      contentDiv.innerHTML = renderContent(plaintext);
-      contentDiv.style.display = "block";
-      form.style.display = "none";
-      container.classList.add("cryptoid-unlocked");
+      // Render and display unlocked content with optional lock button
+      showUnlocked(container, plaintext);
     } catch (e) {
       // Show error — distinguish format errors from wrong credentials
       let message;
@@ -375,8 +401,6 @@
 
       if (saved) {
         const template = container.querySelector(".cryptoid-ciphertext");
-        const form = container.querySelector(".cryptoid-form");
-        const contentDiv = container.querySelector(".cryptoid-content");
         const ciphertext = template.innerHTML.trim();
         const expectedHash = container.dataset.contentHash;
 
@@ -391,12 +415,7 @@
             }
           }
 
-          // Render markdown — content from trusted encrypted source,
-          // marked.js escapes raw HTML by default
-          contentDiv.innerHTML = renderContent(plaintext);
-          contentDiv.style.display = "block";
-          form.style.display = "none";
-          container.classList.add("cryptoid-unlocked");
+          showUnlocked(container, plaintext);
         } catch (e) {
           // Saved credentials are wrong or content corrupted, clear them
           clearSavedCredentials(containerId);
