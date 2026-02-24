@@ -1,25 +1,49 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Scientific-Method on metafunctor</title><link>https://metafunctor.com/tags/scientific-method/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:51 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/scientific-method/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>CTW Experimental Results: Theory Meets Practice</title><link>https://metafunctor.com/post/2025-01-15-ctw-experimental-results/</link><pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-01-15-ctw-experimental-results/</guid><description>Validating Context Tree Weighting through experiments—including a bug that changed everything</description><content:encoded><![CDATA[<p>Throughout this series, we&rsquo;ve developed the theory of sequential prediction—from Solomonoff&rsquo;s incomputable ideal to CTW&rsquo;s practical Bayesian approach. Now we validate theory with experiments.</p>
-<p>This post presents experimental results showing that CTW achieves the Bayes-optimal accuracy when its depth matches the true Markov order. But the path to this finding included a bug that initially suggested the opposite—a reminder that even simple experiments can mislead.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Scientific-Method on metafunctor</title>
+    <link>https://metafunctor.com/tags/scientific-method/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/scientific-method/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>CTW Experimental Results: Theory Meets Practice</title>
+      <link>https://metafunctor.com/post/2025-01-15-ctw-experimental-results/</link>
+      <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2025-01-15-ctw-experimental-results/</guid>
+      <description>Validating Context Tree Weighting through experiments, including a bug that changed everything.</description>
+      <content:encoded><![CDATA[<p>Throughout this series, I&rsquo;ve developed the theory of sequential prediction, from Solomonoff&rsquo;s incomputable ideal to CTW&rsquo;s practical Bayesian approach. Now we validate theory with experiments.</p>
+<p>The punchline: CTW achieves Bayes-optimal accuracy when its depth matches or exceeds the true Markov order. But I didn&rsquo;t get there cleanly. A bug in my evaluation code initially suggested the opposite, and I nearly published the wrong conclusion.</p>
 <h2 id="the-experimental-setup">The Experimental Setup</h2>
 <h3 id="data-generating-process">Data Generating Process</h3>
-<p>We use sparse Markov processes where most contexts are uninformative:</p>
+<p>I use sparse Markov processes where most contexts are uninformative:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">3rd-order Markov process:
 </span></span><span class="line"><span class="cl">Context  P(next=1)  Description
-</span></span><span class="line"><span class="cl">───────  ─────────  ──────────────────
-</span></span><span class="line"><span class="cl">000      0.99       High certainty → 1
-</span></span><span class="line"><span class="cl">100      0.99       High certainty → 1
-</span></span><span class="line"><span class="cl">010      0.025      High certainty → 0
-</span></span><span class="line"><span class="cl">101      0.025      High certainty → 0
-</span></span><span class="line"><span class="cl">011      0.25       Moderate → 0
-</span></span><span class="line"><span class="cl">110      0.25       Moderate → 0
+</span></span><span class="line"><span class="cl">-------  ---------  ------------------
+</span></span><span class="line"><span class="cl">000      0.99       High certainty -&gt; 1
+</span></span><span class="line"><span class="cl">100      0.99       High certainty -&gt; 1
+</span></span><span class="line"><span class="cl">010      0.025      High certainty -&gt; 0
+</span></span><span class="line"><span class="cl">101      0.025      High certainty -&gt; 0
+</span></span><span class="line"><span class="cl">011      0.25       Moderate -&gt; 0
+</span></span><span class="line"><span class="cl">110      0.25       Moderate -&gt; 0
 </span></span><span class="line"><span class="cl">001      0.5        Uniform (random)
 </span></span><span class="line"><span class="cl">111      0.5        Uniform (random)
-</span></span></code></pre></div><p>This process has:</p>
-<ul>
-<li>4 highly predictable contexts (~99% or ~97.5% certainty)</li>
-<li>2 moderately predictable contexts (~75% certainty)</li>
-<li>2 completely random contexts (50/50)</li>
-</ul>
+</span></span></code></pre></div><p>This process has 4 highly predictable contexts (about 99% or 97.5% certainty), 2 moderately predictable contexts (about 75% certainty), and 2 completely random contexts (50/50).</p>
 <h3 id="theoretical-maximum-accuracy">Theoretical Maximum Accuracy</h3>
 <p>An oracle predictor that knows the true transition probabilities achieves:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">theoretical_max</span><span class="p">(</span><span class="n">transition_probs</span><span class="p">,</span> <span class="n">stationary_dist</span><span class="p">):</span>
@@ -28,7 +52,7 @@
 </span></span><span class="line"><span class="cl">        <span class="n">stationary_dist</span><span class="p">[</span><span class="n">ctx</span><span class="p">]</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="o">-</span><span class="n">p</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">transition_probs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
 </span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span></code></pre></div><p>For our process, this is approximately <strong>95%</strong>—the ceiling for any predictor.</p>
+</span></span></code></pre></div><p>For our process, this is approximately 95%. That&rsquo;s the ceiling for any predictor.</p>
 <h3 id="configuration">Configuration</h3>
 <ul>
 <li><strong>Training length</strong>: 50,000 bits</li>
@@ -37,9 +61,9 @@
 <li><strong>DGP orders</strong>: 1, 2, 3, 4, 5, 6</li>
 <li><strong>CTW depths</strong>: 1, 2, 3, 4, 5, 6, 8, 10</li>
 </ul>
-<h2 id="the-bug-a-cautionary-tale">The Bug: A Cautionary Tale</h2>
+<h2 id="the-bug">The Bug</h2>
 <h3 id="initial-incorrect-results">Initial (Incorrect) Results</h3>
-<p>An early draft of this work reported surprising findings:</p>
+<p>An early draft of this work reported what looked like a surprising finding:</p>
 <table>
   <thead>
       <tr>
@@ -74,21 +98,11 @@
       </tr>
   </tbody>
 </table>
-<p>This suggested that accuracy <em>decreased</em> when CTW depth exceeded the true order. The paper hypothesized:</p>
-<ul>
-<li>Data sparsity at deeper contexts degraded KT estimates</li>
-<li>Overfitting to rare deep patterns</li>
-<li>Bayesian dilution as mixture flattened</li>
-</ul>
+<p>This suggested that accuracy decreased when CTW depth exceeded the true order. I wrote up hypotheses about data sparsity degrading KT estimates at deep contexts, overfitting to rare deep patterns, and Bayesian dilution as the mixture flattened.</p>
 <h3 id="the-problem">The Problem</h3>
-<p>These results were <strong>wrong</strong>. A bug in the evaluation code caused accuracy to degrade artificially at higher depths.</p>
+<p>These results were wrong. A bug in the evaluation code caused accuracy to degrade artificially at higher depths.</p>
 <h3 id="the-fix">The Fix</h3>
-<p>After careful debugging:</p>
-<ol>
-<li>Corrected the context indexing in the test harness</li>
-<li>Fixed how predictions were accumulated across depths</li>
-<li>Verified KT estimator updates were correctly propagated</li>
-</ol>
+<p>After careful debugging, I corrected the context indexing in the test harness, fixed how predictions were accumulated across depths, and verified KT estimator updates were correctly propagated.</p>
 <h3 id="corrected-results">Corrected Results</h3>
 <p>With the bug fixed, the true behavior emerged:</p>
 <table>
@@ -108,129 +122,89 @@
       <tr>
           <td>1</td>
           <td>~95%</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
       </tr>
       <tr>
           <td>2</td>
           <td>~95%</td>
-          <td>✗</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
       </tr>
       <tr>
           <td>3</td>
           <td>~95%</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
       </tr>
       <tr>
           <td>4</td>
           <td>~95%</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✓</td>
-          <td>✓</td>
-          <td>✓</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
       </tr>
       <tr>
           <td>5</td>
           <td>~95%</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✓</td>
-          <td>✓</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
       </tr>
       <tr>
           <td>6</td>
           <td>~95%</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✗</td>
-          <td>✓</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
       </tr>
   </tbody>
 </table>
-<p>✓ = Achieves theoretical maximum
-✗ = Below theoretical maximum</p>
+<p>Y = Achieves theoretical maximum. N = Below theoretical maximum.</p>
 <h2 id="key-finding-no-overfitting-penalty">Key Finding: No Overfitting Penalty</h2>
-<p><strong>When CTW depth ≥ DGP order, CTW achieves Bayes-optimal accuracy.</strong></p>
-<p>The corrected experiments confirm:</p>
+<p>When CTW depth is greater than or equal to the DGP order, CTW achieves Bayes-optimal accuracy.</p>
+<p>The corrected experiments confirm three things:</p>
 <ol>
-<li><strong>Depth &lt; Order</strong>: Accuracy limited because CTW can&rsquo;t represent the true model</li>
-<li><strong>Depth = Order</strong>: Achieves theoretical maximum</li>
-<li><strong>Depth &gt; Order</strong>: <em>Also</em> achieves theoretical maximum (no degradation!)</li>
+<li><strong>Depth &lt; Order</strong>: Accuracy is limited because CTW can&rsquo;t represent the true model.</li>
+<li><strong>Depth = Order</strong>: Achieves theoretical maximum.</li>
+<li><strong>Depth &gt; Order</strong>: Also achieves theoretical maximum. No degradation.</li>
 </ol>
-<p>The third point is crucial: <strong>increasing depth beyond the true order does not hurt performance</strong>.</p>
+<p>The third point is the important one. Increasing depth beyond the true order does not hurt performance.</p>
 <h2 id="why-this-makes-sense">Why This Makes Sense</h2>
-<p>CTW&rsquo;s Bayesian model averaging naturally handles excessive depth:</p>
-<h3 id="the-prior-penalizes-depth">The Prior Penalizes Depth</h3>
-<p>At each node, CTW assigns:</p>
-<ul>
-<li>0.5 weight to &ldquo;stop here&rdquo; (use local KT estimate)</li>
-<li>0.5 weight to &ldquo;go deeper&rdquo; (use children)</li>
-</ul>
-<p>This compounds: a depth-D path has prior weight ~0.5^D. Deep trees are automatically downweighted.</p>
-<h3 id="sparse-data-at-depth-is-handled">Sparse Data at Depth is Handled</h3>
-<p>When deep contexts have few samples:</p>
-<ul>
-<li>KT estimator gives high uncertainty</li>
-<li>Bayesian mixture shifts weight toward shallower estimates</li>
-<li>Predictions remain calibrated</li>
-</ul>
-<h3 id="model-averaging-is-robust">Model Averaging is Robust</h3>
-<p>Even with depth set too high:</p>
-<ul>
-<li>The true model is in the mixture</li>
-<li>Posterior concentrates on the right tree structure</li>
-<li>Excess complexity is averaged away, not memorized</li>
-</ul>
+<p>CTW&rsquo;s Bayesian model averaging naturally handles excessive depth.</p>
+<p><strong>The prior penalizes depth.</strong> At each node, CTW assigns 0.5 weight to &ldquo;stop here&rdquo; (use local KT estimate) and 0.5 weight to &ldquo;go deeper&rdquo; (use children). This compounds: a depth-D path has prior weight roughly 0.5^D. Deep trees are automatically downweighted.</p>
+<p><strong>Sparse data at depth is handled.</strong> When deep contexts have few samples, the KT estimator gives high uncertainty, the Bayesian mixture shifts weight toward shallower estimates, and predictions remain calibrated.</p>
+<p><strong>Model averaging is robust.</strong> Even with depth set too high, the true model is in the mixture, the posterior concentrates on the right tree structure, and excess complexity is averaged away rather than memorized.</p>
 <h2 id="practical-implications">Practical Implications</h2>
-<h3 id="depth-selection">Depth Selection</h3>
-<ul>
-<li><strong>When true order is known</strong>: Set depth = order (or slightly higher)</li>
-<li><strong>When unknown</strong>: Set depth conservatively high</li>
-<li><strong>No penalty for overestimating</strong>: Better to err toward deeper</li>
-</ul>
-<h3 id="data-requirements">Data Requirements</h3>
-<p>Higher depths require more data to populate deep contexts, but CTW handles sparse contexts gracefully. Rule of thumb: need ~10× samples as number of contexts at target depth.</p>
-<h3 id="confidence-in-theory">Confidence in Theory</h3>
-<p>The experiments validate CTW&rsquo;s theoretical properties:</p>
-<ul>
-<li>Bayesian model averaging works as advertised</li>
-<li>The 0.5/0.5 prior provides appropriate regularization</li>
-<li>Optimality for tree sources holds empirically</li>
-</ul>
+<p><strong>Depth selection.</strong> When the true order is known, set depth equal to the order or slightly higher. When unknown, set depth conservatively high. There&rsquo;s no penalty for overestimating.</p>
+<p><strong>Data requirements.</strong> Higher depths require more data to populate deep contexts, but CTW handles sparse contexts gracefully. Rule of thumb: you need roughly 10x as many samples as the number of contexts at the target depth.</p>
+<p><strong>Confidence in theory.</strong> The experiments validate CTW&rsquo;s theoretical properties. Bayesian model averaging works as advertised. The 0.5/0.5 prior provides appropriate regularization. Optimality for tree sources holds empirically.</p>
 <h2 id="lessons-learned">Lessons Learned</h2>
-<h3 id="1-trust-but-verify">1. Trust but Verify</h3>
-<p>The initial &ldquo;surprising&rdquo; result seemed plausible—deep models overfitting is a common story. But:</p>
-<ul>
-<li>It contradicted well-established theory</li>
-<li>The magnitude of degradation was suspicious</li>
-<li>Independent implementation checks were skipped</li>
-</ul>
-<h3 id="2-theory-as-a-guide">2. Theory as a Guide</h3>
-<p>When experiments contradict established theory, the experiment is often wrong. Theory provides expectations; deviations deserve scrutiny.</p>
-<h3 id="3-reproducibility-matters">3. Reproducibility Matters</h3>
-<p>The bug was found when trying to reproduce results with a different implementation. If we&rsquo;d only run the original code, the error might have persisted.</p>
-<h3 id="4-simple-experiments-can-fail">4. Simple Experiments Can Fail</h3>
-<p>This wasn&rsquo;t a complex distributed system. It was a few hundred lines of Python evaluating a well-understood algorithm. Bugs hide everywhere.</p>
+<p><strong>Trust but verify.</strong> The initial &ldquo;surprising&rdquo; result seemed plausible. Deep models overfitting is a common story. But it contradicted well-established theory, the magnitude of degradation was suspicious, and I skipped independent implementation checks. I should have been more skeptical of my own code.</p>
+<p><strong>Theory as a guide.</strong> When experiments contradict established theory, the experiment is often wrong. Theory provides expectations; deviations deserve scrutiny, not celebration.</p>
+<p><strong>Reproducibility matters.</strong> The bug was found when I tried to reproduce results with a different implementation. If I&rsquo;d only run the original code, the error might have persisted.</p>
+<p><strong>Simple experiments can fail.</strong> This wasn&rsquo;t a complex distributed system. It was a few hundred lines of Python evaluating a well-understood algorithm. Bugs hide everywhere.</p>
 <h2 id="running-the-experiments">Running the Experiments</h2>
 <p>To reproduce:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">experiments.ctw_multiorder</span> <span class="kn">import</span> <span class="n">run_multiorder_experiment</span>
@@ -259,20 +233,20 @@
   </thead>
   <tbody>
       <tr>
-          <td>CTW achieves theoretical max when depth ≥ order</td>
-          <td><strong>Confirmed</strong></td>
+          <td>CTW achieves theoretical max when depth &gt;= order</td>
+          <td>Confirmed</td>
       </tr>
       <tr>
           <td>CTW degrades with excessive depth</td>
-          <td><strong>Refuted</strong> (was a bug)</td>
+          <td>Refuted (was a bug)</td>
       </tr>
       <tr>
           <td>Bayesian model averaging provides robustness</td>
-          <td><strong>Confirmed</strong></td>
+          <td>Confirmed</td>
       </tr>
       <tr>
           <td>CTW is optimal for tree sources</td>
-          <td><strong>Confirmed</strong> (empirically)</td>
+          <td>Confirmed (empirically)</td>
       </tr>
   </tbody>
 </table>
@@ -280,7 +254,7 @@
 <p>This series traced sequential prediction from Solomonoff&rsquo;s incomputable ideal to practical algorithms:</p>
 <ol>
 <li><strong>The problem</strong>: Predict the next symbol given history</li>
-<li><strong>The ideal</strong>: Solomonoff induction—optimal but incomputable</li>
+<li><strong>The ideal</strong>: Solomonoff induction, optimal but incomputable</li>
 <li><strong>The framework</strong>: Bayesian model averaging over hypotheses</li>
 <li><strong>The model class</strong>: Markov processes and tree sources</li>
 <li><strong>The classical approach</strong>: N-grams and their limitations</li>
@@ -288,10 +262,29 @@
 <li><strong>The modern approach</strong>: Neural language models at scale</li>
 <li><strong>The validation</strong>: CTW achieves its theoretical guarantees</li>
 </ol>
-<p>CTW represents a sweet spot: provably optimal within a rich model class, computationally efficient, and interpretable. For the right problems—binary sequences, limited data, need for guarantees—it remains the right choice even in the age of LLMs.</p>
+<p>CTW represents a sweet spot: provably optimal within a rich model class, computationally efficient, and interpretable. For the right problems (binary sequences, limited data, need for guarantees), it remains the right choice even in the age of LLMs.</p>
 <h2 id="further-reading">Further Reading</h2>
 <ul>
 <li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li>
 <li>The <a href="https://github.com/queelius/sequential-prediction">code repository</a> contains the full CTW implementation and experimental scripts.</li>
 </ul>
-]]></content:encoded><category>sequential-prediction</category><category>ctw</category><category>experiments</category><category>bayesian</category><category>markov-processes</category><category>scientific-method</category></item></channel></rss>
+]]></content:encoded>
+      
+      
+      <category>sequential-prediction</category>
+      
+      <category>ctw</category>
+      
+      <category>experiments</category>
+      
+      <category>bayesian</category>
+      
+      <category>markov-processes</category>
+      
+      <category>scientific-method</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

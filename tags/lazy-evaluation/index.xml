@@ -1,13 +1,42 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Lazy-Evaluation on metafunctor</title><link>https://metafunctor.com/tags/lazy-evaluation/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:50 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/lazy-evaluation/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>chop: When Every Command Returns the Same Kind of Thing</title><link>https://metafunctor.com/post/2025-07-15-chop/</link><pubDate>Tue, 15 Jul 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-07-15-chop/</guid><description>27 image commands, one constraint: read JSON, write JSON. The closure property as a generative design principle.</description><content:encoded><![CDATA[<p>Section 2.2 of <em>Structure and Interpretation of Computer Programs</em> introduces the <strong>closure property</strong>: the result of combining things should be the same kind of thing you started with. <code>cons</code> two values and you get a pair — which you can <code>cons</code> again. This is what makes recursive data structures possible. Without it, you get flat records. With it, you get trees, lists, nested structure of arbitrary depth.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Lazy Evaluation on metafunctor</title>
+    <link>https://metafunctor.com/tags/lazy-evaluation/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/lazy-evaluation/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>chop: When Every Command Returns the Same Kind of Thing</title>
+      <link>https://metafunctor.com/post/2025-07-15-chop/</link>
+      <pubDate>Tue, 15 Jul 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2025-07-15-chop/</guid>
+      <description>27 image commands, one constraint: read JSON, write JSON. The closure property as a generative design principle.</description>
+      <content:encoded><![CDATA[<p>Section 2.2 of <em>Structure and Interpretation of Computer Programs</em> introduces the <strong>closure property</strong>: the result of combining things should be the same kind of thing you started with. <code>cons</code> two values and you get a pair, which you can <code>cons</code> again. This is what makes recursive data structures possible. Without it, you get flat records. With it, you get trees, lists, nested structure of arbitrary depth.</p>
 <p>Abelson and Sussman are careful to distinguish this from <em>lexical</em> closures (functions that capture their environment). Algebraic closure is about the <em>type signature</em> of combination: if the output type matches the input type, composition is unlimited.</p>
-<p>Most discussions of closure treat it as a property to <em>verify</em> — you check whether your algebra is closed and move on. But closure is more powerful than that. It&rsquo;s a <strong>design method</strong>: choose a type, force every operation to consume and produce that type, and see what emerges. The constraint does the creative work.</p>
+<p>Most discussions of closure treat it as a property to <em>verify</em>. You check whether your algebra is closed and move on. But closure is more powerful than that. It&rsquo;s a <strong>design method</strong>: choose a type, force every operation to consume and produce that type, and see what emerges. The constraint does the creative work.</p>
 <p><a href="https://github.com/queelius/chop"><strong>chop</strong></a> is an image-manipulation CLI built on exactly this principle. 27 commands. One rule: read JSON from stdin, write JSON to stdout.</p>
 <h2 id="the-problem-with-image-pipelines">The Problem with Image Pipelines</h2>
-<p>Traditional image CLIs violate closure. ImageMagick consumes a file and produces a file. Each invocation is terminal — the output is pixels, not something you can pipe into further processing without going back to disk. Composition happens through flag accumulation inside a single command, not through the shell&rsquo;s native composition mechanism.</p>
+<p>Traditional image CLIs violate closure. ImageMagick consumes a file and produces a file. Each invocation is terminal. The output is pixels, not something you can pipe into further processing without going back to disk. Composition happens through flag accumulation inside a single command, not through the shell&rsquo;s native composition mechanism.</p>
 <p>You can&rsquo;t <code>tee</code> a midpoint. You can&rsquo;t save a half-finished pipeline as a recipe and apply it later. You can&rsquo;t branch.</p>
 <p>The SICP parallel is direct: if <code>cons</code> produced an atom instead of a pair, you could build flat structures but not recursive ones. If an image command produces pixels instead of a composable description, you can build single transformations but not pipelines.</p>
 <h2 id="one-constraint-json-in-json-out">One Constraint: JSON In, JSON Out</h2>
-<p>Every <code>chop</code> command reads a <code>PipelineState</code> JSON object from stdin, appends one operation, and writes the updated JSON to stdout. The wire format carries no image data — only a recipe:</p>
+<p>Every <code>chop</code> command reads a <code>PipelineState</code> JSON object from stdin, appends one operation, and writes the updated JSON to stdout. The wire format carries no image data, only a recipe:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;version&#34;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">  <span class="nt">&#34;ops&#34;</span><span class="p">:</span> <span class="p">[</span>
@@ -19,89 +48,105 @@
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
 </span></span></code></pre></div><p>Each operation is a <code>[name, args, kwargs]</code> triple. The pipeline accumulates operations as data. Here&rsquo;s what this looks like in practice:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chop load photo.jpg <span class="p">|</span> chop resize 50% <span class="p">|</span> chop save out.png
-</span></span></code></pre></div><p>And here&rsquo;s what flows between the pipes — the actual stdout of <code>chop resize 50%</code>:</p>
+</span></span></code></pre></div><p>And here&rsquo;s what flows between the pipes, the actual stdout of <code>chop resize 50%</code>:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;version&#34;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="nt">&#34;ops&#34;</span><span class="p">:[[</span><span class="s2">&#34;load&#34;</span><span class="p">,[</span><span class="s2">&#34;photo.jpg&#34;</span><span class="p">],{}],[</span><span class="s2">&#34;resize&#34;</span><span class="p">,[</span><span class="s2">&#34;50%&#34;</span><span class="p">],{}]],</span><span class="nt">&#34;metadata&#34;</span><span class="p">:{}}</span>
 </span></span></code></pre></div><p>The type signature is <code>PipelineState -&gt; PipelineState</code>. Every command, without exception, consumes and produces the same kind of thing. Closure holds.</p>
 <h2 id="what-emerges">What Emerges</h2>
-<p>The interesting part isn&rsquo;t the constraint itself — it&rsquo;s what the constraint produces. Four capabilities fall out of the design that were never planned individually.</p>
+<p>The interesting part isn&rsquo;t the constraint itself. It&rsquo;s what the constraint produces. Four capabilities fall out of the design that were never planned individually.</p>
 <h3 id="non-terminal-save">Non-Terminal Save</h3>
 <p>In most CLIs, <code>save</code> is a terminus. In <code>chop</code>, <code>save</code> materializes the pipeline (touches pixels for the first time), writes the file as a side effect to stderr, and then <em>outputs its JSON state like every other command</em>:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chop load photo.jpg <span class="p">|</span> chop save full.png <span class="p">|</span> chop resize 50% <span class="p">|</span> chop save thumb.png
-</span></span></code></pre></div><p>Two output files from a single pipeline. This works because <code>save</code> isn&rsquo;t special — it follows the same contract as <code>resize</code> or <code>blur</code>. The uniform type signature means there&rsquo;s no distinction between &ldquo;intermediate&rdquo; and &ldquo;terminal&rdquo; commands. Every command is both.</p>
+</span></span></code></pre></div><p>Two output files from a single pipeline. This works because <code>save</code> isn&rsquo;t special. It follows the same contract as <code>resize</code> or <code>blur</code>. The uniform type signature means there&rsquo;s no distinction between &ldquo;intermediate&rdquo; and &ldquo;terminal&rdquo; commands. Every command is both.</p>
 <h3 id="recipes-as-data">Recipes as Data</h3>
-<p>What happens if you build a pipeline without <code>load</code>? You get an unbound program — a sequence of operations with no input image:</p>
+<p>What happens if you build a pipeline without <code>load</code>? You get an unbound program, a sequence of operations with no input image:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chop resize 50% <span class="p">|</span> chop pad <span class="m">10</span> <span class="p">|</span> chop grayscale &gt; recipe.json
 </span></span></code></pre></div><p>The resulting JSON is a first-class value:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;version&#34;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="nt">&#34;ops&#34;</span><span class="p">:[[</span><span class="s2">&#34;resize&#34;</span><span class="p">,[</span><span class="s2">&#34;50%&#34;</span><span class="p">],{}],[</span><span class="s2">&#34;pad&#34;</span><span class="p">,[</span><span class="mi">10</span><span class="p">],{}],[</span><span class="s2">&#34;grayscale&#34;</span><span class="p">,[],{}]],</span><span class="nt">&#34;metadata&#34;</span><span class="p">:{}}</span>
 </span></span></code></pre></div><p>Apply it later with <code>apply</code>:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chop load photo.jpg <span class="p">|</span> chop apply recipe.json <span class="p">|</span> chop save out.png
-</span></span></code></pre></div><p>This is SICP Chapter 4&rsquo;s programs-as-data principle. A pipeline without <code>load</code> is a function waiting for an argument. The <code>apply</code> command is function application. And because recipes are JSON, they&rsquo;re inspectable, version-controllable, and shareable — you can commit a <code>thumbnail-recipe.json</code> alongside your build scripts.</p>
+</span></span></code></pre></div><p>This is SICP Chapter 4&rsquo;s programs-as-data principle. A pipeline without <code>load</code> is a function waiting for an argument. The <code>apply</code> command is function application. And because recipes are JSON, they&rsquo;re inspectable, version-controllable, and shareable. You can commit a <code>thumbnail-recipe.json</code> alongside your build scripts.</p>
 <h3 id="multi-image-composition">Multi-Image Composition</h3>
 <p>The JSON format naturally extends to labeled images. Load with <code>--as</code> to name images; target specific images with <code>--on</code>:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chop load --as <span class="nb">bg</span> photo.jpg <span class="p">|</span> chop load --as <span class="nb">fg</span> logo.png <span class="se">\
 </span></span></span><span class="line"><span class="cl">    <span class="p">|</span> chop resize 50% --on <span class="nb">fg</span> <span class="se">\
 </span></span></span><span class="line"><span class="cl">    <span class="p">|</span> chop overlay <span class="nb">bg</span> <span class="nb">fg</span> <span class="se">\
 </span></span></span><span class="line"><span class="cl">    <span class="p">|</span> chop save watermarked.png
-</span></span></code></pre></div><p>Under the hood, <code>materialize()</code> maintains a labeled context — a dictionary mapping names to images with a cursor tracking the &ldquo;current&rdquo; image. Composition operations like <code>overlay</code>, <code>hstack</code>, <code>vstack</code>, and <code>grid</code> take label arguments and combine multiple images into one. The result goes back into the context, and the JSON contract never changes.</p>
+</span></span></code></pre></div><p>Under the hood, <code>materialize()</code> maintains a labeled context: a dictionary mapping names to images with a cursor tracking the &ldquo;current&rdquo; image. Composition operations like <code>overlay</code>, <code>hstack</code>, <code>vstack</code>, and <code>grid</code> take label arguments and combine multiple images into one. The result goes back into the context, and the JSON contract never changes.</p>
 <p>This wasn&rsquo;t designed as a separate feature. It&rsquo;s the same <code>PipelineState -&gt; PipelineState</code> contract accommodating richer operation types. The closure property scales.</p>
 <h3 id="inspectable-intermediates">Inspectable Intermediates</h3>
 <p>Because stdout is always valid JSON, standard Unix tools work at any point in the pipeline:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chop load photo.jpg <span class="p">|</span> chop resize 50% <span class="p">|</span> tee step.json <span class="p">|</span> chop pad <span class="m">10</span> <span class="p">|</span> chop save out.png
-</span></span></code></pre></div><p><code>tee</code> captures the intermediate state. <code>jq</code> can query it. <code>diff</code> can compare two pipeline states. <code>wc -c</code> tells you the recipe size. None of this required any design effort — it&rsquo;s a consequence of the output being structured text rather than binary pixels.</p>
+</span></span></code></pre></div><p><code>tee</code> captures the intermediate state. <code>jq</code> can query it. <code>diff</code> can compare two pipeline states. <code>wc -c</code> tells you the recipe size. None of this required any design effort. It&rsquo;s a consequence of the output being structured text rather than binary pixels.</p>
 <h2 id="lazy-evaluation">Lazy Evaluation</h2>
-<p>Nothing in the pipe is an image. The JSON carries <code>[name, args, kwargs]</code> triples — a <em>description</em> of computation, not the computation itself. No pixels are loaded, no transforms applied, until a command explicitly materializes the pipeline.</p>
+<p>Nothing in the pipe is an image. The JSON carries <code>[name, args, kwargs]</code> triples, a <em>description</em> of computation, not the computation itself. No pixels are loaded, no transforms applied, until a command explicitly materializes the pipeline.</p>
 <p>Only two commands trigger materialization: <code>save</code> (to write a file) and <code>info</code> (to report dimensions and metadata). Everything else is pure recording.</p>
 <p>This is SICP Chapter 3.5&rsquo;s insight about streams: separate the <em>description</em> of a computation from its <em>execution</em>. A pipeline of ten operations doesn&rsquo;t create ten intermediate images. It creates one JSON object with ten entries, then executes them all in a single pass at the end.</p>
-<p>The <code>materialize()</code> method in <code>pipeline.py</code> walks the ops list, building a labeled image context as it goes — loading files, applying transforms, executing compositions — and returns the image at the cursor. It&rsquo;s the only eager path in the system.</p>
+<p>The <code>materialize()</code> method in <code>pipeline.py</code> walks the ops list, building a labeled image context as it goes (loading files, applying transforms, executing compositions) and returns the image at the cursor. It&rsquo;s the only eager path in the system.</p>
 <h2 id="the-architecture">The Architecture</h2>
 <p>The codebase is small and sharply factored:</p>
 <ul>
 <li>
-<p><strong><code>output.py</code></strong> (19 lines): One function. Writes pipeline state as JSON to stdout. No conditions, no flags. This is where the closure constraint lives — and it&rsquo;s 19 lines because enforcing uniformity is trivial.</p>
+<p><strong><code>output.py</code></strong> (19 lines): One function. Writes pipeline state as JSON to stdout. No conditions, no flags. This is where the closure constraint lives, and it&rsquo;s 19 lines because enforcing uniformity is trivial.</p>
 </li>
 <li>
-<p><strong><code>operations.py</code></strong> (696 lines): Pure <code>Image -&gt; Image</code> functions. Sixteen single-image transforms (resize, crop, rotate, brightness, blur, etc.) and four multi-image compositions (hstack, vstack, overlay, grid). No I/O, no JSON, no state — just pixel manipulation.</p>
+<p><strong><code>operations.py</code></strong> (696 lines): Pure <code>Image -&gt; Image</code> functions. Sixteen single-image transforms (resize, crop, rotate, brightness, blur, etc.) and four multi-image compositions (hstack, vstack, overlay, grid). No I/O, no JSON, no state. Just pixel manipulation.</p>
 </li>
 <li>
-<p><strong><code>pipeline.py</code></strong> (311 lines): The <code>PipelineState</code> dataclass. JSON serialization, deserialization, and <code>materialize()</code> — the single method that turns a recipe into pixels.</p>
+<p><strong><code>pipeline.py</code></strong> (311 lines): The <code>PipelineState</code> dataclass. JSON serialization, deserialization, and <code>materialize()</code>, the single method that turns a recipe into pixels.</p>
 </li>
 <li>
 <p><strong><code>cli.py</code></strong> (645 lines): 27 commands, each roughly 10 lines. Read state, append one op, return state. The uniformity of the contract means every command handler has nearly identical structure.</p>
 </li>
 </ul>
-<p>The total is under 1,700 lines. The interesting thing is the ratio: 696 lines of image operations, 19 lines enforcing the design constraint. The constraint is cheap to implement and expensive to violate — which is exactly what you want from an architectural decision.</p>
+<p>The total is under 1,700 lines. The interesting thing is the ratio: 696 lines of image operations, 19 lines enforcing the design constraint. The constraint is cheap to implement and expensive to violate, which is exactly what you want from an architectural decision.</p>
 <hr>
-<p>One design decision — every command reads JSON, writes JSON — and four capabilities emerge: non-terminal saves, reusable recipes, multi-image composition, and inspectable intermediates. Plus lazy evaluation for free, because the uniform representation turns out to be a recipe rather than a result.</p>
-<p>SICP presents the closure property as something to notice about well-designed systems. But the deeper lesson is that closure is something to <em>impose</em>. Pick a type. Force everything through it. The constraint doesn&rsquo;t limit what you can build — it generates capabilities you wouldn&rsquo;t have thought to design.</p>
+<p>One design decision (every command reads JSON, writes JSON) and four capabilities emerge: non-terminal saves, reusable recipes, multi-image composition, and inspectable intermediates. Plus lazy evaluation for free, because the uniform representation turns out to be a recipe rather than a result.</p>
+<p>SICP presents the closure property as something to notice about well-designed systems. But the deeper lesson is that closure is something to <em>impose</em>. Pick a type. Force everything through it. The constraint doesn&rsquo;t limit what you can build. It generates capabilities you wouldn&rsquo;t have thought to design.</p>
 <p>The best design decisions are the ones you only have to make once.</p>
 <hr>
 <p><em>This post is part of a <a href="/series/sicp/">series on SICP</a>, exploring how the ideas from Structure and Interpretation of Computer Programs appear in modern programming practice.</em></p>
-]]></content:encoded><category>sicp</category><category>dsl</category><category>unix-philosophy</category><category>python</category><category>image-processing</category><category>closure-property</category><category>lazy-evaluation</category></item><item><title>JAF: Production-Grade Streaming Boolean Algebra Over Nested JSON</title><link>https://metafunctor.com/post/2024-12-jaf/</link><pubDate>Fri, 20 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-12-jaf/</guid><description>A production-ready streaming data processing system implementing boolean algebra over nested JSON structures. JAF brings dotsuite's pedagogical concepts to production with lazy evaluation, S-expression queries, and memory-efficient windowed operations.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/jaf">JAF (Just Another Flow)</a></strong> is a production-grade streaming data processing system for JSON/JSONL data. It implements <strong>boolean algebra over nested JSON structures</strong> with lazy evaluation, composable operations, and a fluent API. JAF is the full-featured, battle-tested implementation of the concepts explored in <a href="/post/2024-12-dotsuite/">dotsuite</a>.</p>
+]]></content:encoded>
+      
+      
+      <category>sicp</category>
+      
+      <category>dsl</category>
+      
+      <category>unix-philosophy</category>
+      
+      <category>python</category>
+      
+      <category>image-processing</category>
+      
+      <category>closure-property</category>
+      
+      <category>lazy-evaluation</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>JAF: Streaming Boolean Algebra Over Nested JSON</title>
+      <link>https://metafunctor.com/post/2024-12-jaf/</link>
+      <pubDate>Fri, 20 Dec 2024 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2024-12-jaf/</guid>
+      <description>A streaming data processing system implementing boolean algebra over nested JSON structures, with lazy evaluation, S-expression queries, and memory-efficient windowed operations.</description>
+      <content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/jaf">JAF (Just Another Flow)</a></strong> is a streaming data processing system for JSON/JSONL data. It implements boolean algebra over nested JSON structures with lazy evaluation, composable operations, and a fluent API. JAF is the production version of the concepts I explored in <a href="/post/2024-12-dotsuite/">dotsuite</a>.</p>
 <h2 id="the-relationship-to-dotsuite">The Relationship to Dotsuite</h2>
-<p>Think of it this way:</p>
+<p>The short version:</p>
 <ul>
-<li><strong>dotsuite</strong>: &ldquo;This is HOW it works&rdquo; — Pedagogical, simple, learn-by-building</li>
-<li><strong>JAF</strong>: &ldquo;This is WHAT you use&rdquo; — Production-ready, feature-complete, battle-tested</li>
+<li><strong>dotsuite</strong>: &ldquo;This is how it works.&rdquo; Pedagogical, simple, learn-by-building.</li>
+<li><strong>JAF</strong>: &ldquo;This is what you use.&rdquo; Feature-complete, lazy, handles real data.</li>
 </ul>
-<p>JAF implements the highest level of dotsuite&rsquo;s architecture: <strong>boolean algebra over collections of nested documents</strong>. Where dotsuite teaches the concepts through isolated, simple tools, JAF combines them into a unified streaming framework optimized for production workloads.</p>
+<p>JAF implements the highest level of dotsuite&rsquo;s architecture: boolean algebra over collections of nested documents. Where dotsuite teaches the concepts through isolated simple tools, JAF combines them into a unified streaming framework.</p>
 <h3 id="the-boolean-algebra-branch">The Boolean Algebra Branch</h3>
-<p>In dotsuite&rsquo;s three-pillar architecture (Depth, Truth, Shape), JAF focuses on the <strong>collections layer</strong>—specifically the <strong>boolean wing</strong> that provides filtering operations with full boolean algebra:</p>
+<p>In dotsuite&rsquo;s three-pillar architecture (Depth, Truth, Shape), JAF focuses on the collections layer, specifically the boolean wing that provides filtering operations with full boolean algebra:</p>
 \[
 \text{filter}: (\mathcal{D} \to \mathbb{B}) \to (C \to C)
-\]<p>Where:</p>
-<ul>
-<li>\(\mathcal{D}\) = Document space</li>
-<li>\(\mathbb{B}\) = Boolean values</li>
-<li>\(C\) = Collection of documents</li>
-</ul>
-<p>JAF lifts boolean operations to streams with:</p>
-<ul>
-<li><strong>AND</strong>: Intersection of filtered streams</li>
-<li><strong>OR</strong>: Union of filtered streams</li>
-<li><strong>NOT</strong>: Complement of filtered stream</li>
-<li><strong>Composition</strong>: Chainable predicates with guaranteed homomorphism</li>
-</ul>
-<h2 id="core-innovation-lazy-streaming-boolean-algebra">Core Innovation: Lazy Streaming Boolean Algebra</h2>
+\]<p>Where \(\mathcal{D}\) is the document space, \(\mathbb{B}\) is boolean values, and \(C\) is a collection of documents.</p>
+<p>JAF lifts boolean operations to streams: AND is intersection of filtered streams, OR is union, NOT is complement, and composition gives you chainable predicates with guaranteed homomorphism.</p>
+<h2 id="core-innovation-lazy-streaming">Core Innovation: Lazy Streaming</h2>
 <h3 id="the-problem">The Problem</h3>
 <p>Traditional data processing loads entire datasets into memory:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Eager evaluation - loads everything</span>
@@ -121,16 +166,10 @@
 </span></span><span class="line"><span class="cl"><span class="c1"># Only processes 10 matching items</span>
 </span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
 </span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-</span></span></code></pre></div><p><strong>Key benefits</strong>:</p>
-<ul>
-<li>✅ <strong>Constant memory</strong>: Processes one item at a time</li>
-<li>✅ <strong>Early termination</strong>: Stops after <code>take(10)</code></li>
-<li>✅ <strong>Composable</strong>: Build complex pipelines declaratively</li>
-<li>✅ <strong>Streaming</strong>: Works with infinite streams</li>
-</ul>
+</span></span></code></pre></div><p>Constant memory (processes one item at a time), early termination (stops after <code>take(10)</code>), composable (build complex pipelines declaratively), and works with infinite streams.</p>
 <h2 id="three-query-syntaxes">Three Query Syntaxes</h2>
-<p>JAF supports multiple query syntaxes that all compile to the same internal representation:</p>
-<h3 id="1-s-expression-syntax-lisp-like">1. S-Expression Syntax (Lisp-like)</h3>
+<p>JAF supports multiple query syntaxes that all compile to the same internal representation.</p>
+<h3 id="s-expression-syntax-lisp-like">S-Expression Syntax (Lisp-like)</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Simple</span> <span class="nv">comparisons</span>
 </span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">eq?</span> <span class="nv">@status</span> <span class="s">&#34;active&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">gt?</span> <span class="nv">@age</span> <span class="mi">25</span><span class="p">)</span>
@@ -145,44 +184,25 @@
 </span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">or</span> <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@role</span> <span class="s">&#34;admin&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nb">and</span> <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@role</span> <span class="s">&#34;user&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">         <span class="p">(</span><span class="nv">gt?</span> <span class="nv">@score</span> <span class="mi">100</span><span class="p">)))</span>
-</span></span></code></pre></div><p><strong>Why S-expressions?</strong></p>
-<ul>
-<li>Unambiguous parsing (no precedence rules)</li>
-<li>Easy to serialize/deserialize</li>
-<li>Homoiconic (code is data)</li>
-<li>Composable ASTs</li>
-</ul>
-<h3 id="2-json-array-syntax">2. JSON Array Syntax</h3>
+</span></span></code></pre></div><p>S-expressions because: unambiguous parsing (no precedence rules), easy to serialize, homoiconic (code is data), composable ASTs.</p>
+<h3 id="json-array-syntax">JSON Array Syntax</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Same queries in JSON</span>
 </span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">25</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;contains?&#34;</span><span class="p">,</span> <span class="s2">&#34;@tags&#34;</span><span class="p">,</span> <span class="s2">&#34;python&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;gte?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">18</span><span class="p">],</span>
 </span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span><span class="p">,</span> <span class="n">true</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">]</span>
-</span></span></code></pre></div><p><strong>Why JSON arrays?</strong></p>
-<ul>
-<li>Easy to generate programmatically</li>
-<li>Standard JSON format</li>
-<li>Network-transmissible</li>
-<li>No parsing needed</li>
-</ul>
-<h3 id="3-infix-dsl-syntax">3. Infix DSL Syntax</h3>
+</span></span></code></pre></div><p>Easy to generate programmatically, standard JSON format, network-transmissible.</p>
+<h3 id="infix-dsl-syntax">Infix DSL Syntax</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Natural infix notation</span>
 </span></span><span class="line"><span class="cl"><span class="nd">@status</span> <span class="o">==</span> <span class="s2">&#34;active&#34;</span>
 </span></span><span class="line"><span class="cl"><span class="nd">@age</span> <span class="o">&gt;</span> <span class="mi">25</span> <span class="ow">and</span> <span class="nd">@verified</span> <span class="o">==</span> <span class="n">true</span>
 </span></span><span class="line"><span class="cl"><span class="nd">@role</span> <span class="o">==</span> <span class="s2">&#34;admin&#34;</span> <span class="ow">or</span> <span class="p">(</span><span class="nd">@role</span> <span class="o">==</span> <span class="s2">&#34;user&#34;</span> <span class="ow">and</span> <span class="nd">@score</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">)</span>
-</span></span></code></pre></div><p><strong>Why infix?</strong></p>
-<ul>
-<li>Human-readable</li>
-<li>Familiar syntax</li>
-<li>Good for CLI usage</li>
-</ul>
-<p>All three compile to the same AST—use whichever fits your use case.</p>
+</span></span></code></pre></div><p>Human-readable, familiar, good for CLI usage. All three compile to the same AST.</p>
 <h2 id="advanced-path-system">Advanced Path System</h2>
-<p>JAF extends dotsuite&rsquo;s simple dot notation with powerful path features:</p>
+<p>JAF extends dotsuite&rsquo;s simple dot notation with more powerful features:</p>
 <h3 id="exact-paths">Exact Paths</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@user.profile.name&#34;</span><span class="p">,</span> <span class="s2">&#34;Alice&#34;</span><span class="p">])</span>
 </span></span></code></pre></div><h3 id="wildcards">Wildcards</h3>
@@ -205,7 +225,7 @@
 </span></span><span class="line"><span class="cl"><span class="c1"># Predicate filtering</span>
 </span></span><span class="line"><span class="cl"><span class="s2">&#34;@users[?(@.age &gt; 25)]&#34;</span>
 </span></span></code></pre></div><h2 id="streaming-operations">Streaming Operations</h2>
-<h3 id="filter--boolean-algebra">Filter — Boolean Algebra</h3>
+<h3 id="filter-boolean-algebra">Filter (Boolean Algebra)</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># AND: Intersection</span>
 </span></span><span class="line"><span class="cl"><span class="n">active_verified</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
 </span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">])</span> \
@@ -221,7 +241,7 @@
 </span></span><span class="line"><span class="cl"><span class="c1"># NOT: Complement</span>
 </span></span><span class="line"><span class="cl"><span class="n">inactive</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
 </span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">]])</span>
-</span></span></code></pre></div><h3 id="map--transformations">Map — Transformations</h3>
+</span></span></code></pre></div><h3 id="map-transformations">Map (Transformations)</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Extract fields</span>
 </span></span><span class="line"><span class="cl"><span class="n">emails</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@email&#34;</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
@@ -238,13 +258,13 @@
 </span></span><span class="line"><span class="cl">    <span class="s2">&#34;amount&#34;</span><span class="p">,</span> <span class="s2">&#34;@amount&#34;</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">    <span class="s2">&#34;category&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@amount&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span> <span class="s2">&#34;high&#34;</span><span class="p">,</span> <span class="s2">&#34;low&#34;</span><span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="p">])</span>
-</span></span></code></pre></div><h3 id="takeskip--pagination">Take/Skip — Pagination</h3>
+</span></span></code></pre></div><h3 id="takeskip-pagination">Take/Skip (Pagination)</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># First 100 items</span>
 </span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Skip first 100, take next 100</span>
 </span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="batch--chunking">Batch — Chunking</h3>
+</span></span></code></pre></div><h3 id="batch-chunking">Batch (Chunking)</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Process in groups of 1000</span>
 </span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
 </span></span><span class="line"><span class="cl">    <span class="n">bulk_insert</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
@@ -268,7 +288,7 @@
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Windowed intersection (memory-efficient)</span>
 </span></span><span class="line"><span class="cl"><span class="n">stream1</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">stream2</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
-</span></span></code></pre></div><p><strong>Trade-off</strong>: Finite windows provide memory bounds but may miss items if windows don&rsquo;t overlap. Choose window size based on your data distribution.</p>
+</span></span></code></pre></div><p>The trade-off: finite windows provide memory bounds but may miss items if windows don&rsquo;t overlap. Choose window size based on your data distribution.</p>
 <h2 id="real-world-examples">Real-World Examples</h2>
 <h3 id="log-analysis">Log Analysis</h3>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
@@ -329,18 +349,8 @@
 </span></span><span class="line"><span class="cl">        <span class="p">]</span>
 </span></span><span class="line"><span class="cl">    <span class="p">])</span> \
 </span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
-</span></span></code></pre></div><h3 id="complex-boolean-logic">Complex Boolean Logic</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># High-value customers: VIP OR (loyal AND high_spending)</span>
-</span></span><span class="line"><span class="cl"><span class="n">high_value</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;customers.jsonl&#34;</span><span class="p">)</span> \
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;or&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@tier&#34;</span><span class="p">,</span> <span class="s2">&#34;VIP&#34;</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;gte?&#34;</span><span class="p">,</span> <span class="s2">&#34;@years_active&#34;</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;gte?&#34;</span><span class="p">,</span> <span class="s2">&#34;@total_spent&#34;</span><span class="p">,</span> <span class="mi">10000</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">        <span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="p">])</span>
 </span></span></code></pre></div><h2 id="command-line-usage">Command-Line Usage</h2>
-<p>JAF excels at Unix-style pipelines:</p>
+<p>JAF works well in Unix-style pipelines:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Filter logs</span>
 </span></span><span class="line"><span class="cl">jaf filter app.log.jsonl <span class="s1">&#39;(eq? @level &#34;ERROR&#34;)&#39;</span> --eval
 </span></span><span class="line"><span class="cl">
@@ -414,7 +424,7 @@
       </tr>
   </tbody>
 </table>
-<p><strong>Key difference</strong>: JAF is <strong>lazy by default</strong>, while dotsuite is mostly eager. This enables JAF to handle datasets that don&rsquo;t fit in memory.</p>
+<p>The key difference: JAF is lazy by default, while dotsuite is mostly eager. This is what lets JAF handle datasets that don&rsquo;t fit in memory.</p>
 <h2 id="performance-characteristics">Performance Characteristics</h2>
 <table>
   <thead>
@@ -452,7 +462,7 @@
       </tr>
       <tr>
           <td><strong>Groupby</strong></td>
-          <td>O(w×k)</td>
+          <td>O(w*k)</td>
           <td>O(n)</td>
           <td>k = unique keys in window</td>
       </tr>
@@ -464,69 +474,12 @@
       </tr>
   </tbody>
 </table>
-<p>JAF achieves:</p>
-<ul>
-<li><strong>Constant memory</strong> for basic operations (filter, map, take)</li>
-<li><strong>Bounded memory</strong> for windowed operations</li>
-<li><strong>Early termination</strong> when using take/skip</li>
-<li><strong>Zero serialization</strong> overhead (streaming JSON parsing)</li>
-</ul>
+<p>Constant memory for basic operations (filter, map, take). Bounded memory for windowed operations. Early termination when using take/skip. Zero serialization overhead via streaming JSON parsing.</p>
 <h2 id="future-work-probabilistic-data-structures">Future Work: Probabilistic Data Structures</h2>
-<p>JAF plans to add probabilistic data structures for massive-scale operations:</p>
-<h3 id="bloom-filters">Bloom Filters</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Memory-efficient approximate distinct</span>
-</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;huge.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">distinct_approx</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">fpr</span><span class="o">=</span><span class="mf">0.001</span>  <span class="c1"># False positive rate</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><h3 id="count-min-sketch">Count-Min Sketch</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Heavy hitters detection</span>
-</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;events.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">top_k</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">k</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">sketch_width</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">sketch_depth</span><span class="o">=</span><span class="mi">5</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><h3 id="hyperloglog">HyperLogLog</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Cardinality estimation</span>
-</span></span><span class="line"><span class="cl"><span class="n">count</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">cardinality_estimate</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">precision</span><span class="o">=</span><span class="mi">14</span>  <span class="c1"># ±1.04% error</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p>These provide <strong>controllable accuracy/memory tradeoffs</strong> with theoretical guarantees, enabling billion-item operations on commodity hardware.</p>
-<h2 id="integration-with-ecosystem">Integration with Ecosystem</h2>
-<p>JAF works seamlessly with other tools:</p>
-<h3 id="with-jsonl-algebra">With jsonl-algebra</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">jaf filter orders.jsonl <span class="s1">&#39;[&#34;gt?&#34;, &#34;@amount&#34;, 100]&#39;</span> --eval <span class="p">|</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">ja groupby customer_id --aggregate <span class="s1">&#39;total:amount:sum&#39;</span>
-</span></span></code></pre></div><h3 id="with-jq">With jq</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">jaf filter data.jsonl <span class="s1">&#39;[&#34;exists?&#34;, &#34;@metadata&#34;]&#39;</span> --eval <span class="p">|</span> <span class="se">\
-</span></span></span><span class="line"><span class="cl">jq <span class="s1">&#39;.metadata&#39;</span>
-</span></span></code></pre></div><h3 id="with-unix-tools">With Unix tools</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">jaf map users.jsonl <span class="s2">&#34;@email&#34;</span> --eval <span class="p">|</span> sort <span class="p">|</span> uniq -c
-</span></span></code></pre></div><h2 id="why-s-expressions">Why S-Expressions?</h2>
-<p>JAF&rsquo;s choice of S-expressions for the primary query language might seem unusual, but it has deep advantages:</p>
-<p><strong>1. Unambiguous parsing</strong>: No operator precedence rules to remember</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Clear nesting</span>
-</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@x&#34;</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="s2">&#34;lt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@y&#34;</span><span class="p">,</span> <span class="mi">10</span><span class="p">]]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># vs ambiguous infix</span>
-</span></span><span class="line"><span class="cl"><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="ow">and</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="mi">10</span>  <span class="c1"># Is this (x &gt; 5) and (y &lt; 10) or x &gt; (5 and y) &lt; 10?</span>
-</span></span></code></pre></div><p><strong>2. Homoiconic</strong>: Code is data</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">],</span> <span class="n">placeholder</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="c1"># Can manipulate query as data structure</span>
-</span></span><span class="line"><span class="cl"><span class="n">query</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">18</span><span class="p">]</span>
-</span></span></code></pre></div><p><strong>3. Composable ASTs</strong>:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">build_query</span><span class="p">(</span><span class="n">conditions</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">]</span> <span class="o">+</span> <span class="n">conditions</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">build_query</span><span class="p">([</span>
-</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span><span class="p">,</span> <span class="n">true</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@score&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="p">])</span>
-</span></span></code></pre></div><p><strong>4. Language-agnostic</strong>: JSON arrays work in any language</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;query&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">18</span><span class="p">]]</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><h2 id="theoretical-foundation">Theoretical Foundation</h2>
-<p>JAF implements boolean algebra over document collections:</p>
+<p>I plan to add probabilistic data structures for massive-scale operations:</p>
+<p><strong>Bloom filters</strong> for memory-efficient approximate distinct. <strong>Count-Min Sketch</strong> for heavy hitters detection. <strong>HyperLogLog</strong> for cardinality estimation. These provide controllable accuracy/memory tradeoffs with theoretical guarantees, enabling billion-item operations on commodity hardware.</p>
+<h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>JAF implements boolean algebra over document collections.</p>
 <h3 id="predicates-as-sets">Predicates as Sets</h3>
 <p>Each predicate \(p: \mathcal{D} \to \mathbb{B}\) defines a subset:</p>
 \[
@@ -543,30 +496,17 @@ S_p = \lbrace d \in \mathcal{D} \mid p(d) = \text{true}\rbrace
 \[
 \text{NOT}(p) \Rightarrow \mathcal{D} \setminus S_p
 \]<h3 id="homomorphism">Homomorphism</h3>
-<p>The filter operation is a <strong>monoid homomorphism</strong>:</p>
+<p>The filter operation is a monoid homomorphism:</p>
 \[
 \text{filter}(C_1 \cup C_2, p) = \text{filter}(C_1, p) \cup \text{filter}(C_2, p)
-\]<p>This guarantees:</p>
-<ul>
-<li>✅ <strong>Parallelizable</strong>: Can split collection and filter in parallel</li>
-<li>✅ <strong>Composable</strong>: Sequential filters commute</li>
-<li>✅ <strong>Streaming</strong>: Can process incrementally</li>
-</ul>
-<h2 id="design-principles">Design Principles</h2>
-<p><strong>🚀 Lazy by Default</strong>: Build pipelines, execute when ready</p>
-<p><strong>🔗 Fluent API</strong>: Method chaining for readable code</p>
-<p><strong>🧩 Composable</strong>: Operations combine freely</p>
-<p><strong>📦 Source Agnostic</strong>: Files, stdin, memory, compressed, infinite streams</p>
-<p><strong>🛡️ Safe</strong>: Graceful handling of missing paths, malformed data</p>
-<p><strong>⚡ Efficient</strong>: Constant memory, early termination, windowed operations</p>
-<p><strong>🎯 Unix Philosophy</strong>: Works great with pipes and command-line tools</p>
+\]<p>This guarantees the operation is parallelizable (can split the collection and filter in parallel), composable (sequential filters commute), and streaming (can process incrementally).</p>
 <h2 id="quick-start">Quick Start</h2>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install</span>
 </span></span><span class="line"><span class="cl">pip install jaf
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Basic usage</span>
 </span></span><span class="line"><span class="cl">jaf filter data.jsonl <span class="s1">&#39;(gt? @age 25)&#39;</span> --eval
-</span></span></code></pre></div><p><strong>Python API</strong>:</p>
+</span></span></code></pre></div><p>Python API:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="c1"># Build lazy pipeline</span>
@@ -579,28 +519,9 @@ S_p = \lbrace d \in \mathcal{D} \mid p(d) = \text{true}\rbrace
 </span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">email</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
 </span></span><span class="line"><span class="cl">    <span class="n">send_newsletter</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
 </span></span></code></pre></div><h2 id="when-to-use-jaf-vs-dotsuite">When to Use JAF vs Dotsuite</h2>
-<p><strong>Use JAF when</strong>:</p>
-<ul>
-<li>✅ Processing large datasets (GB+)</li>
-<li>✅ Need lazy evaluation</li>
-<li>✅ Production systems</li>
-<li>✅ Advanced path features (regex, fuzzy)</li>
-<li>✅ Windowed operations for memory efficiency</li>
-</ul>
-<p><strong>Use dotsuite when</strong>:</p>
-<ul>
-<li>✅ Learning data processing concepts</li>
-<li>✅ Teaching/prototyping</li>
-<li>✅ Small datasets that fit in memory</li>
-<li>✅ Want simple, copyable code</li>
-<li>✅ Building custom tools</li>
-</ul>
-<p><strong>Use both</strong>:</p>
-<ul>
-<li>Prototype with dotsuite concepts</li>
-<li>Productionize with JAF</li>
-<li>Teach with dotsuite, build with JAF</li>
-</ul>
+<p>Use JAF for processing large datasets, when you need lazy evaluation, for production systems, when you need advanced path features (regex, fuzzy), and for windowed operations.</p>
+<p>Use dotsuite for learning data processing concepts, teaching and prototyping, small datasets that fit in memory, when you want simple copyable code, and for building custom tools.</p>
+<p>Or use both: prototype with dotsuite concepts, productionize with JAF.</p>
 <h2 id="resources">Resources</h2>
 <ul>
 <li><strong>Repository</strong>: <a href="https://github.com/queelius/jaf">github.com/queelius/jaf</a></li>
@@ -608,10 +529,53 @@ S_p = \lbrace d \in \mathcal{D} \mid p(d) = \text{true}\rbrace
 <li><strong>API Guide</strong>: <a href="https://queelius.github.io/jaf/api-guide/">API Reference</a></li>
 <li><strong>Query Language</strong>: <a href="https://queelius.github.io/jaf/query-language/">Query Syntax</a></li>
 <li><strong>Cookbook</strong>: <a href="https://queelius.github.io/jaf/cookbook/">Practical Examples</a></li>
-<li><strong>Dotsuite Pedagogy</strong>: <a href="https://queelius.github.io/jaf/dotsuite-pedagogy/">Understanding JAF Through Dotsuite</a></li>
 </ul>
 <h2 id="license">License</h2>
 <p>MIT</p>
-<hr>
-<p><em>JAF: Where dotsuite&rsquo;s pedagogical concepts meet production reality. Boolean algebra over nested JSON, streaming all the way down.</em></p>
-]]></content:encoded><category>Python</category><category>streaming</category><category>JSON</category><category>lazy-evaluation</category><category>functional-programming</category><category>boolean-algebra</category><category>data-processing</category><category>ETL</category></item><item><title>The Beautiful Deception: How 256 Bits Pretend to be Infinity</title><link>https://metafunctor.com/publications/preprints/beautiful-deception/</link><pubDate>Wed, 10 Jan 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/publications/preprints/beautiful-deception/</guid><description/><content:encoded></content:encoded><category>cryptography</category><category>random oracles</category><category>hash functions</category><category>lazy evaluation</category><category>philosophy</category></item></channel></rss>
+]]></content:encoded>
+      
+      
+      <category>Python</category>
+      
+      <category>streaming</category>
+      
+      <category>JSON</category>
+      
+      <category>lazy-evaluation</category>
+      
+      <category>functional-programming</category>
+      
+      <category>boolean-algebra</category>
+      
+      <category>data-processing</category>
+      
+      <category>ETL</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>The Beautiful Deception: How 256 Bits Pretend to be Infinity</title>
+      <link>https://metafunctor.com/publications/preprints/beautiful-deception/</link>
+      <pubDate>Wed, 10 Jan 2024 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/publications/preprints/beautiful-deception/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+      
+      
+      <category>cryptography</category>
+      
+      <category>random oracles</category>
+      
+      <category>hash functions</category>
+      
+      <category>lazy evaluation</category>
+      
+      <category>philosophy</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

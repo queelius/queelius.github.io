@@ -1,100 +1,1645 @@
-<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>CTW Experimental Results: Theory Meets Practice | metafunctor</title><meta name=title content="CTW Experimental Results: Theory Meets Practice | metafunctor"><meta name=description content="Validating Context Tree Weighting through experiments—including a bug that changed everything"><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/post/2025-01-15-ctw-experimental-results/><link rel=alternate hreflang=en href=https://metafunctor.com/post/2025-01-15-ctw-experimental-results/><link rel=alternate hreflang=x-default href=https://metafunctor.com/post/2025-01-15-ctw-experimental-results/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/"><meta property="og:title" content="CTW Experimental Results: Theory Meets Practice"><meta property="og:description" content="Validating Context Tree Weighting through experiments—including a bug that changed everything"><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:published_time" content="2025-01-15T00:00:00Z"><meta property="article:modified_time" content="2026-02-13T13:46:28-06:00"><meta property="article:section" content="Machine Learning"><meta property="article:tag" content="sequential-prediction"><meta property="article:tag" content="ctw"><meta property="article:tag" content="experiments"><meta property="article:tag" content="bayesian"><meta property="article:tag" content="markov-processes"><meta property="article:tag" content="scientific-method"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/"><meta name=twitter:title content="CTW Experimental Results: Theory Meets Practice"><meta name=twitter:description content="Validating Context Tree Weighting through experiments—including a bug that changed everything"><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/#primaryContent","headline":"CTW Experimental Results: Theory Meets Practice","description":"Validating Context Tree Weighting through experiments—including a bug that changed everything","url":"https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/","inLanguage":"en-US","datePublished":"2025-01-15T00:00:00Z","dateModified":"2026-02-13T13:46:28-06:00","wordCount":1011,"timeRequired":"PT5M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}},"keywords":["sequential-prediction","ctw","experiments","bayesian","markov-processes","scientific-method"]},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"News","item":"https:\/\/metafunctor.com\/post\/"},{"@type":"ListItem","position":3,"name":"CTW Experimental Results: Theory Meets Practice","item":"https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=../../css/refined-elegant.css><link rel=stylesheet href=../../css/micro-interactions.css><link rel=stylesheet href=../../css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=../../css/custom.css><link rel=stylesheet href=../../css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.155.3"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
-<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
-<span></span>
-<span></span>
-<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/post/ class=active aria-current=page>Posts</a></li><li><a href=https://metafunctor.com/series/>Series</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Academic <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li></ul></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Creative <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li><li role=menuitem><a href=https://metafunctor.com/media/>Media</a></li></ul></li><li><a href=https://metafunctor.com/projects/>Projects</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
-</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<a itemprop=item href=https://metafunctor.com/post/><span itemprop=name>News</span>
-</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<span itemprop=name aria-current=page>CTW Experimental Results: Theory Meets Practice</span>
-<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><div class=main-container><div class=single-post-layout><aside class=post-sidebar><aside class=toc-wrapper aria-label="Table of contents"><nav class=table-of-contents><h2 class=toc-title>Table of Contents</h2><div class=toc-content><nav id=TableOfContents><ul><li><a href=#the-experimental-setup>The Experimental Setup</a><ul><li><a href=#data-generating-process>Data Generating Process</a></li><li><a href=#theoretical-maximum-accuracy>Theoretical Maximum Accuracy</a></li><li><a href=#configuration>Configuration</a></li></ul></li><li><a href=#the-bug-a-cautionary-tale>The Bug: A Cautionary Tale</a><ul><li><a href=#initial-incorrect-results>Initial (Incorrect) Results</a></li><li><a href=#the-problem>The Problem</a></li><li><a href=#the-fix>The Fix</a></li><li><a href=#corrected-results>Corrected Results</a></li></ul></li><li><a href=#key-finding-no-overfitting-penalty>Key Finding: No Overfitting Penalty</a></li><li><a href=#why-this-makes-sense>Why This Makes Sense</a><ul><li><a href=#the-prior-penalizes-depth>The Prior Penalizes Depth</a></li><li><a href=#sparse-data-at-depth-is-handled>Sparse Data at Depth is Handled</a></li><li><a href=#model-averaging-is-robust>Model Averaging is Robust</a></li></ul></li><li><a href=#practical-implications>Practical Implications</a><ul><li><a href=#depth-selection>Depth Selection</a></li><li><a href=#data-requirements>Data Requirements</a></li><li><a href=#confidence-in-theory>Confidence in Theory</a></li></ul></li><li><a href=#lessons-learned>Lessons Learned</a><ul><li><a href=#1-trust-but-verify>1. Trust but Verify</a></li><li><a href=#2-theory-as-a-guide>2. Theory as a Guide</a></li><li><a href=#3-reproducibility-matters>3. Reproducibility Matters</a></li><li><a href=#4-simple-experiments-can-fail>4. Simple Experiments Can Fail</a></li></ul></li><li><a href=#running-the-experiments>Running the Experiments</a></li><li><a href=#summary-of-results>Summary of Results</a></li><li><a href=#series-conclusion>Series Conclusion</a></li><li><a href=#further-reading>Further Reading</a></li></ul></nav></div></nav></aside><style>.toc-wrapper{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;padding:var(--space-lg);background:var(--paper-dark);border:var(--border-width)solid var(--border-color);border-radius:var(--radius-lg);margin-bottom:var(--space-xl)}.toc-title{font-size:1rem;font-weight:600;color:var(--ink);margin:0 0 var(--space-md);text-transform:uppercase;letter-spacing:.05em;font-size:.875rem}.toc-content{font-size:.9rem}.toc-content ul{list-style:none;padding-left:0;margin:0}.toc-content>ul{border-left:2px solid var(--border-color);padding-left:var(--space-md)}.toc-content li{margin-bottom:var(--space-sm)}.toc-content a{color:var(--ink-light);text-decoration:none;transition:color var(--transition-fast);display:block;padding:var(--space-xs)0}.toc-content a:hover{color:var(--accent)}.toc-content ul ul{margin-top:var(--space-sm);padding-left:var(--space-md)}@media(max-width:1024px){.toc-wrapper{position:relative;top:0;max-height:none}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".toc-content a"),n=Array.from(e).map(e=>{const t=e.getAttribute("href").substring(1);return document.getElementById(t)}).filter(e=>e!==null);function t(){let t="";n.forEach(e=>{const n=e.offsetTop,s=window.scrollY+100;s>=n&&(t=e.getAttribute("id"))}),e.forEach(e=>{e.classList.remove("active"),e.getAttribute("href")==="#"+t?(e.classList.add("active"),e.style.color="var(--accent)",e.style.fontWeight="600"):(e.style.color="",e.style.fontWeight="")})}window.addEventListener("scroll",t),t()})</script></aside><article class=single-post itemscope itemtype=https://schema.org/Article><header class=post-header><h1 class=post-title itemprop=headline>CTW Experimental Results: Theory Meets Practice</h1><div class=post-meta><span class=post-date><i class="far fa-calendar" aria-hidden=true></i>
-<time datetime=2025-01-15T00:00:00Z itemprop=datePublished>January 15, 2025
-</time></span><span class=post-reading-time><i class="far fa-clock" aria-hidden=true></i>
-5 min read
-</span><span class=post-updated><i class="far fa-edit" aria-hidden=true></i>
-Updated: <time datetime=2026-02-13T13:46:28-06:00 itemprop=dateModified>February 13, 2026</time></span></div><div class=tags role=list><a href=https://metafunctor.com/tags/sequential-prediction/ class=tag role=listitem>sequential-prediction</a>
-<a href=https://metafunctor.com/tags/ctw/ class=tag role=listitem>ctw</a>
-<a href=https://metafunctor.com/tags/experiments/ class=tag role=listitem>experiments</a>
-<a href=https://metafunctor.com/tags/bayesian/ class=tag role=listitem>bayesian</a>
-<a href=https://metafunctor.com/tags/markov-processes/ class=tag role=listitem>markov-processes</a>
-<a href=https://metafunctor.com/tags/scientific-method/ class=tag role=listitem>scientific-method</a></div></header><nav class=series-navigation aria-label="Series navigation"><div class=series-header><span class=series-label>Part of series:</span>
-<a href=../../series/sequential-prediction/ class=series-name>Sequential Prediction</a>
-<span class=series-count>8 parts</span></div><ol class=series-list><li class=series-item><a href=../../post/2010-06-01-intro-sequential-prediction/ class=series-link><span class=series-number>1</span>
-<span class=series-title>Introduction to Sequential Prediction</span></a></li><li class=series-item><a href=../../post/2012-03-15-solomonoff-induction-prediction/ class=series-link><span class=series-number>2</span>
-<span class=series-title>Solomonoff Induction: The Theoretical Ideal</span></a></li><li class=series-item><a href=../../post/2014-09-20-bayesian-prediction-framework/ class=series-link><span class=series-number>3</span>
-<span class=series-title>The Bayesian Prediction Framework</span></a></li><li class=series-item><a href=../../post/2015-11-10-data-generating-processes/ class=series-link><span class=series-number>4</span>
-<span class=series-title>Data Generating Processes for Sequential Prediction</span></a></li><li class=series-item><a href=../../post/2016-08-15-ngram-language-models/ class=series-link><span class=series-number>5</span>
-<span class=series-title>N-gram Language Models</span></a></li><li class=series-item><a href=../../post/2024-06-15-comparing-prediction-methods/ class=series-link><span class=series-number>6</span>
-<span class=series-title>Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</span></a></li><li class=series-item><a href=../../post/2024-09-20-neural-language-models-transformers/ class=series-link><span class=series-number>7</span>
-<span class=series-title>Neural Language Models: From RNNs to Transformers</span></a></li><li class="series-item current"><a href=../../post/2025-01-15-ctw-experimental-results/ class=series-link><span class=series-number>8</span>
-<span class=series-title>CTW Experimental Results: Theory Meets Practice</span></a></li></ol></nav><style>.series-navigation{margin:var(--space-6)0;padding:var(--space-4);background:linear-gradient(135deg,rgba(102,126,234,5%) 0%,rgba(118,75,162,5%) 100%);border:1px solid var(--color-border-subtle);border-radius:var(--radius-lg)}.series-header{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4);flex-wrap:wrap}.series-label{font-size:var(--font-size-sm);color:var(--color-text-tertiary)}.series-name{font-weight:600;color:var(--color-text-primary);text-decoration:none}.series-name:hover{color:var(--color-accent-primary);text-decoration:underline}.series-count{font-size:var(--font-size-sm);padding:2px 8px;background:var(--color-bg-tertiary);border-radius:var(--radius-full);color:var(--color-text-secondary)}.series-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:var(--space-2)}.series-item{padding:0}.series-link{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2)var(--space-3);background:var(--color-bg-elevated);border-radius:var(--radius-md);text-decoration:none;transition:all .2s ease;border:1px solid transparent}.series-link:hover{border-color:var(--color-accent-primary);transform:translateX(4px)}.series-item.current .series-link{background:var(--color-accent-primary);color:#fff}.series-item.current .series-number{background:rgba(255,255,255,.2)}.series-number{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--color-bg-tertiary);border-radius:var(--radius-full);font-size:var(--font-size-sm);font-weight:600;color:var(--color-text-secondary);flex-shrink:0}.series-title{color:var(--color-text-primary);font-weight:500}.series-item.current .series-title{color:#fff}@media(max-width:600px){.series-header{flex-direction:column;align-items:flex-start}}</style><div class=content itemprop=articleBody><p>Throughout this series, we&rsquo;ve developed the theory of sequential prediction—from Solomonoff&rsquo;s incomputable ideal to CTW&rsquo;s practical Bayesian approach. Now we validate theory with experiments.</p><p>This post presents experimental results showing that CTW achieves the Bayes-optimal accuracy when its depth matches the true Markov order. But the path to this finding included a bug that initially suggested the opposite—a reminder that even simple experiments can mislead.</p><h2 id=the-experimental-setup>The Experimental Setup</h2><h3 id=data-generating-process>Data Generating Process</h3><p>We use sparse Markov processes where most contexts are uninformative:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>3rd-order Markov process:
-</span></span><span class=line><span class=cl>Context  P(next=1)  Description
-</span></span><span class=line><span class=cl>───────  ─────────  ──────────────────
-</span></span><span class=line><span class=cl>000      0.99       High certainty → 1
-</span></span><span class=line><span class=cl>100      0.99       High certainty → 1
-</span></span><span class=line><span class=cl>010      0.025      High certainty → 0
-</span></span><span class=line><span class=cl>101      0.025      High certainty → 0
-</span></span><span class=line><span class=cl>011      0.25       Moderate → 0
-</span></span><span class=line><span class=cl>110      0.25       Moderate → 0
-</span></span><span class=line><span class=cl>001      0.5        Uniform (random)
-</span></span><span class=line><span class=cl>111      0.5        Uniform (random)
-</span></span></code></pre></div><p>This process has:</p><ul><li>4 highly predictable contexts (~99% or ~97.5% certainty)</li><li>2 moderately predictable contexts (~75% certainty)</li><li>2 completely random contexts (50/50)</li></ul><h3 id=theoretical-maximum-accuracy>Theoretical Maximum Accuracy</h3><p>An oracle predictor that knows the true transition probabilities achieves:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>theoretical_max</span><span class=p>(</span><span class=n>transition_probs</span><span class=p>,</span> <span class=n>stationary_dist</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Predict the more likely outcome for each context.&#34;&#34;&#34;</span>
-</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nb>sum</span><span class=p>(</span>
-</span></span><span class=line><span class=cl>        <span class=n>stationary_dist</span><span class=p>[</span><span class=n>ctx</span><span class=p>]</span> <span class=o>*</span> <span class=nb>max</span><span class=p>(</span><span class=n>p</span><span class=p>,</span> <span class=mi>1</span><span class=o>-</span><span class=n>p</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>ctx</span><span class=p>,</span> <span class=n>p</span> <span class=ow>in</span> <span class=n>transition_probs</span><span class=o>.</span><span class=n>items</span><span class=p>()</span>
-</span></span><span class=line><span class=cl>    <span class=p>)</span>
-</span></span></code></pre></div><p>For our process, this is approximately <strong>95%</strong>—the ceiling for any predictor.</p><h3 id=configuration>Configuration</h3><ul><li><strong>Training length</strong>: 50,000 bits</li><li><strong>Test length</strong>: 10,000 bits</li><li><strong>Seeds</strong>: 5 random seeds (averaged)</li><li><strong>DGP orders</strong>: 1, 2, 3, 4, 5, 6</li><li><strong>CTW depths</strong>: 1, 2, 3, 4, 5, 6, 8, 10</li></ul><h2 id=the-bug-a-cautionary-tale>The Bug: A Cautionary Tale</h2><h3 id=initial-incorrect-results>Initial (Incorrect) Results</h3><p>An early draft of this work reported surprising findings:</p><table><thead><tr><th>Max Depth</th><th>Accuracy (%)</th></tr></thead><tbody><tr><td>1</td><td>87.2</td></tr><tr><td>2</td><td><strong>96.8</strong> (peak)</td></tr><tr><td>3</td><td>93.8</td></tr><tr><td>4</td><td>89.4</td></tr><tr><td>8</td><td>76.2</td></tr><tr><td>12</td><td>66.4</td></tr></tbody></table><p>This suggested that accuracy <em>decreased</em> when CTW depth exceeded the true order. The paper hypothesized:</p><ul><li>Data sparsity at deeper contexts degraded KT estimates</li><li>Overfitting to rare deep patterns</li><li>Bayesian dilution as mixture flattened</li></ul><h3 id=the-problem>The Problem</h3><p>These results were <strong>wrong</strong>. A bug in the evaluation code caused accuracy to degrade artificially at higher depths.</p><h3 id=the-fix>The Fix</h3><p>After careful debugging:</p><ol><li>Corrected the context indexing in the test harness</li><li>Fixed how predictions were accumulated across depths</li><li>Verified KT estimator updates were correctly propagated</li></ol><h3 id=corrected-results>Corrected Results</h3><p>With the bug fixed, the true behavior emerged:</p><table><thead><tr><th>DGP Order</th><th>Theo Max</th><th>D=1</th><th>D=2</th><th>D=3</th><th>D=4</th><th>D=5</th><th>D=6</th></tr></thead><tbody><tr><td>1</td><td>~95%</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>2</td><td>~95%</td><td>✗</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>3</td><td>~95%</td><td>✗</td><td>✗</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>4</td><td>~95%</td><td>✗</td><td>✗</td><td>✗</td><td>✓</td><td>✓</td><td>✓</td></tr><tr><td>5</td><td>~95%</td><td>✗</td><td>✗</td><td>✗</td><td>✗</td><td>✓</td><td>✓</td></tr><tr><td>6</td><td>~95%</td><td>✗</td><td>✗</td><td>✗</td><td>✗</td><td>✗</td><td>✓</td></tr></tbody></table><p>✓ = Achieves theoretical maximum
-✗ = Below theoretical maximum</p><h2 id=key-finding-no-overfitting-penalty>Key Finding: No Overfitting Penalty</h2><p><strong>When CTW depth ≥ DGP order, CTW achieves Bayes-optimal accuracy.</strong></p><p>The corrected experiments confirm:</p><ol><li><strong>Depth &lt; Order</strong>: Accuracy limited because CTW can&rsquo;t represent the true model</li><li><strong>Depth = Order</strong>: Achieves theoretical maximum</li><li><strong>Depth > Order</strong>: <em>Also</em> achieves theoretical maximum (no degradation!)</li></ol><p>The third point is crucial: <strong>increasing depth beyond the true order does not hurt performance</strong>.</p><h2 id=why-this-makes-sense>Why This Makes Sense</h2><p>CTW&rsquo;s Bayesian model averaging naturally handles excessive depth:</p><h3 id=the-prior-penalizes-depth>The Prior Penalizes Depth</h3><p>At each node, CTW assigns:</p><ul><li>0.5 weight to &ldquo;stop here&rdquo; (use local KT estimate)</li><li>0.5 weight to &ldquo;go deeper&rdquo; (use children)</li></ul><p>This compounds: a depth-D path has prior weight ~0.5^D. Deep trees are automatically downweighted.</p><h3 id=sparse-data-at-depth-is-handled>Sparse Data at Depth is Handled</h3><p>When deep contexts have few samples:</p><ul><li>KT estimator gives high uncertainty</li><li>Bayesian mixture shifts weight toward shallower estimates</li><li>Predictions remain calibrated</li></ul><h3 id=model-averaging-is-robust>Model Averaging is Robust</h3><p>Even with depth set too high:</p><ul><li>The true model is in the mixture</li><li>Posterior concentrates on the right tree structure</li><li>Excess complexity is averaged away, not memorized</li></ul><h2 id=practical-implications>Practical Implications</h2><h3 id=depth-selection>Depth Selection</h3><ul><li><strong>When true order is known</strong>: Set depth = order (or slightly higher)</li><li><strong>When unknown</strong>: Set depth conservatively high</li><li><strong>No penalty for overestimating</strong>: Better to err toward deeper</li></ul><h3 id=data-requirements>Data Requirements</h3><p>Higher depths require more data to populate deep contexts, but CTW handles sparse contexts gracefully. Rule of thumb: need ~10× samples as number of contexts at target depth.</p><h3 id=confidence-in-theory>Confidence in Theory</h3><p>The experiments validate CTW&rsquo;s theoretical properties:</p><ul><li>Bayesian model averaging works as advertised</li><li>The 0.5/0.5 prior provides appropriate regularization</li><li>Optimality for tree sources holds empirically</li></ul><h2 id=lessons-learned>Lessons Learned</h2><h3 id=1-trust-but-verify>1. Trust but Verify</h3><p>The initial &ldquo;surprising&rdquo; result seemed plausible—deep models overfitting is a common story. But:</p><ul><li>It contradicted well-established theory</li><li>The magnitude of degradation was suspicious</li><li>Independent implementation checks were skipped</li></ul><h3 id=2-theory-as-a-guide>2. Theory as a Guide</h3><p>When experiments contradict established theory, the experiment is often wrong. Theory provides expectations; deviations deserve scrutiny.</p><h3 id=3-reproducibility-matters>3. Reproducibility Matters</h3><p>The bug was found when trying to reproduce results with a different implementation. If we&rsquo;d only run the original code, the error might have persisted.</p><h3 id=4-simple-experiments-can-fail>4. Simple Experiments Can Fail</h3><p>This wasn&rsquo;t a complex distributed system. It was a few hundred lines of Python evaluating a well-understood algorithm. Bugs hide everywhere.</p><h2 id=running-the-experiments>Running the Experiments</h2><p>To reproduce:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>experiments.ctw_multiorder</span> <span class=kn>import</span> <span class=n>run_multiorder_experiment</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>results</span> <span class=o>=</span> <span class=n>run_multiorder_experiment</span><span class=p>(</span>
-</span></span><span class=line><span class=cl>    <span class=n>dgp_orders</span><span class=o>=</span><span class=p>[</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=p>],</span>
-</span></span><span class=line><span class=cl>    <span class=n>ctw_depths</span><span class=o>=</span><span class=p>[</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=p>,</span> <span class=mi>8</span><span class=p>,</span> <span class=mi>10</span><span class=p>],</span>
-</span></span><span class=line><span class=cl>    <span class=n>markov_type</span><span class=o>=</span><span class=s2>&#34;sparse&#34;</span><span class=p>,</span>
-</span></span><span class=line><span class=cl>    <span class=n>train_length</span><span class=o>=</span><span class=mi>50000</span><span class=p>,</span>
-</span></span><span class=line><span class=cl>    <span class=n>test_length</span><span class=o>=</span><span class=mi>10000</span><span class=p>,</span>
-</span></span><span class=line><span class=cl>    <span class=n>num_seeds</span><span class=o>=</span><span class=mi>5</span><span class=p>,</span>
-</span></span><span class=line><span class=cl><span class=p>)</span>
-</span></span></code></pre></div><p>Or via command line:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Quick sanity check</span>
-</span></span><span class=line><span class=cl>python -m experiments.ctw.scripts.ctw_multiorder --quick
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># Full experiment</span>
-</span></span><span class=line><span class=cl>python -m experiments.ctw.scripts.ctw_multiorder
-</span></span></code></pre></div><h2 id=summary-of-results>Summary of Results</h2><table><thead><tr><th>Claim</th><th>Status</th></tr></thead><tbody><tr><td>CTW achieves theoretical max when depth ≥ order</td><td><strong>Confirmed</strong></td></tr><tr><td>CTW degrades with excessive depth</td><td><strong>Refuted</strong> (was a bug)</td></tr><tr><td>Bayesian model averaging provides robustness</td><td><strong>Confirmed</strong></td></tr><tr><td>CTW is optimal for tree sources</td><td><strong>Confirmed</strong> (empirically)</td></tr></tbody></table><h2 id=series-conclusion>Series Conclusion</h2><p>This series traced sequential prediction from Solomonoff&rsquo;s incomputable ideal to practical algorithms:</p><ol><li><strong>The problem</strong>: Predict the next symbol given history</li><li><strong>The ideal</strong>: Solomonoff induction—optimal but incomputable</li><li><strong>The framework</strong>: Bayesian model averaging over hypotheses</li><li><strong>The model class</strong>: Markov processes and tree sources</li><li><strong>The classical approach</strong>: N-grams and their limitations</li><li><strong>The trade-offs</strong>: Sample efficiency vs. flexibility</li><li><strong>The modern approach</strong>: Neural language models at scale</li><li><strong>The validation</strong>: CTW achieves its theoretical guarantees</li></ol><p>CTW represents a sweet spot: provably optimal within a rich model class, computationally efficient, and interpretable. For the right problems—binary sequences, limited data, need for guarantees—it remains the right choice even in the age of LLMs.</p><h2 id=further-reading>Further Reading</h2><ul><li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li><li>The <a href=https://github.com/queelius/sequential-prediction>code repository</a> contains the full CTW implementation and experimental scripts.</li></ul></div><nav class=post-navigation><a href=../../post/2025-01-differentiation-stepanov/ class=nav-prev><span class=nav-label>← Previous</span>
-<span class=nav-title>Differentiation: Three Ways</span>
-</a><a href=../../post/2025-01-mathematical-elegance-code/ class=nav-next><span class=nav-label>Next →</span>
-<span class=nav-title>Mathematical Elegance in Software Design</span></a></nav><section class=related-posts><h2 class=related-posts-title>Related Posts</h2><div class=related-posts-grid><article class=related-post-card><a href=../../post/2014-09-20-bayesian-prediction-framework/ class=related-post-link><h3 class=related-post-title>The Bayesian Prediction Framework</h3><p class=related-post-excerpt><p>In the <a href=../../post/2012-03-15-solomonoff-induction-prediction/>previous post</a>, we saw that Solomonoff induction is optimal but incomputable. Its power comes from maintaining a …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Sep 20, 2014
-</span><span class=related-post-tags><span class=mini-tag>sequential-prediction</span>
-<span class=mini-tag>bayesian</span></span></div></a></article><article class=related-post-card><a href=../../post/2024-06-15-comparing-prediction-methods/ class=related-post-link><h3 class=related-post-title>Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</h3><p class=related-post-excerpt><p>We&rsquo;ve now covered the theoretical foundations (Solomonoff, Bayesian prediction), the model classes (Markov …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Jun 15, 2024
-</span><span class=related-post-tags><span class=mini-tag>sequential-prediction</span>
-<span class=mini-tag>ctw</span></span></div></a></article><article class=related-post-card><a href=../../post/2015-11-10-data-generating-processes/ class=related-post-link><h3 class=related-post-title>Data Generating Processes for Sequential Prediction</h3><p class=related-post-excerpt><p>So far in this series, we&rsquo;ve discussed <em>how</em> to predict sequences. But where do sequences come from? What …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Nov 10, 2015
-</span><span class=related-post-tags><span class=mini-tag>sequential-prediction</span>
-<span class=mini-tag>markov-processes</span></span></div></a></article><article class=related-post-card><a href=../../post/2012-03-15-solomonoff-induction-prediction/ class=related-post-link><h3 class=related-post-title>Solomonoff Induction: The Theoretical Ideal</h3><p class=related-post-excerpt><p>In the <a href=../../post/2010-06-01-intro-sequential-prediction/>previous post</a>, we defined sequential prediction: given x₁, &mldr;, xₙ₋₁, predict xₙ. But what&rsquo;s the <em>best …</em></p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Mar 15, 2012
-</span><span class=related-post-tags><span class=mini-tag>sequential-prediction</span>
-<span class=mini-tag>solomonoff</span></span></div></a></article><article class=related-post-card><a href=../../post/2010-06-01-intro-sequential-prediction/ class=related-post-link><h3 class=related-post-title>Introduction to Sequential Prediction</h3><p class=related-post-excerpt><p>What will the next symbol be?</p><p>This deceptively simple question lies at the heart of some of the most important problems …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Jun 1, 2010
-</span><span class=related-post-tags><span class=mini-tag>sequential-prediction</span>
-<span class=mini-tag>information-theory</span></span></div></a></article></div></section><style>.related-posts{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.related-posts-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.related-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem}.related-post-card{background:var(--paper,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:1.5rem;transition:all .3s ease}.related-post-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);border-color:var(--accent,#667eea)}.related-post-link{text-decoration:none;color:inherit;display:block}.related-post-title{font-size:1.125rem;font-weight:600;margin-bottom:.75rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif;line-height:1.4}.related-post-card:hover .related-post-title{color:var(--accent,#667eea)}.related-post-excerpt{font-size:.9rem;color:var(--ink-light,#666);line-height:1.6;margin-bottom:1rem}.related-post-meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.8rem;color:var(--ink-light,#999)}.related-post-date i{margin-right:.25rem}.related-post-tags{display:flex;gap:.5rem}.related-post-tags .mini-tag{background:var(--paper-dark,#f5f5f5);padding:.25rem .5rem;border-radius:4px;font-size:.7rem;color:var(--ink,#1a1a1a)}[data-theme=dark] .related-posts{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .related-posts-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-card{background:var(--paper-dark,#222);border-color:rgba(255,255,255,.1)}[data-theme=dark] .related-post-card:hover{border-color:var(--accent,#667eea)}[data-theme=dark] .related-post-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-tags .mini-tag{background:rgba(255,255,255,5%);color:var(--ink,#e8e8e8)}</style><section class=comments-section><h2 class=comments-title>Discussion</h2><div class=giscus-container></div><script src=https://giscus.app/client.js data-repo=queelius/metafunctor data-repo-id=R_kgDONbcL1g data-category=General data-category-id=DIC_kwDONbcL1s4CwFJ7 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=preferred_color_scheme data-lang=en crossorigin=anonymous async></script></section></article></div><style>.comments-section{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.comments-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.giscus-container{margin-top:1rem}[data-theme=dark] .comments-section{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .comments-title{color:var(--ink,#e8e8e8)}</style><script>function updateGiscusTheme(){const t=document.documentElement.getAttribute("data-theme")||"light",n=t==="dark"?"dark":"light",e=document.querySelector("iframe.giscus-frame");e&&e.contentWindow.postMessage({giscus:{setConfig:{theme:n}}},"https://giscus.app")}const observer=new MutationObserver(updateGiscusTheme);observer.observe(document.documentElement,{attributes:!0,attributeFilter:["data-theme"]}),setTimeout(updateGiscusTheme,1e3)</script></div></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
-</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
-</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
-</a><a href=../../index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
-</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
-</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
-</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
-</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
-</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-content><h4 id=footer-content>Content</h4><div class=footer-links><a href=https://metafunctor.com/post/>Posts</a>
-<a href=https://metafunctor.com/papers/>Papers</a>
-<a href=https://metafunctor.com/series/>Series</a>
-<a href=https://metafunctor.com/publications/>Publications</a>
-<a href=https://metafunctor.com/writing/>Writing</a></div></nav><nav class=footer-section aria-labelledby=footer-code><h4 id=footer-code>Code</h4><div class=footer-links><a href=https://metafunctor.com/projects/>Projects</a>
-<a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
-<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
-<a href=mailto:lex@metafunctor.com>Contact</a>
-<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=../../js/performance-optimizations.js defer></script><script src=../../js/performance-enhancements.js defer></script><script src=../../js/mobile-menu.js defer></script><script src=../../js/modern-interactions.js defer></script><script src=../../js/search.js defer></script><script src=../../js/reading-progress.js defer></script><script src=../../js/copy-code.js defer></script><script src=../../js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
-<i class="fas fa-arrow-up"></i>
-</button>
-<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
+<!DOCTYPE html>
+<html lang="en-us" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  
+  <title>CTW Experimental Results: Theory Meets Practice | metafunctor</title>
+  <meta name="title" content="CTW Experimental Results: Theory Meets Practice | metafunctor">
+  <meta name="description" content="Validating Context Tree Weighting through experiments, including a bug that changed everything.">
+
+  
+  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
+  <meta name="author" content="Alex Towell">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/">
+
+  
+  
+
+  
+  <link rel="alternate" hreflang="en" href="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/">
+  <link rel="alternate" hreflang="x-default" href="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/">
+
+  
+  
+<style>
+ 
+
+ 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+ 
+.elegant-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(254, 254, 254, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  text-decoration: none;
+}
+
+.nav-primary ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-primary a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a4a4a;
+  text-decoration: none;
+}
+
+ 
+.hero-elegant {
+  padding: 5rem 2rem;
+  text-align: center;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #4a4a4a;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+
+ 
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0050a0;
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+ 
+.preload * {
+  transition: none !important;
+}
+</style>
+
+
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/">
+  <meta property="og:title" content="CTW Experimental Results: Theory Meets Practice">
+  <meta property="og:description" content="Validating Context Tree Weighting through experiments, including a bug that changed everything.">
+  <meta property="og:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="metafunctor">
+  <meta property="og:locale" content="en_US">
+  
+  <meta property="article:author" content="Alex Towell">
+  <meta property="article:published_time" content="2025-01-15T00:00:00Z">
+  <meta property="article:modified_time" content="2026-02-24T02:47:07-06:00">
+  <meta property="article:section" content="Machine Learning">
+  <meta property="article:tag" content="sequential-prediction"><meta property="article:tag" content="ctw"><meta property="article:tag" content="experiments"><meta property="article:tag" content="bayesian"><meta property="article:tag" content="markov-processes"><meta property="article:tag" content="scientific-method">
+  
+
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://metafunctor.com/post/2025-01-15-ctw-experimental-results/">
+  <meta name="twitter:title" content="CTW Experimental Results: Theory Meets Practice">
+  <meta name="twitter:description" content="Validating Context Tree Weighting through experiments, including a bug that changed everything.">
+  <meta name="twitter:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta name="twitter:site" content="@queelius">
+  <meta name="twitter:creator" content="@queelius">
+
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": "https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/#primaryContent",
+        
+        "headline": "CTW Experimental Results: Theory Meets Practice",
+        "description": "Validating Context Tree Weighting through experiments, including a bug that changed everything.",
+        "url": "https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/",
+        "inLanguage": "en-US",
+        "datePublished": "2025-01-15T00:00:00Z",
+        "dateModified": "2026-02-24T02:47:07-06:00",
+        "wordCount":  1060 ,
+        "timeRequired": "PT5M",
+        "author": {
+          "@type": "Person",
+          "@id": "https:\/\/metafunctor.com\/#author",
+          "name": "Alex Towell",
+          "url": "https:\/\/metafunctor.com\/about/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "@id": "https:\/\/metafunctor.com\/#organization",
+          "name": "metafunctor",
+          "url": "https:\/\/metafunctor.com\/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https:\/\/metafunctor.com\/images\/og-image.jpg"
+          }
+        },
+        "keywords": ["sequential-prediction", "ctw", "experiments", "bayesian", "markov-processes", "scientific-method"]
+        
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https:\/\/metafunctor.com\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "News",
+            "item": "https:\/\/metafunctor.com\/post\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "CTW Experimental Results: Theory Meets Practice",
+            "item": "https:\/\/metafunctor.com\/post\/2025-01-15-ctw-experimental-results\/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+  
+  <link rel="stylesheet" href="../../css/refined-elegant.css">
+
+  
+  <link rel="stylesheet" href="../../css/micro-interactions.css">
+
+  
+  <link rel="stylesheet" href="../../css/elegant.css" media="print" onload="this.media='all'">
+
+  
+  <link rel="stylesheet" href="../../css/custom.css">
+
+  
+  <link rel="stylesheet" href="../../css/beautify.css">
+
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  
+  
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "\\[", right: "\\]", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false}
+        ]
+      });
+    });
+  </script>
+  
+
+  
+  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+
+  
+  
+
+
+
+
+
+  
+  
+
+  
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
+      <script>
+        var doNotTrack = false;
+        if ( true ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E08ZXTFTTY');
+        }
+      </script>
+  <meta name="generator" content="Hugo 0.156.0">
+</head>
+<body>
+  
+  <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+  <header class="elegant-header" role="banner">
+  <div class="header-inner">
+    <div class="site-identity">
+      <a href="https://metafunctor.com/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
+      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
+    </div>
+    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
+      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul role="list">
+        <li><a href="https://metafunctor.com/" >Home</a></li>
+        <li><a href="https://metafunctor.com/post/" class="active" aria-current="page">Posts</a></li>
+        <li><a href="https://metafunctor.com/series/" >Series</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Academic <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/papers/" >Papers</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/publications/" >Publications</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/research/" >Research</a></li>
+          </ul>
+        </li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Creative <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/writing/" >Writing</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/media/" >Media</a></li>
+          </ul>
+        </li>
+        <li><a href="https://metafunctor.com/projects/" >Projects</a></li>
+        <li><a href="https://metafunctor.com/about/" >About</a></li>
+        <li><a href="https://metafunctor.com/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+ 
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+  list-style: none;
+}
+
+.nav-dropdown.open .dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+}
+
+ 
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #fff;
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.nav-dropdown .dropdown-menu a {
+  display: block !important;
+  padding: 0.6rem 1.25rem !important;
+  color: #4a4a4a !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown .dropdown-menu a:hover {
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
+}
+
+.nav-dropdown .dropdown-menu a.active {
+  color: #4f46e5 !important;
+}
+
+ 
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.2s ease;
+  }
+
+  .dropdown-menu::before {
+    display: none;
+  }
+
+  .nav-dropdown.open .dropdown-menu {
+    max-height: 300px;
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-menu a {
+    padding: 0.5rem 1.5rem 0.5rem 2rem;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+  dropdowns.forEach(dropdown => {
+    const toggle = dropdown.querySelector('.dropdown-toggle');
+
+    
+    toggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasOpen = dropdown.classList.contains('open');
+
+      
+      dropdowns.forEach(d => d.classList.remove('open'));
+
+      
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+      }
+    });
+  });
+
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-dropdown')) {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+});
+</script>
+
+
+  
+  
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="https://metafunctor.com/">
+          <span itemprop="name">Home</span>
+        </a>
+        <meta itemprop="position" content="1" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <a itemprop="item" href="https://metafunctor.com/post/">
+          <span itemprop="name">News</span>
+        </a>
+        <meta itemprop="position" content="2" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <span itemprop="name" aria-current="page">CTW Experimental Results: Theory Meets Practice</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
+  
+
+  <main id="main-content" role="main" aria-label="Main content">
+    
+<div class="main-container">
+  <div class="single-post-layout">
+    
+    
+    <aside class="post-sidebar">
+      
+<aside class="toc-wrapper" aria-label="Table of contents">
+  <nav class="table-of-contents">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-content">
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#the-experimental-setup">The Experimental Setup</a>
+      <ul>
+        <li><a href="#data-generating-process">Data Generating Process</a></li>
+        <li><a href="#theoretical-maximum-accuracy">Theoretical Maximum Accuracy</a></li>
+        <li><a href="#configuration">Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#the-bug">The Bug</a>
+      <ul>
+        <li><a href="#initial-incorrect-results">Initial (Incorrect) Results</a></li>
+        <li><a href="#the-problem">The Problem</a></li>
+        <li><a href="#the-fix">The Fix</a></li>
+        <li><a href="#corrected-results">Corrected Results</a></li>
+      </ul>
+    </li>
+    <li><a href="#key-finding-no-overfitting-penalty">Key Finding: No Overfitting Penalty</a></li>
+    <li><a href="#why-this-makes-sense">Why This Makes Sense</a></li>
+    <li><a href="#practical-implications">Practical Implications</a></li>
+    <li><a href="#lessons-learned">Lessons Learned</a></li>
+    <li><a href="#running-the-experiments">Running the Experiments</a></li>
+    <li><a href="#summary-of-results">Summary of Results</a></li>
+    <li><a href="#series-conclusion">Series Conclusion</a></li>
+    <li><a href="#further-reading">Further Reading</a></li>
+  </ul>
+</nav>
+    </div>
+  </nav>
+</aside>
+
+<style>
+.toc-wrapper {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.toc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.toc-content {
+  font-size: 0.9rem;
+}
+
+.toc-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-content > ul {
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--space-md);
+}
+
+.toc-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.toc-content a {
+  color: var(--ink-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+  padding: var(--space-xs) 0;
+}
+
+.toc-content a:hover {
+  color: var(--accent);
+}
+
+.toc-content ul ul {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+ 
+@media (max-width: 1024px) {
+  .toc-wrapper {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
+</style>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tocLinks = document.querySelectorAll('.toc-content a');
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').substring(1);
+    return document.getElementById(id);
+  }).filter(section => section !== null);
+
+  function highlightTOC() {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const scrollPosition = window.scrollY + 100;
+      if (scrollPosition >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    tocLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+        link.style.color = 'var(--accent)';
+        link.style.fontWeight = '600';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
+
+  window.addEventListener('scroll', highlightTOC);
+  highlightTOC();
+});
+</script>
+
+    </aside>
+    
+
+    
+    <article class="single-post" itemscope itemtype="https://schema.org/Article">
+      <header class="post-header">
+        <h1 class="post-title" itemprop="headline">CTW Experimental Results: Theory Meets Practice</h1>
+        <div class="post-meta">
+          
+          <span class="post-date">
+            <i class="far fa-calendar" aria-hidden="true"></i>
+            <time datetime="2025-01-15T00:00:00Z" itemprop="datePublished">
+              January 15, 2025
+            </time>
+          </span>
+          
+          
+          <span class="post-reading-time">
+            <i class="far fa-clock" aria-hidden="true"></i>
+            5 min read
+          </span>
+          
+          
+          <span class="post-updated">
+            <i class="far fa-edit" aria-hidden="true"></i>
+            Updated: <time datetime="2026-02-24T02:47:07-06:00" itemprop="dateModified">
+              February 24, 2026
+            </time>
+          </span>
+          
+          
+        </div>
+        
+        <div class="tags" role="list">
+          
+          <a href="https://metafunctor.com/tags/sequential-prediction/" class="tag" role="listitem">sequential-prediction</a>
+          
+          <a href="https://metafunctor.com/tags/ctw/" class="tag" role="listitem">ctw</a>
+          
+          <a href="https://metafunctor.com/tags/experiments/" class="tag" role="listitem">experiments</a>
+          
+          <a href="https://metafunctor.com/tags/bayesian/" class="tag" role="listitem">bayesian</a>
+          
+          <a href="https://metafunctor.com/tags/markov-processes/" class="tag" role="listitem">markov-processes</a>
+          
+          <a href="https://metafunctor.com/tags/scientific-method/" class="tag" role="listitem">scientific-method</a>
+          
+        </div>
+        
+      </header>
+
+      
+
+
+
+
+
+
+
+
+<nav class="series-navigation" aria-label="Series navigation">
+  <div class="series-header">
+    <span class="series-label">Part of series:</span>
+    <a href="../../series/sequential-prediction/" class="series-name">Sequential Prediction</a>
+    <span class="series-count">8 parts</span>
+  </div>
+  <ol class="series-list">
+    
+    <li class="series-item ">
+      <a href="../../post/2010-06-01-intro-sequential-prediction/" class="series-link">
+        <span class="series-number">1</span>
+        <span class="series-title">Introduction to Sequential Prediction</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2012-03-15-solomonoff-induction-prediction/" class="series-link">
+        <span class="series-number">2</span>
+        <span class="series-title">Solomonoff Induction: The Theoretical Ideal</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2014-09-20-bayesian-prediction-framework/" class="series-link">
+        <span class="series-number">3</span>
+        <span class="series-title">The Bayesian Prediction Framework</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2015-11-10-data-generating-processes/" class="series-link">
+        <span class="series-number">4</span>
+        <span class="series-title">Data Generating Processes for Sequential Prediction</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2016-08-15-ngram-language-models/" class="series-link">
+        <span class="series-number">5</span>
+        <span class="series-title">N-gram Language Models</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2024-06-15-comparing-prediction-methods/" class="series-link">
+        <span class="series-number">6</span>
+        <span class="series-title">Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2024-09-20-neural-language-models-transformers/" class="series-link">
+        <span class="series-number">7</span>
+        <span class="series-title">Neural Language Models: From RNNs to Transformers</span>
+      </a>
+    </li>
+    
+    <li class="series-item current">
+      <a href="../../post/2025-01-15-ctw-experimental-results/" class="series-link">
+        <span class="series-number">8</span>
+        <span class="series-title">CTW Experimental Results: Theory Meets Practice</span>
+      </a>
+    </li>
+    
+  </ol>
+</nav>
+
+<style>
+.series-navigation {
+  margin: var(--space-6) 0;
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.series-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.series-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.series-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.series-name:hover {
+  color: var(--color-accent-primary);
+  text-decoration: underline;
+}
+
+.series-count {
+  font-size: var(--font-size-sm);
+  padding: 2px 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+}
+
+.series-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.series-item {
+  padding: 0;
+}
+
+.series-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.series-link:hover {
+  border-color: var(--color-accent-primary);
+  transform: translateX(4px);
+}
+
+.series-item.current .series-link {
+  background: var(--color-accent-primary);
+  color: white;
+}
+
+.series-item.current .series-number {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.series-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.series-title {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.series-item.current .series-title {
+  color: white;
+}
+
+@media (max-width: 600px) {
+  .series-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
+
+
+
+
+      <div class="content" itemprop="articleBody">
+        <p>Throughout this series, I&rsquo;ve developed the theory of sequential prediction, from Solomonoff&rsquo;s incomputable ideal to CTW&rsquo;s practical Bayesian approach. Now we validate theory with experiments.</p>
+<p>The punchline: CTW achieves Bayes-optimal accuracy when its depth matches or exceeds the true Markov order. But I didn&rsquo;t get there cleanly. A bug in my evaluation code initially suggested the opposite, and I nearly published the wrong conclusion.</p>
+<h2 id="the-experimental-setup">The Experimental Setup</h2>
+<h3 id="data-generating-process">Data Generating Process</h3>
+<p>I use sparse Markov processes where most contexts are uninformative:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">3rd-order Markov process:
+</span></span><span class="line"><span class="cl">Context  P(next=1)  Description
+</span></span><span class="line"><span class="cl">-------  ---------  ------------------
+</span></span><span class="line"><span class="cl">000      0.99       High certainty -&gt; 1
+</span></span><span class="line"><span class="cl">100      0.99       High certainty -&gt; 1
+</span></span><span class="line"><span class="cl">010      0.025      High certainty -&gt; 0
+</span></span><span class="line"><span class="cl">101      0.025      High certainty -&gt; 0
+</span></span><span class="line"><span class="cl">011      0.25       Moderate -&gt; 0
+</span></span><span class="line"><span class="cl">110      0.25       Moderate -&gt; 0
+</span></span><span class="line"><span class="cl">001      0.5        Uniform (random)
+</span></span><span class="line"><span class="cl">111      0.5        Uniform (random)
+</span></span></code></pre></div><p>This process has 4 highly predictable contexts (about 99% or 97.5% certainty), 2 moderately predictable contexts (about 75% certainty), and 2 completely random contexts (50/50).</p>
+<h3 id="theoretical-maximum-accuracy">Theoretical Maximum Accuracy</h3>
+<p>An oracle predictor that knows the true transition probabilities achieves:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">theoretical_max</span><span class="p">(</span><span class="n">transition_probs</span><span class="p">,</span> <span class="n">stationary_dist</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Predict the more likely outcome for each context.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">stationary_dist</span><span class="p">[</span><span class="n">ctx</span><span class="p">]</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="mi">1</span><span class="o">-</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">transition_probs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span></code></pre></div><p>For our process, this is approximately 95%. That&rsquo;s the ceiling for any predictor.</p>
+<h3 id="configuration">Configuration</h3>
+<ul>
+<li><strong>Training length</strong>: 50,000 bits</li>
+<li><strong>Test length</strong>: 10,000 bits</li>
+<li><strong>Seeds</strong>: 5 random seeds (averaged)</li>
+<li><strong>DGP orders</strong>: 1, 2, 3, 4, 5, 6</li>
+<li><strong>CTW depths</strong>: 1, 2, 3, 4, 5, 6, 8, 10</li>
+</ul>
+<h2 id="the-bug">The Bug</h2>
+<h3 id="initial-incorrect-results">Initial (Incorrect) Results</h3>
+<p>An early draft of this work reported what looked like a surprising finding:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Max Depth</th>
+          <th>Accuracy (%)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>87.2</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><strong>96.8</strong> (peak)</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>93.8</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>89.4</td>
+      </tr>
+      <tr>
+          <td>8</td>
+          <td>76.2</td>
+      </tr>
+      <tr>
+          <td>12</td>
+          <td>66.4</td>
+      </tr>
+  </tbody>
+</table>
+<p>This suggested that accuracy decreased when CTW depth exceeded the true order. I wrote up hypotheses about data sparsity degrading KT estimates at deep contexts, overfitting to rare deep patterns, and Bayesian dilution as the mixture flattened.</p>
+<h3 id="the-problem">The Problem</h3>
+<p>These results were wrong. A bug in the evaluation code caused accuracy to degrade artificially at higher depths.</p>
+<h3 id="the-fix">The Fix</h3>
+<p>After careful debugging, I corrected the context indexing in the test harness, fixed how predictions were accumulated across depths, and verified KT estimator updates were correctly propagated.</p>
+<h3 id="corrected-results">Corrected Results</h3>
+<p>With the bug fixed, the true behavior emerged:</p>
+<table>
+  <thead>
+      <tr>
+          <th>DGP Order</th>
+          <th>Theo Max</th>
+          <th>D=1</th>
+          <th>D=2</th>
+          <th>D=3</th>
+          <th>D=4</th>
+          <th>D=5</th>
+          <th>D=6</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>~95%</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>~95%</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>~95%</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>~95%</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+          <td>Y</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>~95%</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+          <td>Y</td>
+      </tr>
+      <tr>
+          <td>6</td>
+          <td>~95%</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>N</td>
+          <td>Y</td>
+      </tr>
+  </tbody>
+</table>
+<p>Y = Achieves theoretical maximum. N = Below theoretical maximum.</p>
+<h2 id="key-finding-no-overfitting-penalty">Key Finding: No Overfitting Penalty</h2>
+<p>When CTW depth is greater than or equal to the DGP order, CTW achieves Bayes-optimal accuracy.</p>
+<p>The corrected experiments confirm three things:</p>
+<ol>
+<li><strong>Depth &lt; Order</strong>: Accuracy is limited because CTW can&rsquo;t represent the true model.</li>
+<li><strong>Depth = Order</strong>: Achieves theoretical maximum.</li>
+<li><strong>Depth &gt; Order</strong>: Also achieves theoretical maximum. No degradation.</li>
+</ol>
+<p>The third point is the important one. Increasing depth beyond the true order does not hurt performance.</p>
+<h2 id="why-this-makes-sense">Why This Makes Sense</h2>
+<p>CTW&rsquo;s Bayesian model averaging naturally handles excessive depth.</p>
+<p><strong>The prior penalizes depth.</strong> At each node, CTW assigns 0.5 weight to &ldquo;stop here&rdquo; (use local KT estimate) and 0.5 weight to &ldquo;go deeper&rdquo; (use children). This compounds: a depth-D path has prior weight roughly 0.5^D. Deep trees are automatically downweighted.</p>
+<p><strong>Sparse data at depth is handled.</strong> When deep contexts have few samples, the KT estimator gives high uncertainty, the Bayesian mixture shifts weight toward shallower estimates, and predictions remain calibrated.</p>
+<p><strong>Model averaging is robust.</strong> Even with depth set too high, the true model is in the mixture, the posterior concentrates on the right tree structure, and excess complexity is averaged away rather than memorized.</p>
+<h2 id="practical-implications">Practical Implications</h2>
+<p><strong>Depth selection.</strong> When the true order is known, set depth equal to the order or slightly higher. When unknown, set depth conservatively high. There&rsquo;s no penalty for overestimating.</p>
+<p><strong>Data requirements.</strong> Higher depths require more data to populate deep contexts, but CTW handles sparse contexts gracefully. Rule of thumb: you need roughly 10x as many samples as the number of contexts at the target depth.</p>
+<p><strong>Confidence in theory.</strong> The experiments validate CTW&rsquo;s theoretical properties. Bayesian model averaging works as advertised. The 0.5/0.5 prior provides appropriate regularization. Optimality for tree sources holds empirically.</p>
+<h2 id="lessons-learned">Lessons Learned</h2>
+<p><strong>Trust but verify.</strong> The initial &ldquo;surprising&rdquo; result seemed plausible. Deep models overfitting is a common story. But it contradicted well-established theory, the magnitude of degradation was suspicious, and I skipped independent implementation checks. I should have been more skeptical of my own code.</p>
+<p><strong>Theory as a guide.</strong> When experiments contradict established theory, the experiment is often wrong. Theory provides expectations; deviations deserve scrutiny, not celebration.</p>
+<p><strong>Reproducibility matters.</strong> The bug was found when I tried to reproduce results with a different implementation. If I&rsquo;d only run the original code, the error might have persisted.</p>
+<p><strong>Simple experiments can fail.</strong> This wasn&rsquo;t a complex distributed system. It was a few hundred lines of Python evaluating a well-understood algorithm. Bugs hide everywhere.</p>
+<h2 id="running-the-experiments">Running the Experiments</h2>
+<p>To reproduce:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">experiments.ctw_multiorder</span> <span class="kn">import</span> <span class="n">run_multiorder_experiment</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="n">run_multiorder_experiment</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dgp_orders</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ctw_depths</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">markov_type</span><span class="o">=</span><span class="s2">&#34;sparse&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">train_length</span><span class="o">=</span><span class="mi">50000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">test_length</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">num_seeds</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Or via command line:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Quick sanity check</span>
+</span></span><span class="line"><span class="cl">python -m experiments.ctw.scripts.ctw_multiorder --quick
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Full experiment</span>
+</span></span><span class="line"><span class="cl">python -m experiments.ctw.scripts.ctw_multiorder
+</span></span></code></pre></div><h2 id="summary-of-results">Summary of Results</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Claim</th>
+          <th>Status</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>CTW achieves theoretical max when depth &gt;= order</td>
+          <td>Confirmed</td>
+      </tr>
+      <tr>
+          <td>CTW degrades with excessive depth</td>
+          <td>Refuted (was a bug)</td>
+      </tr>
+      <tr>
+          <td>Bayesian model averaging provides robustness</td>
+          <td>Confirmed</td>
+      </tr>
+      <tr>
+          <td>CTW is optimal for tree sources</td>
+          <td>Confirmed (empirically)</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="series-conclusion">Series Conclusion</h2>
+<p>This series traced sequential prediction from Solomonoff&rsquo;s incomputable ideal to practical algorithms:</p>
+<ol>
+<li><strong>The problem</strong>: Predict the next symbol given history</li>
+<li><strong>The ideal</strong>: Solomonoff induction, optimal but incomputable</li>
+<li><strong>The framework</strong>: Bayesian model averaging over hypotheses</li>
+<li><strong>The model class</strong>: Markov processes and tree sources</li>
+<li><strong>The classical approach</strong>: N-grams and their limitations</li>
+<li><strong>The trade-offs</strong>: Sample efficiency vs. flexibility</li>
+<li><strong>The modern approach</strong>: Neural language models at scale</li>
+<li><strong>The validation</strong>: CTW achieves its theoretical guarantees</li>
+</ol>
+<p>CTW represents a sweet spot: provably optimal within a rich model class, computationally efficient, and interpretable. For the right problems (binary sequences, limited data, need for guarantees), it remains the right choice even in the age of LLMs.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Willems, F. M. J., et al. (1995). &ldquo;The context-tree weighting method: basic properties.&rdquo;</li>
+<li>The <a href="https://github.com/queelius/sequential-prediction">code repository</a> contains the full CTW implementation and experimental scripts.</li>
+</ul>
+
+      </div>
+
+    
+    <nav class="post-navigation">
+      
+      <a href="../../post/2025-01-differentiation-stepanov/" class="nav-prev">
+        <span class="nav-label">← Previous</span>
+        <span class="nav-title">Differentiation: Three Ways</span>
+      </a>
+      
+      
+      <a href="../../post/2025-01-mathematical-elegance-code/" class="nav-next">
+        <span class="nav-label">Next →</span>
+        <span class="nav-title">Mathematical Structure in Software Design</span>
+      </a>
+      
+    </nav>
+    
+
+    
+    
+
+    
+    
+    
+    <section class="related-posts">
+      <h2 class="related-posts-title">Related Posts</h2>
+      <div class="related-posts-grid">
+        
+        <article class="related-post-card">
+          <a href="../../post/2014-09-20-bayesian-prediction-framework/" class="related-post-link">
+            <h3 class="related-post-title">The Bayesian Prediction Framework</h3>
+            <p class="related-post-excerpt"><p>In the <a href="../../post/2012-03-15-solomonoff-induction-prediction/">previous post</a>, we saw that Solomonoff induction is optimal but incomputable. Its power comes from maintaining a …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Sep 20, 2014
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">sequential-prediction</span>
+                
+                  <span class="mini-tag">bayesian</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2024-06-15-comparing-prediction-methods/" class="related-post-link">
+            <h3 class="related-post-title">Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</h3>
+            <p class="related-post-excerpt"><p>Previous posts in this series covered the theoretical foundations (Solomonoff, Bayesian prediction), the model classes …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Jun 15, 2024
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">sequential-prediction</span>
+                
+                  <span class="mini-tag">ctw</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2015-11-10-data-generating-processes/" class="related-post-link">
+            <h3 class="related-post-title">Data Generating Processes for Sequential Prediction</h3>
+            <p class="related-post-excerpt"><p>So far in this series, we have discussed <em>how</em> to predict sequences. But where do sequences come from? What statistical …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Nov 10, 2015
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">sequential-prediction</span>
+                
+                  <span class="mini-tag">markov-processes</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2012-03-15-solomonoff-induction-prediction/" class="related-post-link">
+            <h3 class="related-post-title">Solomonoff Induction: The Theoretical Ideal</h3>
+            <p class="related-post-excerpt"><p>In the <a href="../../post/2010-06-01-intro-sequential-prediction/">previous post</a>, we defined sequential prediction: given x1, &hellip;, xn-1, predict xn. The natural question is …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Mar 15, 2012
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">sequential-prediction</span>
+                
+                  <span class="mini-tag">solomonoff</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2010-06-01-intro-sequential-prediction/" class="related-post-link">
+            <h3 class="related-post-title">Introduction to Sequential Prediction</h3>
+            <p class="related-post-excerpt"><p>What will the next symbol be?</p>
+<p>This question sounds trivial. It is not. Given a sequence of observations (bits in a file, …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Jun 1, 2010
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">sequential-prediction</span>
+                
+                  <span class="mini-tag">information-theory</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+      </div>
+    </section>
+
+    <style>
+    .related-posts {
+      margin-top: 4rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .related-posts-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+    }
+
+    .related-posts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .related-post-card {
+      background: var(--paper, #fff);
+      border: 1px solid var(--border-color, #e5e7eb);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .related-post-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      border-color: var(--accent, #667eea);
+    }
+
+    .related-post-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .related-post-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+      line-height: 1.4;
+    }
+
+    .related-post-card:hover .related-post-title {
+      color: var(--accent, #667eea);
+    }
+
+    .related-post-excerpt {
+      font-size: 0.9rem;
+      color: var(--ink-light, #666);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .related-post-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--ink-light, #999);
+    }
+
+    .related-post-date i {
+      margin-right: 0.25rem;
+    }
+
+    .related-post-tags {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .related-post-tags .mini-tag {
+      background: var(--paper-dark, #f5f5f5);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--ink, #1a1a1a);
+    }
+
+    [data-theme="dark"] .related-posts {
+      border-top-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-posts-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-card {
+      background: var(--paper-dark, #222);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-post-card:hover {
+      border-color: var(--accent, #667eea);
+    }
+
+    [data-theme="dark"] .related-post-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-tags .mini-tag {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--ink, #e8e8e8);
+    }
+    </style>
+    
+
+    
+    <section class="comments-section">
+      <h2 class="comments-title">Discussion</h2>
+      <div class="giscus-container"></div>
+      <script src="https://giscus.app/client.js"
+              data-repo="queelius/metafunctor"
+              data-repo-id="R_kgDONbcL1g"
+              data-category="General"
+              data-category-id="DIC_kwDONbcL1s4CwFJ7"
+              data-mapping="pathname"
+              data-strict="0"
+              data-reactions-enabled="1"
+              data-emit-metadata="0"
+              data-input-position="bottom"
+              data-theme="preferred_color_scheme"
+              data-lang="en"
+              crossorigin="anonymous"
+              async>
+      </script>
+    </section>
+  </article>
+</div>
+
+<style>
+.comments-section {
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.comments-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--ink, #1a1a1a);
+  font-family: 'Lora', Georgia, serif;
+}
+
+.giscus-container {
+  margin-top: 1rem;
+}
+
+ 
+[data-theme="dark"] .comments-section {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .comments-title {
+  color: var(--ink, #e8e8e8);
+}
+</style>
+
+<script>
+
+function updateGiscusTheme() {
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  const giscusTheme = theme === 'dark' ? 'dark' : 'light';
+
+  const iframe = document.querySelector('iframe.giscus-frame');
+  if (iframe) {
+    iframe.contentWindow.postMessage({
+      giscus: {
+        setConfig: {
+          theme: giscusTheme
+        }
+      }
+    }, 'https://giscus.app');
+  }
+}
+
+
+const observer = new MutationObserver(updateGiscusTheme);
+observer.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme']
+});
+
+
+setTimeout(updateGiscusTheme, 1000);
+</script>
+  </div>
+</div>
+
+  </main>
+  
+  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-content">
+      <div class="footer-about">
+        <h3>metafunctor</h3>
+        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
+        <nav aria-label="Social media links" class="social-links">
+          
+          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+            <i class="fab fa-twitter" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <i class="fab fa-github" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <i class="fab fa-linkedin" aria-hidden="true"></i>
+          </a>
+          
+          <a href="../../index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
+            <i class="fas fa-rss" aria-hidden="true"></i>
+          </a>
+          
+          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
+            <i class="fab fa-keybase" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
+            <i class="fab fa-orcid" aria-hidden="true"></i>
+          </a>
+          
+        </nav>
+      </div>
+
+      <nav class="footer-section" aria-labelledby="footer-content">
+        <h4 id="footer-content">Content</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/post/">Posts</a>
+          <a href="https://metafunctor.com/papers/">Papers</a>
+          <a href="https://metafunctor.com/series/">Series</a>
+          <a href="https://metafunctor.com/publications/">Publications</a>
+          <a href="https://metafunctor.com/writing/">Writing</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-code">
+        <h4 id="footer-code">Code</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/projects/">Projects</a>
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-connect">
+        <h4 id="footer-connect">Connect</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/about/">About</a>
+          <a href="mailto:lex@metafunctor.com">Contact</a>
+          <a href="https://metafunctor.com/index.xml" type="application/rss+xml">RSS Feed</a>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p class="copyright">
+        © 2026 Alex Towell. All rights reserved.
+      </p>
+      <p class="accessibility-note">
+        <a href="#main-content">Back to top</a>
+      </p>
+    </div>
+  </footer>
+
+  
+  <script src="../../js/performance-optimizations.js" defer></script>
+  <script src="../../js/performance-enhancements.js" defer></script>
+
+  
+  <script src="../../js/mobile-menu.js" defer></script>
+  <script src="../../js/modern-interactions.js" defer></script>
+  <script src="../../js/search.js" defer></script>
+
+  
+  <script src="../../js/reading-progress.js" defer></script>
+  <script src="../../js/copy-code.js" defer></script>
+  <script src="../../js/anchor-links.js" defer></script>
+
+  
+  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <script>
+    
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.style.display = 'block';
+      } else {
+        backToTop.style.display = 'none';
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+
+  
+  <script data-goatcounter="https://queelius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

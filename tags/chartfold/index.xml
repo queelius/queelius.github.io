@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Chartfold on metafunctor</title>
+    <link>https://metafunctor.com/tags/chartfold/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/chartfold/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Chartfold: Owning Your Medical Records</title>
+      <link>https://metafunctor.com/post/2026-02-24-chartfold-owning-your-medical-records/</link>
+      <pubDate>Tue, 24 Feb 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-02-24-chartfold-owning-your-medical-records/</guid>
+      <description>A walkthrough of Chartfold, a Python tool that loads your medical records into SQLite and exposes them to Claude via MCP for structured analysis, visit prep, and ad-hoc queries.</description>
+      <content:encoded><![CDATA[<p>I have cancer. My oncologist is at one hospital system (Siteman/BJC), my primary care doctor at another, and my earlier treatment history lives at a third (Anderson, where my first oncologist practiced). Patient portals are fine for browsing, but they don&rsquo;t answer questions. They show you your data one lab result at a time, one note at a time, one visit at a time.</p>
+<p>I wanted to run queries against my medical records. Correlate lab trends with treatment changes. Generate structured question lists before oncology visits. Ask &ldquo;what changed since my last appointment&rdquo; and get a real answer. That means getting the data out of the portal and into something programmable.</p>
+<p>Chartfold loads EHR exports into SQLite and exposes them to Claude via MCP.</p>
+<hr>
+<h2 id="the-problem">The Problem</h2>
+<p>In the US, patients can export their medical records. HIPAA and the 21st Century Cures Act guarantee this. What you get depends on the system: Epic MyChart gives you CDA XML files, MEDITECH Expanse gives you FHIR JSON mixed with CCDA XML, athenahealth gives you FHIR R4 Bundles. Different formats, same clinical concepts.</p>
+<p>If your hospitals use different EHR systems, none of them have the complete picture. Chartfold merges the exports into one database. But even if you&rsquo;re at a single hospital, the export format is not something you can work with directly. A directory of CDA XML files is not a database. You can&rsquo;t query it, chart it, or hand it to an LLM.</p>
+<p>The point of Chartfold is to turn whatever your hospital gives you into a SQLite database, then make that database useful.</p>
+<h2 id="what-it-does">What It Does</h2>
+<p>Chartfold is a Python CLI. You point it at an EHR export directory, it parses the XML/FHIR, normalizes everything into a common data model (16 tables, ISO dates, deduplicated), and loads it into SQLite. Then you can query it directly, export it as a self-contained HTML dashboard, or connect Claude to it via MCP.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Load data from your hospital exports</span>
+</span></span><span class="line"><span class="cl">chartfold load epic ~/exports/epic/
+</span></span><span class="line"><span class="cl">chartfold load meditech ~/exports/meditech/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Query directly</span>
+</span></span><span class="line"><span class="cl">chartfold query <span class="s2">&#34;SELECT test_name, value, result_date FROM lab_results
+</span></span></span><span class="line"><span class="cl"><span class="s2">                 WHERE test_name LIKE &#39;%CEA%&#39; ORDER BY result_date DESC&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Export a self-contained HTML file</span>
+</span></span><span class="line"><span class="cl">chartfold <span class="nb">export</span> html --output chartfold.html
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Start the MCP server for Claude</span>
+</span></span><span class="line"><span class="cl">chartfold serve-mcp
+</span></span></code></pre></div><hr>
+<h2 id="the-claude-integration">The Claude Integration</h2>
+<p>This is why Chartfold exists for me.</p>
+<p>The MCP server exposes the database to Claude Code. Setup is one file. Drop a <code>.mcp.json</code> in any directory where you run Claude Code:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;mcpServers&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;chartfold&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;command&#34;</span><span class="p">:</span> <span class="s2">&#34;python&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;args&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;-m&#34;</span><span class="p">,</span> <span class="s2">&#34;chartfold&#34;</span><span class="p">,</span> <span class="s2">&#34;serve-mcp&#34;</span><span class="p">,</span> <span class="s2">&#34;--db&#34;</span><span class="p">,</span> <span class="s2">&#34;/path/to/chartfold.db&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>That&rsquo;s it. Claude now has read access to your entire medical history via SQL, plus tools for saving notes and structured analyses. I keep my database in a private directory and my <code>.mcp.json</code> pointing at it. Open Claude Code, and I&rsquo;m talking to my records.</p>
+<p>The kinds of things I actually use it for:</p>
+<blockquote>
+<p>&ldquo;What&rsquo;s changed since my last oncology visit on January 15?&rdquo;</p>
+</blockquote>
+<p>Claude writes SQL, reads the results, and gives me a structured diff: new lab results, new imaging, changed medications, new clinical notes.</p>
+<blockquote>
+<p>&ldquo;Generate a prioritized question list for my appointment with Dr. Tan tomorrow.&rdquo;</p>
+</blockquote>
+<p>Claude reads my recent labs, imaging reports, pathology, and genomic results, then produces a tiered document organized by clinical urgency.</p>
+<blockquote>
+<p>&ldquo;Show me my CEA trend and flag any inflection points.&rdquo;</p>
+</blockquote>
+<p>Claude queries the lab_results table, filters by test name, and walks through the time series.</p>
+<p>The analyses get saved back to the database (via dedicated MCP tools) and appear in the HTML export as tagged, searchable documents.</p>
+<p><img src="analysis-cards.png" alt="Analysis section showing Claude-generated documents: prioritized questions for an oncologist visit, molecular profile summary, and deep clinical analysis"></p>
+<p>Here&rsquo;s what one looks like expanded: a structured question list for an oncology appointment, organized by urgency tier, referencing specific test results and treatment options.</p>
+<p><img src="analysis.png" alt="Full analysis document showing tiered questions for Dr. Tan, covering Guardant tissue results, liquid biopsy timing, BRCA1 methylation, and treatment planning"></p>
+<p>I use this before every oncology visit. When you have 1776 lab results, 53 imaging reports, and 9 pathology reports, you need something to synthesize them. That&rsquo;s what Claude does well, but it needs structured data to work with. Chartfold provides the structured data. Claude provides the reasoning.</p>
+<p>The MCP server exposes 25 tools. Here&rsquo;s the full list:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tool</th>
+          <th>What it does</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>run_sql</code></td>
+          <td>Execute arbitrary read-only SQL against the database</td>
+      </tr>
+      <tr>
+          <td><code>get_schema</code></td>
+          <td>Get CREATE TABLE DDL for query planning</td>
+      </tr>
+      <tr>
+          <td><code>get_database_summary</code></td>
+          <td>Table counts and load history (start here)</td>
+      </tr>
+      <tr>
+          <td><code>query_labs</code></td>
+          <td>Lab results filtered by test name, date, source, LOINC</td>
+      </tr>
+      <tr>
+          <td><code>get_lab_series_tool</code></td>
+          <td>Cross-source time series for a specific test</td>
+      </tr>
+      <tr>
+          <td><code>get_available_tests_tool</code></td>
+          <td>All lab tests with frequency and date range</td>
+      </tr>
+      <tr>
+          <td><code>get_abnormal_labs_tool</code></td>
+          <td>All flagged-abnormal results</td>
+      </tr>
+      <tr>
+          <td><code>get_medications</code></td>
+          <td>Medication list, optionally filtered by status</td>
+      </tr>
+      <tr>
+          <td><code>reconcile_medications_tool</code></td>
+          <td>Cross-source medication reconciliation</td>
+      </tr>
+      <tr>
+          <td><code>get_timeline</code></td>
+          <td>Unified event timeline (encounters, procedures, imaging, labs, pathology)</td>
+      </tr>
+      <tr>
+          <td><code>search_notes</code></td>
+          <td>Full-text search across clinical notes</td>
+      </tr>
+      <tr>
+          <td><code>get_pathology_report</code></td>
+          <td>Retrieve a pathology report by ID</td>
+      </tr>
+      <tr>
+          <td><code>get_visit_diff</code></td>
+          <td>Everything new since a given date</td>
+      </tr>
+      <tr>
+          <td><code>get_visit_prep</code></td>
+          <td>Pre-appointment summary bundle</td>
+      </tr>
+      <tr>
+          <td><code>get_surgical_timeline</code></td>
+          <td>Procedures linked to pathology, imaging, and meds</td>
+      </tr>
+      <tr>
+          <td><code>match_cross_source_encounters</code></td>
+          <td>Same-day encounters across different EHR systems</td>
+      </tr>
+      <tr>
+          <td><code>get_data_quality_report</code></td>
+          <td>Duplicate detection and source coverage matrix</td>
+      </tr>
+      <tr>
+          <td><code>get_source_files</code></td>
+          <td>Find PDFs and images linked to clinical records</td>
+      </tr>
+      <tr>
+          <td><code>get_asset_summary</code></td>
+          <td>Source asset counts by type and source</td>
+      </tr>
+      <tr>
+          <td><code>save_note</code> / <code>get_note</code> / <code>search_notes_personal</code> / <code>delete_note</code></td>
+          <td>Personal notes (CRUD)</td>
+      </tr>
+      <tr>
+          <td><code>save_analysis</code> / <code>get_analysis</code> / <code>search_analyses</code> / <code>list_analyses</code> / <code>delete_analysis</code></td>
+          <td>Structured analyses (CRUD)</td>
+      </tr>
+  </tbody>
+</table>
+<p>Clinical data is read-only (the SQLite connection opens in <code>?mode=ro</code>, enforced at the engine level). Claude can&rsquo;t modify your clinical records, only read them and save its own notes and analyses.</p>
+<p>Most of these tools exist so Claude doesn&rsquo;t have to write SQL for common tasks. But <code>run_sql</code> is the escape hatch: anything the specialized tools don&rsquo;t cover, Claude can query directly.</p>
+<hr>
+<h2 id="the-html-dashboard">The HTML Dashboard</h2>
+<p>The HTML export embeds the entire SQLite database using sql.js (SQLite compiled to WebAssembly). Open the file in a browser and you get an interactive dashboard. Everything runs client-side. No server, no cloud, no account. The file never phones home.</p>
+<p><img src="overview.png" alt="Dashboard overview showing record counts: 1776 lab results, 93 medications, 51 conditions, 99 encounters, 53 imaging reports, and more"></p>
+<h3 id="lab-charts">Lab Charts</h3>
+<p>Lab charts show time-series data across sources with reference ranges. Here, creatinine and albumin are tracked over four years across MEDITECH (blue) and Epic (orange).</p>
+<p><img src="lab-charts.png" alt="Cross-source lab charts for Creatinine and Albumin, showing data series from two hospital systems with reference range bands"></p>
+<p>For patients who do deal with fragmented records across incompatible systems, this is the view that doesn&rsquo;t exist in any single portal. The charts are configurable via a TOML file, which you can auto-generate from your data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">chartfold init-config
+</span></span></code></pre></div><h3 id="conditions">Conditions</h3>
+<p>Conditions with ICD-10 codes, onset dates, and source provenance.</p>
+<p><img src="conditions.png" alt="Conditions table showing 51 conditions with status, ICD-10 codes, onset dates, and source system"></p>
+<h3 id="medications">Medications</h3>
+<p>Medications show &ldquo;Multi-source&rdquo; badges when the same drug appears in multiple systems.</p>
+<p><img src="medications.png" alt="Active medications list with multi-source badges"></p>
+<h3 id="imaging">Imaging</h3>
+<p>Imaging reports with the full narrative findings. Useful for visit prep: search for a specific study, read the impression, bring context.</p>
+<p><img src="imaging.png" alt="Imaging section showing CT and MRI reports with narrative findings"></p>
+<h3 id="source-documents">Source Documents</h3>
+<p>Source PDFs and scanned documents grouped by date.</p>
+<p><img src="sources.png" alt="Source documents grouped by date, showing PDF assets from EHR exports"></p>
+<h3 id="sql-console">SQL Console</h3>
+<p>For anything the UI doesn&rsquo;t cover, there&rsquo;s a SQL console. Every table, every column, every index.</p>
+<p><img src="sql-console.png" alt="SQL Console showing the database schema"></p>
+<h3 id="dark-mode">Dark Mode</h3>
+<p><img src="dark-mode.png" alt="Dark mode overview"></p>
+<hr>
+<h2 id="architecture">Architecture</h2>
+<p>Three-stage pipeline, each stage independently testable:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Raw EHR files (CDA XML, FHIR JSON, CCDA XML)
+</span></span><span class="line"><span class="cl">    |
+</span></span><span class="line"><span class="cl">    v
+</span></span><span class="line"><span class="cl">[Source Parser]  -- format-specific extraction
+</span></span><span class="line"><span class="cl">    |
+</span></span><span class="line"><span class="cl">    v
+</span></span><span class="line"><span class="cl">[Adapter]        -- normalize to UnifiedRecords (16 dataclass types)
+</span></span><span class="line"><span class="cl">    |
+</span></span><span class="line"><span class="cl">    v
+</span></span><span class="line"><span class="cl">[DB Loader]      -- idempotent upsert into SQLite
+</span></span></code></pre></div><p>Source parsers handle the XML/FHIR parsing. Adapters normalize dates to ISO 8601, parse numeric values, deduplicate, and map into a common data model. The DB loader uses upsert with natural keys, so re-running a load is safe.</p>
+<p>After loading, the CLI prints a stage comparison table: parser count, adapter count, DB count. If the numbers don&rsquo;t match, you know where data was lost.</p>
+<p>Currently supports Epic (CDA), MEDITECH (FHIR + CCDA), and athenahealth (FHIR R4). These importers were written against my own exports. I can&rsquo;t guarantee they&rsquo;ll work for yours. EHR exports vary by site, software version, and configuration. The pipeline is designed as a plugin system for exactly this reason: adding a new source means writing a parser, an adapter, and wiring them into the CLI. The CLAUDE.md has a recipe, and Claude can write a new importer from a sample export in about an hour.</p>
+<hr>
+<h2 id="export-formats">Export Formats</h2>
+<ul>
+<li><strong>HTML SPA</strong>: self-contained single file with embedded SQLite, Chart.js, and sql.js. No external dependencies. Copy it to a USB drive.</li>
+<li><strong>Markdown</strong>: visit-focused summary with configurable lookback, optional PDF via pandoc.</li>
+<li><strong>JSON</strong>: full-fidelity round-trip format. Export, then import to a new database with identical record counts.</li>
+<li><strong>Hugo site</strong>: static site with detail pages and cross-linked records.</li>
+<li><strong>Arkiv</strong>: universal record format (JSONL + manifest) for long-term archival.</li>
+</ul>
+<p>The HTML export is a single file. No server, no backend, no account. You can host it on a static site (I host mine on GitHub Pages), email it to a family member, or hand it to a doctor on a USB drive. Because it&rsquo;s just a file, you can protect it with <a href="/post/2026-02-13-pagevault/">PageVault</a> to add password-based encryption before sharing. The recipient opens the file, enters the password, and gets the full interactive dashboard. No server involved at any step.</p>
+<p>Medical records should not depend on someone else&rsquo;s infrastructure. A single HTML file with an embedded database and WebAssembly runtime is about as durable as digital data gets.</p>
+<hr>
+<h2 id="getting-started">Getting Started</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install chartfold
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Load your exports</span>
+</span></span><span class="line"><span class="cl">chartfold load auto ~/path/to/export/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Query</span>
+</span></span><span class="line"><span class="cl">chartfold query <span class="s2">&#34;SELECT test_name, value, result_date FROM lab_results LIMIT 10&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Export</span>
+</span></span><span class="line"><span class="cl">chartfold <span class="nb">export</span> html --output my-records.html
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Connect Claude</span>
+</span></span><span class="line"><span class="cl">chartfold serve-mcp
+</span></span></code></pre></div><p>The code is on GitHub: <a href="https://github.com/queelius/chartfold">queelius/chartfold</a>. Python 3.11+, depends on lxml and not much else.</p>
+<hr>
+<p><em>Chartfold started because I wanted to ask questions about my own medical records and couldn&rsquo;t. Now I can.</em></p>]]></content:encoded>
+      
+      
+      <category>chartfold</category>
+      
+      <category>python</category>
+      
+      <category>ehr</category>
+      
+      <category>sqlite</category>
+      
+      <category>health-data</category>
+      
+      <category>open-source</category>
+      
+      <category>mcp</category>
+      
+      <category>claude</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

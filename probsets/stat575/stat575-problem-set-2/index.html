@@ -1,548 +1,1616 @@
-<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>Computational Statistics - SIUe - STAT 575 - Problem Set 2 | metafunctor</title><meta name=title content="Computational Statistics - SIUe - STAT 575 - Problem Set 2 | metafunctor"><meta name=description content="This problem set covers the E-M algorithm for right-censored normal data with known variance."><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/probsets/stat575/stat575-problem-set-2/><link rel=alternate hreflang=en href=https://metafunctor.com/probsets/stat575/stat575-problem-set-2/><link rel=alternate hreflang=x-default href=https://metafunctor.com/probsets/stat575/stat575-problem-set-2/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/"><meta property="og:title" content="Computational Statistics - SIUe - STAT 575 - Problem Set 2"><meta property="og:description" content="This problem set covers the E-M algorithm for right-censored normal data with known variance."><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:published_time" content="2021-10-30T00:00:00Z"><meta property="article:modified_time" content="2024-11-27T12:17:32-06:00"><meta property="article:section" content="statistics"><meta property="article:tag" content="statistics"><meta property="article:tag" content="R"><meta property="article:tag" content="computation"><meta property="article:tag" content="EM algorithm"><meta property="article:tag" content="statistical inference"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/"><meta name=twitter:title content="Computational Statistics - SIUe - STAT 575 - Problem Set 2"><meta name=twitter:description content="This problem set covers the E-M algorithm for right-censored normal data with known variance."><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/#primaryContent","headline":"Computational Statistics - SIUe - STAT 575 - Problem Set 2","description":"This problem set covers the E-M algorithm for right-censored normal data with known variance.","url":"https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/","inLanguage":"en-US","datePublished":"2021-10-30T00:00:00Z","dateModified":"2024-11-27T12:17:32-06:00","wordCount":3518,"timeRequired":"PT17M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}},"keywords":["statistics","R","computation","EM algorithm","statistical inference"]},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"STAT 575 - Computational Statistics - SIUe - Summer 2021","item":"https:\/\/metafunctor.com\/probsets\/stat575\/"},{"@type":"ListItem","position":3,"name":"Computational Statistics - SIUe - STAT 575 - Problem Set 2","item":"https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=../../../css/refined-elegant.css><link rel=stylesheet href=../../../css/micro-interactions.css><link rel=stylesheet href=../../../css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=../../../css/custom.css><link rel=stylesheet href=../../../css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.155.3"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
-<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
-<span></span>
-<span></span>
-<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/post/>Posts</a></li><li><a href=https://metafunctor.com/series/>Series</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Academic <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li></ul></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Creative <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li><li role=menuitem><a href=https://metafunctor.com/media/>Media</a></li></ul></li><li><a href=https://metafunctor.com/projects/>Projects</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
-</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<a itemprop=item href=https://metafunctor.com/probsets/stat575/><span itemprop=name>STAT 575 - Computational Statistics - SIUe - Summer 2021</span>
-</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<span itemprop=name aria-current=page>Computational Statistics - SIUe - STAT 575 - Problem Set 2</span>
-<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><div class=main-container><div class=single-post-layout><aside class=post-sidebar><aside class=toc-wrapper aria-label="Table of contents"><nav class=table-of-contents><h2 class=toc-title>Table of Contents</h2><div class=toc-content><nav id=TableOfContents><ul><li><a href=#part-a>Part (a)</a><ul><li><a href=#solution>Solution</a></li></ul></li><li><a href=#part-b>Part (b)</a><ul><li><a href=#solution-1>Solution</a></li></ul></li><li><a href=#part-c>Part (c)</a><ul><li><a href=#solution-2>Solution</a><ul><li><a href=#e-step>E-step</a></li><li><a href=#m-step>M-step</a></li></ul></li></ul></li><li><a href=#part-d>Part (d)</a><ul><li><a href=#solution-3>Solution</a></li></ul></li></ul><ul><li><a href=#solution-4>Solution</a><ul><li><a href=#part-a-1>Part (a)</a></li><li><a href=#e-step-1>E-step</a></li><li><a href=#m-step-1>M-step</a></li></ul></li><li><a href=#part-b-1>Part (b)</a><ul><li><a href=#solution-5>Solution</a></li></ul></li><li><a href=#part-c-1>Part (c)</a><ul><li><a href=#solution-6>Solution</a></li></ul></li></ul></nav></div></nav></aside><style>.toc-wrapper{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;padding:var(--space-lg);background:var(--paper-dark);border:var(--border-width)solid var(--border-color);border-radius:var(--radius-lg);margin-bottom:var(--space-xl)}.toc-title{font-size:1rem;font-weight:600;color:var(--ink);margin:0 0 var(--space-md);text-transform:uppercase;letter-spacing:.05em;font-size:.875rem}.toc-content{font-size:.9rem}.toc-content ul{list-style:none;padding-left:0;margin:0}.toc-content>ul{border-left:2px solid var(--border-color);padding-left:var(--space-md)}.toc-content li{margin-bottom:var(--space-sm)}.toc-content a{color:var(--ink-light);text-decoration:none;transition:color var(--transition-fast);display:block;padding:var(--space-xs)0}.toc-content a:hover{color:var(--accent)}.toc-content ul ul{margin-top:var(--space-sm);padding-left:var(--space-md)}@media(max-width:1024px){.toc-wrapper{position:relative;top:0;max-height:none}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".toc-content a"),n=Array.from(e).map(e=>{const t=e.getAttribute("href").substring(1);return document.getElementById(t)}).filter(e=>e!==null);function t(){let t="";n.forEach(e=>{const n=e.offsetTop,s=window.scrollY+100;s>=n&&(t=e.getAttribute("id"))}),e.forEach(e=>{e.classList.remove("active"),e.getAttribute("href")==="#"+t?(e.classList.add("active"),e.style.color="var(--accent)",e.style.fontWeight="600"):(e.style.color="",e.style.fontWeight="")})}window.addEventListener("scroll",t),t()})</script></aside><article class=single-post itemscope itemtype=https://schema.org/Article><header class=post-header><h1 class=post-title itemprop=headline>Computational Statistics - SIUe - STAT 575 - Problem Set 2</h1><div class=post-meta><span class=post-date><i class="far fa-calendar" aria-hidden=true></i>
-<time datetime=2021-10-30T00:00:00Z itemprop=datePublished>October 30, 2021
-</time></span><span class=post-author itemprop=author itemscope itemtype=https://schema.org/Person><i class="far fa-user" aria-hidden=true></i>
-<span itemprop=name>Alex Towell (lex@metafunctor.com)</span>
-</span><span class=post-reading-time><i class="far fa-clock" aria-hidden=true></i>
-17 min read
-</span><span class=post-updated><i class="far fa-edit" aria-hidden=true></i>
-Updated: <time datetime=2024-11-27T12:17:32-06:00 itemprop=dateModified>November 27, 2024</time></span></div><div class=tags role=list><a href=https://metafunctor.com/tags/statistics/ class=tag role=listitem>statistics</a>
-<a href=https://metafunctor.com/tags/r/ class=tag role=listitem>R</a>
-<a href=https://metafunctor.com/tags/computation/ class=tag role=listitem>computation</a>
-<a href=https://metafunctor.com/tags/em-algorithm/ class=tag role=listitem>EM algorithm</a>
-<a href=https://metafunctor.com/tags/statistical-inference/ class=tag role=listitem>statistical inference</a></div></header><div class=content itemprop=articleBody><h1 id=problem-1>Problem 1</h1><p>Derive the E-M algorithm for right-censored normal data with known variance, say $2 = 1$. Consider $Y_i$’s that are i.i.d. from a $N(\theta, 1)$, $i=1,2\ldots, n$. We observe $(x_1, \ldots, x_n)$ and $(\delta_1, \ldots, \delta_n)$, where $x_i = \min(y_i,c)$, and $\delta_i = I(y_i &lt; c)$. Let $C$ be the total number of censored (incomplete) observations. We denote the missing data as ${Z_i : \delta_i = 0}$.</p><h2 id=part-a>Part (a)</h2><p>Derive the complete log-likelihood, $\ell(\theta | Y)$.</p><h3 id=solution>Solution</h3><p>The unobserved random variates ${Y_i}$ are i.i.d. normally distributed,</p>$$
-Y_i \sim f_{Y_i}(y | \theta)
-$$<p>where</p>$$
-f_{Y_i}(y | \theta) = (2 \pi)^{-\frac{1}{2}} \exp\left(-\frac{1}{2}(y - \theta)^2\right).
-$$<p>The likelihood function is therefore</p>$$
+<!DOCTYPE html>
+<html lang="en-us" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  
+  <title>Computational Statistics - SIUe - STAT 575 - Problem Set 2 | metafunctor</title>
+  <meta name="title" content="Computational Statistics - SIUe - STAT 575 - Problem Set 2 | metafunctor">
+  <meta name="description" content="This problem set covers the E-M algorithm for right-censored normal data with known variance.">
+
+  
+  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
+  <meta name="author" content="Alex Towell">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/">
+
+  
+  
+
+  
+  <link rel="alternate" hreflang="en" href="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/">
+  <link rel="alternate" hreflang="x-default" href="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/">
+
+  
+  
+<style>
+ 
+
+ 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+ 
+.elegant-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(254, 254, 254, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  text-decoration: none;
+}
+
+.nav-primary ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-primary a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a4a4a;
+  text-decoration: none;
+}
+
+ 
+.hero-elegant {
+  padding: 5rem 2rem;
+  text-align: center;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #4a4a4a;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+
+ 
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0050a0;
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+ 
+.preload * {
+  transition: none !important;
+}
+</style>
+
+
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/">
+  <meta property="og:title" content="Computational Statistics - SIUe - STAT 575 - Problem Set 2">
+  <meta property="og:description" content="This problem set covers the E-M algorithm for right-censored normal data with known variance.">
+  <meta property="og:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="metafunctor">
+  <meta property="og:locale" content="en_US">
+  
+  <meta property="article:author" content="Alex Towell">
+  <meta property="article:published_time" content="2021-10-30T00:00:00Z">
+  <meta property="article:modified_time" content="2024-11-27T12:17:32-06:00">
+  <meta property="article:section" content="statistics">
+  <meta property="article:tag" content="statistics"><meta property="article:tag" content="R"><meta property="article:tag" content="computation"><meta property="article:tag" content="EM algorithm"><meta property="article:tag" content="statistical inference">
+  
+
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://metafunctor.com/probsets/stat575/stat575-problem-set-2/">
+  <meta name="twitter:title" content="Computational Statistics - SIUe - STAT 575 - Problem Set 2">
+  <meta name="twitter:description" content="This problem set covers the E-M algorithm for right-censored normal data with known variance.">
+  <meta name="twitter:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta name="twitter:site" content="@queelius">
+  <meta name="twitter:creator" content="@queelius">
+
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": "https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/#primaryContent",
+        
+        "headline": "Computational Statistics - SIUe - STAT 575 - Problem Set 2",
+        "description": "This problem set covers the E-M algorithm for right-censored normal data with known variance.",
+        "url": "https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/",
+        "inLanguage": "en-US",
+        "datePublished": "2021-10-30T00:00:00Z",
+        "dateModified": "2024-11-27T12:17:32-06:00",
+        "wordCount":  3518 ,
+        "timeRequired": "PT17M",
+        "author": {
+          "@type": "Person",
+          "@id": "https:\/\/metafunctor.com\/#author",
+          "name": "Alex Towell",
+          "url": "https:\/\/metafunctor.com\/about/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "@id": "https:\/\/metafunctor.com\/#organization",
+          "name": "metafunctor",
+          "url": "https:\/\/metafunctor.com\/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https:\/\/metafunctor.com\/images\/og-image.jpg"
+          }
+        },
+        "keywords": ["statistics", "R", "computation", "EM algorithm", "statistical inference"]
+        
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https:\/\/metafunctor.com\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "STAT 575 - Computational Statistics - SIUe - Summer 2021",
+            "item": "https:\/\/metafunctor.com\/probsets\/stat575\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Computational Statistics - SIUe - STAT 575 - Problem Set 2",
+            "item": "https:\/\/metafunctor.com\/probsets\/stat575\/stat575-problem-set-2\/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+  
+  <link rel="stylesheet" href="../../../css/refined-elegant.css">
+
+  
+  <link rel="stylesheet" href="../../../css/micro-interactions.css">
+
+  
+  <link rel="stylesheet" href="../../../css/elegant.css" media="print" onload="this.media='all'">
+
+  
+  <link rel="stylesheet" href="../../../css/custom.css">
+
+  
+  <link rel="stylesheet" href="../../../css/beautify.css">
+
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  
+  
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "\\[", right: "\\]", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false}
+        ]
+      });
+    });
+  </script>
+  
+
+  
+  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+
+  
+  
+
+
+
+
+
+  
+  
+
+  
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
+      <script>
+        var doNotTrack = false;
+        if ( true ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E08ZXTFTTY');
+        }
+      </script>
+  <meta name="generator" content="Hugo 0.156.0">
+</head>
+<body>
+  
+  <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+  <header class="elegant-header" role="banner">
+  <div class="header-inner">
+    <div class="site-identity">
+      <a href="https://metafunctor.com/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
+      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
+    </div>
+    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
+      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul role="list">
+        <li><a href="https://metafunctor.com/" >Home</a></li>
+        <li><a href="https://metafunctor.com/post/" >Posts</a></li>
+        <li><a href="https://metafunctor.com/series/" >Series</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Academic <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/papers/" >Papers</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/publications/" >Publications</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/research/" >Research</a></li>
+          </ul>
+        </li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Creative <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/writing/" >Writing</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/media/" >Media</a></li>
+          </ul>
+        </li>
+        <li><a href="https://metafunctor.com/projects/" >Projects</a></li>
+        <li><a href="https://metafunctor.com/about/" >About</a></li>
+        <li><a href="https://metafunctor.com/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+ 
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+  list-style: none;
+}
+
+.nav-dropdown.open .dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+}
+
+ 
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #fff;
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.nav-dropdown .dropdown-menu a {
+  display: block !important;
+  padding: 0.6rem 1.25rem !important;
+  color: #4a4a4a !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown .dropdown-menu a:hover {
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
+}
+
+.nav-dropdown .dropdown-menu a.active {
+  color: #4f46e5 !important;
+}
+
+ 
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.2s ease;
+  }
+
+  .dropdown-menu::before {
+    display: none;
+  }
+
+  .nav-dropdown.open .dropdown-menu {
+    max-height: 300px;
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-menu a {
+    padding: 0.5rem 1.5rem 0.5rem 2rem;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+  dropdowns.forEach(dropdown => {
+    const toggle = dropdown.querySelector('.dropdown-toggle');
+
+    
+    toggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasOpen = dropdown.classList.contains('open');
+
+      
+      dropdowns.forEach(d => d.classList.remove('open'));
+
+      
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+      }
+    });
+  });
+
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-dropdown')) {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+});
+</script>
+
+
+  
+  
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="https://metafunctor.com/">
+          <span itemprop="name">Home</span>
+        </a>
+        <meta itemprop="position" content="1" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <a itemprop="item" href="https://metafunctor.com/probsets/stat575/">
+          <span itemprop="name">STAT 575 - Computational Statistics - SIUe - Summer 2021</span>
+        </a>
+        <meta itemprop="position" content="2" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <span itemprop="name" aria-current="page">Computational Statistics - SIUe - STAT 575 - Problem Set 2</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
+  
+
+  <main id="main-content" role="main" aria-label="Main content">
+    
+<div class="main-container">
+  <div class="single-post-layout">
+    
+    
+    <aside class="post-sidebar">
+      
+<aside class="toc-wrapper" aria-label="Table of contents">
+  <nav class="table-of-contents">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-content">
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#part-a">Part (a)</a>
+      <ul>
+        <li><a href="#solution">Solution</a></li>
+      </ul>
+    </li>
+    <li><a href="#part-b">Part (b)</a>
+      <ul>
+        <li><a href="#solution-1">Solution</a></li>
+      </ul>
+    </li>
+    <li><a href="#part-c">Part (c)</a>
+      <ul>
+        <li><a href="#solution-2">Solution</a>
+          <ul>
+            <li><a href="#e-step">E-step</a></li>
+            <li><a href="#m-step">M-step</a></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+    <li><a href="#part-d">Part (d)</a>
+      <ul>
+        <li><a href="#solution-3">Solution</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#solution-4">Solution</a>
+      <ul>
+        <li><a href="#part-a-1">Part (a)</a></li>
+        <li><a href="#e-step-1">E-step</a></li>
+        <li><a href="#m-step-1">M-step</a></li>
+      </ul>
+    </li>
+    <li><a href="#part-b-1">Part (b)</a>
+      <ul>
+        <li><a href="#solution-5">Solution</a></li>
+      </ul>
+    </li>
+    <li><a href="#part-c-1">Part (c)</a>
+      <ul>
+        <li><a href="#solution-6">Solution</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+  </nav>
+</aside>
+
+<style>
+.toc-wrapper {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.toc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.toc-content {
+  font-size: 0.9rem;
+}
+
+.toc-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-content > ul {
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--space-md);
+}
+
+.toc-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.toc-content a {
+  color: var(--ink-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+  padding: var(--space-xs) 0;
+}
+
+.toc-content a:hover {
+  color: var(--accent);
+}
+
+.toc-content ul ul {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+ 
+@media (max-width: 1024px) {
+  .toc-wrapper {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
+</style>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tocLinks = document.querySelectorAll('.toc-content a');
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').substring(1);
+    return document.getElementById(id);
+  }).filter(section => section !== null);
+
+  function highlightTOC() {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const scrollPosition = window.scrollY + 100;
+      if (scrollPosition >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    tocLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+        link.style.color = 'var(--accent)';
+        link.style.fontWeight = '600';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
+
+  window.addEventListener('scroll', highlightTOC);
+  highlightTOC();
+});
+</script>
+
+    </aside>
+    
+
+    
+    <article class="single-post" itemscope itemtype="https://schema.org/Article">
+      <header class="post-header">
+        <h1 class="post-title" itemprop="headline">Computational Statistics - SIUe - STAT 575 - Problem Set 2</h1>
+        <div class="post-meta">
+          
+          <span class="post-date">
+            <i class="far fa-calendar" aria-hidden="true"></i>
+            <time datetime="2021-10-30T00:00:00Z" itemprop="datePublished">
+              October 30, 2021
+            </time>
+          </span>
+          
+          
+          <span class="post-author" itemprop="author" itemscope itemtype="https://schema.org/Person">
+            <i class="far fa-user" aria-hidden="true"></i>
+            <span itemprop="name">Alex Towell (lex@metafunctor.com)</span>
+          </span>
+          
+          <span class="post-reading-time">
+            <i class="far fa-clock" aria-hidden="true"></i>
+            17 min read
+          </span>
+          
+          
+          <span class="post-updated">
+            <i class="far fa-edit" aria-hidden="true"></i>
+            Updated: <time datetime="2024-11-27T12:17:32-06:00" itemprop="dateModified">
+              November 27, 2024
+            </time>
+          </span>
+          
+          
+        </div>
+        
+        <div class="tags" role="list">
+          
+          <a href="https://metafunctor.com/tags/statistics/" class="tag" role="listitem">statistics</a>
+          
+          <a href="https://metafunctor.com/tags/r/" class="tag" role="listitem">R</a>
+          
+          <a href="https://metafunctor.com/tags/computation/" class="tag" role="listitem">computation</a>
+          
+          <a href="https://metafunctor.com/tags/em-algorithm/" class="tag" role="listitem">EM algorithm</a>
+          
+          <a href="https://metafunctor.com/tags/statistical-inference/" class="tag" role="listitem">statistical inference</a>
+          
+        </div>
+        
+      </header>
+
+      <div class="content" itemprop="articleBody">
+        <h1 id="problem-1">Problem 1</h1>
+<p>Derive the E-M algorithm for right-censored normal data with known variance, say $2 = 1$. Consider $Y_i$’s that are i.i.d. from a $N(\theta, 1)$, $i=1,2\ldots, n$. We observe $(x_1, \ldots, x_n)$ and $(\delta_1, \ldots, \delta_n)$, where $x_i = \min(y_i,c)$, and $\delta_i = I(y_i &lt; c)$. Let $C$ be the total number of censored (incomplete) observations. We denote the missing data as ${Z_i : \delta_i = 0}$.</p>
+<h2 id="part-a">Part (a)</h2>
+<p>Derive the complete log-likelihood, $\ell(\theta | Y)$.</p>
+<h3 id="solution">Solution</h3>
+<p>The unobserved random variates ${Y_i}$ are i.i.d. normally distributed,
+</p>
+$$
+  Y_i \sim f_{Y_i}(y | \theta)
+$$<p>
+where
+</p>
+$$
+  f_{Y_i}(y | \theta) = (2 \pi)^{-\frac{1}{2}} \exp\left(-\frac{1}{2}(y - \theta)^2\right).
+$$<p>The likelihood function is therefore
+</p>
+$$
 \begin{align*}
-L(\theta | \{y_i\})
-&= \prod_{i=1}^{n} (2 \pi)^{-\frac{1}{2}} \exp\left(-\frac{1}{2}(y_i - \theta)^2\right)\\
-&= (2 \pi)^{-\frac{n}{2}} \exp\left(-\sum_{i=1}^{n} \frac{1}{2}(y_i - \theta)^2\right).
+  L(\theta | \{y_i\})
+    &= \prod_{i=1}^{n} (2 \pi)^{-\frac{1}{2}} \exp\left(-\frac{1}{2}(y_i - \theta)^2\right)\\
+    &= (2 \pi)^{-\frac{n}{2}} \exp\left(-\sum_{i=1}^{n} \frac{1}{2}(y_i - \theta)^2\right).
 \end{align*}
-$$<p>Taking the logarithm of $L$,</p>$$
+$$<p>Taking the logarithm of $L$,
+</p>
+$$
 \begin{align*}
-\ell(\theta | \{y_i\})
-&= \log L(\theta | \{y_i\})\\
-&= -\frac{n}{2} \log (2 \pi) - \frac{1}{2} \sum_{i=1}^{n} (y_i - \theta)^2\\
-&= -\frac{n}{2} \log (2 \pi) - \frac{1}{2} \sum_{i=1}^{n} y_i^2 + \theta \sum_{i=1}^{n} y_i - \frac{n}{2} \theta^2.
+  \ell(\theta | \{y_i\})
+    &= \log L(\theta | \{y_i\})\\
+    &= -\frac{n}{2} \log (2 \pi) - \frac{1}{2} \sum_{i=1}^{n} (y_i - \theta)^2\\
+    &= -\frac{n}{2} \log (2 \pi) - \frac{1}{2} \sum_{i=1}^{n} y_i^2 + \theta \sum_{i=1}^{n} y_i - \frac{n}{2} \theta^2.
 \end{align*}
 $$<p>Anticipating that we will be maximizing the complete log-likelihood with respect
 to $\theta$, we put any terms that are not a function of $\theta$ into $k$,
-obtaining the result</p>$$
-\ell(\theta | \{y_i\}) = k + \theta \sum_{i=1}^{n} y_i - \frac{n}{2} \theta^2.
-$$<h2 id=part-b>Part (b)</h2><p>Show the conditional expectation</p>$$
-E(Y | x, \delta=1, \theta^{(t)}) = x
-$$<p>and</p>$$
-E(Y | x, \delta=0, \theta^{(t)}) = E(Y | Y > x) = \theta^{(t)} + \frac{\phi(x-\mu)}{1 - \Phi(x-\mu)}
-$$<p>where $\phi$ and $\Phi$ are pdf and cdf of standard normal.</p><h3 id=solution-1>Solution</h3><p>The distribution of $Y$ given $\delta = 1$, is uncensored
+obtaining the result
+</p>
+$$
+  \ell(\theta | \{y_i\}) = k + \theta \sum_{i=1}^{n} y_i - \frac{n}{2} \theta^2.
+$$<h2 id="part-b">Part (b)</h2>
+<p>Show the conditional expectation
+</p>
+$$
+  E(Y | x, \delta=1, \theta^{(t)}) = x
+$$<p>
+and
+</p>
+$$
+  E(Y | x, \delta=0, \theta^{(t)}) = E(Y | Y > x) = \theta^{(t)} + \frac{\phi(x-\mu)}{1 - \Phi(x-\mu)}
+$$<p>
+where $\phi$ and $\Phi$ are pdf and cdf of standard normal.</p>
+<h3 id="solution-1">Solution</h3>
+<p>The distribution of $Y$ given $\delta = 1$, is uncensored
 and therefore it is given that $Y$ realized the value $x$.
 Since the expectation of a constant $x$ is $x$, that means
-$E(Y | Y = x) = x$.</p><p>If $\delta = 0$, $Y$ is censored, i.e., $Y > x$.
-To take its expectation, we first need to derive the conditional conditional distribution of $Y$ given $Y > x$ and $\theta^{(t)}$.</p><p>The probability $\Pr(Y \leq y | Y > x)$ is given by</p>$$
-\Pr(Y \leq y | Y > x) = \Pr(x < Y \leq y) / \Pr(Y > x)
-$$<p>which may be rewritten as</p>$$
-\Pr(Y \leq y | Y > x) = \frac{F_Y(y | \theta^{(t)}) - F_Y(x | \theta^{(t)})}{1 - F_Y(y | \theta^{(t)})}.
-$$<p>where $F_{Y|\theta^{(t)}}$ is the cdf of the normal distribution with $\sigma=1$ and $\mu=\theta^{(t)}$.</p><p>We may rewrite $F_{Y|\theta^{(t)}}$ in terms of the standard normal,</p>$$
-F_{Y}(y|\theta^{(t)}) = \Phi(y - \theta^{(t)}),
-$$<p>and thus we may rewrite the conditional distribution of $Y | Y > x$ as</p>$$
-\Pr(Y \leq y | Y > x) = \frac{\Phi(y - \theta^{(t)}) - \Phi(x - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}
-$$<p>and thus after further simplifying, we obtain the cdf of $Y | x$,</p>$$
-F_{Y|x}(y|\theta^{(t)}) = 1 - \frac{1- \Phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}
-$$<p>which has a density given by</p>$$
-f_{Y}(y|x,\theta^{(t)}) = \frac{\phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})} I(y > x).
-$$<p>The expectation of $Y|(x,\theta^{(t)})$ is given by</p>$$
+$E(Y | Y = x) = x$.</p>
+<p>If $\delta = 0$, $Y$ is censored, i.e., $Y &gt; x$.
+To take its expectation, we first need to derive the conditional conditional distribution of $Y$ given $Y &gt; x$ and $\theta^{(t)}$.</p>
+<p>The probability $\Pr(Y \leq y | Y &gt; x)$ is given by
+</p>
+$$
+  \Pr(Y \leq y | Y > x) = \Pr(x < Y \leq y) / \Pr(Y > x)
+$$<p>
+which may be rewritten as
+</p>
+$$
+  \Pr(Y \leq y | Y > x) = \frac{F_Y(y | \theta^{(t)}) - F_Y(x | \theta^{(t)})}{1 - F_Y(y | \theta^{(t)})}.
+$$<p>
+where $F_{Y|\theta^{(t)}}$ is the cdf of the normal distribution with $\sigma=1$ and $\mu=\theta^{(t)}$.</p>
+<p>We may rewrite $F_{Y|\theta^{(t)}}$ in terms of the standard normal,
+</p>
+$$
+  F_{Y}(y|\theta^{(t)}) = \Phi(y - \theta^{(t)}),
+$$<p>
+and thus we may rewrite the conditional distribution of $Y | Y &gt; x$ as
+</p>
+$$
+  \Pr(Y \leq y | Y > x) = \frac{\Phi(y - \theta^{(t)}) - \Phi(x - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}
+$$<p>
+and thus after further simplifying, we obtain the cdf of $Y | x$,
+</p>
+$$
+    F_{Y|x}(y|\theta^{(t)}) = 1 - \frac{1- \Phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}
+$$<p>
+which has a density given by
+</p>
+$$
+    f_{Y}(y|x,\theta^{(t)}) = \frac{\phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})} I(y > x).
+$$<p>The expectation of $Y|(x,\theta^{(t)})$ is given by
+</p>
+$$
 \begin{align*}
-E(Y|x,\theta^{(t)})
-&= \int_{x}^{\infty} y f_{Y}(y|x,\theta^{(t)}) dy\\
-&= \int_{x}^{\infty} y \left(\frac{\phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}\right) dy\\
-&= \frac{1}{{1 - \Phi(x - \theta^{(t)})}}\int_{x}^{\infty} y \phi(y - \theta^{(t)}) dy.
+  E(Y|x,\theta^{(t)})
+    &= \int_{x}^{\infty} y f_{Y}(y|x,\theta^{(t)}) dy\\
+    &= \int_{x}^{\infty} y \left(\frac{\phi(y - \theta^{(t)})}{1 - \Phi(x - \theta^{(t)})}\right) dy\\
+    &= \frac{1}{{1 - \Phi(x - \theta^{(t)})}}\int_{x}^{\infty} y \phi(y - \theta^{(t)}) dy.
 \end{align*}
 $$<p>Analytically, this is a tricky integration problem.
-Certainly, it would be trivial to numerically integrate this to obtain a solution, but we seek a closed-form solution.</p><p>I searched online, and discovered an interesting way to tackle this integration problem.</p><p>Let $f$ and $F$ respectively denote the pdf and cdf of the normally distributed $Y$. Then,</p>$$
-\frac{df}{dy} = -(y - \theta) f(y)
-$$<p>and</p>$$
-\int_{a}^{b} \frac{df}{dy} dy = f(b) - f(a).
-$$<p>Then,</p>$$
+Certainly, it would be trivial to numerically integrate this to obtain a solution, but we seek a closed-form solution.</p>
+<p>I searched online, and discovered an interesting way to tackle this integration problem.</p>
+<p>Let $f$ and $F$ respectively denote the pdf and cdf of the normally distributed $Y$. Then,
+</p>
+$$
+  \frac{df}{dy} = -(y - \theta) f(y)
+$$<p>
+and
+</p>
+$$
+  \int_{a}^{b} \frac{df}{dy} dy = f(b) - f(a).
+$$<p>Then,
+</p>
+$$
 \begin{align*}
-E(Y|x,\theta^{(t)})
-&= \frac{1}{1 - F(x)}\int_{x}^{\infty} y f(y) dy\\
-&= -\frac{1}{1 - F(x)}\int_{x}^{\infty} - (y -\theta^{(t)}) f(y) dy + \frac{\theta^{(t)}}{1-F(x)}\int_{x}^{\infty} f(y) dy\\
-&= -\frac{1}{1 - F(x)}\int_{x}^{\infty} \frac{df}{dy} dy + \frac{\theta^{(t)}}{1-F(x)} (1-F(x))\\
-&= -\frac{1}{1 - F(x)}\left(f(\infty) - f(x)\right) + \theta^{(t)}\\
-&= \frac{f(x)}{1 - F(x)} + \theta^{(t)}.
+  E(Y|x,\theta^{(t)})
+    &= \frac{1}{1 - F(x)}\int_{x}^{\infty} y f(y) dy\\
+    &= -\frac{1}{1 - F(x)}\int_{x}^{\infty} - (y -\theta^{(t)}) f(y) dy + \frac{\theta^{(t)}}{1-F(x)}\int_{x}^{\infty} f(y) dy\\
+    &= -\frac{1}{1 - F(x)}\int_{x}^{\infty} \frac{df}{dy} dy + \frac{\theta^{(t)}}{1-F(x)} (1-F(x))\\
+    &= -\frac{1}{1 - F(x)}\left(f(\infty) - f(x)\right) + \theta^{(t)}\\
+    &= \frac{f(x)}{1 - F(x)} + \theta^{(t)}.
 \end{align*}
-$$<p>We may rewrite the last line as</p>$$
-E(Y|x,\theta^{(t)}) = \theta^{(t)} + \frac{\phi(x-\theta^{(t)})}{1 - \Phi(x-\theta^{(t)})}.
-$$<h2 id=part-c>Part (c)</h2><p>Derive the $E$-step and $M$-step using parts (a) and (b). Give the updating equation.</p><h3 id=solution-2>Solution</h3><h4 id=e-step>E-step</h4><p>The $E$-step entails taking the conditional expectation of the complete log-likelihood function $\ell(\theta | {Y_i})$ given the observed data ${x_i}$ and ${\delta_i}$.</p>$$
+$$<p>We may rewrite the last line as
+</p>
+$$
+  E(Y|x,\theta^{(t)}) = \theta^{(t)} + \frac{\phi(x-\theta^{(t)})}{1 - \Phi(x-\theta^{(t)})}.
+$$<h2 id="part-c">Part (c)</h2>
+<p>Derive the $E$-step and $M$-step using parts (a) and (b). Give the updating equation.</p>
+<h3 id="solution-2">Solution</h3>
+<h4 id="e-step">E-step</h4>
+<p>The $E$-step entails taking the conditional expectation of the complete log-likelihood function $\ell(\theta | {Y_i})$ given the observed data ${x_i}$ and ${\delta_i}$.</p>
+$$
 \begin{align*}
-Q(\theta | \theta^{(t)})
-&= E_{Y_i | x_i,\delta_i}(\ell(\theta | \{Y_i\})\\
-&= E_{Y_i | x_i,\delta_i}\left(k + \theta \sum_{i=1}^{n} Y_i - \frac{n}{2} \theta^2\right)\\
-&= k - \frac{n}{2}\theta^2 + \theta \sum_{i=1}^{n} E_{Y_i | x_i,\delta_i}(Y_i).
+  Q(\theta | \theta^{(t)})
+    &= E_{Y_i | x_i,\delta_i}(\ell(\theta | \{Y_i\})\\
+    &= E_{Y_i | x_i,\delta_i}\left(k + \theta \sum_{i=1}^{n} Y_i - \frac{n}{2} \theta^2\right)\\
+    &= k - \frac{n}{2}\theta^2 + \theta \sum_{i=1}^{n} E_{Y_i | x_i,\delta_i}(Y_i).
 \end{align*}
-$$<p>We have already solved the expectation of $Y_i$ given $x_i$ and $\delta_i$. We rewrite $Q$ by substituting $E(Y_i | x_i, \delta_i)$ with its previously found solution,</p>$$
-Q(\theta | \theta^{(t)}) = k - \frac{n}{2}\theta^2 + \theta \sum_{i=1}^{n} \delta_i x_i + (1-\delta_i) \left(\theta^{(t)} + \frac{\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}\right).
+$$<p>We have already solved the expectation of $Y_i$ given $x_i$ and $\delta_i$. We rewrite $Q$ by substituting $E(Y_i | x_i, \delta_i)$ with its previously found solution,
+</p>
+$$
+  Q(\theta | \theta^{(t)}) = k - \frac{n}{2}\theta^2 + \theta \sum_{i=1}^{n} \delta_i x_i + (1-\delta_i) \left(\theta^{(t)} + \frac{\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}\right).
 $$<p>Letting $C = \sum_{i=1}^{n} (1 - \delta_i)$, $R = \sum_{i=1}^{n} \delta_i x_i$,
-and separating out all terms that are independent of $\theta^{(t)}$,</p>$$
-Q(\theta | \theta^{(t)}) = k - \frac{n}{2}\theta^2 + C \theta \theta^{(t)} + R \theta
-+ \theta \sum_{i=1}^{n} \frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}.
-$$<h4 id=m-step>M-step</h4><p>We wish to solve</p>$$
-\theta^{(t+1)} = \arg\max_{\theta} Q(\theta | \theta^{(t)}).
-$$<p>by solving</p>$$
-\frac{d Q(\theta | \theta^{(t)})}{d \theta}\Biggr|_{\theta=\theta^{(t+1)}} = 0,
-$$<p>which may be written as</p>$$
--n\theta^{(t+1)} + C \theta^{(t)} + R + \sum_{i=1}^{n} \frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})} = 0.
-$$<p>Solving for $\theta^{(t+1)}$ obtains the updating equation</p>$$
-\theta^{(t+1)} = \frac{R}{n} + \frac{C}{n} \theta^{(t)} + \frac{1}{n}\sum_{i=1}^{n}\frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}.
-$$<p>where</p>$$
-R = \sum_{i=1}^{n} \delta_i x_i
-$$<p>and</p>$$
-C = \sum_{i=1}^{n} (1-\delta_i).
-$$<h2 id=part-d>Part (d)</h2><p>Use your algorithm on the V.A. data to find the MLE of $\mu$. Take the log of the event times first and standardize by sample standard deviation. You may simply use the censored data sample mean as your starting value.</p><h3 id=solution-3>Solution</h3><p>In the following R code, we implement the updating equation derived in the previous step. We encapulsate the procedure into a function that takes its arguments in
-the form of a censored set, uncensorted set, starting value ($\theta^{(1)}$), and an $\epsilon$ value to control stopping condition.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=c1># assuming the uncensored and censored data are distributed normally,</span>
-</span></span><span class=line><span class=cl><span class=c1># we use the EM algorithm to derive an estimator given censored and uncensored</span>
-</span></span><span class=line><span class=cl><span class=c1># data.</span>
-</span></span><span class=line><span class=cl><span class=n>mean_normal_censored_estimator_em</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>uncensored</span><span class=p>,</span><span class=n>censored</span><span class=p>,</span><span class=n>theta</span><span class=p>,</span><span class=n>eps</span><span class=o>=</span><span class=m>1e-6</span><span class=p>,</span><span class=n>debug</span><span class=o>=</span><span class=bp>T</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>dev</span> <span class=o>&lt;-</span> <span class=nf>sd</span><span class=p>(</span><span class=nf>log</span><span class=p>(</span><span class=nf>c</span><span class=p>(</span><span class=n>uncensored</span><span class=p>,</span><span class=n>censored</span><span class=p>)))</span>
-</span></span><span class=line><span class=cl>  <span class=n>censored</span> <span class=o>&lt;-</span> <span class=nf>log</span><span class=p>(</span><span class=n>censored</span><span class=p>)</span> <span class=o>/</span> <span class=n>dev</span>
-</span></span><span class=line><span class=cl>  <span class=n>uncensored</span> <span class=o>&lt;-</span> <span class=nf>log</span><span class=p>(</span><span class=n>uncensored</span><span class=p>)</span> <span class=o>/</span> <span class=n>dev</span>
-</span></span><span class=line><span class=cl>  <span class=n>theta</span> <span class=o>&lt;-</span> <span class=nf>log</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span> <span class=o>/</span> <span class=n>dev</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=n>n</span> <span class=o>&lt;-</span> <span class=nf>length</span><span class=p>(</span><span class=n>censored</span><span class=p>)</span> <span class=o>+</span> <span class=nf>length</span><span class=p>(</span><span class=n>uncensored</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>C</span> <span class=o>&lt;-</span> <span class=nf>length</span><span class=p>(</span><span class=n>censored</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>R</span> <span class=o>&lt;-</span> <span class=nf>sum</span><span class=p>(</span><span class=n>uncensored</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=n>s</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=n>sum</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>    <span class=kr>for</span> <span class=p>(</span><span class=n>i</span> <span class=kr>in</span> <span class=m>1</span><span class=o>:</span><span class=n>C</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=p>{</span>
-</span></span><span class=line><span class=cl>      <span class=n>num</span> <span class=o>&lt;-</span> <span class=nf>dnorm</span><span class=p>(</span><span class=n>censored[i]</span><span class=p>,</span><span class=n>mean</span><span class=o>=</span><span class=n>theta</span><span class=p>,</span><span class=n>sd</span><span class=o>=</span><span class=m>1</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>      <span class=n>denom</span> <span class=o>&lt;-</span> <span class=m>1</span><span class=o>-</span><span class=nf>pnorm</span><span class=p>(</span><span class=n>censored[i]</span><span class=p>,</span><span class=n>mean</span><span class=o>=</span><span class=n>theta</span><span class=p>,</span><span class=n>sd</span><span class=o>=</span><span class=m>1</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>      <span class=n>sum</span> <span class=o>&lt;-</span> <span class=n>sum</span> <span class=o>+</span> <span class=p>(</span><span class=n>num</span> <span class=o>/</span> <span class=n>denom</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=p>}</span>
-</span></span><span class=line><span class=cl>    <span class=n>sum</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=n>i</span> <span class=o>&lt;-</span> <span class=m>1</span>
-</span></span><span class=line><span class=cl>  <span class=kr>repeat</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=n>theta.new</span> <span class=o>&lt;-</span> <span class=n>R</span><span class=o>/</span><span class=n>n</span> <span class=o>+</span> <span class=n>C</span><span class=o>/</span><span class=n>n</span> <span class=o>*</span> <span class=n>theta</span> <span class=o>+</span> <span class=p>(</span><span class=m>1</span><span class=o>/</span><span class=n>n</span><span class=p>)</span><span class=o>*</span><span class=nf>s</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=kr>if</span> <span class=p>(</span><span class=n>debug</span><span class=o>==</span><span class=bp>T</span><span class=p>)</span> <span class=p>{</span> <span class=nf>cat</span><span class=p>(</span><span class=s>&#34;theta[&#34;</span><span class=p>,</span> <span class=n>i</span><span class=p>,</span> <span class=s>&#34;] =&#34;</span><span class=p>,</span><span class=n>theta</span><span class=p>,</span><span class=s>&#34;, theta[&#34;</span><span class=p>,</span> <span class=n>i</span><span class=m>+1</span><span class=p>,</span> <span class=s>&#34;] =&#34;</span><span class=p>,</span><span class=n>theta.new</span><span class=p>,</span><span class=s>&#34;\n&#34;</span><span class=p>)</span> <span class=p>}</span>
-</span></span><span class=line><span class=cl>    <span class=kr>if</span> <span class=p>(</span><span class=nf>abs</span><span class=p>(</span><span class=n>theta.new</span> <span class=o>-</span> <span class=n>theta</span><span class=p>)</span> <span class=o>&lt;</span> <span class=n>eps</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=p>{</span>
-</span></span><span class=line><span class=cl>      <span class=n>theta</span> <span class=o>&lt;-</span> <span class=n>theta.new</span> <span class=o>*</span> <span class=n>dev</span>
-</span></span><span class=line><span class=cl>      <span class=n>theta</span> <span class=o>&lt;-</span> <span class=nf>exp</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>      <span class=kr>return</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=p>}</span>
-</span></span><span class=line><span class=cl>    <span class=n>i</span> <span class=o>&lt;-</span> <span class=n>i</span> <span class=o>+</span> <span class=m>1</span>
-</span></span><span class=line><span class=cl>    <span class=n>theta</span> <span class=o>&lt;-</span> <span class=n>theta.new</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span></code></pre></div><p>We apply this procedure to the indicated data set.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=nf>library</span><span class=p>(</span><span class=n>MASS</span><span class=p>)</span> <span class=c1># has VA data</span>
-</span></span><span class=line><span class=cl><span class=n>VAs</span> <span class=o>&lt;-</span> <span class=nf>subset</span><span class=p>(</span><span class=n>VA</span><span class=p>,</span><span class=n>prior</span><span class=o>==</span><span class=m>0</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=n>censored</span> <span class=o>&lt;-</span> <span class=n>VAs</span><span class=o>$</span><span class=n>status</span> <span class=o>==</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl><span class=n>censored_xs</span> <span class=o>&lt;-</span> <span class=n>VAs[censored</span><span class=p>,</span><span class=nf>c</span><span class=p>(</span><span class=s>&#34;stime&#34;</span><span class=p>)</span><span class=n>]</span>
-</span></span><span class=line><span class=cl><span class=n>uncensored_xs</span> <span class=o>&lt;-</span> <span class=n>VAs[</span><span class=o>!</span><span class=n>censored</span><span class=p>,</span><span class=nf>c</span><span class=p>(</span><span class=s>&#34;stime&#34;</span><span class=p>)</span><span class=n>]</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>mu</span> <span class=o>&lt;-</span> <span class=nf>mean</span><span class=p>(</span><span class=n>uncensored_xs</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=nf>cat</span><span class=p>(</span><span class=s>&#34;mean of the uncensored sample is &#34;</span><span class=p>,</span> <span class=n>mu</span><span class=p>,</span> <span class=s>&#34;.&#34;</span><span class=p>)</span>
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>## mean of the uncensored sample is  112.1648 .
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=n>sol</span> <span class=o>&lt;-</span> <span class=nf>mean_normal_censored_estimator_em</span><span class=p>(</span><span class=n>uncensored_xs</span><span class=p>,</span><span class=n>censored_xs</span><span class=p>,</span><span class=n>mu</span><span class=p>)</span>
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>## theta[ 1 ] = 3.857928 , theta[ 2 ] = 3.424258 
-</span></span><span class=line><span class=cl>## theta[ 2 ] = 3.424258 , theta[ 3 ] = 3.415443 
-</span></span><span class=line><span class=cl>## theta[ 3 ] = 3.415443 , theta[ 4 ] = 3.415286 
-</span></span><span class=line><span class=cl>## theta[ 4 ] = 3.415286 , theta[ 5 ] = 3.415283 
-</span></span><span class=line><span class=cl>## theta[ 5 ] = 3.415283 , theta[ 6 ] = 3.415283
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=n>sol</span>
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>## [1] 65.2625
-</span></span></code></pre></div><p>We see that our estimate of $\theta$ is $\hat{\theta} = 65.2624985$. (The $\theta$ before transforming it to the appropriate scale was $3.415283$.)</p><p>This mean is somewhat lower than anticipated, which makes me suspect something is wrong with my updating equation. If I have the time, I will revisit it.</p><h1 id=problem-2>Problem 2</h1><p><img src=prob4.2.png alt="Problem 4.2"></p><h2 id=solution-4>Solution</h2><h3 id=part-a-1>Part (a)</h3><p>There are $N=1500$ gay men in the survey sample where $X_i$ denotes the $i$-th persons response to the number of risky sexual encounters he had in the previous $30$ days.
-Thus, we observe a sample $\vec{X} = (X_1,X_2,\ldots, X_N)$.</p><p>We assume there are $3$ groups in the population, denoted by $z=1$, $t=2$, and $p=3$. Group $1$ members report $0$ risky sexual encounters regardless of the truth where the probability of being a member of group $1$ is denoted by $\alpha$,</p><p>Group $2$ members accurately report risky sexual encounters and represent typical behavior where the probability of being a member of group $2$ is denoted by $\beta$. We assume this group&rsquo;s number of sexual encounters follows a poisson with mean $\mu$.</p><p>Group $3$ members accurately report risky sexual encounters and represent high-risk behavior where the probability of being a member of group $3$ is $\gamma = 1-\alpha-\beta$. We assume this group&rsquo;s number of sexual encounters follows a poisson with mean $\lambda$.</p><p>This represents a finite mixture model with a pdf</p>$$
-X_i \sim f(x | \vec{\theta}) = \alpha I(x=0) +
-\beta \mathrm{Poi}(x | \mu) + (1-\alpha-\beta)\mathrm{Poi}(x | \lambda)
-$$<p>with a parameter vector</p>$$
-\vec{\theta} = (\alpha,\beta,\mu,\lambda)'.
-$$<p>Let the uncertain group that the $i$-th person belongs to be denoted by $Z_i$. If we observe group membership data, $X_i | Z_i = z_i$, then</p>$$
+and separating out all terms that are independent of $\theta^{(t)}$,
+</p>
+$$
+  Q(\theta | \theta^{(t)}) = k - \frac{n}{2}\theta^2 + C \theta \theta^{(t)} + R \theta
+    + \theta \sum_{i=1}^{n} \frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}.
+$$<h4 id="m-step">M-step</h4>
+<p>We wish to solve
+</p>
+$$
+  \theta^{(t+1)} = \arg\max_{\theta} Q(\theta | \theta^{(t)}).
+$$<p>
+by solving
+</p>
+$$
+  \frac{d Q(\theta | \theta^{(t)})}{d \theta}\Biggr|_{\theta=\theta^{(t+1)}} = 0,
+$$<p>
+which may be written as
+</p>
+$$
+  -n\theta^{(t+1)} + C \theta^{(t)} + R + \sum_{i=1}^{n} \frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})} = 0.
+$$<p>Solving for $\theta^{(t+1)}$ obtains the updating equation
+</p>
+$$
+  \theta^{(t+1)} = \frac{R}{n} + \frac{C}{n} \theta^{(t)} + \frac{1}{n}\sum_{i=1}^{n}\frac{(1-\delta_i)\phi(x_i-\theta^{(t)})}{1 - \Phi(x_i-\theta^{(t)})}.
+$$<p>
+where
+</p>
+$$
+  R = \sum_{i=1}^{n} \delta_i x_i
+$$<p>
+and
+</p>
+$$
+  C = \sum_{i=1}^{n} (1-\delta_i).
+$$<h2 id="part-d">Part (d)</h2>
+<p>Use your algorithm on the V.A. data to find the MLE of $\mu$. Take the log of the event times first and standardize by sample standard deviation. You may simply use the censored data sample mean as your starting value.</p>
+<h3 id="solution-3">Solution</h3>
+<p>In the following R code, we implement the updating equation derived in the previous step. We encapulsate the procedure into a function that takes its arguments in
+the form of a censored set, uncensorted set, starting value ($\theta^{(1)}$), and an $\epsilon$ value to control stopping condition.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># assuming the uncensored and censored data are distributed normally,</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># we use the EM algorithm to derive an estimator given censored and uncensored</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># data.</span>
+</span></span><span class="line"><span class="cl"><span class="n">mean_normal_censored_estimator_em</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">uncensored</span><span class="p">,</span><span class="n">censored</span><span class="p">,</span><span class="n">theta</span><span class="p">,</span><span class="n">eps</span><span class="o">=</span><span class="m">1e-6</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">dev</span> <span class="o">&lt;-</span> <span class="nf">sd</span><span class="p">(</span><span class="nf">log</span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="n">uncensored</span><span class="p">,</span><span class="n">censored</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">  <span class="n">censored</span> <span class="o">&lt;-</span> <span class="nf">log</span><span class="p">(</span><span class="n">censored</span><span class="p">)</span> <span class="o">/</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">  <span class="n">uncensored</span> <span class="o">&lt;-</span> <span class="nf">log</span><span class="p">(</span><span class="n">uncensored</span><span class="p">)</span> <span class="o">/</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta</span> <span class="o">&lt;-</span> <span class="nf">log</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">n</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">censored</span><span class="p">)</span> <span class="o">+</span> <span class="nf">length</span><span class="p">(</span><span class="n">uncensored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">C</span> <span class="o">&lt;-</span> <span class="nf">length</span><span class="p">(</span><span class="n">censored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">R</span> <span class="o">&lt;-</span> <span class="nf">sum</span><span class="p">(</span><span class="n">uncensored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">s</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sum</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="n">C</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">num</span> <span class="o">&lt;-</span> <span class="nf">dnorm</span><span class="p">(</span><span class="n">censored[i]</span><span class="p">,</span><span class="n">mean</span><span class="o">=</span><span class="n">theta</span><span class="p">,</span><span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="n">denom</span> <span class="o">&lt;-</span> <span class="m">1</span><span class="o">-</span><span class="nf">pnorm</span><span class="p">(</span><span class="n">censored[i]</span><span class="p">,</span><span class="n">mean</span><span class="o">=</span><span class="n">theta</span><span class="p">,</span><span class="n">sd</span><span class="o">=</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="n">sum</span> <span class="o">&lt;-</span> <span class="n">sum</span> <span class="o">+</span> <span class="p">(</span><span class="n">num</span> <span class="o">/</span> <span class="n">denom</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sum</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">i</span> <span class="o">&lt;-</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">repeat</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">theta.new</span> <span class="o">&lt;-</span> <span class="n">R</span><span class="o">/</span><span class="n">n</span> <span class="o">+</span> <span class="n">C</span><span class="o">/</span><span class="n">n</span> <span class="o">*</span> <span class="n">theta</span> <span class="o">+</span> <span class="p">(</span><span class="m">1</span><span class="o">/</span><span class="n">n</span><span class="p">)</span><span class="o">*</span><span class="nf">s</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">debug</span><span class="o">==</span><span class="bp">T</span><span class="p">)</span> <span class="p">{</span> <span class="nf">cat</span><span class="p">(</span><span class="s">&#34;theta[&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s">&#34;] =&#34;</span><span class="p">,</span><span class="n">theta</span><span class="p">,</span><span class="s">&#34;, theta[&#34;</span><span class="p">,</span> <span class="n">i</span><span class="m">+1</span><span class="p">,</span> <span class="s">&#34;] =&#34;</span><span class="p">,</span><span class="n">theta.new</span><span class="p">,</span><span class="s">&#34;\n&#34;</span><span class="p">)</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">theta.new</span> <span class="o">-</span> <span class="n">theta</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">eps</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">theta</span> <span class="o">&lt;-</span> <span class="n">theta.new</span> <span class="o">*</span> <span class="n">dev</span>
+</span></span><span class="line"><span class="cl">      <span class="n">theta</span> <span class="o">&lt;-</span> <span class="nf">exp</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="kr">return</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">i</span> <span class="o">&lt;-</span> <span class="n">i</span> <span class="o">+</span> <span class="m">1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">theta</span> <span class="o">&lt;-</span> <span class="n">theta.new</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>We apply this procedure to the indicated data set.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">MASS</span><span class="p">)</span> <span class="c1"># has VA data</span>
+</span></span><span class="line"><span class="cl"><span class="n">VAs</span> <span class="o">&lt;-</span> <span class="nf">subset</span><span class="p">(</span><span class="n">VA</span><span class="p">,</span><span class="n">prior</span><span class="o">==</span><span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">censored</span> <span class="o">&lt;-</span> <span class="n">VAs</span><span class="o">$</span><span class="n">status</span> <span class="o">==</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl"><span class="n">censored_xs</span> <span class="o">&lt;-</span> <span class="n">VAs[censored</span><span class="p">,</span><span class="nf">c</span><span class="p">(</span><span class="s">&#34;stime&#34;</span><span class="p">)</span><span class="n">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">uncensored_xs</span> <span class="o">&lt;-</span> <span class="n">VAs[</span><span class="o">!</span><span class="n">censored</span><span class="p">,</span><span class="nf">c</span><span class="p">(</span><span class="s">&#34;stime&#34;</span><span class="p">)</span><span class="n">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mu</span> <span class="o">&lt;-</span> <span class="nf">mean</span><span class="p">(</span><span class="n">uncensored_xs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">cat</span><span class="p">(</span><span class="s">&#34;mean of the uncensored sample is &#34;</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="s">&#34;.&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## mean of the uncensored sample is  112.1648 .
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">sol</span> <span class="o">&lt;-</span> <span class="nf">mean_normal_censored_estimator_em</span><span class="p">(</span><span class="n">uncensored_xs</span><span class="p">,</span><span class="n">censored_xs</span><span class="p">,</span><span class="n">mu</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## theta[ 1 ] = 3.857928 , theta[ 2 ] = 3.424258 
+</span></span><span class="line"><span class="cl">## theta[ 2 ] = 3.424258 , theta[ 3 ] = 3.415443 
+</span></span><span class="line"><span class="cl">## theta[ 3 ] = 3.415443 , theta[ 4 ] = 3.415286 
+</span></span><span class="line"><span class="cl">## theta[ 4 ] = 3.415286 , theta[ 5 ] = 3.415283 
+</span></span><span class="line"><span class="cl">## theta[ 5 ] = 3.415283 , theta[ 6 ] = 3.415283
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">sol</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## [1] 65.2625
+</span></span></code></pre></div><p>We see that our estimate of $\theta$ is $\hat{\theta} = 65.2624985$. (The $\theta$ before transforming it to the appropriate scale was $3.415283$.)</p>
+<p>This mean is somewhat lower than anticipated, which makes me suspect something is wrong with my updating equation. If I have the time, I will revisit it.</p>
+<h1 id="problem-2">Problem 2</h1>
+<p><img src="prob4.2.png" alt="Problem 4.2"></p>
+<h2 id="solution-4">Solution</h2>
+<h3 id="part-a-1">Part (a)</h3>
+<p>There are $N=1500$ gay men in the survey sample where $X_i$ denotes the $i$-th persons response to the number of risky sexual encounters he had in the previous $30$ days.
+Thus, we observe a sample $\vec{X} = (X_1,X_2,\ldots, X_N)$.</p>
+<p>We assume there are $3$ groups in the population, denoted by $z=1$, $t=2$, and $p=3$. Group $1$ members report $0$ risky sexual encounters regardless of the truth where the probability of being a member of group $1$ is denoted by $\alpha$,</p>
+<p>Group $2$ members accurately report risky sexual encounters and represent typical behavior where the probability of being a member of group $2$ is denoted by $\beta$. We assume this group&rsquo;s number of sexual encounters follows a poisson with mean $\mu$.</p>
+<p>Group $3$ members accurately report risky sexual encounters and represent high-risk behavior where the probability of being a member of group $3$ is $\gamma = 1-\alpha-\beta$. We assume this group&rsquo;s number of sexual encounters follows a poisson with mean $\lambda$.</p>
+<p>This represents a finite mixture model with a pdf
+</p>
+$$
+  X_i \sim f(x | \vec{\theta}) = \alpha I(x=0) +
+    \beta \mathrm{Poi}(x | \mu) + (1-\alpha-\beta)\mathrm{Poi}(x | \lambda)
+$$<p>
+with a parameter vector
+</p>
+$$
+  \vec{\theta} = (\alpha,\beta,\mu,\lambda)'.
+$$<p>Let the uncertain group that the $i$-th person belongs to be denoted by $Z_i$. If we observe group membership data, $X_i | Z_i = z_i$, then
+</p>
+$$
 \begin{align*}
-X_i | Z_i &= 1 \sim I(x=0),\\
-X_i | Z_i &= 2 \sim \mathrm{Poi}(\mu),\\
-X_i | Z_i &= 3 \sim \mathrm{Poi}(\lambda),
+  X_i | Z_i &= 1 \sim I(x=0),\\
+  X_i | Z_i &= 2 \sim \mathrm{Poi}(\mu),\\
+  X_i | Z_i &= 3 \sim \mathrm{Poi}(\lambda),
 \end{align*}
-$$<p>where</p>$$
-Z_i \sim f_{Z_i}(z_i | \vec{\theta}) = \Pr(Z_i=z_i) =
-\begin{cases}
-\alpha & z_i = 1,\\
-\beta & z_i = 2,\\
-\gamma=1-\alpha-\beta & z_i = 3,
-\end{cases}
-$$<p>and thus</p>$$
-f_{X_i,Z_i}(x_i,z_i | \vec{\theta}) =
-\alpha I(z_i = 1) + \beta \mathrm{Poi}(\mu) I(z_i = 2) + (1-\alpha-\beta) \mathrm{Poi}(\lambda) I(z_i=3).
-$$<p>The <strong>complete</strong> likelihood function is thus given by</p>$$
-\mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) = \prod_{i=1}^{N} f_{X_i,Z_i}(x_i,z_i | \vec{\theta}),
-$$<p>which may be rewritten as</p>$$
-\mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) =
-\left(\prod_{\{i | z_i = 1\}} \alpha I(x_i=0)\right)
-\left(\prod_{\{i | z_i = 2\}} \beta \frac{\mu^{x_i} e^{-\mu}}{x_i!}\right)
-\left(\prod_{\{i | z_i = 3\}} \gamma \frac{\lambda^{x_i} e^{-\lambda}}{x_i!}\right).
-$$<p>We wish to rewrite this so that the data is explicitly represented. First, we do the transformation</p>$$
-\mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) =
-\left(\prod_{\{i | z_i = 1, x_i = 0 \}} \alpha\right)
-\prod_{k=0}^{16} \left(\prod_{\{i | z_i = 2, x_i = k\}} \beta \frac{\mu^{k} e^{-\mu}}{k!}\right)
-\prod_{k=0}^{16} \left(\prod_{\{i | z_i = 3, x_i = k\}} \gamma \frac{\lambda^{k} e^{-\lambda}}{k!}\right).
+$$<p>
+where
+</p>
+$$
+  Z_i \sim f_{Z_i}(z_i | \vec{\theta}) = \Pr(Z_i=z_i) = 
+  \begin{cases}
+    \alpha                  & z_i = 1,\\
+    \beta                   & z_i = 2,\\
+    \gamma=1-\alpha-\beta   & z_i = 3,
+  \end{cases}
+$$<p>
+and thus
+</p>
+$$
+  f_{X_i,Z_i}(x_i,z_i | \vec{\theta}) =
+    \alpha I(z_i = 1) + \beta \mathrm{Poi}(\mu) I(z_i = 2) + (1-\alpha-\beta) \mathrm{Poi}(\lambda) I(z_i=3).
+$$<p>The <strong>complete</strong> likelihood function is thus given by
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) = \prod_{i=1}^{N} f_{X_i,Z_i}(x_i,z_i | \vec{\theta}),
+$$<p>
+which may be rewritten as
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) =
+    \left(\prod_{\{i | z_i = 1\}} \alpha I(x_i=0)\right)
+    \left(\prod_{\{i | z_i = 2\}} \beta \frac{\mu^{x_i} e^{-\mu}}{x_i!}\right)
+    \left(\prod_{\{i | z_i = 3\}} \gamma \frac{\lambda^{x_i} e^{-\lambda}}{x_i!}\right).
+$$<p>We wish to rewrite this so that the data is explicitly represented. First, we do the transformation
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \vec{X}, \vec{Z}) =
+    \left(\prod_{\{i | z_i = 1, x_i = 0 \}} \alpha\right)
+    \prod_{k=0}^{16} \left(\prod_{\{i | z_i = 2, x_i = k\}} \beta \frac{\mu^{k} e^{-\mu}}{k!}\right)
+    \prod_{k=0}^{16} \left(\prod_{\{i | z_i = 3, x_i = k\}} \gamma \frac{\lambda^{k} e^{-\lambda}}{k!}\right).
 $$<p>We let $n_{a,b}$ denote the (unobserved) cardinality of ${i | z_i = a, x_i = b}$,
-thus</p>$$
-\mathcal{L}(\vec{\theta} | \{n_{j,k}\}) =
-\alpha^{n_{1,0}}
-\prod_{k=0}^{16} \beta^{n_{2,k}} \frac{\mu^{k n_{2,k}} e^{-\mu n_{2,k}}}{(k!)^{n_{2,k}}}
-\prod_{k=0}^{16} \gamma^{n_{3,k}} \frac{\lambda^{k n_{3,k}} e^{-\lambda n_{3,k}}}{(k!)^{n_{3,k}}}
-$$<p>is the complete likelihood.
-The complete log-likelihood is thus</p>$$
-\ell(\vec{\theta} | \{n_{j,k}\}) =
-n_{1,0} \log \alpha +
-\sum_{k=0}^{16} \log \left(\beta^{n_{2,k}} \frac{\mu^{k n_{2,k}} e^{-\mu n_{2,k}}}{(k!)^{n_{2,k}}}\right) +
-\sum_{k=0}^{16} \log \left(\gamma^{n_{3,k}} \frac{\lambda^{k n_{3,k}} e^{-\lambda n_{3,k}}}{(k!)^{n_{3,k}}}\right)
-$$<p>which simplies to</p>$$
+thus
+</p>
+$$
+  \mathcal{L}(\vec{\theta} | \{n_{j,k}\}) =
+    \alpha^{n_{1,0}}
+    \prod_{k=0}^{16} \beta^{n_{2,k}} \frac{\mu^{k n_{2,k}} e^{-\mu n_{2,k}}}{(k!)^{n_{2,k}}}
+    \prod_{k=0}^{16} \gamma^{n_{3,k}} \frac{\lambda^{k n_{3,k}} e^{-\lambda n_{3,k}}}{(k!)^{n_{3,k}}}
+$$<p>
+is the complete likelihood.
+The complete log-likelihood is thus
+</p>
+$$
+  \ell(\vec{\theta} | \{n_{j,k}\}) =
+    n_{1,0} \log \alpha +
+    \sum_{k=0}^{16} \log \left(\beta^{n_{2,k}} \frac{\mu^{k n_{2,k}} e^{-\mu n_{2,k}}}{(k!)^{n_{2,k}}}\right) +
+    \sum_{k=0}^{16} \log \left(\gamma^{n_{3,k}} \frac{\lambda^{k n_{3,k}} e^{-\lambda n_{3,k}}}{(k!)^{n_{3,k}}}\right)
+$$<p>
+which simplies to
+</p>
+$$
 \begin{split}
-\ell(\vec{\theta} | \{n_{j,k}\}) =
-n_{1,0} \log \alpha +
-\sum_{k=0}^{16}
-&n_{2,k}(\log \beta + k \log \mu - \mu - \log k!) + \\
-&n_{3,k}(\log \gamma + k \log \lambda - \lambda - \log k!).
+  \ell(\vec{\theta} | \{n_{j,k}\}) =
+    n_{1,0} \log \alpha +
+    \sum_{k=0}^{16}
+      &n_{2,k}(\log \beta + k \log \mu - \mu - \log k!) + \\
+      &n_{3,k}(\log \gamma + k \log \lambda - \lambda - \log k!).
 \end{split}
 $$<p>Anticipating taking $\frac{d \ell}{d \vec{\theta}}$ to solve for the maximum of
 the log-likelihood, we remove any terms that are not a function of $\vec{\theta}$,
-resulting in the kernel</p>$$
-\ell(\vec{\theta} | \{n_{j,k}\}) = n_{1,0} \log \alpha +
-\sum_{k=0}^{16} \left\{ n_{2,k}(\log \beta + k \log \mu - \mu) + n_{3,k}(\log \gamma + k \log \lambda - \lambda) \right\}.
-$$<h3 id=e-step-1>E-step</h3><p>The conditional expectation to solve in the EM algorithm is given by</p>$$
-Q(\vec{\theta} | \vec{\theta}^{(t)}) = E(\ell(\vec{\theta}))
-$$<p>where ${n_{k,j}}$ are random and ${n_j}$ and $\vec{\theta}^{(t)}$ are given.
-We rewrite this as</p>$$
+resulting in the kernel
+</p>
+$$
+  \ell(\vec{\theta} | \{n_{j,k}\}) = n_{1,0} \log \alpha +
+    \sum_{k=0}^{16} \left\{ n_{2,k}(\log \beta + k \log \mu - \mu) + n_{3,k}(\log \gamma + k \log \lambda - \lambda) \right\}.
+$$<h3 id="e-step-1">E-step</h3>
+<p>The conditional expectation to solve in the EM algorithm is given by
+</p>
+$$
+  Q(\vec{\theta} | \vec{\theta}^{(t)}) = E(\ell(\vec{\theta}))
+$$<p>
+where ${n_{k,j}}$ are random and ${n_j}$ and $\vec{\theta}^{(t)}$ are given.
+We rewrite this as
+</p>
+$$
 Q(\vec{\theta} | \vec{\theta}^{(t)}) = E
-\left(
-n_{1,0} \log \alpha +
-\sum_{k=0}^{16} \left\{
-n_{2,k}(\log \beta + k \log \mu - \mu) +
-n_{3,k}(\log \gamma + k \log \lambda - \lambda)
-\right\}
-\right).
-$$<p>Using the linearity of expectations, we rewrite the above to</p>$$
+  \left(
+      n_{1,0} \log \alpha +
+      \sum_{k=0}^{16} \left\{
+        n_{2,k}(\log \beta + k \log \mu - \mu) +
+        n_{3,k}(\log \gamma + k \log \lambda - \lambda)
+        \right\}
+  \right).
+$$<p>Using the linearity of expectations, we rewrite the above to
+</p>
+$$
 Q(\vec{\theta} | \vec{\theta}^{(t)}) = E(n_{1,0}) \log \alpha +
-\sum_{k=0}^{16} \left\{
-E(n_{2,k})(\log \beta + k \log \mu - \mu) +
-E(n_{3,k})(\log \gamma + k \log \lambda - \lambda) \right\}
-$$<p>given ${n_j}$ and $\theta^{(t)}$.</p><p>Consider $E!\left(n_{2,k} | {n_j}, \theta^{(t)}\right)$.
-To solve this expectation, we must first derive the distribution of $n_{2,k}$.</p><p>Suppose $x_j = k$, then probability that the $j$-th person belongs to group $2$ is given by</p>$$
-\Pr(Z_j = 2 | x_j = k) = \Pr(Z_j = 2) \Pr(x_j = k | Z_j = 2) / \Pr(x_j = k).
-$$<p>We note that $\Pr(x_j = k)$ is equivalent to $\pi_k(\vec{\theta})$, $\Pr(Z_j = 2)$ is the definition of $\beta$, and $\Pr(x_j = k | Z_j = 2)$ is
-$f_{X_j|Z_j}(k | Z_j=2) = \mathrm{Poi}(k | \mu)$.</p><p>Making the substitutions yields the result</p>$$
-t_k(\vec{\theta}) = \Pr(Z_j = 2 | x_j = k) = \beta \mathrm{Poi}(k | \mu) / \pi_k(\vec{\theta}).
+  \sum_{k=0}^{16} \left\{
+    E(n_{2,k})(\log \beta + k \log \mu - \mu) +
+    E(n_{3,k})(\log \gamma + k \log \lambda - \lambda) \right\}
+$$<p>
+given ${n_j}$ and $\theta^{(t)}$.</p>
+<p>Consider $E!\left(n_{2,k} | {n_j}, \theta^{(t)}\right)$.
+To solve this expectation, we must first derive the distribution of $n_{2,k}$.</p>
+<p>Suppose $x_j = k$, then probability that the $j$-th person belongs to group $2$ is given by
+</p>
+$$
+  \Pr(Z_j = 2 | x_j = k) = \Pr(Z_j = 2) \Pr(x_j = k | Z_j = 2) / \Pr(x_j = k).
+$$<p>
+We note that $\Pr(x_j = k)$ is equivalent to $\pi_k(\vec{\theta})$, $\Pr(Z_j = 2)$ is the definition of $\beta$, and $\Pr(x_j = k | Z_j = 2)$ is
+$f_{X_j|Z_j}(k | Z_j=2) = \mathrm{Poi}(k | \mu)$.</p>
+<p>Making the substitutions yields the result
+</p>
+$$
+  t_k(\vec{\theta}) = \Pr(Z_j = 2 | x_j = k) = \beta \mathrm{Poi}(k | \mu) / \pi_k(\vec{\theta}).
 $$<p>Assuming ${X_i}$ are i.i.d., observe that $k \neq 0$, the distribution of $n_{2,k}$ given $n_k$, $\theta^{(t)}$ is binomial distributed with a probability of success $t_k(\vec{\theta}^{(t)})$.
-Thus,</p>$$
-E(n_{2,k}) = n_k t_k(\vec{\theta}^{(t)}).
-$$<p>The same logic holds for $n_{3,k}$ and $n_{1,0}$, and thus</p>$$
-E(n_{3,k}) = n_k p_k(\vec{\theta}^{(t)})
-$$<p>and</p>$$
-E(n_{1,0}) = n_0 z_0(\vec{\theta}^{(t)}),
-$$<p>which means</p>$$
+Thus,
+</p>
+$$
+  E(n_{2,k}) = n_k t_k(\vec{\theta}^{(t)}).
+$$<p>
+The same logic holds for $n_{3,k}$ and $n_{1,0}$, and thus
+</p>
+$$
+  E(n_{3,k}) = n_k p_k(\vec{\theta}^{(t)})
+$$<p>
+and
+</p>
+$$
+  E(n_{1,0}) = n_0 z_0(\vec{\theta}^{(t)}),
+$$<p>
+which means
+</p>
+$$
 Q(\vec{\theta} | \vec{\theta}^{(t)}) = n_0 z_0(\vec{\theta}^{(t)}) \log \alpha +
-\sum_{k=0}^{16} \left\{
-n_k t_k(\vec{\theta}^{(t)})(\log \beta + k \log \mu - \mu) +
-n_k p_k(\vec{\theta}^{(t)})(\log \gamma + k \log \lambda - \lambda) \right\}
-$$<h3 id=m-step-1>M-step</h3><p>We wish to solve</p>$$
-\vec{\theta}^{(t+1)} = \argmax_{\vec{\theta}} Q(\vec{\theta} | \vec{\theta}^{(t)}).
-$$<p>by solving</p>$$
-\nabla Q(\vec{\theta} | \vec{\theta}^{(t)})\Bigr|_{\vec{\theta}=\vec{\theta}^{(t+1)}} = \vec{0}.
-$$<p>We use the Lagrangian to impose the restriction $\alpha + \beta + \gamma = 1$, thus we seek to perform the constrained maximization of</p>$$
-Q_l(\vec{\theta},c | \vec{\theta}^{(t)}) = Q(\vec{\theta} | \vec{\theta}^{(t)}) + c(1-\alpha-\beta-\gamma).
-$$<p>Thus, when we solve for $\alpha$,</p>$$
-\frac{\partial Q_l}{\partial \alpha} = \frac{n_0 z_0(\theta^{(t)})}{\alpha} - c = 0,
-$$<p>we get the result</p>$$
-\alpha^{(t+1)} = \frac{1}{c} n_0 z_0(\theta^{(t)}).
-$$<p>Similar results hold for $\beta$ and $\gamma$, obtaining</p>$$
-\beta^{(t+1)} = \frac{1}{c} \sum_{k=0}^{16} n_k t_k(\theta^{(t)}).
-$$<p>and</p>$$
-\gamma^{(t+1)} = \frac{1}{c} \sum_{k=0}^{16} n_k p_k(\theta^{(t)}).
-$$<p>This does not look too promising until we realize that</p>$$
-n_0 z_0(\theta^{(t)}) + \sum_{k=0}^{16} n_k t_k(\theta^{(t)}) + \sum_{k=0}^{16} n_k p_k(\theta^{(t)}) = N.
+  \sum_{k=0}^{16} \left\{
+    n_k t_k(\vec{\theta}^{(t)})(\log \beta + k \log \mu - \mu) +
+    n_k p_k(\vec{\theta}^{(t)})(\log \gamma + k \log \lambda - \lambda) \right\}
+$$<h3 id="m-step-1">M-step</h3>
+<p>We wish to solve
+</p>
+$$
+  \vec{\theta}^{(t+1)} = \argmax_{\vec{\theta}} Q(\vec{\theta} | \vec{\theta}^{(t)}).
+$$<p>
+by solving
+</p>
+$$
+  \nabla Q(\vec{\theta} | \vec{\theta}^{(t)})\Bigr|_{\vec{\theta}=\vec{\theta}^{(t+1)}} = \vec{0}.
+$$<p>We use the Lagrangian to impose the restriction $\alpha + \beta + \gamma = 1$, thus we seek to perform the constrained maximization of
+</p>
+$$
+  Q_l(\vec{\theta},c | \vec{\theta}^{(t)}) = Q(\vec{\theta} | \vec{\theta}^{(t)}) + c(1-\alpha-\beta-\gamma).
+$$<p>Thus, when we solve for $\alpha$,
+</p>
+$$
+  \frac{\partial Q_l}{\partial \alpha} = \frac{n_0 z_0(\theta^{(t)})}{\alpha} - c = 0,
+$$<p>
+we get the result
+</p>
+$$
+  \alpha^{(t+1)} = \frac{1}{c} n_0 z_0(\theta^{(t)}).
+$$<p>Similar results hold for $\beta$ and $\gamma$, obtaining
+</p>
+$$
+  \beta^{(t+1)} = \frac{1}{c} \sum_{k=0}^{16} n_k t_k(\theta^{(t)}).
+$$<p>
+and
+</p>
+$$
+  \gamma^{(t+1)} = \frac{1}{c} \sum_{k=0}^{16} n_k p_k(\theta^{(t)}).
+$$<p>This does not look too promising until we realize that
+</p>
+$$
+  n_0 z_0(\theta^{(t)}) + \sum_{k=0}^{16} n_k t_k(\theta^{(t)}) + \sum_{k=0}^{16} n_k p_k(\theta^{(t)}) = N.
 $$<p>Thus, $c (\alpha^{(t)}+\beta^{(t)}+\gamma^{(t)}) = N$, which means $c = N$ since $\alpha^{(t)}+\beta^{(t)}+\gamma^{(t)} = 1$.
-Making this substitution obtains the result</p>$$
+Making this substitution obtains the result
+</p>
+$$
 \begin{align*}
-\alpha^{(t+1)} &= \frac{1}{N} n_0 z_0(\theta^{(t)})\\
-\beta^{(t+1)} &= \frac{1}{N} \sum_{k=0}^{16} n_k t_k(\theta^{(t)})\\
-\gamma^{(t+1)} &= \frac{1}{N} \sum_{k=0}^{16} n_k p_k(\theta^{(t)}).
+  \alpha^{(t+1)}    &= \frac{1}{N} n_0 z_0(\theta^{(t)})\\
+  \beta^{(t+1)}     &= \frac{1}{N} \sum_{k=0}^{16} n_k t_k(\theta^{(t)})\\
+  \gamma^{(t+1)}    &= \frac{1}{N} \sum_{k=0}^{16} n_k p_k(\theta^{(t)}).
 \end{align*}
-$$<p>Solving an estimator for $\mu$ at iteration $(t+1)$,</p>$$
+$$<p>Solving an estimator for $\mu$ at iteration $(t+1)$,
+</p>
+$$
 \begin{align*}
-\frac{\partial Q_l}{\partial \mu}\biggr|_{\mu=\mu^{(t+1}} &= 0\\
-\sum_{k=0}^{16} n_k t_k(\theta^{(t)})(k/\mu^{(t+1)}-1) &= 0\\
-\frac{1}{\mu^{(t+1)}} \sum_{k=0}^{16} n_k t_k(\theta^{(t)}) k &= \sum_{k=0}^{16} n_k t_k(\theta^{(t)})\\
-\mu^{(t+1)} &= \frac{\sum_{k=0}^{16} k n_k t_k(\theta^{(t)})}{\sum_{k=0}^{16} n_k t_k(\theta^{(t)})}.
+  \frac{\partial Q_l}{\partial \mu}\biggr|_{\mu=\mu^{(t+1}} &= 0\\
+  \sum_{k=0}^{16} n_k t_k(\theta^{(t)})(k/\mu^{(t+1)}-1)           &= 0\\
+  \frac{1}{\mu^{(t+1)}} \sum_{k=0}^{16} n_k t_k(\theta^{(t)}) k    &= \sum_{k=0}^{16} n_k t_k(\theta^{(t)})\\
+  \mu^{(t+1)} &= \frac{\sum_{k=0}^{16} k n_k t_k(\theta^{(t)})}{\sum_{k=0}^{16} n_k t_k(\theta^{(t)})}.
 \end{align*}
-$$<p>The same derivation essentially follows for $\lambda$, and thus</p>$$
-\lambda^{(t+1)} = \frac{\sum_{k=0}^{16} k n_k p_k(\theta^{(t)})}{\sum_{k=0}^{16} n_k p_k(\theta^{(t)})}.
-$$<h2 id=part-b-1>Part (b)</h2><p>Estimate the parameters of the model, using the observed data.</p><h3 id=solution-5>Solution</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=c1># we observe n = (n0,n1,...,n16)</span>
-</span></span><span class=line><span class=cl><span class=n>ns</span> <span class=o>&lt;-</span> <span class=nf>c</span><span class=p>(</span><span class=m>379</span><span class=p>,</span><span class=m>299</span><span class=p>,</span><span class=m>222</span><span class=p>,</span><span class=m>145</span><span class=p>,</span><span class=m>109</span><span class=p>,</span><span class=m>95</span><span class=p>,</span><span class=m>73</span><span class=p>,</span><span class=m>59</span><span class=p>,</span><span class=m>45</span><span class=p>,</span><span class=m>30</span><span class=p>,</span><span class=m>24</span><span class=p>,</span><span class=m>12</span><span class=p>,</span><span class=m>4</span><span class=p>,</span><span class=m>2</span><span class=p>,</span><span class=m>0</span><span class=p>,</span><span class=m>1</span><span class=p>,</span><span class=m>1</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=n>N</span> <span class=o>&lt;-</span> <span class=nf>sum</span><span class=p>(</span><span class=n>ns</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># theta := (alpha, beta, mu, lambda)&#39;</span>
-</span></span><span class=line><span class=cl><span class=c1># note that there is an implicit parameter gamma s.t.</span>
-</span></span><span class=line><span class=cl><span class=c1># alpha + beta + gamma = 1</span>
-</span></span><span class=line><span class=cl><span class=c1># the initial value assumes each category z, t, or p</span>
-</span></span><span class=line><span class=cl><span class=c1># is equally probable, and so we let</span>
-</span></span><span class=line><span class=cl><span class=c1>#     (alpha^(0),beta^(0)) = (1/3,1/3)</span>
-</span></span><span class=line><span class=cl><span class=c1># and mu^(0) and lambda^(0) are just arbitrarily chosen to be 2 and 3,</span>
-</span></span><span class=line><span class=cl><span class=c1># with the insight that group 3 is more risky than group 2.</span>
-</span></span><span class=line><span class=cl><span class=n>theta</span> <span class=o>&lt;-</span> <span class=nf>c</span><span class=p>(</span><span class=m>1</span><span class=o>/</span><span class=m>3</span><span class=p>,</span><span class=m>1</span><span class=o>/</span><span class=m>3</span><span class=p>,</span><span class=m>2</span><span class=p>,</span><span class=m>3</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># theta := (alpha, beta, mu, lambda)</span>
-</span></span><span class=line><span class=cl><span class=n>Pi</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>res</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>  <span class=kr>if</span> <span class=p>(</span><span class=n>i</span> <span class=o>==</span> <span class=m>0</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=n>res</span> <span class=o>&lt;-</span> <span class=n>theta[1]</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=n>res</span> <span class=o>&lt;-</span> <span class=n>res</span> <span class=o>+</span> <span class=n>theta[2]</span> <span class=o>*</span> <span class=n>theta[3]^i</span> <span class=o>*</span> <span class=nf>exp</span><span class=p>(</span><span class=o>-</span><span class=n>theta[3]</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>res</span> <span class=o>&lt;-</span> <span class=n>res</span> <span class=o>+</span> <span class=p>(</span><span class=m>1</span> <span class=o>-</span> <span class=n>theta[1]</span> <span class=o>-</span> <span class=n>theta[2]</span><span class=p>)</span> <span class=o>*</span> <span class=n>theta[4]^i</span> <span class=o>*</span> <span class=nf>exp</span><span class=p>(</span><span class=o>-</span><span class=n>theta[4]</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>res</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>z0</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>theta[1]</span> <span class=o>/</span> <span class=nf>Pi</span><span class=p>(</span><span class=m>0</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>t</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>theta[2]</span> <span class=o>*</span> <span class=n>theta[3]^i</span> <span class=o>*</span> <span class=nf>exp</span><span class=p>(</span><span class=o>-</span><span class=n>theta[3]</span><span class=p>)</span> <span class=o>/</span> <span class=nf>Pi</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>p</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=p>(</span><span class=m>1</span><span class=o>-</span><span class=n>theta[1]</span> <span class=o>-</span> <span class=n>theta[2]</span><span class=p>)</span> <span class=o>*</span> <span class=n>theta[4]^i</span> <span class=o>*</span> <span class=nf>exp</span><span class=p>(</span><span class=o>-</span><span class=n>theta[4]</span><span class=p>)</span> <span class=o>/</span> <span class=nf>Pi</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># update algorithm, based on EM algorithm</span>
-</span></span><span class=line><span class=cl><span class=n>update</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>theta</span><span class=p>,</span><span class=n>ns</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=c1># note: n0 := ns[1] instead of ns[0] since R does not use zero-based indexes</span>
-</span></span><span class=line><span class=cl>  <span class=n>alpha</span> <span class=o>&lt;-</span> <span class=n>ns[1]</span> <span class=o>*</span> <span class=nf>z0</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span> <span class=o>/</span> <span class=n>N</span>
-</span></span><span class=line><span class=cl>  <span class=n>beta</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>  <span class=n>mu_num</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>  <span class=n>mu_denom</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=n>lam_num</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>  <span class=n>lam_denom</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>  <span class=kr>for</span> <span class=p>(</span><span class=n>i</span> <span class=kr>in</span> <span class=m>0</span><span class=o>:</span><span class=m>16</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=n>ti</span> <span class=o>&lt;-</span> <span class=nf>t</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=kc>pi</span> <span class=o>&lt;-</span> <span class=nf>p</span><span class=p>(</span><span class=n>i</span><span class=p>,</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    
-</span></span><span class=line><span class=cl>    <span class=n>beta</span> <span class=o>&lt;-</span> <span class=n>beta</span> <span class=o>+</span> <span class=n>ns[i</span><span class=m>+1</span><span class=n>]</span> <span class=o>*</span> <span class=n>ti</span>
-</span></span><span class=line><span class=cl>    
-</span></span><span class=line><span class=cl>    <span class=n>mu_num</span> <span class=o>&lt;-</span> <span class=n>mu_num</span> <span class=o>+</span> <span class=n>i</span> <span class=o>*</span> <span class=n>ns[i</span><span class=m>+1</span><span class=n>]</span> <span class=o>*</span> <span class=n>ti</span>
-</span></span><span class=line><span class=cl>    <span class=n>mu_denom</span> <span class=o>&lt;-</span> <span class=n>mu_denom</span> <span class=o>+</span> <span class=n>ns[i</span><span class=m>+1</span><span class=n>]</span> <span class=o>*</span> <span class=n>ti</span>
-</span></span><span class=line><span class=cl>    
-</span></span><span class=line><span class=cl>    <span class=n>lam_num</span> <span class=o>&lt;-</span> <span class=n>lam_num</span> <span class=o>+</span> <span class=n>i</span> <span class=o>*</span> <span class=n>ns[i</span><span class=m>+1</span><span class=n>]</span> <span class=o>*</span> <span class=kc>pi</span>
-</span></span><span class=line><span class=cl>    <span class=n>lam_denom</span> <span class=o>&lt;-</span> <span class=n>lam_denom</span> <span class=o>+</span> <span class=n>ns[i</span><span class=m>+1</span><span class=n>]</span> <span class=o>*</span> <span class=kc>pi</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=n>beta</span> <span class=o>&lt;-</span> <span class=n>beta</span> <span class=o>/</span> <span class=n>N</span>
-</span></span><span class=line><span class=cl>  <span class=n>mu</span> <span class=o>&lt;-</span> <span class=n>mu_num</span> <span class=o>/</span> <span class=n>mu_denom</span>
-</span></span><span class=line><span class=cl>  <span class=n>lam</span> <span class=o>&lt;-</span> <span class=n>lam_num</span> <span class=o>/</span> <span class=n>lam_denom</span>
-</span></span><span class=line><span class=cl>  
-</span></span><span class=line><span class=cl>  <span class=nf>c</span><span class=p>(</span><span class=n>alpha</span><span class=p>,</span><span class=n>beta</span><span class=p>,</span><span class=n>mu</span><span class=p>,</span><span class=n>lam</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>em</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>theta</span><span class=p>,</span><span class=n>ns</span><span class=p>,</span><span class=n>steps</span><span class=o>=</span><span class=m>10000</span><span class=p>,</span><span class=n>debug</span><span class=o>=</span><span class=bp>T</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=kr>for</span><span class=p>(</span><span class=n>i</span> <span class=kr>in</span> <span class=m>1</span><span class=o>:</span><span class=n>steps</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=n>theta</span> <span class=o>=</span> <span class=nf>update</span><span class=p>(</span><span class=n>theta</span><span class=p>,</span><span class=n>ns</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=kr>if</span> <span class=p>(</span><span class=n>debug</span><span class=o>==</span><span class=bp>T</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=p>{</span>
-</span></span><span class=line><span class=cl>      <span class=kr>if</span> <span class=p>(</span><span class=n>i</span> <span class=o>%%</span> <span class=m>1000</span> <span class=o>==</span> <span class=m>0</span><span class=p>)</span> <span class=p>{</span> <span class=nf>cat</span><span class=p>(</span><span class=s>&#34;iteration =&#34;</span><span class=p>,</span><span class=n>i</span><span class=p>,</span><span class=s>&#34; theta = (&#34;</span><span class=p>,</span><span class=n>theta</span><span class=p>,</span><span class=s>&#34;)&#39;\n&#34;</span><span class=p>)</span> <span class=p>}</span>
-</span></span><span class=line><span class=cl>    <span class=p>}</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl>  <span class=n>theta</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=c1># solution theta = (alpha, beta, mu, lambda)</span>
-</span></span><span class=line><span class=cl><span class=n>sol</span> <span class=o>&lt;-</span> <span class=nf>em</span><span class=p>(</span><span class=n>theta</span><span class=p>,</span><span class=n>ns</span><span class=p>,</span><span class=m>10000</span><span class=p>,</span><span class=bp>T</span><span class=p>)</span>
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>## iteration = 1000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 2000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 3000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 4000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 5000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 6000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 7000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 8000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 9000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span><span class=line><span class=cl>## iteration = 10000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
-</span></span></code></pre></div><p>We see that the solution is $0.1221661, 0.5625419, 1.4674746, 5.9388889$.</p><h2 id=part-c-1>Part (c)</h2><p>Estimate the standard errors and pairwise correlations of your parameters, using any available method.</p><h3 id=solution-6>Solution</h3><p>We have chosen to use the Bootstrap method.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=c1># ns = (379,299,222,145,109,95,73,59,45,30,24,12,4,2,0,1,1)</span>
-</span></span><span class=line><span class=cl><span class=c1># 379 responded 0 encounters</span>
-</span></span><span class=line><span class=cl><span class=c1># 299 responded 1 encounters</span>
-</span></span><span class=line><span class=cl><span class=c1># 222 responded 2 encounters</span>
-</span></span><span class=line><span class=cl><span class=c1># ...</span>
-</span></span><span class=line><span class=cl><span class=c1># 1 responded 16 encounters</span>
-</span></span><span class=line><span class=cl><span class=c1>#</span>
-</span></span><span class=line><span class=cl><span class=c1># to resample, we resample from the data set that includes each</span>
-</span></span><span class=line><span class=cl><span class=c1># persons response, as determined by ns.</span>
-</span></span><span class=line><span class=cl><span class=n>data</span> <span class=o>&lt;-</span> <span class=kc>NULL</span>
-</span></span><span class=line><span class=cl><span class=kr>for</span> <span class=p>(</span><span class=n>i</span> <span class=kr>in</span> <span class=m>1</span><span class=o>:</span><span class=nf>length</span><span class=p>(</span><span class=n>ns</span><span class=p>))</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>data</span> <span class=o>&lt;-</span> <span class=nf>append</span><span class=p>(</span><span class=n>data</span><span class=p>,</span><span class=nf>rep</span><span class=p>((</span><span class=n>i</span><span class=m>-1</span><span class=p>),</span><span class=n>ns[i]</span><span class=p>))</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>make_into_counts</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>data</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>ns</span> <span class=o>&lt;-</span> <span class=kc>NULL</span>
-</span></span><span class=line><span class=cl>  <span class=kr>for</span> <span class=p>(</span><span class=n>i</span> <span class=kr>in</span> <span class=m>0</span><span class=o>:</span><span class=m>16</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=n>ni</span> <span class=o>&lt;-</span> <span class=n>data[data</span> <span class=o>==</span> <span class=n>i]</span>
-</span></span><span class=line><span class=cl>    <span class=n>l</span> <span class=o>&lt;-</span><span class=nf>length</span><span class=p>(</span><span class=n>ni</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=n>ns</span> <span class=o>&lt;-</span> <span class=nf>append</span><span class=p>(</span><span class=n>ns</span><span class=p>,</span><span class=n>l</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl>  <span class=n>ns</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>m</span> <span class=o>&lt;-</span> <span class=m>1000</span> <span class=c1># bootstrap replicates</span>
-</span></span><span class=line><span class=cl><span class=n>em_steps</span> <span class=o>&lt;-</span> <span class=m>100</span>
-</span></span><span class=line><span class=cl><span class=n>theta.bs</span> <span class=o>&lt;-</span> <span class=nf>em</span><span class=p>(</span><span class=n>theta</span><span class=p>,</span><span class=n>ns</span><span class=p>,</span><span class=n>em_steps</span><span class=p>,</span><span class=bp>F</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=n>thetas</span> <span class=o>&lt;-</span> <span class=nf>rbind</span><span class=p>(</span><span class=n>theta.bs</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=kr>for</span> <span class=p>(</span><span class=n>i</span> <span class=kr>in</span> <span class=m>2</span><span class=o>:</span><span class=n>m</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>indices</span> <span class=o>&lt;-</span> <span class=nf>sample</span><span class=p>(</span><span class=n>N</span><span class=p>,</span><span class=n>N</span><span class=p>,</span><span class=n>replace</span><span class=o>=</span><span class=bp>T</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>resampled</span> <span class=o>&lt;-</span> <span class=nf>make_into_counts</span><span class=p>(</span><span class=n>data[indices]</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>theta.bs</span> <span class=o>&lt;-</span> <span class=nf>em</span><span class=p>(</span><span class=n>theta</span><span class=p>,</span><span class=n>resampled</span><span class=p>,</span><span class=n>em_steps</span><span class=p>,</span><span class=bp>F</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=n>thetas</span> <span class=o>&lt;-</span> <span class=nf>rbind</span><span class=p>(</span><span class=n>thetas</span><span class=p>,</span><span class=n>theta.bs</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=kr>if</span> <span class=p>(</span><span class=n>i</span> <span class=o>%%</span> <span class=m>100</span> <span class=o>==</span> <span class=m>0</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=nf>cat</span><span class=p>(</span><span class=s>&#34;iteration &#34;</span><span class=p>,</span> <span class=n>i</span><span class=p>,</span> <span class=s>&#34;\n&#34;</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=nf>print</span><span class=p>(</span><span class=nf>cov</span><span class=p>(</span><span class=n>thetas</span><span class=p>))</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>## iteration  100 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0004197254 -0.0001718468 0.0017266699 0.001591205
-</span></span><span class=line><span class=cl>## [2,] -0.0001718468  0.0005295261 0.0002895402 0.001980314
-</span></span><span class=line><span class=cl>## [3,]  0.0017266699  0.0002895402 0.0131179548 0.015108087
-</span></span><span class=line><span class=cl>## [4,]  0.0015912053  0.0019803141 0.0151080872 0.047009875
-</span></span><span class=line><span class=cl>## iteration  200 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]       [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003864557 -1.678292e-04 1.590662e-03 0.00154358
-</span></span><span class=line><span class=cl>## [2,] -0.0001678292  4.671077e-04 9.764038e-05 0.00133111
-</span></span><span class=line><span class=cl>## [3,]  0.0015906622  9.764038e-05 1.228480e-02 0.01297749
-</span></span><span class=line><span class=cl>## [4,]  0.0015435804  1.331110e-03 1.297749e-02 0.03894848
-</span></span><span class=line><span class=cl>## iteration  300 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003735625 -1.785107e-04 1.479671e-03 0.001351610
-</span></span><span class=line><span class=cl>## [2,] -0.0001785107  4.678372e-04 6.137843e-06 0.001259075
-</span></span><span class=line><span class=cl>## [3,]  0.0014796708  6.137843e-06 1.123608e-02 0.011748534
-</span></span><span class=line><span class=cl>## [4,]  0.0013516098  1.259075e-03 1.174853e-02 0.036388361
-</span></span><span class=line><span class=cl>## iteration  400 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003625489 -0.0001755464 0.0014276201 0.001221715
-</span></span><span class=line><span class=cl>## [2,] -0.0001755464  0.0004540625 0.0000184334 0.001288138
-</span></span><span class=line><span class=cl>## [3,]  0.0014276201  0.0000184334 0.0110764497 0.010780774
-</span></span><span class=line><span class=cl>## [4,]  0.0012217155  0.0012881380 0.0107807741 0.034067537
-</span></span><span class=line><span class=cl>## iteration  500 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003718052 -0.0001842823 0.0014502414 0.001310802
-</span></span><span class=line><span class=cl>## [2,] -0.0001842823  0.0004847405 0.0001080019 0.001398247
-</span></span><span class=line><span class=cl>## [3,]  0.0014502414  0.0001080019 0.0114792580 0.011828494
-</span></span><span class=line><span class=cl>## [4,]  0.0013108018  0.0013982467 0.0118284941 0.036489243
-</span></span><span class=line><span class=cl>## iteration  600 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003791435 -1.814512e-04 1.497719e-03 0.001364054
-</span></span><span class=line><span class=cl>## [2,] -0.0001814512  4.674232e-04 7.293112e-05 0.001410218
-</span></span><span class=line><span class=cl>## [3,]  0.0014977193  7.293112e-05 1.157800e-02 0.011903853
-</span></span><span class=line><span class=cl>## [4,]  0.0013640538  1.410218e-03 1.190385e-02 0.037292937
-</span></span><span class=line><span class=cl>## iteration  700 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003819013 -1.782221e-04 1.521678e-03 0.001410964
-</span></span><span class=line><span class=cl>## [2,] -0.0001782221  4.546723e-04 8.545081e-05 0.001405131
-</span></span><span class=line><span class=cl>## [3,]  0.0015216781  8.545081e-05 1.178236e-02 0.012322621
-</span></span><span class=line><span class=cl>## [4,]  0.0014109640  1.405131e-03 1.232262e-02 0.037738946
-</span></span><span class=line><span class=cl>## iteration  800 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003730646 -0.0001676221 0.0015068905 0.001443218
-</span></span><span class=line><span class=cl>## [2,] -0.0001676221  0.0004405397 0.0001354924 0.001470624
-</span></span><span class=line><span class=cl>## [3,]  0.0015068905  0.0001354924 0.0118808619 0.012889971
-</span></span><span class=line><span class=cl>## [4,]  0.0014432180  0.0014706239 0.0128899710 0.038858338
-</span></span><span class=line><span class=cl>## iteration  900 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003676784 -0.0001699529 0.0014571801 0.001358486
-</span></span><span class=line><span class=cl>## [2,] -0.0001699529  0.0004554077 0.0001823193 0.001590474
-</span></span><span class=line><span class=cl>## [3,]  0.0014571801  0.0001823193 0.0117524614 0.012790632
-</span></span><span class=line><span class=cl>## [4,]  0.0013584862  0.0015904740 0.0127906324 0.039055305
-</span></span><span class=line><span class=cl>## iteration  1000 
-</span></span><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003697739 -0.0001652985 0.0014912066 0.001367237
-</span></span><span class=line><span class=cl>## [2,] -0.0001652985  0.0004523873 0.0002111503 0.001638727
-</span></span><span class=line><span class=cl>## [3,]  0.0014912066  0.0002111503 0.0120934727 0.013311533
-</span></span><span class=line><span class=cl>## [4,]  0.0013672372  0.0016387267 0.0133115328 0.039376614
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=n>cov.bs</span> <span class=o>&lt;-</span> <span class=nf>cov</span><span class=p>(</span><span class=n>thetas</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=n>cor.bs</span> <span class=o>&lt;-</span> <span class=nf>cor</span><span class=p>(</span><span class=n>thetas</span><span class=p>)</span>
-</span></span></code></pre></div><p>The Bootstrap estimator of the covariance matrix is given by</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003697739 -0.0001652985 0.0014912066 0.001367237
-</span></span><span class=line><span class=cl>## [2,] -0.0001652985  0.0004523873 0.0002111503 0.001638727
-</span></span><span class=line><span class=cl>## [3,]  0.0014912066  0.0002111503 0.0120934727 0.013311533
-</span></span><span class=line><span class=cl>## [4,]  0.0013672372  0.0016387267 0.0133115328 0.039376614
-</span></span></code></pre></div><p>and the correlation matrix is given by</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>##            [,1]        [,2]       [,3]      [,4]
-</span></span><span class=line><span class=cl>## [1,]  1.0000000 -0.40415269 0.70517057 0.3583080
-</span></span><span class=line><span class=cl>## [2,] -0.4041527  1.00000000 0.09027364 0.3882685
-</span></span><span class=line><span class=cl>## [3,]  0.7051706  0.09027364 1.00000000 0.6100050
-</span></span><span class=line><span class=cl>## [4,]  0.3583080  0.38826847 0.61000496 1.0000000
-</span></span></code></pre></div><p>Let&rsquo;s try using the Hessian of the observed information matrix.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-r data-lang=r><span class=line><span class=cl><span class=nf>library</span><span class=p>(</span><span class=n>numDeriv</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=n>loglike</span> <span class=o>&lt;-</span> <span class=kr>function</span><span class=p>(</span><span class=n>theta</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=p>{</span>
-</span></span><span class=line><span class=cl>  <span class=n>s</span> <span class=o>&lt;-</span> <span class=m>0</span>
-</span></span><span class=line><span class=cl>  <span class=kr>for</span> <span class=p>(</span><span class=n>x</span> <span class=kr>in</span> <span class=n>data</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>  <span class=p>{</span>
-</span></span><span class=line><span class=cl>    <span class=n>s</span> <span class=o>&lt;-</span> <span class=n>s</span> <span class=o>+</span> <span class=nf>log</span><span class=p>(</span><span class=n>theta[1]</span><span class=o>*</span><span class=nf>as.numeric</span><span class=p>(</span><span class=n>x</span><span class=o>==</span><span class=m>0</span><span class=p>)</span> <span class=o>+</span>
-</span></span><span class=line><span class=cl>                 <span class=n>theta[2]</span><span class=o>*</span><span class=nf>dpois</span><span class=p>(</span><span class=n>x</span><span class=p>,</span><span class=n>theta[3]</span><span class=p>)</span> <span class=o>+</span>
-</span></span><span class=line><span class=cl>                 <span class=p>(</span><span class=m>1</span><span class=o>-</span><span class=n>theta[1]</span><span class=o>-</span><span class=n>theta[2]</span><span class=p>)</span><span class=o>*</span><span class=nf>dpois</span><span class=p>(</span><span class=n>x</span><span class=p>,</span><span class=n>theta[4]</span><span class=p>))</span>
-</span></span><span class=line><span class=cl>  <span class=p>}</span>
-</span></span><span class=line><span class=cl>  <span class=n>s</span>
-</span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span><span class=line><span class=cl><span class=n>mle</span> <span class=o>&lt;-</span> <span class=nf>c</span><span class=p>(</span><span class=m>0.1221661</span><span class=p>,</span><span class=m>0.5625419</span><span class=p>,</span><span class=m>1.4674746</span><span class=p>,</span><span class=m>5.9388889</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=nf>solve</span><span class=p>(</span><span class=o>-</span><span class=nf>hessian</span><span class=p>(</span><span class=n>loglike</span><span class=p>,</span><span class=n>mle</span><span class=p>))</span>
-</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>##               [,1]          [,2]         [,3]        [,4]
-</span></span><span class=line><span class=cl>## [1,]  0.0003799048 -1.909698e-04 1.438556e-03 0.001184057
-</span></span><span class=line><span class=cl>## [2,] -0.0001909698  4.657702e-04 7.132638e-05 0.001417409
-</span></span><span class=line><span class=cl>## [3,]  0.0014385560  7.132638e-05 1.111722e-02 0.011376017
-</span></span><span class=line><span class=cl>## [4,]  0.0011840568  1.417409e-03 1.137602e-02 0.034664940
-</span></span></code></pre></div></div><nav class=post-navigation><a href=../../../probsets/stat575/problem_set_4/ class=nav-prev><span class=nav-label>← Previous</span>
-<span class=nav-title>SIUe - Computational Statistics (STAT 575) - Problem Set 4</span></a></nav></article></div></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
-</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
-</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
-</a><a href=../../../index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
-</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
-</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
-</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
-</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
-</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-content><h4 id=footer-content>Content</h4><div class=footer-links><a href=https://metafunctor.com/post/>Posts</a>
-<a href=https://metafunctor.com/papers/>Papers</a>
-<a href=https://metafunctor.com/series/>Series</a>
-<a href=https://metafunctor.com/publications/>Publications</a>
-<a href=https://metafunctor.com/writing/>Writing</a></div></nav><nav class=footer-section aria-labelledby=footer-code><h4 id=footer-code>Code</h4><div class=footer-links><a href=https://metafunctor.com/projects/>Projects</a>
-<a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
-<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
-<a href=mailto:lex@metafunctor.com>Contact</a>
-<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=../../../js/performance-optimizations.js defer></script><script src=../../../js/performance-enhancements.js defer></script><script src=../../../js/mobile-menu.js defer></script><script src=../../../js/modern-interactions.js defer></script><script src=../../../js/search.js defer></script><script src=../../../js/reading-progress.js defer></script><script src=../../../js/copy-code.js defer></script><script src=../../../js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
-<i class="fas fa-arrow-up"></i>
-</button>
-<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
+$$<p>The same derivation essentially follows for $\lambda$, and thus
+</p>
+$$
+  \lambda^{(t+1)} = \frac{\sum_{k=0}^{16} k n_k p_k(\theta^{(t)})}{\sum_{k=0}^{16} n_k p_k(\theta^{(t)})}.
+$$<h2 id="part-b-1">Part (b)</h2>
+<p>Estimate the parameters of the model, using the observed data.</p>
+<h3 id="solution-5">Solution</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># we observe n = (n0,n1,...,n16)</span>
+</span></span><span class="line"><span class="cl"><span class="n">ns</span> <span class="o">&lt;-</span> <span class="nf">c</span><span class="p">(</span><span class="m">379</span><span class="p">,</span><span class="m">299</span><span class="p">,</span><span class="m">222</span><span class="p">,</span><span class="m">145</span><span class="p">,</span><span class="m">109</span><span class="p">,</span><span class="m">95</span><span class="p">,</span><span class="m">73</span><span class="p">,</span><span class="m">59</span><span class="p">,</span><span class="m">45</span><span class="p">,</span><span class="m">30</span><span class="p">,</span><span class="m">24</span><span class="p">,</span><span class="m">12</span><span class="p">,</span><span class="m">4</span><span class="p">,</span><span class="m">2</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">N</span> <span class="o">&lt;-</span> <span class="nf">sum</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># theta := (alpha, beta, mu, lambda)&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># note that there is an implicit parameter gamma s.t.</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># alpha + beta + gamma = 1</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># the initial value assumes each category z, t, or p</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># is equally probable, and so we let</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#     (alpha^(0),beta^(0)) = (1/3,1/3)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># and mu^(0) and lambda^(0) are just arbitrarily chosen to be 2 and 3,</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># with the insight that group 3 is more risky than group 2.</span>
+</span></span><span class="line"><span class="cl"><span class="n">theta</span> <span class="o">&lt;-</span> <span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="o">/</span><span class="m">3</span><span class="p">,</span><span class="m">1</span><span class="o">/</span><span class="m">3</span><span class="p">,</span><span class="m">2</span><span class="p">,</span><span class="m">3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># theta := (alpha, beta, mu, lambda)</span>
+</span></span><span class="line"><span class="cl"><span class="n">Pi</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">res</span> <span class="o">&lt;-</span> <span class="n">theta[1]</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">&lt;-</span> <span class="n">res</span> <span class="o">+</span> <span class="n">theta[2]</span> <span class="o">*</span> <span class="n">theta[3]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[3]</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">res</span> <span class="o">&lt;-</span> <span class="n">res</span> <span class="o">+</span> <span class="p">(</span><span class="m">1</span> <span class="o">-</span> <span class="n">theta[1]</span> <span class="o">-</span> <span class="n">theta[2]</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta[4]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[4]</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">res</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">z0</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta[1]</span> <span class="o">/</span> <span class="nf">Pi</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">t</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta[2]</span> <span class="o">*</span> <span class="n">theta[3]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[3]</span><span class="p">)</span> <span class="o">/</span> <span class="nf">Pi</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">p</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="m">1</span><span class="o">-</span><span class="n">theta[1]</span> <span class="o">-</span> <span class="n">theta[2]</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta[4]^i</span> <span class="o">*</span> <span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">theta[4]</span><span class="p">)</span> <span class="o">/</span> <span class="nf">Pi</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># update algorithm, based on EM algorithm</span>
+</span></span><span class="line"><span class="cl"><span class="n">update</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="c1"># note: n0 := ns[1] instead of ns[0] since R does not use zero-based indexes</span>
+</span></span><span class="line"><span class="cl">  <span class="n">alpha</span> <span class="o">&lt;-</span> <span class="n">ns[1]</span> <span class="o">*</span> <span class="nf">z0</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">N</span>
+</span></span><span class="line"><span class="cl">  <span class="n">beta</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu_num</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu_denom</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">lam_num</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="n">lam_denom</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">0</span><span class="o">:</span><span class="m">16</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ti</span> <span class="o">&lt;-</span> <span class="nf">t</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="kc">pi</span> <span class="o">&lt;-</span> <span class="nf">p</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">beta</span> <span class="o">&lt;-</span> <span class="n">beta</span> <span class="o">+</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="n">ti</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">mu_num</span> <span class="o">&lt;-</span> <span class="n">mu_num</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="n">ti</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mu_denom</span> <span class="o">&lt;-</span> <span class="n">mu_denom</span> <span class="o">+</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="n">ti</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="n">lam_num</span> <span class="o">&lt;-</span> <span class="n">lam_num</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="kc">pi</span>
+</span></span><span class="line"><span class="cl">    <span class="n">lam_denom</span> <span class="o">&lt;-</span> <span class="n">lam_denom</span> <span class="o">+</span> <span class="n">ns[i</span><span class="m">+1</span><span class="n">]</span> <span class="o">*</span> <span class="kc">pi</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="n">beta</span> <span class="o">&lt;-</span> <span class="n">beta</span> <span class="o">/</span> <span class="n">N</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu</span> <span class="o">&lt;-</span> <span class="n">mu_num</span> <span class="o">/</span> <span class="n">mu_denom</span>
+</span></span><span class="line"><span class="cl">  <span class="n">lam</span> <span class="o">&lt;-</span> <span class="n">lam_num</span> <span class="o">/</span> <span class="n">lam_denom</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="nf">c</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span><span class="n">beta</span><span class="p">,</span><span class="n">mu</span><span class="p">,</span><span class="n">lam</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">em</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">,</span><span class="n">steps</span><span class="o">=</span><span class="m">10000</span><span class="p">,</span><span class="n">debug</span><span class="o">=</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span><span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="n">steps</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">theta</span> <span class="o">=</span> <span class="nf">update</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="kr">if</span> <span class="p">(</span><span class="n">debug</span><span class="o">==</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="kr">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">%%</span> <span class="m">1000</span> <span class="o">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span> <span class="nf">cat</span><span class="p">(</span><span class="s">&#34;iteration =&#34;</span><span class="p">,</span><span class="n">i</span><span class="p">,</span><span class="s">&#34; theta = (&#34;</span><span class="p">,</span><span class="n">theta</span><span class="p">,</span><span class="s">&#34;)&#39;\n&#34;</span><span class="p">)</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># solution theta = (alpha, beta, mu, lambda)</span>
+</span></span><span class="line"><span class="cl"><span class="n">sol</span> <span class="o">&lt;-</span> <span class="nf">em</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">,</span><span class="m">10000</span><span class="p">,</span><span class="bp">T</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## iteration = 1000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 2000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 3000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 4000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 5000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 6000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 7000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 8000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 9000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span><span class="line"><span class="cl">## iteration = 10000  theta = ( 0.1221661 0.5625419 1.467475 5.938889 )&#39;
+</span></span></code></pre></div><p>We see that the solution is $0.1221661, 0.5625419, 1.4674746, 5.9388889$.</p>
+<h2 id="part-c-1">Part (c)</h2>
+<p>Estimate the standard errors and pairwise correlations of your parameters, using any available method.</p>
+<h3 id="solution-6">Solution</h3>
+<p>We have chosen to use the Bootstrap method.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># ns = (379,299,222,145,109,95,73,59,45,30,24,12,4,2,0,1,1)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 379 responded 0 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 299 responded 1 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 222 responded 2 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># ...</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 1 responded 16 encounters</span>
+</span></span><span class="line"><span class="cl"><span class="c1">#</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># to resample, we resample from the data set that includes each</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># persons response, as determined by ns.</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">&lt;-</span> <span class="kc">NULL</span>
+</span></span><span class="line"><span class="cl"><span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">ns</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">data</span> <span class="o">&lt;-</span> <span class="nf">append</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="nf">rep</span><span class="p">((</span><span class="n">i</span><span class="m">-1</span><span class="p">),</span><span class="n">ns[i]</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">make_into_counts</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">ns</span> <span class="o">&lt;-</span> <span class="kc">NULL</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">0</span><span class="o">:</span><span class="m">16</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ni</span> <span class="o">&lt;-</span> <span class="n">data[data</span> <span class="o">==</span> <span class="n">i]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">l</span> <span class="o">&lt;-</span><span class="nf">length</span><span class="p">(</span><span class="n">ni</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ns</span> <span class="o">&lt;-</span> <span class="nf">append</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span><span class="n">l</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="n">ns</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">m</span> <span class="o">&lt;-</span> <span class="m">1000</span> <span class="c1"># bootstrap replicates</span>
+</span></span><span class="line"><span class="cl"><span class="n">em_steps</span> <span class="o">&lt;-</span> <span class="m">100</span>
+</span></span><span class="line"><span class="cl"><span class="n">theta.bs</span> <span class="o">&lt;-</span> <span class="nf">em</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">ns</span><span class="p">,</span><span class="n">em_steps</span><span class="p">,</span><span class="bp">F</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">thetas</span> <span class="o">&lt;-</span> <span class="nf">rbind</span><span class="p">(</span><span class="n">theta.bs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="kr">for</span> <span class="p">(</span><span class="n">i</span> <span class="kr">in</span> <span class="m">2</span><span class="o">:</span><span class="n">m</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">indices</span> <span class="o">&lt;-</span> <span class="nf">sample</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="n">N</span><span class="p">,</span><span class="n">replace</span><span class="o">=</span><span class="bp">T</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">resampled</span> <span class="o">&lt;-</span> <span class="nf">make_into_counts</span><span class="p">(</span><span class="n">data[indices]</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">theta.bs</span> <span class="o">&lt;-</span> <span class="nf">em</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span><span class="n">resampled</span><span class="p">,</span><span class="n">em_steps</span><span class="p">,</span><span class="bp">F</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">thetas</span> <span class="o">&lt;-</span> <span class="nf">rbind</span><span class="p">(</span><span class="n">thetas</span><span class="p">,</span><span class="n">theta.bs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">%%</span> <span class="m">100</span> <span class="o">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">cat</span><span class="p">(</span><span class="s">&#34;iteration &#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s">&#34;\n&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">print</span><span class="p">(</span><span class="nf">cov</span><span class="p">(</span><span class="n">thetas</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">## iteration  100 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0004197254 -0.0001718468 0.0017266699 0.001591205
+</span></span><span class="line"><span class="cl">## [2,] -0.0001718468  0.0005295261 0.0002895402 0.001980314
+</span></span><span class="line"><span class="cl">## [3,]  0.0017266699  0.0002895402 0.0131179548 0.015108087
+</span></span><span class="line"><span class="cl">## [4,]  0.0015912053  0.0019803141 0.0151080872 0.047009875
+</span></span><span class="line"><span class="cl">## iteration  200 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]       [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003864557 -1.678292e-04 1.590662e-03 0.00154358
+</span></span><span class="line"><span class="cl">## [2,] -0.0001678292  4.671077e-04 9.764038e-05 0.00133111
+</span></span><span class="line"><span class="cl">## [3,]  0.0015906622  9.764038e-05 1.228480e-02 0.01297749
+</span></span><span class="line"><span class="cl">## [4,]  0.0015435804  1.331110e-03 1.297749e-02 0.03894848
+</span></span><span class="line"><span class="cl">## iteration  300 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003735625 -1.785107e-04 1.479671e-03 0.001351610
+</span></span><span class="line"><span class="cl">## [2,] -0.0001785107  4.678372e-04 6.137843e-06 0.001259075
+</span></span><span class="line"><span class="cl">## [3,]  0.0014796708  6.137843e-06 1.123608e-02 0.011748534
+</span></span><span class="line"><span class="cl">## [4,]  0.0013516098  1.259075e-03 1.174853e-02 0.036388361
+</span></span><span class="line"><span class="cl">## iteration  400 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003625489 -0.0001755464 0.0014276201 0.001221715
+</span></span><span class="line"><span class="cl">## [2,] -0.0001755464  0.0004540625 0.0000184334 0.001288138
+</span></span><span class="line"><span class="cl">## [3,]  0.0014276201  0.0000184334 0.0110764497 0.010780774
+</span></span><span class="line"><span class="cl">## [4,]  0.0012217155  0.0012881380 0.0107807741 0.034067537
+</span></span><span class="line"><span class="cl">## iteration  500 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003718052 -0.0001842823 0.0014502414 0.001310802
+</span></span><span class="line"><span class="cl">## [2,] -0.0001842823  0.0004847405 0.0001080019 0.001398247
+</span></span><span class="line"><span class="cl">## [3,]  0.0014502414  0.0001080019 0.0114792580 0.011828494
+</span></span><span class="line"><span class="cl">## [4,]  0.0013108018  0.0013982467 0.0118284941 0.036489243
+</span></span><span class="line"><span class="cl">## iteration  600 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003791435 -1.814512e-04 1.497719e-03 0.001364054
+</span></span><span class="line"><span class="cl">## [2,] -0.0001814512  4.674232e-04 7.293112e-05 0.001410218
+</span></span><span class="line"><span class="cl">## [3,]  0.0014977193  7.293112e-05 1.157800e-02 0.011903853
+</span></span><span class="line"><span class="cl">## [4,]  0.0013640538  1.410218e-03 1.190385e-02 0.037292937
+</span></span><span class="line"><span class="cl">## iteration  700 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003819013 -1.782221e-04 1.521678e-03 0.001410964
+</span></span><span class="line"><span class="cl">## [2,] -0.0001782221  4.546723e-04 8.545081e-05 0.001405131
+</span></span><span class="line"><span class="cl">## [3,]  0.0015216781  8.545081e-05 1.178236e-02 0.012322621
+</span></span><span class="line"><span class="cl">## [4,]  0.0014109640  1.405131e-03 1.232262e-02 0.037738946
+</span></span><span class="line"><span class="cl">## iteration  800 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003730646 -0.0001676221 0.0015068905 0.001443218
+</span></span><span class="line"><span class="cl">## [2,] -0.0001676221  0.0004405397 0.0001354924 0.001470624
+</span></span><span class="line"><span class="cl">## [3,]  0.0015068905  0.0001354924 0.0118808619 0.012889971
+</span></span><span class="line"><span class="cl">## [4,]  0.0014432180  0.0014706239 0.0128899710 0.038858338
+</span></span><span class="line"><span class="cl">## iteration  900 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003676784 -0.0001699529 0.0014571801 0.001358486
+</span></span><span class="line"><span class="cl">## [2,] -0.0001699529  0.0004554077 0.0001823193 0.001590474
+</span></span><span class="line"><span class="cl">## [3,]  0.0014571801  0.0001823193 0.0117524614 0.012790632
+</span></span><span class="line"><span class="cl">## [4,]  0.0013584862  0.0015904740 0.0127906324 0.039055305
+</span></span><span class="line"><span class="cl">## iteration  1000 
+</span></span><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003697739 -0.0001652985 0.0014912066 0.001367237
+</span></span><span class="line"><span class="cl">## [2,] -0.0001652985  0.0004523873 0.0002111503 0.001638727
+</span></span><span class="line"><span class="cl">## [3,]  0.0014912066  0.0002111503 0.0120934727 0.013311533
+</span></span><span class="line"><span class="cl">## [4,]  0.0013672372  0.0016387267 0.0133115328 0.039376614
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">cov.bs</span> <span class="o">&lt;-</span> <span class="nf">cov</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cor.bs</span> <span class="o">&lt;-</span> <span class="nf">cor</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span>
+</span></span></code></pre></div><p>The Bootstrap estimator of the covariance matrix is given by</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003697739 -0.0001652985 0.0014912066 0.001367237
+</span></span><span class="line"><span class="cl">## [2,] -0.0001652985  0.0004523873 0.0002111503 0.001638727
+</span></span><span class="line"><span class="cl">## [3,]  0.0014912066  0.0002111503 0.0120934727 0.013311533
+</span></span><span class="line"><span class="cl">## [4,]  0.0013672372  0.0016387267 0.0133115328 0.039376614
+</span></span></code></pre></div><p>and the correlation matrix is given by</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">##            [,1]        [,2]       [,3]      [,4]
+</span></span><span class="line"><span class="cl">## [1,]  1.0000000 -0.40415269 0.70517057 0.3583080
+</span></span><span class="line"><span class="cl">## [2,] -0.4041527  1.00000000 0.09027364 0.3882685
+</span></span><span class="line"><span class="cl">## [3,]  0.7051706  0.09027364 1.00000000 0.6100050
+</span></span><span class="line"><span class="cl">## [4,]  0.3583080  0.38826847 0.61000496 1.0000000
+</span></span></code></pre></div><p>Let&rsquo;s try using the Hessian of the observed information matrix.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">numDeriv</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">loglike</span> <span class="o">&lt;-</span> <span class="kr">function</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">s</span> <span class="o">&lt;-</span> <span class="m">0</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">for</span> <span class="p">(</span><span class="n">x</span> <span class="kr">in</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">s</span> <span class="o">&lt;-</span> <span class="n">s</span> <span class="o">+</span> <span class="nf">log</span><span class="p">(</span><span class="n">theta[1]</span><span class="o">*</span><span class="nf">as.numeric</span><span class="p">(</span><span class="n">x</span><span class="o">==</span><span class="m">0</span><span class="p">)</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">theta[2]</span><span class="o">*</span><span class="nf">dpois</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">theta[3]</span><span class="p">)</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                 <span class="p">(</span><span class="m">1</span><span class="o">-</span><span class="n">theta[1]</span><span class="o">-</span><span class="n">theta[2]</span><span class="p">)</span><span class="o">*</span><span class="nf">dpois</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">theta[4]</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="n">s</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">mle</span> <span class="o">&lt;-</span> <span class="nf">c</span><span class="p">(</span><span class="m">0.1221661</span><span class="p">,</span><span class="m">0.5625419</span><span class="p">,</span><span class="m">1.4674746</span><span class="p">,</span><span class="m">5.9388889</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nf">solve</span><span class="p">(</span><span class="o">-</span><span class="nf">hessian</span><span class="p">(</span><span class="n">loglike</span><span class="p">,</span><span class="n">mle</span><span class="p">))</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">##               [,1]          [,2]         [,3]        [,4]
+</span></span><span class="line"><span class="cl">## [1,]  0.0003799048 -1.909698e-04 1.438556e-03 0.001184057
+</span></span><span class="line"><span class="cl">## [2,] -0.0001909698  4.657702e-04 7.132638e-05 0.001417409
+</span></span><span class="line"><span class="cl">## [3,]  0.0014385560  7.132638e-05 1.111722e-02 0.011376017
+</span></span><span class="line"><span class="cl">## [4,]  0.0011840568  1.417409e-03 1.137602e-02 0.034664940
+</span></span></code></pre></div>
+      </div>
+
+    
+    <nav class="post-navigation">
+      
+      <a href="../../../probsets/stat575/problem_set_4/" class="nav-prev">
+        <span class="nav-label">← Previous</span>
+        <span class="nav-title">SIUe - Computational Statistics (STAT 575) - Problem Set 4</span>
+      </a>
+      
+      
+    </nav>
+    
+  </article>
+  </div>
+</div>
+
+  </main>
+  
+  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-content">
+      <div class="footer-about">
+        <h3>metafunctor</h3>
+        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
+        <nav aria-label="Social media links" class="social-links">
+          
+          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+            <i class="fab fa-twitter" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <i class="fab fa-github" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <i class="fab fa-linkedin" aria-hidden="true"></i>
+          </a>
+          
+          <a href="../../../index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
+            <i class="fas fa-rss" aria-hidden="true"></i>
+          </a>
+          
+          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
+            <i class="fab fa-keybase" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
+            <i class="fab fa-orcid" aria-hidden="true"></i>
+          </a>
+          
+        </nav>
+      </div>
+
+      <nav class="footer-section" aria-labelledby="footer-content">
+        <h4 id="footer-content">Content</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/post/">Posts</a>
+          <a href="https://metafunctor.com/papers/">Papers</a>
+          <a href="https://metafunctor.com/series/">Series</a>
+          <a href="https://metafunctor.com/publications/">Publications</a>
+          <a href="https://metafunctor.com/writing/">Writing</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-code">
+        <h4 id="footer-code">Code</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/projects/">Projects</a>
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-connect">
+        <h4 id="footer-connect">Connect</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/about/">About</a>
+          <a href="mailto:lex@metafunctor.com">Contact</a>
+          <a href="https://metafunctor.com/index.xml" type="application/rss+xml">RSS Feed</a>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p class="copyright">
+        © 2026 Alex Towell. All rights reserved.
+      </p>
+      <p class="accessibility-note">
+        <a href="#main-content">Back to top</a>
+      </p>
+    </div>
+  </footer>
+
+  
+  <script src="../../../js/performance-optimizations.js" defer></script>
+  <script src="../../../js/performance-enhancements.js" defer></script>
+
+  
+  <script src="../../../js/mobile-menu.js" defer></script>
+  <script src="../../../js/modern-interactions.js" defer></script>
+  <script src="../../../js/search.js" defer></script>
+
+  
+  <script src="../../../js/reading-progress.js" defer></script>
+  <script src="../../../js/copy-code.js" defer></script>
+  <script src="../../../js/anchor-links.js" defer></script>
+
+  
+  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <script>
+    
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.style.display = 'block';
+      } else {
+        backToTop.style.display = 'none';
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+
+  
+  <script data-goatcounter="https://queelius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

@@ -1,6 +1,35 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Trade-Offs on metafunctor</title><link>https://metafunctor.com/tags/trade-offs/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:51 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/trade-offs/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</title><link>https://metafunctor.com/post/2024-06-15-comparing-prediction-methods/</link><pubDate>Sat, 15 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-06-15-comparing-prediction-methods/</guid><description>Trade-offs between sample efficiency, scalability, and theoretical guarantees</description><content:encoded><![CDATA[<p>We&rsquo;ve now covered the theoretical foundations (Solomonoff, Bayesian prediction), the model classes (Markov processes, tree sources), and classical approaches (n-grams). In this post, we step back to compare the major approaches to sequential prediction head-to-head.</p>
-<p>The goal isn&rsquo;t to declare a winner—each method excels in different regimes. Understanding when to use each is the real insight.</p>
-<h2 id="summary-comparison">Summary Comparison</h2>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Trade-Offs on metafunctor</title>
+    <link>https://metafunctor.com/tags/trade-offs/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/trade-offs/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Comparing Prediction Methods: CTW vs. N-grams vs. Neural LMs</title>
+      <link>https://metafunctor.com/post/2024-06-15-comparing-prediction-methods/</link>
+      <pubDate>Sat, 15 Jun 2024 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2024-06-15-comparing-prediction-methods/</guid>
+      <description>The bias-data trade-off in sequential prediction: when to use CTW, n-grams, or neural language models.</description>
+      <content:encoded><![CDATA[<p>Previous posts in this series covered the theoretical foundations (Solomonoff, Bayesian prediction), the model classes (Markov processes, tree sources), and classical approaches (n-grams). Now I want to step back and compare the major approaches to sequential prediction head-to-head.</p>
+<p>I&rsquo;m not going to declare a winner. Each method is best in a different regime. The useful insight is knowing when to reach for which tool.</p>
+<h2 id="summary">Summary</h2>
 <table>
   <thead>
       <tr>
@@ -12,244 +41,107 @@
   </thead>
   <tbody>
       <tr>
-          <td><strong>Sample efficiency</strong></td>
+          <td>Sample efficiency</td>
           <td>Excellent</td>
           <td>Good</td>
           <td>Poor</td>
       </tr>
       <tr>
-          <td><strong>Scalability</strong></td>
+          <td>Scalability</td>
           <td>Limited</td>
           <td>Good</td>
           <td>Excellent</td>
       </tr>
       <tr>
-          <td><strong>Inductive bias</strong></td>
+          <td>Inductive bias</td>
           <td>Tree structures</td>
           <td>Local context</td>
           <td>Learned</td>
       </tr>
       <tr>
-          <td><strong>Interpretability</strong></td>
+          <td>Interpretability</td>
           <td>High</td>
           <td>High</td>
           <td>Low</td>
       </tr>
       <tr>
-          <td><strong>Theoretical guarantees</strong></td>
+          <td>Theoretical guarantees</td>
           <td>Strong</td>
           <td>Moderate</td>
           <td>Weak</td>
       </tr>
       <tr>
-          <td><strong>Compute requirements</strong></td>
+          <td>Compute requirements</td>
           <td>Minimal</td>
           <td>Low</td>
           <td>Massive</td>
       </tr>
       <tr>
-          <td><strong>Context modeling</strong></td>
+          <td>Context modeling</td>
           <td>Adaptive depth</td>
           <td>Fixed length</td>
           <td>Flexible</td>
       </tr>
       <tr>
-          <td><strong>Vocabulary handling</strong></td>
+          <td>Vocabulary handling</td>
           <td>Binary optimal</td>
           <td>Any size</td>
           <td>Any size</td>
       </tr>
   </tbody>
 </table>
-<h2 id="sample-efficiency">Sample Efficiency</h2>
-<p>How much data does each method need?</p>
-<h3 id="ctw-excellent">CTW: Excellent</h3>
-<p>CTW learns from hundreds to thousands of examples. Why?</p>
-<ul>
-<li><strong>Strong inductive bias</strong>: Tree structures are a rich but constrained class</li>
-<li><strong>Bayesian prior</strong>: Automatically regularizes against overfitting</li>
-<li><strong>Efficient parameter estimation</strong>: KT estimator is statistically optimal</li>
-</ul>
-<p>For a 3rd-order Markov process with 8 contexts, CTW achieves near-optimal accuracy from ~1000 samples.</p>
-<h3 id="n-grams-good">N-grams: Good</h3>
-<p>Moderate data requirements:</p>
-<ul>
-<li>Count statistics converge reasonably fast</li>
-<li>Smoothing handles sparse data</li>
-<li>Higher orders need proportionally more data</li>
-</ul>
-<h3 id="neural-lms-poor">Neural LMs: Poor</h3>
-<p>Neural models are notoriously data-hungry:</p>
-<ul>
-<li>Modern LLMs train on hundreds of billions of tokens</li>
-<li>Must learn all structure from data</li>
-<li>No built-in inductive biases for sequence structure</li>
-</ul>
-<p>Transfer learning (pretraining + fine-tuning) helps but doesn&rsquo;t eliminate the fundamental requirement.</p>
+<h2 id="sample-efficiency">Sample efficiency</h2>
+<p>CTW learns from hundreds to thousands of examples. It has a strong inductive bias (tree structures are rich but constrained), a Bayesian prior that regularizes automatically, and the KT estimator which is statistically optimal. For a 3rd-order Markov process with 8 contexts, CTW gets near-optimal accuracy from about 1000 samples.</p>
+<p>N-grams need moderate data. Count statistics converge reasonably fast, smoothing handles sparsity, and higher orders need proportionally more observations.</p>
+<p>Neural language models are data-hungry. Modern LLMs train on hundreds of billions of tokens because they must learn all structure from data, with essentially no built-in inductive biases for sequence structure. Transfer learning helps but doesn&rsquo;t eliminate the fundamental requirement.</p>
 <h2 id="scalability">Scalability</h2>
-<p>How do the methods handle large problems?</p>
-<h3 id="ctw-limited">CTW: Limited</h3>
-<p>CTW faces inherent scaling challenges:</p>
-<ul>
-<li>2^D possible contexts at depth D (exponential)</li>
-<li>Pure binary—extensions to larger alphabets exist but less elegant</li>
-<li>Memory grows with sequence diversity</li>
-</ul>
-<p>Works well for binary sequences up to moderate depth (~10-15).</p>
-<h3 id="n-grams-good-1">N-grams: Good</h3>
-<p>Reasonable scaling properties:</p>
-<ul>
-<li>O(|V|^N) space for vocabulary V, order N</li>
-<li>Efficient implementations with tries, hashing</li>
-<li>Practical up to ~5-gram for large vocabularies</li>
-<li>Web-scale n-gram models exist (Google&rsquo;s)</li>
-</ul>
-<h3 id="neural-lms-excellent">Neural LMs: Excellent</h3>
-<p>Designed for scale:</p>
-<ul>
-<li>Billions of parameters</li>
-<li>GPU/TPU parallelization</li>
-<li>Handle long contexts (though attention is O(n²))</li>
-<li>Vocabulary of 50,000+ tokens</li>
-</ul>
-<p>The entire field has optimized for scaling neural models.</p>
-<h2 id="inductive-biases">Inductive Biases</h2>
-<p>What assumptions does each method make?</p>
-<h3 id="ctw-tree-structure-bias">CTW: Tree Structure Bias</h3>
-<p>CTW assumes the source is well-modeled by a tree:</p>
-<ul>
-<li>Perfect for Markov processes</li>
-<li>May miss patterns outside tree structure</li>
-<li>Implicit Occam&rsquo;s razor (prefers simpler trees)</li>
-</ul>
-<p>This is both a strength (sample efficiency) and limitation (can&rsquo;t capture non-tree patterns).</p>
-<h3 id="n-grams-fixed-context-length">N-grams: Fixed Context Length</h3>
-<p>N-grams assume all contexts of the same length are equally relevant:</p>
-<ul>
-<li>Works when assumption holds</li>
-<li>Can&rsquo;t adapt context length to data</li>
-<li>Smoothing adds bias toward shorter contexts</li>
-</ul>
-<h3 id="neural-lms-learned-biases">Neural LMs: Learned Biases</h3>
-<p>Neural models learn their biases from data:</p>
-<ul>
-<li>Attention patterns emerge from training</li>
-<li>Positional encodings provide some structure</li>
-<li>Very flexible but need data to specify</li>
-</ul>
-<p>The transformer architecture encodes some bias (attention, residual connections) but much less than CTW or n-grams.</p>
-<h2 id="theoretical-guarantees">Theoretical Guarantees</h2>
-<p>What can we prove about each method?</p>
-<h3 id="ctw-strong-guarantees">CTW: Strong Guarantees</h3>
-<p>For tree sources, CTW is provably optimal:</p>
-<ul>
-<li>Redundancy bounded by O(k log n) for k-leaf tree</li>
-<li>Converges to true distribution at minimax optimal rate</li>
-<li>Equivalent to Solomonoff induction restricted to trees</li>
-</ul>
-<p>These aren&rsquo;t just asymptotic results—they hold with finite data.</p>
-<h3 id="n-grams-moderate-guarantees">N-grams: Moderate Guarantees</h3>
-<p>Some theory exists:</p>
-<ul>
-<li>MLE is consistent (converges to true parameters)</li>
-<li>Cross-entropy bounds with smoothing</li>
-<li>No optimality for specific source classes</li>
-</ul>
-<p>The guarantees are weaker than CTW&rsquo;s.</p>
-<h3 id="neural-lms-weak-guarantees">Neural LMs: Weak Guarantees</h3>
-<p>Theory lags practice:</p>
-<ul>
-<li>Universal approximation (in principle, with enough capacity)</li>
-<li>No sample complexity bounds in realistic settings</li>
-<li>Generalization is mostly empirical</li>
-</ul>
-<p>We use neural LMs because they work, not because we can prove they should.</p>
+<p>CTW hits walls. The context tree has 2^D possible contexts at depth D (exponential growth), pure binary encoding is the sweet spot, and memory grows with sequence diversity. Works well for binary sequences up to moderate depth, maybe 10-15.</p>
+<p>N-grams scale reasonably. O(|V|^N) space for vocabulary V and order N, efficient implementations with tries and hashing, practical up to about 5-gram for large vocabularies. Google built web-scale n-gram models, so the engineering is well understood.</p>
+<p>Neural LMs were designed for scale. Billions of parameters, GPU/TPU parallelization, vocabulary of 50,000+ tokens. The entire field has optimized for making neural models bigger.</p>
+<h2 id="inductive-biases">Inductive biases</h2>
+<p>CTW assumes the source is well-modeled by a tree. This is both its strength (sample efficiency, provable guarantees) and its limitation (it can miss patterns outside tree structure). There&rsquo;s an implicit Occam&rsquo;s razor that prefers simpler trees.</p>
+<p>N-grams assume all contexts of the same length are equally relevant. Can&rsquo;t adapt context length to data. Smoothing adds a bias toward shorter contexts.</p>
+<p>Neural LMs learn their biases from data. Attention patterns emerge during training, positional encodings provide some structure, but the model is very flexible and needs data to specialize. The transformer architecture encodes some bias (attention, residual connections) but much less than CTW or n-grams.</p>
+<h2 id="theoretical-guarantees">Theoretical guarantees</h2>
+<p>For tree sources, CTW is provably optimal. Redundancy bounded by O(k log n) for a k-leaf tree, convergence to the true distribution at minimax optimal rate, equivalent to Solomonoff induction restricted to trees. These hold with finite data, not just asymptotically.</p>
+<p>N-grams have some theory: MLE is consistent, there are cross-entropy bounds with smoothing, but no optimality results for specific source classes.</p>
+<p>Neural LMs have weak theory. Universal approximation holds in principle with enough capacity, but there are no sample complexity bounds in realistic settings. We use neural LMs because they work, not because we can prove they should.</p>
 <h2 id="interpretability">Interpretability</h2>
-<p>Can we understand what the model learned?</p>
-<h3 id="ctw-high">CTW: High</h3>
-<p>The context tree is directly interpretable:</p>
-<ul>
-<li>Which contexts matter? Those with different statistics</li>
-<li>How confident? Counts at each node</li>
-<li>Model averaging weights show depth preferences</li>
-</ul>
-<p>This transparency aids debugging and building trust.</p>
-<h3 id="n-grams-high">N-grams: High</h3>
-<p>Direct access to probability tables:</p>
-<ul>
-<li>Which n-grams are common?</li>
-<li>What&rsquo;s P(word | context)?</li>
-<li>Clear model of what&rsquo;s being captured</li>
-</ul>
-<h3 id="neural-lms-low">Neural LMs: Low</h3>
-<p>Black boxes:</p>
-<ul>
-<li>Hidden representations hard to interpret</li>
-<li>Attention patterns provide some insight</li>
-<li>Active research area (mechanistic interpretability)</li>
-</ul>
-<p>We&rsquo;re improving, but neural LMs remain opaque.</p>
-<h2 id="when-to-use-each">When to Use Each</h2>
-<h3 id="use-ctw-when">Use CTW When:</h3>
-<ol>
-<li><strong>Data is limited</strong> (&lt; 100K samples)</li>
-<li><strong>Binary or small alphabet</strong> sequences</li>
-<li><strong>Strong guarantees needed</strong> (safety-critical applications)</li>
-<li><strong>Interpretability required</strong></li>
-<li><strong>Compute is constrained</strong></li>
-<li><strong>Source is likely tree-structured</strong> (Markov processes)</li>
-</ol>
-<p><strong>Examples</strong>: Binary file compression, network protocol analysis, genomic sequences, embedded systems.</p>
-<h3 id="use-n-grams-when">Use N-grams When:</h3>
-<ol>
-<li><strong>Baseline model needed</strong> (comparison point)</li>
-<li><strong>Fast training/inference required</strong></li>
-<li><strong>Moderate data available</strong></li>
-<li><strong>Simple deployment</strong></li>
-<li><strong>Interpretability desired</strong></li>
-</ol>
-<p><strong>Examples</strong>: Quick prototyping, spell checking, simple autocomplete, compression (PPM).</p>
-<h3 id="use-neural-lms-when">Use Neural LMs When:</h3>
-<ol>
-<li><strong>Massive training data available</strong></li>
-<li><strong>State-of-the-art performance needed</strong></li>
-<li><strong>Complex patterns expected</strong> (natural language, code)</li>
-<li><strong>Long-range dependencies important</strong></li>
-<li><strong>Can afford compute costs</strong></li>
-</ol>
-<p><strong>Examples</strong>: Chat assistants, machine translation, code generation, content creation.</p>
-<h2 id="the-bias-data-trade-off">The Bias-Data Trade-off</h2>
-<p>The fundamental relationship:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Strong bias (CTW) + Little data → Good performance
-</span></span><span class="line"><span class="cl">Weak bias (Neural) + Little data → Overfitting
-</span></span><span class="line"><span class="cl">Weak bias (Neural) + Massive data → Great performance
-</span></span><span class="line"><span class="cl">Strong bias (CTW) + Massive data → Limited by model class
-</span></span></code></pre></div><p>CTW trades off flexibility for sample efficiency. Neural LMs trade the opposite.</p>
-<h2 id="the-compression-prediction-duality">The Compression-Prediction Duality</h2>
-<p>All these models can be viewed as compressors:</p>
-<ul>
-<li><strong>CTW</strong>: Near-optimal compression for tree sources</li>
-<li><strong>N-grams</strong>: Underlie PPM compression family</li>
-<li><strong>Neural LMs</strong>: Achieve state-of-the-art compression rates</li>
-</ul>
-<p>Better prediction = better compression = lower cross-entropy. This equivalence is more than analogy—Shannon showed they&rsquo;re mathematically identical.</p>
-<h2 id="future-directions">Future Directions</h2>
-<p>The boundaries between approaches are blurring:</p>
-<ol>
-<li><strong>Hybrid models</strong>: Combine CTW&rsquo;s efficiency with neural flexibility</li>
-<li><strong>Bayesian neural networks</strong>: Add uncertainty to neural predictions</li>
-<li><strong>Neural architecture search</strong>: Learn inductive biases</li>
-<li><strong>Continual learning</strong>: Adapt online like CTW</li>
-<li><strong>Theoretical understanding</strong>: Better bounds for neural models</li>
-</ol>
-<h2 id="key-takeaways">Key Takeaways</h2>
-<ul>
-<li><strong>No universally best approach</strong>—the right choice depends on context</li>
-<li>CTW wins on <strong>sample efficiency</strong> and <strong>guarantees</strong></li>
-<li>Neural LMs win on <strong>scalability</strong> and <strong>flexibility</strong></li>
-<li>N-grams remain useful as <strong>baselines</strong> and for <strong>interpretability</strong></li>
-<li>Understanding trade-offs is more valuable than declaring winners</li>
-</ul>
-<h2 id="whats-next">What&rsquo;s Next</h2>
-<p>The <a href="/post/2024-09-20-neural-language-models-transformers/">next post</a> dives deeper into neural language models—from RNNs to transformers to modern LLMs. We&rsquo;ll see how the architecture evolved to address sequential prediction at scale.</p>
-]]></content:encoded><category>sequential-prediction</category><category>ctw</category><category>neural-networks</category><category>language-models</category><category>comparison</category><category>trade-offs</category></item></channel></rss>
+<p>The CTW context tree is directly readable. You can see which contexts matter, how confident the model is at each node, and how the model averaging weights show depth preferences.</p>
+<p>N-grams give direct access to probability tables: which n-grams are common, what&rsquo;s P(word | context). Clear model of what&rsquo;s being captured.</p>
+<p>Neural LMs are opaque. Hidden representations are hard to interpret. Attention patterns provide some insight, and mechanistic interpretability is an active research area, but these models remain largely black boxes.</p>
+<h2 id="when-to-use-each">When to use each</h2>
+<p><strong>CTW is the right tool when</strong>: data is limited (under 100K samples), sequences are binary or small-alphabet, you need provable guarantees (safety-critical applications), interpretability matters, compute is constrained, or the source is likely tree-structured. Think binary file compression, network protocol analysis, genomic sequences, embedded systems.</p>
+<p><strong>N-grams are the right tool when</strong>: you need a baseline, fast training and inference are important, moderate data is available, deployment must be simple, or you want interpretable results. Think prototyping, spell checking, simple autocomplete, PPM compression.</p>
+<p><strong>Neural LMs are the right tool when</strong>: massive training data is available, you need state-of-the-art performance, complex patterns are expected (natural language, code), long-range dependencies matter, and you can afford the compute. Think chat assistants, machine translation, code generation.</p>
+<h2 id="the-bias-data-trade-off">The bias-data trade-off</h2>
+<p>This is the fundamental relationship:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Strong bias (CTW) + Little data    -&gt; Good performance
+</span></span><span class="line"><span class="cl">Weak bias (Neural) + Little data   -&gt; Overfitting
+</span></span><span class="line"><span class="cl">Weak bias (Neural) + Massive data  -&gt; Great performance
+</span></span><span class="line"><span class="cl">Strong bias (CTW) + Massive data   -&gt; Limited by model class
+</span></span></code></pre></div><p>CTW trades flexibility for sample efficiency. Neural LMs make the opposite trade. Neither trade is universally correct.</p>
+<h2 id="the-compression-prediction-duality">The compression-prediction duality</h2>
+<p>All of these models can be viewed as compressors. CTW gives near-optimal compression for tree sources. N-grams underlie the PPM compression family. Neural LMs achieve state-of-the-art compression rates. Better prediction equals better compression equals lower cross-entropy. Shannon showed these are mathematically identical, not just analogous.</p>
+<h2 id="whats-next">What&rsquo;s next</h2>
+<p>The <a href="/post/2024-09-20-neural-language-models-transformers/">next post</a> gets into neural language models specifically, from RNNs to transformers to modern LLMs, and how the architecture evolved to handle sequential prediction at scale.</p>
+]]></content:encoded>
+      
+      
+      <category>sequential-prediction</category>
+      
+      <category>ctw</category>
+      
+      <category>neural-networks</category>
+      
+      <category>language-models</category>
+      
+      <category>comparison</category>
+      
+      <category>trade-offs</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

@@ -1,13 +1,257 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>MLE on metafunctor</title><link>https://metafunctor.com/tags/mle/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:50 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/mle/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>maskedcauses: Maximum Likelihood Estimation for Masked Series System Failures</title><link>https://metafunctor.com/post/2026-02-05-likelihood-model-series-md/</link><pubDate>Thu, 05 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-05-likelihood-model-series-md/</guid><description>Announcing the maskedcauses R package for maximum likelihood estimation in series systems with masked component failures—built on composable likelihood contributions, validated through extensive simulation, and heading to CRAN.</description><content:encoded><![CDATA[<blockquote>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>MLE on metafunctor</title>
+    <link>https://metafunctor.com/tags/mle/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/mle/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Masked Failure Data: Looking Back, Looking Forward</title>
+      <link>https://metafunctor.com/post/2026-02-18-mle-looking-back-forward/</link>
+      <pubDate>Wed, 18 Feb 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-02-18-mle-looking-back-forward/</guid>
+      <description>A retrospective on three years of building R packages and writing papers for masked series system reliability, and what comes next.</description>
+      <content:encoded><![CDATA[<p>I have been working on the same statistical problem since 2020. I am now a PhD student in CS. The problem has not changed, but my understanding of it has, and the tools I have built around it look nothing like what I started with.</p>
+<p>The problem: a series system fails when any component fails. You observe system-level failure times. But you often cannot tell which component caused the failure (masking). Some systems are still running when testing ends (censoring). Given this incomplete data, estimate component reliability.</p>
+<p>This is not a tutorial. It is a map of where things stand and where they are going.</p>
+<hr>
+<h2 id="how-it-started">How It Started</h2>
+<p>I picked this for my <a href="/post/2024-06-15-reliability-estimation-in-series-systems/">math master&rsquo;s thesis</a> because it combined everything I wanted to learn: survival analysis, mixture models, the EM algorithm, bootstrap inference, simulation studies. I focused on Weibull components with right censoring, but the likelihood derivation was distribution-agnostic. The general framework was there; I just did not treat it as the main contribution.</p>
+<p>The implementation was one monolithic R package (<code>wei.series.md.c1.c2.c3</code>). It worked. It was not reusable. The distribution algebra, the MLE infrastructure, the likelihood model, the series system logic, the masking conditions: everything tangled together. Want to change the distribution family? Rewrite half the package.</p>
+<p>I defended in October 2023. The thesis was fine. The code was a dead end.</p>
+<h2 id="pulling-it-apart">Pulling It Apart</h2>
+<p>After the defense, I started asking: what are the actual algebraic structures here?</p>
+<p>It took a while, but the answer was several independent layers:</p>
+<ol>
+<li>
+<p><strong>Distributions form an algebra.</strong> Add, scale, compose. That became <a href="/projects/algebraic.dist/">algebraic.dist</a>.</p>
+</li>
+<li>
+<p><strong>MLEs form an algebra.</strong> Delta method, bootstrap, reparameterization. That became <a href="/projects/algebraic.mle/">algebraic.mle</a>.</p>
+</li>
+<li>
+<p><strong>Likelihood models are composable.</strong> Heterogeneous data is a sum of likelihood contributions, one per observation type. That became <a href="/projects/likelihood.model/">likelihood.model</a>.</p>
+</li>
+<li>
+<p><strong>MLE solvers are composable.</strong> Chain them, race them, add restarts. The SICP closure property: composing solvers gives you a solver. That became <a href="/projects/compositional.mle/">compositional.mle</a>.</p>
+</li>
+<li>
+<p><strong>Hazard functions define distributions.</strong> Write \(h(t; \theta)\), get \(S(t)\), \(F(t)\), \(f(t)\), quantiles, sampling, and MLE for free. That became <a href="/projects/flexhaz/">flexhaz</a>. A companion, <a href="/projects/serieshaz/">serieshaz</a>, composes component hazards into series system distributions.</p>
+</li>
+</ol>
+<p>The dependency graph:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">                algebraic.dist
+</span></span><span class="line"><span class="cl">                 |          \
+</span></span><span class="line"><span class="cl">             algebraic.mle    \
+</span></span><span class="line"><span class="cl">              |        \       \
+</span></span><span class="line"><span class="cl">compositional.mle   likelihood.model
+</span></span><span class="line"><span class="cl">                      |         \
+</span></span><span class="line"><span class="cl">                   flexhaz    maskedcauses
+</span></span><span class="line"><span class="cl">                     |
+</span></span><span class="line"><span class="cl">                  serieshaz
+</span></span><span class="line"><span class="cl">                     |
+</span></span><span class="line"><span class="cl">                  maskedhaz
+</span></span></code></pre></div><p>None of this was planned. It emerged from repeatedly asking &ldquo;why is this code so hard to change?&rdquo; until the natural joints appeared.</p>
+<h2 id="ad-and-nabla">AD and nabla</h2>
+<p>Preparing the master&rsquo;s defense (which included BCa bootstrap confidence intervals) exposed the places where my understanding was mechanical rather than structural. I knew the formulas. I did not always know why they were the right formulas.</p>
+<p>After the defense, I experimented with PyTorch&rsquo;s autograd for MLE. I was already familiar with the relationship between gradients and score functions, but running it in a computational graph solidified it. The score function is the gradient of the log-likelihood. The observed information is the negative Hessian. Same computation, different names.</p>
+<p>That led me to build <a href="/projects/nabla/">nabla</a>, which I think is the most general AD package in R. Nested dual numbers, S4 dispatch. <code>D(f)</code> gives gradients. <code>D(D(f))</code> gives Hessians. Works through loops and branches. Arbitrary order, machine precision.</p>
+<p>It is too slow for optimization. That is not the point. You find your MLE however you want (analytical, <code>optim</code>, whatever), then use <code>nabla</code> to characterize the solution: observed Fisher information, skewness analysis, higher-order diagnostics. The right tool for final analysis, not for search.</p>
+<h2 id="the-foundation-paper">The Foundation Paper</h2>
+<p>In 2025, I wrote the paper that should have been separate from the start.</p>
+<p>The thesis had the distribution-agnostic likelihood derivation buried in a document mostly about Weibull. The <a href="https://github.com/queelius/masked-causes-in-series-systems">foundation paper</a> extracts that general framework and gives it a proper treatment. It handles all four observation types (exact, right-censored, left-censored, interval-censored) and defines three conditions on the masking mechanism:</p>
+<ul>
+<li><strong>C1</strong>: The candidate set always contains the true failed component.</li>
+<li><strong>C2</strong>: Masking probabilities are symmetric across components.</li>
+<li><strong>C3</strong>: Masking probabilities do not depend on the system parameters.</li>
+</ul>
+<p>Under C1-C2-C3, the likelihood factors cleanly. The paper derives the general likelihood, score equations, and Fisher information, then instantiates them for exponential, Weibull, Pareto, log-normal, and gamma families.</p>
+<p>The <a href="https://github.com/queelius/expo-masked-fim">exponential companion</a> pushes the simplest case as far as the math goes. Closed-form MLE. Analytical Fisher information. A proof that information loss from masking is monotone (more masking, less information, strictly). And a result I did not expect: uniform masking maximizes the entropy of the candidate set given the failure cause. It is the worst case for identifiability among all C2-compliant masking models. The closed-form results are not just a convenient special case. They are pessimistic bounds.</p>
+<hr>
+<h2 id="where-things-are">Where Things Are</h2>
+<h3 id="software">Software</h3>
+<p>Six packages on CRAN, five more in progress:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Package</th>
+          <th>What It Does</th>
+          <th>Status</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>algebraic.dist</code></td>
+          <td>Distribution algebra</td>
+          <td>On CRAN</td>
+      </tr>
+      <tr>
+          <td><code>algebraic.mle</code></td>
+          <td>MLE algebra</td>
+          <td>On CRAN</td>
+      </tr>
+      <tr>
+          <td><code>likelihood.model</code></td>
+          <td>Fisherian likelihood framework</td>
+          <td>On CRAN</td>
+      </tr>
+      <tr>
+          <td><code>compositional.mle</code></td>
+          <td>Composable MLE solvers</td>
+          <td>On CRAN</td>
+      </tr>
+      <tr>
+          <td><code>hypothesize</code></td>
+          <td>Hypothesis testing framework</td>
+          <td>On CRAN</td>
+      </tr>
+      <tr>
+          <td><code>nabla</code></td>
+          <td>Automatic differentiation (dual numbers)</td>
+          <td>On CRAN</td>
+      </tr>
+      <tr>
+          <td><code>flexhaz</code></td>
+          <td>Distributions from hazard functions</td>
+          <td>Targeting CRAN + JOSS</td>
+      </tr>
+      <tr>
+          <td><code>serieshaz</code></td>
+          <td>Series system distributions</td>
+          <td>Targeting CRAN + JOSS</td>
+      </tr>
+      <tr>
+          <td><code>maskedcauses</code></td>
+          <td>Analytical MLE for masked series</td>
+          <td>Targeting CRAN + JOSS</td>
+      </tr>
+      <tr>
+          <td><code>maskedhaz</code></td>
+          <td>Numerical MLE for masked series</td>
+          <td>Targeting CRAN + JOSS</td>
+      </tr>
+      <tr>
+          <td><code>mdrelax</code></td>
+          <td>Relaxed masking conditions</td>
+          <td>Paper first; package if it pans out</td>
+      </tr>
+  </tbody>
+</table>
+<p><code>maskedcauses</code> and <code>maskedhaz</code> solve the same problem at different levels of generality. <code>maskedcauses</code> has closed-form solutions for exponential and Weibull. <code>maskedhaz</code> handles arbitrary hazard functions via numerical integration. When both are installed, the test suites cross-validate.</p>
+<p><code>mdrelax</code> explores relaxing the C1, C2, and C3 conditions: informative masking, parameter-dependent masking, masking probabilities less than one. Right now it is research code for a paper. If the results hold up, a proper package may come out of it.</p>
+<h3 id="papers">Papers</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Paper</th>
+          <th>Status</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Foundation (C1-C2-C3 framework)</td>
+          <td>Draft complete</td>
+      </tr>
+      <tr>
+          <td>Exponential companion (closed-form FIM)</td>
+          <td>Draft complete</td>
+      </tr>
+      <tr>
+          <td>Model selection (LRT nesting chain)</td>
+          <td>Draft complete, software in <code>maskedcauses</code> vignette</td>
+      </tr>
+      <tr>
+          <td>Relaxed C1/C2/C3 conditions</td>
+          <td>Draft in progress</td>
+      </tr>
+      <tr>
+          <td>Master&rsquo;s thesis (original Weibull treatment)</td>
+          <td>Published</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="what-i-am-working-on-next">What I Am Working On Next</h2>
+<p>I have five companion paper directions. Some are real; some are barely more than a paragraph.</p>
+<h3 id="identifiability-active">Identifiability (active)</h3>
+<p>The foundation paper proves a necessary and sufficient condition for identifiability from masked data. But it is a yes/no result. It says nothing about how much diagnostic separation you need in practice, which candidate set structures help most, or how identifiability degrades as masking gets heavier.</p>
+<p>I want to give a graph-theoretic characterization (confounding graph, connected components as &ldquo;super-components&rdquo;), a linear algebra condition for the exponential case (rank of the candidate-set matrix), and simulation ablation studies.</p>
+<p>The exponential companion connects directly: uniform masking at \(w = m-1\) is the most pessimistic identifiable scenario. So the question inverts: what masking design <em>minimizes</em> information loss? That is a D-optimality problem for the masking mechanism. I do not know the answer yet.</p>
+<h3 id="observation-scheme-composition-idea">Observation scheme composition (idea)</h3>
+<p><code>maskedcauses</code> implements composable observation functors: <code>observe_right_censor()</code>, <code>observe_left_censor()</code>, <code>observe_periodic()</code>, <code>observe_mixture()</code>. The mathematical content is that C1-C2-C3 are preserved under these compositions. If your masking mechanism satisfies the conditions, and you compose it with an independent censoring scheme, the composition still satisfies them.</p>
+<p>The proofs are straightforward. The interesting question is whether there is a category-theoretic formulation. Observation schemes as morphisms, composition as functor composition. If so, the closure theorems become instances of a general principle rather than case-by-case arguments. I do not know if this leads anywhere useful or is just abstraction for its own sake.</p>
+<h3 id="parsimony-vs-physical-structure-idea">Parsimony vs physical structure (idea)</h3>
+<p>If the data are heavily masked and the sample is small, a single Weibull fits the system lifetime data about as well as an \(m\)-component series model. Standard model selection says: use the simpler model. Engineering knowledge says: the components exist.</p>
+<p>This is a real tension. If you want to predict system lifetimes, maybe the single Weibull is fine. If you want to estimate component reliability for maintenance planning, the series decomposition matters even if it is over-parameterized relative to the data. I think this is a short paper. Maybe just an essay with simulations.</p>
+<h3 id="weibull-companion-planned">Weibull companion (planned)</h3>
+<p>The exponential companion has closed-form results because exponential lifetimes are memoryless. Weibull has shape parameters, which means time-varying hazards and numerical integration for some censoring types.</p>
+<p>The thesis covers Weibull estimation. The companion paper would redo it properly in the foundation paper&rsquo;s notation: score equations, Fisher information, simulation studies, guidance for choosing homogeneous vs heterogeneous models. The theory exists in pieces across the thesis and <code>maskedcauses</code>. Writing it up as a standalone paper is substantial work.</p>
+<h3 id="cran-and-joss-submissions">CRAN and JOSS submissions</h3>
+<p>The immediate practical work. <code>flexhaz</code>, <code>serieshaz</code>, <code>maskedcauses</code>, and <code>maskedhaz</code> are all targeting both CRAN and JOSS. I have been through the CRAN gauntlet six times. It is tedious but not mysterious.</p>
+<hr>
+<h2 id="what-i-have-learned">What I Have Learned</h2>
+<p>Three things.</p>
+<p><strong>Decompose first.</strong> The monolithic thesis code worked but could not grow. Pulling it into algebraic layers took months. Every piece became independently testable, reusable, publishable. The decomposition is itself a research contribution, not just engineering convenience.</p>
+<p><strong>Publish the general theory separately.</strong> The thesis had the distribution-agnostic framework buried in a Weibull-specific document. Writing the foundation paper forced me to separate what is structural (C1-C2-C3 factorization, observation type taxonomy) from what is distribution-specific. That separation made the companion papers possible.</p>
+<p><strong>The Fisher information matrix is the right lens.</strong> For two years I treated FIM as &ldquo;the thing you invert to get standard errors.&rdquo; The exponential companion forced me to see it as a measure of how much information the observation scheme actually provides. Once I saw that, the identifiability results, the information loss monotonicity, and the optimal design questions all fell out naturally. FIM connects the statistical theory to the practical question of how to design better diagnostics.</p>
+<hr>
+<p>The work is not close to done. But the pieces are in place: a clean theoretical framework, a modular software stack, two completed papers, a clear map of what comes next. Most days, that is enough to keep going.</p>]]></content:encoded>
+      
+      
+      <category>R</category>
+      
+      <category>statistics</category>
+      
+      <category>reliability</category>
+      
+      <category>series-systems</category>
+      
+      <category>masked-data</category>
+      
+      <category>maximum-likelihood</category>
+      
+      <category>CRAN</category>
+      
+      <category>MLE</category>
+      
+      <category>reflection</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>maskedcauses: Maximum Likelihood Estimation for Masked Series System Failures</title>
+      <link>https://metafunctor.com/post/2026-02-05-likelihood-model-series-md/</link>
+      <pubDate>Thu, 05 Feb 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-02-05-likelihood-model-series-md/</guid>
+      <description>The maskedcauses R package for MLE in series systems with masked component failures, built on composable likelihood contributions and validated through simulation.</description>
+      <content:encoded><![CDATA[<blockquote>
 <p><strong>Note (February 2026):</strong> This package has been renamed from <code>likelihood.model.series.md</code> to <a href="/projects/maskedcauses/"><code>maskedcauses</code></a>.</p>
 </blockquote>
-<p>Two days ago, I submitted <a href="/projects/likelihood.model/">likelihood.model</a> to CRAN—the foundation package for composable statistical inference. Next in line: <strong>maskedcauses</strong>, which implements maximum likelihood estimation for series systems where component failure causes are masked.</p>
-<p>This package represents the practical culmination of my <a href="/post/2024-06-15-reliability-estimation-in-series-systems/">master&rsquo;s thesis</a> work. Three years of theoretical development, now packaged for anyone analyzing masked failure data.</p>
+<p>Two days ago, I submitted <a href="/projects/likelihood.model/">likelihood.model</a> to CRAN, the foundation package for composable statistical inference. Next in line: <strong>maskedcauses</strong>, which implements maximum likelihood estimation for series systems where component failure causes are masked.</p>
+<p>This package is the practical result of my <a href="/post/2024-06-15-reliability-estimation-in-series-systems/">master&rsquo;s thesis</a> work. Three years of theoretical development, now packaged for anyone analyzing masked failure data.</p>
 <h2 id="the-problem-masked-component-failures">The Problem: Masked Component Failures</h2>
 <p>A <strong>series system</strong> fails when <em>any</em> of its \(m\) components fails. In reliability testing, you observe the system fail at time \(t\), but two layers of uncertainty obscure the full picture:</p>
 <ol>
 <li>
-<p><strong>Right-censoring</strong>: Some systems are still running when testing ends—you know they survived at least until time \(\tau\), but not how much longer they would have lasted.</p>
+<p><strong>Right-censoring</strong>: Some systems are still running when testing ends. You know they survived at least until time \(\tau\), but not how much longer they would have lasted.</p>
 </li>
 <li>
 <p><strong>Masked cause of failure</strong>: When a system fails, you often can&rsquo;t identify <em>which</em> component caused it. Diagnostic tests might narrow it down to a <strong>candidate set</strong> of possible causes, but the true failure component remains ambiguous.</p>
@@ -51,7 +295,7 @@
 <li><strong>C2</strong>: Given the failed component is in the candidate set, masking probability is uniform across candidates</li>
 <li><strong>C3</strong>: Masking probabilities are independent of system parameters \(\theta\)</li>
 </ul>
-<p>Under these conditions, the masking mechanism factors out of the likelihood—you can estimate component parameters without modeling the diagnostic process itself. This is why the package name includes &ldquo;c1_c2_c3&rdquo;.</p>
+<p>Under these conditions, the masking mechanism factors out of the likelihood. You can estimate component parameters without modeling the diagnostic process itself. That&rsquo;s why the package name includes &ldquo;c1_c2_c3&rdquo;.</p>
 <p>When these conditions <em>don&rsquo;t</em> hold, see <a href="/post/2025-12-03-mdrelax/">mdrelax</a> for relaxed masking models.</p>
 <h2 id="usage">Usage</h2>
 <p>Basic workflow for exponential series systems:</p>
@@ -88,11 +332,11 @@
 </span></span></code></pre></div><h2 id="validation-through-simulation">Validation Through Simulation</h2>
 <p>The package includes a standalone Monte Carlo framework (<code>simulations/</code>) for studying MLE properties. Five experiments are pre-configured:</p>
 <ol>
-<li><strong>Bias/variance/MSE under censoring</strong> — How censoring rate affects estimation accuracy</li>
-<li><strong>Masking probability sensitivity</strong> — Performance as masking becomes more severe</li>
-<li><strong>Sample size requirements</strong> — How much data you need for reliable estimates</li>
-<li><strong>Confidence interval coverage</strong> — Do BCa intervals achieve nominal 95% coverage?</li>
-<li><strong>Model selection</strong> — AIC/BIC for choosing between exponential and Weibull</li>
+<li><strong>Bias/variance/MSE under censoring</strong>: How censoring rate affects estimation accuracy</li>
+<li><strong>Masking probability sensitivity</strong>: Performance as masking becomes more severe</li>
+<li><strong>Sample size requirements</strong>: How much data you need for reliable estimates</li>
+<li><strong>Confidence interval coverage</strong>: Do BCa intervals achieve nominal 95% coverage?</li>
+<li><strong>Model selection</strong>: AIC/BIC for choosing between exponential and Weibull</li>
 </ol>
 <p>Key design features:</p>
 <ul>
@@ -100,7 +344,7 @@
 <li><strong>Deterministic seeding</strong>: Reproducible results across runs</li>
 <li><strong>Pre-computed results</strong>: Fast vignette builds for CRAN (no waiting 10 minutes for <code>R CMD check</code>)</li>
 </ul>
-<p>Simulation results feed directly into the package vignette, so the documentation reflects actual validated performance—not just theoretical claims.</p>
+<p>Simulation results feed directly into the package vignette, so the documentation reflects actual validated performance, not just theoretical claims.</p>
 <h2 id="the-ecosystem">The Ecosystem</h2>
 <p>This package sits at the top of a layered architecture:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">algebraic.mle (on CRAN)
@@ -170,7 +414,7 @@
 </span></span><span class="line"><span class="cl"><span class="n">devtools</span><span class="o">::</span><span class="nf">install_github</span><span class="p">(</span><span class="s">&#34;queelius/maskedcauses&#34;</span><span class="p">)</span>
 </span></span></code></pre></div><p>Documentation: <a href="https://queelius.github.io/maskedcauses/">queelius.github.io/maskedcauses</a></p>
 <h2 id="from-thesis-to-tools">From Thesis to Tools</h2>
-<p>Three years ago, I was deriving likelihood functions on paper while fighting cancer. The math was interesting—masked data creates a mixture model where the component cause is a latent variable—but the goal was always practical: give engineers tools to estimate component reliability from incomplete field data.</p>
+<p>Three years ago, I was deriving likelihood functions on paper while fighting cancer. The math was interesting (masked data creates a mixture model where the component cause is a latent variable) but the goal was always practical: give engineers tools to estimate component reliability from incomplete field data.</p>
 <p>This package is that tool. If you&rsquo;re analyzing series system reliability with masked failure causes, try it. File issues if something breaks. The <a href="/papers/maskedcauses/">technical paper</a> has the mathematical details; the vignette has worked examples.</p>
 <p>Watch for the CRAN release once <code>likelihood.model</code> is accepted.</p>
 <hr>
@@ -183,16 +427,53 @@
 <li><a href="/papers/expo-masked-fim/">Closed-form Fisher Information (exponential case)</a></li>
 <li><a href="/series/statistical-reliability/">Series landing page</a></li>
 </ul>
-]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category><category>CRAN</category><category>MLE</category><category>Weibull</category><category>exponential distribution</category><category>simulation</category><category>bootstrap</category></item><item><title>compositional.mle: SICP-Inspired Optimization</title><link>https://metafunctor.com/post/2025-12-17-compositional-mle/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-17-compositional-mle/</guid><description>An R package where solvers are first-class functions that compose through chaining, racing, and restarts.</description><content:encoded><![CDATA[<p>I&rsquo;ve recently updated <a href="https://github.com/queelius/compositional.mle">compositional.mle</a>, an R package for maximum likelihood estimation that takes seriously the idea that <strong>optimization strategies should compose</strong>.</p>
-<h2 id="the-core-insight">The Core Insight</h2>
-<p>Most optimization libraries treat solvers as monolithic procedures: you call <code>optim()</code>, pass some options, and hope for the best. If you want to try multiple methods, you write loops. If you want coarse-to-fine optimization, you manually wire the output of one solver to the input of another.</p>
-<p><code>compositional.mle</code> takes a different approach, inspired by SICP&rsquo;s treatment of procedures as first-class citizens. The package provides:</p>
+]]></content:encoded>
+      
+      
+      <category>R</category>
+      
+      <category>statistics</category>
+      
+      <category>reliability</category>
+      
+      <category>series systems</category>
+      
+      <category>masked data</category>
+      
+      <category>maximum likelihood</category>
+      
+      <category>CRAN</category>
+      
+      <category>MLE</category>
+      
+      <category>Weibull</category>
+      
+      <category>exponential distribution</category>
+      
+      <category>simulation</category>
+      
+      <category>bootstrap</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>compositional.mle: SICP-Inspired Optimization</title>
+      <link>https://metafunctor.com/post/2025-12-17-compositional-mle/</link>
+      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2025-12-17-compositional-mle/</guid>
+      <description>An R package where optimization solvers are first-class functions that compose through chaining, racing, and restarts.</description>
+      <content:encoded><![CDATA[<p>I recently updated <a href="https://github.com/queelius/compositional.mle">compositional.mle</a>, an R package for maximum likelihood estimation built on a simple premise: <strong>optimization strategies should compose</strong>.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Most optimization libraries treat solvers as monolithic procedures. You call <code>optim()</code>, pass some options, hope for the best. Want to try multiple methods? Write a loop. Want coarse-to-fine optimization? Manually wire one solver&rsquo;s output into the next.</p>
+<p><code>compositional.mle</code> treats solvers the way SICP treats procedures: as first-class citizens.</p>
 <ol>
-<li><strong>Primitive solvers</strong> - <code>gradient_ascent()</code>, <code>newton_raphson()</code>, <code>bfgs()</code>, <code>nelder_mead()</code></li>
-<li><strong>Composition operators</strong> - <code>%&gt;&gt;%</code> (sequential chaining), <code>%|%</code> (parallel racing), <code>with_restarts()</code></li>
-<li><strong>Closure property</strong> - Combining solvers yields a solver</li>
+<li><strong>Primitive solvers</strong>: <code>gradient_ascent()</code>, <code>newton_raphson()</code>, <code>bfgs()</code>, <code>nelder_mead()</code></li>
+<li><strong>Composition operators</strong>: <code>%&gt;&gt;%</code> (sequential chaining), <code>%|%</code> (parallel racing), <code>with_restarts()</code></li>
+<li><strong>Closure</strong>: Combining solvers yields a solver</li>
 </ol>
-<p>That last point is crucial. When you chain two solvers together, the result is itself a solver with the same interface. This means compositions can be further composed, stored in variables, passed to functions, or used anywhere a solver is expected.</p>
+<p>That last point is the whole thing. When you chain two solvers together, the result is itself a solver with the same interface. So compositions can be further composed, stored in variables, passed to functions, used anywhere a solver is expected.</p>
 <h2 id="what-this-looks-like">What This Looks Like</h2>
 <p>Define your problem once:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">problem</span> <span class="o">&lt;-</span> <span class="nf">mle_problem</span><span class="p">(</span>
@@ -221,14 +502,14 @@
 </span></span><span class="line"><span class="cl"><span class="n">strategy</span> <span class="o">&lt;-</span> <span class="nf">with_restarts</span><span class="p">(</span><span class="nf">gradient_ascent</span><span class="p">(),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span>
 </span></span><span class="line"><span class="cl">                          <span class="n">sampler</span> <span class="o">=</span> <span class="nf">uniform_sampler</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
 </span></span></code></pre></div><h2 id="the-sicp-connection">The SICP Connection</h2>
-<p>This design directly applies lessons from <em>Structure and Interpretation of Computer Programs</em>:</p>
-<p><strong>Primitives</strong>: The base solvers are well-defined building blocks with clear contracts. <code>gradient_ascent()</code> returns a solver that uses steepest ascent. <code>nelder_mead()</code> returns a derivative-free simplex solver.</p>
-<p><strong>Means of Combination</strong>: The operators <code>%&gt;&gt;%</code>, <code>%|%</code>, and <code>with_restarts()</code> combine solvers into new solvers. Sequential chaining feeds the output of one solver as input to the next. Racing runs solvers in parallel and picks the winner.</p>
-<p><strong>Abstraction</strong>: Solver factories hide implementation details behind a consistent interface. Users work with the solver abstraction, not with specific algorithms.</p>
-<p><strong>Closure</strong>: The key insight. Because composition produces objects of the same type as the inputs, the language of solvers is <em>closed</em> under composition. You can build arbitrarily complex strategies from simple parts.</p>
+<p>This design applies SICP&rsquo;s framework directly:</p>
+<p><strong>Primitives.</strong> The base solvers are building blocks with clear contracts. <code>gradient_ascent()</code> returns a solver using steepest ascent. <code>nelder_mead()</code> returns a derivative-free simplex solver.</p>
+<p><strong>Means of Combination.</strong> The operators <code>%&gt;&gt;%</code>, <code>%|%</code>, and <code>with_restarts()</code> combine solvers into new solvers. Chaining feeds one solver&rsquo;s output as input to the next. Racing runs solvers in parallel and picks the winner.</p>
+<p><strong>Abstraction.</strong> Solver factories hide implementation details behind a consistent interface. You work with the solver abstraction, not specific algorithms.</p>
+<p><strong>Closure.</strong> Because composition produces objects of the same type as the inputs, the language of solvers is <em>closed</em> under composition. You build arbitrarily complex strategies from simple parts.</p>
 <h2 id="relationship-to-algebraicmle">Relationship to algebraic.mle</h2>
 <p>This package complements <a href="/projects/algebraic.mle/">algebraic.mle</a>, which provides algebraic operations on MLE <em>results</em>. Where <code>algebraic.mle</code> lets you compose likelihood functions and manipulate fitted models, <code>compositional.mle</code> focuses on the <em>process</em> of finding those estimates.</p>
-<p>The two work together:</p>
+<p>They work together:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># compositional.mle: find the estimate</span>
 </span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">&lt;-</span> <span class="nf">strategy</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">theta0</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">
@@ -239,17 +520,45 @@
 <p>Install from GitHub:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">devtools</span><span class="o">::</span><span class="nf">install_github</span><span class="p">(</span><span class="s">&#34;queelius/compositional.mle&#34;</span><span class="p">)</span>
 </span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/compositional.mle/">queelius.github.io/compositional.mle</a>.</p>
-<p>The design philosophy here extends beyond statistics. Any domain with multiple solution strategies can benefit from composable primitives with closure under composition. The question is always: what are your primitives, and how should they combine?</p>
-]]></content:encoded><category>r-package</category><category>statistics</category><category>mle</category><category>optimization</category><category>sicp</category><category>functional-programming</category><category>dsl</category><category>api-design</category></item><item><title>symlik: Symbolic Likelihood Models in Python</title><link>https://metafunctor.com/post/2025-12-16-symlik/</link><pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-16-symlik/</guid><description>Introducing symlik - define statistical models symbolically and automatically derive score functions, Hessians, and Fisher information.</description><content:encoded><![CDATA[<p>I&rsquo;ve released <a href="/projects/symlik/">symlik</a>, a Python library for symbolic likelihood models. The core idea: write your log-likelihood as a symbolic expression, and let the computer derive everything needed for inference.</p>
+<p>The design philosophy extends beyond statistics. Any domain with multiple solution strategies benefits from composable primitives with closure under composition. The question is always: what are your primitives, and how should they combine?</p>
+]]></content:encoded>
+      
+      
+      <category>r-package</category>
+      
+      <category>statistics</category>
+      
+      <category>mle</category>
+      
+      <category>optimization</category>
+      
+      <category>sicp</category>
+      
+      <category>functional-programming</category>
+      
+      <category>dsl</category>
+      
+      <category>api-design</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>symlik: Symbolic Likelihood Models in Python</title>
+      <link>https://metafunctor.com/post/2025-12-16-symlik/</link>
+      <pubDate>Tue, 16 Dec 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2025-12-16-symlik/</guid>
+      <description>Define statistical models symbolically and automatically derive score functions, Hessians, and Fisher information. No numerical approximation.</description>
+      <content:encoded><![CDATA[<p><a href="/projects/symlik/">symlik</a> is a Python library for symbolic likelihood models. Write your log-likelihood as a symbolic expression, and it derives everything needed for inference.</p>
 <h2 id="the-problem">The Problem</h2>
-<p>Traditional statistical computing requires either:</p>
+<p>Traditional statistical computing gives you two choices:</p>
 <ol>
-<li><strong>Manual derivation</strong> - Work out score functions and information matrices by hand, then implement them</li>
-<li><strong>Numerical approximation</strong> - Use finite differences, which can be unstable and slow</li>
+<li><strong>Manual derivation.</strong> Work out score functions and information matrices by hand, then implement them. Error-prone, tedious.</li>
+<li><strong>Numerical approximation.</strong> Use finite differences. Unstable, slow, no symbolic form to inspect.</li>
 </ol>
-<p>Both approaches have drawbacks. Manual derivation is error-prone and tedious. Numerical methods accumulate errors and don&rsquo;t give you the symbolic form.</p>
-<h2 id="the-solution">The Solution</h2>
-<p>symlik takes a third approach: symbolic differentiation. Define your model once, get exact derivatives automatically.</p>
+<h2 id="the-approach">The Approach</h2>
+<p>symlik takes a third path: symbolic differentiation. Define the model once, get exact derivatives automatically.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.distributions</span> <span class="kn">import</span> <span class="n">exponential</span>
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">exponential</span><span class="p">()</span>
@@ -283,8 +592,9 @@
 </span></span><span class="line"><span class="cl"><span class="n">score</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">()</span>       <span class="c1"># Gradient</span>
 </span></span><span class="line"><span class="cl"><span class="n">hess</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">hessian</span><span class="p">()</span>      <span class="c1"># Hessian matrix</span>
 </span></span><span class="line"><span class="cl"><span class="n">info</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">information</span><span class="p">()</span>  <span class="c1"># Fisher information</span>
-</span></span></code></pre></div><h2 id="heterogeneous-data">Heterogeneous Data</h2>
-<p>One of symlik&rsquo;s strengths is handling mixed observation types - exactly what you need for reliability analysis with censored data:</p>
+</span></span></code></pre></div><p>You define the log-likelihood once as a symbolic expression. symlik computes the rest.</p>
+<h2 id="heterogeneous-data">Heterogeneous Data</h2>
+<p>One of symlik&rsquo;s strengths is handling mixed observation types, which is exactly what you need for reliability analysis with censored data:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik</span> <span class="kn">import</span> <span class="n">ContributionModel</span>
 </span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">symlik.contributions</span> <span class="kn">import</span> <span class="n">complete_exponential</span><span class="p">,</span> <span class="n">right_censored_exponential</span>
 </span></span><span class="line"><span class="cl">
@@ -304,12 +614,64 @@
 </span></span></code></pre></div><p>Each observation type contributes differently to the likelihood. symlik handles the bookkeeping.</p>
 <h2 id="connection-to-research">Connection to Research</h2>
 <p>symlik is the Python successor to my R package <a href="/projects/likelihood.model/">likelihood.model</a>. It implements the theoretical framework from my thesis work on likelihood-based inference for series systems.</p>
-<p>The <a href="/papers/reliability-series-sys-model-sel/">Weibull Series Model Selection</a> paper shows applications to reliability engineering - exactly the kind of complex likelihood that benefits from symbolic treatment.</p>
+<p>The <a href="/papers/reliability-series-sys-model-sel/">Weibull Series Model Selection</a> paper shows applications to reliability engineering, the kind of complex likelihood that benefits from symbolic treatment.</p>
 <h2 id="powered-by-rerum">Powered by rerum</h2>
-<p>symlik uses <a href="/projects/rerum/">rerum</a> for symbolic differentiation. rerum is a pattern matching and term rewriting library that handles the calculus automatically. The separation means you can use rerum for other symbolic computation tasks beyond likelihood models.</p>
+<p>symlik uses <a href="/projects/rerum/">rerum</a> for symbolic differentiation. rerum is a pattern matching and term rewriting library that handles the calculus. The separation means you can use rerum for other symbolic computation tasks beyond likelihood models.</p>
 <h2 id="installation">Installation</h2>
-<p><strong>Now available on <a href="https://pypi.org/project/symlik/">PyPI</a>!</strong></p>
+<p>Available on <a href="https://pypi.org/project/symlik/">PyPI</a>:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install symlik
 </span></span></code></pre></div><p>Documentation at <a href="https://queelius.github.io/symlik/">queelius.github.io/symlik</a>.</p>
 <p>See the <a href="/projects/symlik/">project page</a> for more details.</p>
-]]></content:encoded><category>statistics</category><category>python</category><category>symbolic-computation</category><category>likelihood</category><category>mle</category><category>reliability</category></item><item><title>Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</title><link>https://metafunctor.com/publications/math-proj/</link><pubDate>Sat, 30 Sep 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/publications/math-proj/</guid><description/><content:encoded></content:encoded><category>Reliability</category><category>Series Systems</category><category>Masked Failure Data</category><category>Right-Censoring</category><category>Bootstrap</category><category>Likelihood Model</category><category>Survival Analysis</category><category>Weibull Distribution</category><category>MLE</category><category>Maximum Likelihood Estimation</category></item></channel></rss>
+]]></content:encoded>
+      
+      
+      <category>statistics</category>
+      
+      <category>python</category>
+      
+      <category>symbolic-computation</category>
+      
+      <category>likelihood</category>
+      
+      <category>mle</category>
+      
+      <category>reliability</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data</title>
+      <link>https://metafunctor.com/publications/math-proj/</link>
+      <pubDate>Sat, 30 Sep 2023 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/publications/math-proj/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+      
+      
+      <category>Reliability</category>
+      
+      <category>Series Systems</category>
+      
+      <category>Masked Failure Data</category>
+      
+      <category>Right-Censoring</category>
+      
+      <category>Bootstrap</category>
+      
+      <category>Likelihood Model</category>
+      
+      <category>Survival Analysis</category>
+      
+      <category>Weibull Distribution</category>
+      
+      <category>MLE</category>
+      
+      <category>Maximum Likelihood Estimation</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

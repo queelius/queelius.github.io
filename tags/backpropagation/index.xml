@@ -1,5 +1,35 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Backpropagation on metafunctor</title><link>https://metafunctor.com/tags/backpropagation/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:50 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/backpropagation/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Reverse-Mode Automatic Differentiation</title><link>https://metafunctor.com/post/2023-01-autodiff-stepanov/</link><pubDate>Tue, 17 Jan 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2023-01-autodiff-stepanov/</guid><description>Reverse-mode automatic differentiation powers modern machine learning. Understanding how it works demystifies PyTorch, JAX, and TensorFlow—it's just the chain rule applied systematically.</description><content:encoded><![CDATA[<p><em>Demystifying automatic differentiation: building a reverse-mode AD system in C++20.</em></p>
-<p>Automatic differentiation powers modern machine learning. PyTorch&rsquo;s <code>autograd</code>, JAX&rsquo;s <code>jit</code>, TensorFlow&rsquo;s <code>GradientTape</code>&mdash;all rely on the same fundamental insight: we can compute exact derivatives by mechanically applying the chain rule.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Backpropagation on metafunctor</title>
+    <link>https://metafunctor.com/tags/backpropagation/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/backpropagation/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Reverse-Mode Automatic Differentiation</title>
+      <link>https://metafunctor.com/post/2023-01-autodiff-stepanov/</link>
+      <pubDate>Tue, 17 Jan 2023 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2023-01-autodiff-stepanov/</guid>
+      <description>Reverse-mode automatic differentiation is just the chain rule applied systematically. I built one in C&#43;&#43;20 to understand what PyTorch and JAX are actually doing.</description>
+      <content:encoded><![CDATA[<p><em>Reverse-mode automatic differentiation in C++20.</em></p>
+<p>Automatic differentiation powers modern machine learning. PyTorch&rsquo;s <code>autograd</code>, JAX&rsquo;s <code>jit</code>, TensorFlow&rsquo;s <code>GradientTape</code> all rely on the same idea: compute exact derivatives by mechanically applying the chain rule. There is no approximation. No symbolic manipulation. Just the chain rule, over and over, on a computation graph.</p>
+<p>I built a reverse-mode AD system to understand how this actually works. The goal was not to compete with PyTorch. It was to see clearly what PyTorch is doing under the hood.</p>
 <h2 id="the-functional-api">The Functional API</h2>
 <p>The core interface is a single function: <code>grad</code>. It takes a function and returns its gradient function:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
@@ -25,31 +55,27 @@
 </span></span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">g</span><span class="p">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>             <span class="c1">// 5. Extract gradient
 </span></span></span><span class="line"><span class="cl">    <span class="p">};</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p><strong>Forward pass</strong>: When <code>f(x)</code> executes, each operation creates a node in the graph. The node stores:</p>
-<ul>
-<li>The computed value</li>
-<li>References to parent nodes</li>
-<li>A <em>backward function</em> implementing that operation&rsquo;s Jacobian</li>
-</ul>
+</span></span></code></pre></div><p><strong>Forward pass</strong>: When <code>f(x)</code> executes, each operation creates a node in the graph. The node stores the computed value, references to parent nodes, and a backward function implementing that operation&rsquo;s local Jacobian.</p>
 <p><strong>Backward pass</strong>: Starting from the output, we traverse the graph in reverse topological order. Each node&rsquo;s backward function receives the upstream gradient and propagates it to parents via the chain rule.</p>
+<p>That is the whole algorithm. Everything else is details about which Jacobians to implement and how to handle edge cases.</p>
 <h2 id="implementing-jacobians">Implementing Jacobians</h2>
-<p>Each differentiable operation provides a backward function. Let&rsquo;s examine three matrix calculus results.</p>
+<p>Each differentiable operation needs a backward function. Here are three matrix calculus results that come up constantly.</p>
 <h3 id="matrix-multiplication-c--ab">Matrix Multiplication: C = AB</h3>
-<p>If the loss is L, and C appears in L, we need dL/dA and dL/dB given dL/dC.</p>
-<p>The chain rule gives us:</p>
+<p>Given dL/dC (the upstream gradient), the chain rule gives:</p>
 <ul>
 <li>\(\partial L/\partial A = (\partial L/\partial C) B^T\)</li>
 <li>\(\partial L/\partial B = A^T (\partial L/\partial C)\)</li>
 </ul>
 <h3 id="determinant">Determinant: \(d = \det(A)\)</h3>
-<p>This is a classic matrix calculus result:</p>
+<p>A classic result from matrix calculus:</p>
 $$\frac{\partial \det(A)}{\partial A} = \det(A) \cdot A^{-T}$$<p>where \(A^{-T}\) denotes the transpose of the inverse.</p>
 <h3 id="matrix-inverse">Matrix Inverse: \(B = A^{-1}\)</h3>
-<p>Starting from \(A \cdot A^{-1} = I\) and differentiating implicitly:</p>
+<p>Start from \(A \cdot A^{-1} = I\) and differentiate implicitly:</p>
 $$dA \cdot A^{-1} + A \cdot dA^{-1} = 0$$<p>
 </p>
 $$dA^{-1} = -A^{-1} \cdot dA \cdot A^{-1}$$<p>Applying the chain rule to a scalar loss \(L\) through \(B = A^{-1}\):</p>
-$$\frac{\partial L}{\partial A} = -A^{-T} \left(\frac{\partial L}{\partial B}\right) A^{-T}$$<h2 id="gradient-accumulation">Gradient Accumulation</h2>
+$$\frac{\partial L}{\partial A} = -A^{-T} \left(\frac{\partial L}{\partial B}\right) A^{-T}$$<p>These are the formulas you look up once and then implement as backward functions. The AD system handles composing them.</p>
+<h2 id="gradient-accumulation">Gradient Accumulation</h2>
 <p>When a variable appears multiple times in a computation, gradients accumulate:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">accumulate_gradient</span><span class="p">(</span><span class="n">node_id</span> <span class="n">id</span><span class="p">,</span> <span class="k">const</span> <span class="n">T</span><span class="o">&amp;</span> <span class="n">grad</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="k">auto</span><span class="o">&amp;</span> <span class="n">n</span> <span class="o">=</span> <span class="n">nodes_</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="n">id</span><span class="p">.</span><span class="n">index</span><span class="p">);</span>
@@ -60,12 +86,11 @@ $$\frac{\partial L}{\partial A} = -A^{-T} \left(\frac{\partial L}{\partial B}\ri
 </span></span><span class="line"><span class="cl">        <span class="n">existing</span> <span class="o">=</span> <span class="n">existing</span> <span class="o">+</span> <span class="n">grad</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl">    <span class="p">}</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p>For example, if <code>y = x + x</code>, then dy/dx = 2, not 1. Each use of <code>x</code> contributes its gradient.</p>
+</span></span></code></pre></div><p>If <code>y = x + x</code>, then dy/dx = 2, not 1. Each use of <code>x</code> contributes its gradient. This falls out naturally from the multivariate chain rule, but it is easy to get wrong in an implementation.</p>
 <h2 id="testing-ad-with-finite-differences">Testing AD with Finite Differences</h2>
-<p>How do we know our Jacobians are correct? We verify against finite differences&mdash;the computational equivalent of the limit definition of a derivative:</p>
+<p>How do we know our Jacobians are correct? We check against finite differences, which I covered in a <a href="/post/2022-04-finite-diff-stepanov/">previous post in this series</a>:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">f&#39;(x) ~ [f(x + h) - f(x - h)] / 2h
-</span></span></code></pre></div><p>This central difference formula has O(h^2) error, better than the one-sided difference.</p>
-<p>Tests compare AD gradients against finite differences:</p>
+</span></span></code></pre></div><p>Central differences with O(h^2) error. Slow (O(n) function evaluations for n parameters) and approximate, but they do not lie. They are the ground truth for testing AD implementations.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">TEST_CASE</span><span class="p">(</span><span class="s">&#34;matmul gradient&#34;</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">matmul</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">A</span><span class="p">));</span>  <span class="c1">// f(A) = sum(A^2)
@@ -79,9 +104,9 @@ $$\frac{\partial L}{\partial A} = -A^{-T} \left(\frac{\partial L}{\partial B}\ri
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl">    <span class="n">REQUIRE</span><span class="p">(</span><span class="n">approx_equal</span><span class="p">(</span><span class="n">ad_grad</span><span class="p">,</span> <span class="n">fd_grad</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">));</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p>Finite differences are slow (O(n) function evaluations for n parameters) and approximate. AD is exact and efficient (O(1) backward passes). But finite differences don&rsquo;t lie&mdash;they&rsquo;re the ground truth for testing.</p>
+</span></span></code></pre></div><p>If finite differences and AD disagree, the bug is in your Jacobian. Always.</p>
 <h2 id="practical-example-gradient-descent">Practical Example: Gradient Descent</h2>
-<p>Here&rsquo;s logistic regression training:</p>
+<p>Here is logistic regression training using the AD system:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Binary cross-entropy loss
 </span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">bce_loss</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">X</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">y</span><span class="p">](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">beta</span><span class="p">)</span> <span class="p">{</span>
 </span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">logits</span> <span class="o">=</span> <span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">beta</span><span class="p">);</span>
@@ -97,13 +122,30 @@ $$\frac{\partial L}{\partial A} = -A^{-T} \left(\frac{\partial L}{\partial B}\ri
 </span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">grad_bce</span><span class="p">(</span><span class="n">beta</span><span class="p">);</span>
 </span></span><span class="line"><span class="cl">    <span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span> <span class="o">-</span> <span class="n">gradient</span> <span class="o">*</span> <span class="n">learning_rate</span><span class="p">;</span>
 </span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p>The gradient computation is automatic. Change the loss function, and <code>grad</code> adapts.</p>
+</span></span></code></pre></div><p>The gradient computation is automatic. Change the loss function, and <code>grad</code> adapts. You do not rewrite the backward pass. This is why AD matters for ML: it separates the model definition from the optimization.</p>
 <h2 id="conclusion">Conclusion</h2>
-<p>Automatic differentiation is not magic. It&rsquo;s systematic application of the chain rule, implemented through:</p>
+<p>Automatic differentiation is not magic. It is the chain rule, applied systematically:</p>
 <ol>
 <li><strong>Graph construction</strong>: Operations build a DAG during the forward pass</li>
 <li><strong>Backward traversal</strong>: Reverse topological order ensures correct dependency ordering</li>
 <li><strong>Gradient accumulation</strong>: Variables used multiple times sum their gradients</li>
 </ol>
-<p>Understanding this makes PyTorch and JAX less mysterious. When <code>.backward()</code> runs, it&rsquo;s doing exactly what we&rsquo;ve described: traversing the graph, calling backward functions, accumulating gradients.</p>
-]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>backpropagation</category><category>machine-learning</category><category>gradients</category></item></channel></rss>
+<p>Understanding this makes PyTorch and JAX less mysterious. When <code>.backward()</code> runs, it is doing exactly what I have described: traversing the graph, calling backward functions, accumulating gradients. The scale is different, the optimizations are extensive, but the core algorithm is the same.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>automatic-differentiation</category>
+      
+      <category>backpropagation</category>
+      
+      <category>machine-learning</category>
+      
+      <category>gradients</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

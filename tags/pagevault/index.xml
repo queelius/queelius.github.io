@@ -1,176 +1,120 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Pagevault on metafunctor</title><link>https://metafunctor.com/tags/pagevault/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:50 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/pagevault/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Client-Side Encryption for Static Sites: pagevault + cryptoid</title><link>https://metafunctor.com/post/2026-02-13-pagevault/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-pagevault/</guid><description>Two complementary tools for password-protecting content on static sites — no backend required. pagevault encrypts HTML files and embedded assets. cryptoid encrypts Hugo markdown at build time. Both use AES-256-GCM with multi-user key wrapping and decrypt entirely in the browser.</description><content:encoded><![CDATA[<p>I run a static site on GitHub Pages. No backend, no server, no database. That simplicity is the whole point — until you want to share something semi-private.</p>
-<p>Maybe it&rsquo;s client-confidential notes mixed in with public documentation. Maybe it&rsquo;s solutions to homework problems that should be behind a password. Maybe it&rsquo;s personal thoughts in a blog post that you want to share with specific people but not the entire internet.</p>
-<p>The usual answer is &ldquo;add a backend.&rdquo; But I didn&rsquo;t want to give up static hosting just because a few paragraphs needed a password.</p>
-<p>So I built two tools: <a href="https://github.com/queelius/pagevault"><strong>pagevault</strong></a> for encrypting HTML files and embedded assets, and <a href="https://github.com/queelius/cryptoid"><strong>cryptoid</strong></a> for encrypting Hugo markdown content at build time. They share the same cryptographic foundation but solve different problems.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Pagevault on metafunctor</title>
+    <link>https://metafunctor.com/tags/pagevault/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/pagevault/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>pagevault: Hiding an Encryption Platform Inside HTML</title>
+      <link>https://metafunctor.com/post/2026-02-13-pagevault/</link>
+      <pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-pagevault/</guid>
+      <description>pagevault turns any file into a self-contained encrypted HTML page. No backend, no JavaScript libraries, no external dependencies. Just AES-256-GCM and the browser&#39;s built-in Web Crypto API. The interesting part is making it work at scale.</description>
+      <content:encoded><![CDATA[<p>HTML is an encryption container format. That sounds wrong, but think about what an HTML file can hold: arbitrary data in script tags or data attributes, a full programming runtime via JavaScript, and a rendering engine (the browser) on every device on the planet. If you embed encrypted data and the code to decrypt it, the result is a file that looks inert until someone types the right password.</p>
+<p><a href="https://github.com/queelius/pagevault">pagevault</a> takes this idea seriously. It encrypts files, documents, images, entire websites, into self-contained HTML pages that decrypt in the browser. No backend. No JavaScript crypto libraries. The browser already has AES-256-GCM built in via the Web Crypto API. pagevault just has to match the parameters exactly on the Python side and embed the right 200 lines of JavaScript.</p>
+<p>The output is a single <code>.html</code> file. You can email it, put it on a USB stick, host it on GitHub Pages, or double-click it on your desktop. It doesn&rsquo;t phone home, it doesn&rsquo;t load CDNs, it doesn&rsquo;t need anything except a browser.</p>
 <hr>
-<h2 id="two-tools-one-crypto-core">Two Tools, One Crypto Core</h2>
-<p>Both tools use identical encryption:</p>
-<ul>
-<li><strong>AES-256-GCM</strong> (authenticated encryption)</li>
-<li><strong>PBKDF2-SHA256</strong> with 310,000 iterations</li>
-<li><strong>v2 format</strong> with content-encryption-key (CEK) wrapping for multi-user support</li>
-<li><strong>Web Crypto API</strong> for browser-side decryption — no JavaScript crypto libraries</li>
-</ul>
-<p>The difference is <em>what</em> they encrypt and <em>when</em>:</p>
-<table>
-  <thead>
-      <tr>
-          <th></th>
-          <th><strong>pagevault</strong></th>
-          <th><strong>cryptoid</strong></th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>Encrypts</strong></td>
-          <td>HTML regions, files, entire sites</td>
-          <td>Hugo markdown body content</td>
-      </tr>
-      <tr>
-          <td><strong>When</strong></td>
-          <td>Post-build (operates on HTML output)</td>
-          <td>Pre-build (operates on markdown source)</td>
-      </tr>
-      <tr>
-          <td><strong>Assets</strong></td>
-          <td>Images, PDFs, audio/video embedded in ciphertext</td>
-          <td>Text only (assets served publicly by Hugo)</td>
-      </tr>
-      <tr>
-          <td><strong>Output</strong></td>
-          <td>Self-contained HTML files</td>
-          <td>Hugo shortcodes with ciphertext</td>
-      </tr>
-      <tr>
-          <td><strong>Rendering</strong></td>
-          <td>Content is already HTML — just inject</td>
-          <td>Markdown rendered in browser via <a href="https://github.com/markedjs/marked">marked.js</a></td>
-      </tr>
-  </tbody>
-</table>
-<p>Use <strong>pagevault</strong> when you need to protect complete documents with embedded assets — encrypted PDFs, image galleries, entire mini-sites. Use <strong>cryptoid</strong> when you have a Hugo blog and want some posts or sections behind a password while keeping the full Hugo workflow (taxonomies, related posts, RSS, etc.).</p>
+<h2 id="what-goes-in">What Goes In</h2>
+<p>Anything.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault lock report.pdf              <span class="c1"># PDF with embedded viewer</span>
+</span></span><span class="line"><span class="cl">pagevault lock photo.jpg               <span class="c1"># image with click-to-zoom</span>
+</span></span><span class="line"><span class="cl">pagevault lock notes.md                <span class="c1"># markdown, rendered or source view</span>
+</span></span><span class="line"><span class="cl">pagevault lock recording.mp3           <span class="c1"># audio player</span>
+</span></span><span class="line"><span class="cl">pagevault lock mysite/ --site          <span class="c1"># entire multi-page website</span>
+</span></span><span class="line"><span class="cl">pagevault lock page.html               <span class="c1"># HTML with selective region encryption</span>
+</span></span></code></pre></div><p>Every output is a single <code>.html</code> file containing the ciphertext, a password prompt, the decryption runtime, and a viewer plugin for the content type. Seven viewers ship built-in: Image, PDF, HTML, Text (with line numbers), Markdown (with rendered/source toggle), Audio, and Video. They&rsquo;re a plugin system, so you can add your own.</p>
+<p>Here&rsquo;s what it looks like. An encrypted security report:</p>
+<p><img src="report-locked.png" alt="Encrypted file showing password prompt with lock icon and filename"></p>
+<p>After entering the password, the viewer renders the decrypted content with a toolbar:</p>
+<p><img src="report-unlocked.png" alt="Decrypted quarterly security report with vulnerability tables and findings"></p>
+<p>For directories, <code>--site</code> bundles everything into a single encrypted HTML file. The directory is zipped with deflate compression, encrypted, and embedded. On the browser side, a minimal zip reader (no library, just the built-in <code>DecompressionStream</code> API) unpacks it after decryption. Internal links between pages work. CSS and images load from the zip. The whole site navigates inside an iframe as if it were served normally:</p>
+<p><img src="site-index.png" alt="Decrypted site viewer showing a Project Hub with navigation, welcome section, and sprint stats"></p>
+<p>A 100 MB site compresses well if it&rsquo;s mostly text and markup. The zip gets chunked and encrypted the same way single files do, so the same progress bar and memory management apply. I&rsquo;ve tested sites with hundreds of files without issues.</p>
 <hr>
-<h2 id="pagevault-encrypt-anything-serve-anywhere">pagevault: Encrypt Anything, Serve Anywhere</h2>
-<p>pagevault encrypts <em>regions</em> of HTML files — not the whole page, just the parts you mark. Public navigation, styling, and scripts remain untouched. Only the sensitive sections become ciphertext, replaced with a password prompt that decrypts in the browser.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-html" data-lang="html"><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">header</span><span class="p">&gt;</span>Public navigation stays visible<span class="p">&lt;/</span><span class="nt">header</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">pagevault</span> <span class="na">hint</span><span class="o">=</span><span class="s">&#34;Contact me for the password&#34;</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">  <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>Private thoughts on this topic<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">  <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>This section is encrypted with AES-256-GCM...<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl"><span class="p">&lt;/</span><span class="nt">pagevault</span><span class="p">&gt;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">footer</span><span class="p">&gt;</span>Public footer stays visible<span class="p">&lt;/</span><span class="nt">footer</span><span class="p">&gt;</span>
-</span></span></code></pre></div><p>After running <code>pagevault lock</code>, the <code>&lt;pagevault&gt;</code> block becomes an opaque blob of base64. Visitors see a styled password prompt. If they have the password, the content decrypts instantly in their browser. If they don&rsquo;t, they see nothing — not even the size of what they&rsquo;re missing (with the <code>--pad</code> flag).</p>
-<p>Here&rsquo;s a real example — a team dashboard where public metrics are visible but financial data is encrypted:</p>
-<p><img src="dashboard-locked.png" alt="Dashboard with encrypted region showing password prompt between public sections"></p>
-<p>After entering the password, the protected sections decrypt in-place:</p>
-<p><img src="dashboard-unlocked.png" alt="Same dashboard after decryption, showing Internal Revenue and Infrastructure Costs"></p>
-<p>The output is a single self-contained HTML file. No JavaScript CDN, no external CSS, no runtime dependencies. You can email it, upload it to any static host, or open it from a local filesystem. Everything needed for decryption is embedded in the file.</p>
-<h3 id="beyond-html-encrypting-arbitrary-files">Beyond HTML: Encrypting Arbitrary Files</h3>
-<p>pagevault wraps non-HTML files into encrypted HTML payloads:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault lock report.pdf              <span class="c1"># → _locked/report.pdf.html</span>
-</span></span><span class="line"><span class="cl">pagevault lock presentation.pptx       <span class="c1"># → _locked/presentation.pptx.html</span>
-</span></span><span class="line"><span class="cl">pagevault lock mysite/ --site          <span class="c1"># → _locked/mysite.html</span>
-</span></span></code></pre></div><p>The encrypted HTML includes the file&rsquo;s contents as a base64 payload. When decrypted in the browser, a <strong>viewer plugin</strong> renders the content inline — images display as images, PDFs render in an embedded viewer, Markdown gets formatted with headings and code blocks.</p>
-<p><img src="file-locked.png" alt="Encrypted file showing password prompt with lock icon and filename"></p>
-<p>After entering the password, the viewer renders the content with a toolbar showing the filename, file size, and a download button:</p>
-<p><img src="markdown-decrypted.png" alt="Decrypted markdown file with rendered headings, lists, and code blocks"></p>
-<p>Seven viewers ship built-in: Image, PDF, HTML, Text, Markdown, Audio, and Video. Custom viewers follow the same plugin API — point <code>viewers_dir</code> at a directory of Python files and they&rsquo;re discovered automatically.</p>
-<h3 id="the-closure-property">The Closure Property</h3>
-<p>My favorite design constraint: <strong>the output of <code>pagevault lock</code> must be valid input to <code>pagevault lock</code>.</strong></p>
-<p>This means you can encrypt a page for Alice, then encrypt <em>different sections</em> of the same page for Bob, and everything just works. Alice sees her content. Bob sees his. The page round-trips cleanly through multiple encryption passes.</p>
-<p>Composability replaces configuration. You don&rsquo;t need pagevault to understand access levels — you just run it twice with different passwords on different sections.</p>
-<hr>
-<h2 id="cryptoid-native-hugo-encryption">cryptoid: Native Hugo Encryption</h2>
-<p>cryptoid takes a different approach. Instead of operating on HTML output, it works directly with Hugo&rsquo;s markdown source files. You mark content for encryption in front matter, and cryptoid handles the rest.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nn">---</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Confidential Project Update&#34;</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">encrypted</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">groups</span><span class="p">:</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">team</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">leadership</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">password_hint</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Use your team credentials&#34;</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nt">remember</span><span class="p">:</span><span class="w"> </span><span class="l">ask</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="nn">---</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="c">## Q4 Results</span><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="w">
-</span></span></span><span class="line"><span class="cl"><span class="l">Revenue grew 23% quarter-over-quarter...</span><span class="w">
-</span></span></span></code></pre></div><p>Running <code>cryptoid encrypt</code> replaces the markdown body with a Hugo shortcode containing encrypted ciphertext. Hugo then builds the site normally — the shortcode renders a password form, and the browser-side JavaScript handles decryption.</p>
-<h3 id="hugo-native-workflow">Hugo-Native Workflow</h3>
-<p>Because cryptoid operates at the source level, encrypted posts are still full Hugo citizens:</p>
-<ul>
-<li><strong>Taxonomies work</strong> — tags, categories, and series still render from front matter</li>
-<li><strong>Related posts work</strong> — Hugo&rsquo;s content matching sees the front matter</li>
-<li><strong>RSS works</strong> — feeds include the post metadata (body is just the shortcode)</li>
-<li><strong><code>_index.md</code> cascade</strong> — set <code>encrypted: true</code> in a section&rsquo;s index and all children inherit it</li>
-<li><strong>Group-based access control</strong> — assign user groups in front matter, cryptoid resolves which users get key blobs</li>
-</ul>
-<p>The CLI manages the full lifecycle:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Setup</span>
-</span></span><span class="line"><span class="cl">cryptoid init                                    <span class="c1"># interactive config setup</span>
-</span></span><span class="line"><span class="cl">cryptoid config add-user bob --group team        <span class="c1"># manage users and groups</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Protect content</span>
-</span></span><span class="line"><span class="cl">cryptoid protect content/private/ --groups team  <span class="c1"># mark directory for encryption</span>
-</span></span><span class="line"><span class="cl">cryptoid encrypt --content-dir content/          <span class="c1"># encrypt all marked files</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Manage</span>
-</span></span><span class="line"><span class="cl">cryptoid status --content-dir content/           <span class="c1"># show encryption status</span>
-</span></span><span class="line"><span class="cl">cryptoid rewrap --content-dir content/           <span class="c1"># update key blobs after user changes</span>
-</span></span><span class="line"><span class="cl">cryptoid decrypt --content-dir content/          <span class="c1"># restore plaintext for editing</span>
-</span></span></code></pre></div><h3 id="cascade-resolution">Cascade Resolution</h3>
-<p>Encryption settings propagate from <code>_index.md</code> files downward. If a file&rsquo;s own front matter has <code>encrypted: true</code>, that&rsquo;s used. Otherwise, cryptoid walks up parent directories checking each <code>_index.md</code> — the nearest one with an <code>encrypted</code> field wins.</p>
-<p>This means you can protect an entire section with one line in <code>_index.md</code>, then override individual files with <code>encrypted: false</code> if needed.</p>
-<hr>
-<h2 id="shared-cryptographic-design">Shared Cryptographic Design</h2>
-<p>Both tools share the same v2 encryption format and key-wrapping model.</p>
-<h3 id="cek-key-wrapping">CEK Key-Wrapping</h3>
-<p>A random content-encryption key (CEK) encrypts the actual data once. The CEK itself is then wrapped (encrypted) separately for each user&rsquo;s derived key:</p>
+<h2 id="the-crypto">The Crypto</h2>
+<p>Nothing exotic here. AES-256-GCM for authenticated encryption, PBKDF2-SHA256 with 310,000 iterations for key derivation, all through the browser&rsquo;s Web Crypto API. The interesting part isn&rsquo;t the cryptography. It&rsquo;s making the container format work at scale.</p>
+<p>Multi-user access uses CEK (content-encryption key) wrapping. A random key encrypts the data once. That key is then wrapped separately for each user&rsquo;s derived key:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Content  ──encrypt with CEK──&gt;  Ciphertext (one copy)
 </span></span><span class="line"><span class="cl">CEK  ──wrap with Alice&#39;s key──&gt;  Key Blob A
 </span></span><span class="line"><span class="cl">CEK  ──wrap with Bob&#39;s key────&gt;  Key Blob B
-</span></span></code></pre></div><p>Adding a user wraps one small key blob. Removing a user deletes one key blob. The bulk content stays untouched. Both tools provide a <code>sync</code>/<code>rewrap</code> command for key management, and <code>--rekey</code> for full CEK rotation.</p>
-<h3 id="pbkdf2-secret-format">PBKDF2 Secret Format</h3>
-<p>Both tools derive the wrapping key from <code>&quot;username:password&quot;</code> — a single PBKDF2 derivation per login attempt. The browser tries each key blob until one unwraps successfully, revealing the CEK.</p>
-<h3 id="threat-model">Threat Model</h3>
-<p>Both tools protect against the same threats: casual snooping (scrapers, search engines, curious visitors) and offline brute-force attacks. AES-256-GCM with 310k PBKDF2 iterations makes dictionary attacks expensive.</p>
-<p>Neither defends against browser-level adversaries (malicious extensions, XSS on the same origin) or a hosting provider modifying served files. The model is &ldquo;your static host is honest but the public internet is not.&rdquo; For static hosting, that&rsquo;s the right tradeoff.</p>
+</span></span></code></pre></div><p>Adding a user wraps one small key blob. Removing a user deletes one blob. The bulk content stays untouched.</p>
 <hr>
-<h2 id="when-to-use-which">When to Use Which</h2>
-<p><strong>Use pagevault when:</strong></p>
-<ul>
-<li>You need to encrypt non-Hugo HTML pages or files</li>
-<li>Images, PDFs, or other assets must be protected (embedded in ciphertext)</li>
-<li>You want self-contained encrypted files you can email or host anywhere</li>
-<li>You need the closure property (composable multi-tier encryption)</li>
-</ul>
-<p><strong>Use cryptoid when:</strong></p>
-<ul>
-<li>You have a Hugo site and want password-protected posts or sections</li>
-<li>You want encrypted content to participate in Hugo&rsquo;s taxonomy, search, and RSS</li>
-<li>Text content is the primary concern (images can remain public)</li>
-<li>You want directory-level cascade (<code>_index.md</code> inheritance)</li>
-</ul>
-<p><strong>Use both when:</strong></p>
-<ul>
-<li>Your Hugo site has some protected markdown posts (cryptoid) and also serves encrypted file downloads (pagevault)</li>
-<li>You want public blog posts with embedded encrypted attachments</li>
-</ul>
+<h2 id="the-hard-part-large-files">The Hard Part: Large Files</h2>
+<p>The basic approach (encrypt, base64-encode, embed in HTML) works fine for small files. The problems start when you try to encrypt an 84 MB conversation archive or a 179 MB HTML report.</p>
+<p>The original v2 format had a compounding overhead problem. File bytes were base64-encoded (33% expansion), then encrypted, then the ciphertext was base64-encoded again (another 33%). That&rsquo;s <code>1.33 * 1.33 = 1.77x</code> total overhead. An 84 MB file produced a 198 MB HTML page. Wasteful, and slow to decrypt because the browser had to hold the entire blob in memory at once.</p>
+<p>v3 fixes this with chunked encryption.</p>
+<h3 id="eliminating-the-double-base64">Eliminating the double base64</h3>
+<p>v2 encrypted a base64 string, then base64-encoded the result. Two layers. v3 encrypts the raw bytes directly and base64-encodes once. The metadata (filename, MIME type, size) is encrypted separately instead of being bundled into the content. This alone cuts the overhead from 77% to about 39%.</p>
+<h3 id="chunked-ciphertext">Chunked ciphertext</h3>
+<p>Instead of one giant encrypted blob, v3 splits content into 1 MB chunks. Each chunk is encrypted independently with AES-256-GCM using a counter-derived IV: the chunk index is XORed into the last four bytes of a base IV. Each chunk becomes its own <code>&lt;script&gt;</code> tag in the HTML:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-html" data-lang="html"><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">script</span> <span class="na">id</span><span class="o">=</span><span class="s">&#34;pv-0&#34;</span> <span class="na">type</span><span class="o">=</span><span class="s">&#34;x-pv&#34;</span><span class="p">&gt;</span><span class="nx">base64</span><span class="o">-</span><span class="k">of</span><span class="o">-</span><span class="nx">chunk</span><span class="o">-</span><span class="mf">0.</span><span class="p">..&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">script</span> <span class="na">id</span><span class="o">=</span><span class="s">&#34;pv-1&#34;</span> <span class="na">type</span><span class="o">=</span><span class="s">&#34;x-pv&#34;</span><span class="p">&gt;</span><span class="nx">base64</span><span class="o">-</span><span class="k">of</span><span class="o">-</span><span class="nx">chunk</span><span class="o">-</span><span class="mf">1.</span><span class="p">..&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl"><span class="p">&lt;</span><span class="nt">script</span> <span class="na">id</span><span class="o">=</span><span class="s">&#34;pv-83&#34;</span> <span class="na">type</span><span class="o">=</span><span class="s">&#34;x-pv&#34;</span><span class="p">&gt;</span><span class="nx">base64</span><span class="o">-</span><span class="k">of</span><span class="o">-</span><span class="nx">chunk</span><span class="o">-</span><span class="mf">83.</span><span class="p">..&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+</span></span></code></pre></div><p>The browser decrypts them sequentially, showing a progress bar. After each chunk is decrypted, the corresponding script tag is removed from the DOM (<code>el.remove()</code>), freeing the base64 text for garbage collection. Memory usage stays proportional to the chunk size, not the file size.</p>
+<h3 id="the-numbers">The numbers</h3>
+<p>That 84 MB conversation archive: v2 produced 198 MB. v3 produces 117 MB. A 41% reduction, and the decryption doesn&rsquo;t choke the browser.</p>
+<p>Here&rsquo;s the 84 MB file after decryption, rendered as a searchable conversation interface:</p>
+<p><img src="v3-84mb-decrypted.png" alt="Decrypted 83.4 MB conversation archive showing search interface with toolbar"></p>
+<p>I&rsquo;ve also tested a 315 MB text file (works, slow to load) and a 179 MB HTML file with 1.5 million DOM elements (DOM rendering is the bottleneck there, not decryption). These are probably past the point of reason for an HTML container, but it&rsquo;s nice to know where the limits actually are.</p>
 <hr>
-<h2 id="try-them">Try Them</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># pagevault</span>
-</span></span><span class="line"><span class="cl">pip install pagevault
-</span></span><span class="line"><span class="cl">pagevault config init
-</span></span><span class="line"><span class="cl">pagevault mark page.html -s <span class="s2">&#34;.private&#34;</span>
-</span></span><span class="line"><span class="cl">pagevault lock page.html
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># cryptoid</span>
-</span></span><span class="line"><span class="cl">pip install cryptoid
-</span></span><span class="line"><span class="cl">cryptoid init
-</span></span><span class="line"><span class="cl">cryptoid protect content/private/ --groups team
-</span></span><span class="line"><span class="cl">cryptoid encrypt --content-dir content/
-</span></span><span class="line"><span class="cl">cryptoid hugo install  <span class="c1"># install shortcode + JS into your Hugo site</span>
-</span></span></code></pre></div><p>Both projects are on GitHub (<a href="https://github.com/queelius/pagevault">pagevault</a>, <a href="https://github.com/queelius/cryptoid">cryptoid</a>), MIT-licensed, and designed as building blocks — composable, self-contained, no server required.</p>
+<h2 id="region-encryption">Region Encryption</h2>
+<p>pagevault also handles a more specific case: encrypting parts of an HTML page while leaving the rest public. You mark sections with <code>&lt;pagevault&gt;</code> tags and only those become ciphertext. Public navigation, styling, scripts, all untouched. Useful for dashboards where some metrics are public and others aren&rsquo;t, or documentation with confidential sections.</p>
+<p>The lock operation is composable: its output is valid input. You can encrypt a page for Alice, then encrypt different sections for Bob. The page round-trips cleanly through multiple passes.</p>
 <hr>
-<p><em>Static sites shouldn&rsquo;t need backends just because some content needs a password.</em></p>]]></content:encoded><category>pagevault</category><category>cryptoid</category><category>encryption</category><category>static-sites</category><category>python</category><category>web-crypto</category><category>open-source</category><category>hugo</category></item></channel></rss>
+<h2 id="the-file-problem">The <code>file://</code> Problem</h2>
+<p>One thing that surprised me. Encrypted HTML files opened from the filesystem (<code>file://</code> URLs) behave differently than files served over HTTP. The <code>file://</code> protocol gives pages an opaque <code>null</code> origin, which breaks <code>localStorage</code> (so &ldquo;remember on this device&rdquo; doesn&rsquo;t work) and blocks nested blob URLs (so the HTML viewer can&rsquo;t create iframes the normal way).</p>
+<p>The fix was <code>srcdoc</code> iframes, which inherit the parent&rsquo;s origin, plus a <code>pushState</code> shim for the URL bar. Not glamorous, but it means encrypted files work identically whether you double-click them on your desktop or serve them from a CDN.</p>
+<p>There&rsquo;s also a built-in dev server for when you want HTTP without the hassle:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pagevault serve _locked/ --open    <span class="c1"># HTTP server on localhost:8765</span>
+</span></span></code></pre></div><hr>
+<h2 id="related-cryptoid">Related: cryptoid</h2>
+<p>For a narrower use case, I also built <a href="https://github.com/queelius/cryptoid">cryptoid</a>. It encrypts Hugo markdown at build time using the same crypto core. Encrypted posts are still full Hugo citizens (taxonomies, RSS, related posts all work). If you have a Hugo blog and just need some posts behind a password, cryptoid is simpler. pagevault is for everything else.</p>
+<hr>
+<h2 id="try-it">Try It</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install pagevault
+</span></span><span class="line"><span class="cl">pagevault lock report.pdf                   <span class="c1"># wrap any file</span>
+</span></span><span class="line"><span class="cl">pagevault lock mysite/ --site               <span class="c1"># bundle a whole site</span>
+</span></span><span class="line"><span class="cl">pagevault lock page.html -s <span class="s2">&#34;.private&#34;</span>      <span class="c1"># encrypt specific CSS selectors</span>
+</span></span><span class="line"><span class="cl">pagevault serve _locked/ --open             <span class="c1"># preview locally</span>
+</span></span></code></pre></div><p><a href="https://github.com/queelius/pagevault">GitHub</a>. MIT license. 667 tests. Dark mode follows your OS setting. Handles files larger than most people would think to put in an HTML page.</p>
+<hr>
+<p><em>Static sites shouldn&rsquo;t need backends just because some content needs a password.</em></p>]]></content:encoded>
+      
+      
+      <category>pagevault</category>
+      
+      <category>cryptoid</category>
+      
+      <category>encryption</category>
+      
+      <category>static-sites</category>
+      
+      <category>python</category>
+      
+      <category>web-crypto</category>
+      
+      <category>open-source</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

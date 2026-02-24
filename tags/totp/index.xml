@@ -1,7 +1,36 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Totp on metafunctor</title><link>https://metafunctor.com/tags/totp/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Wed, 18 Feb 2026 19:12:51 -0600</lastBuildDate><atom:link href="https://metafunctor.com/tags/totp/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Posthumous: A Federated Dead Man's Switch</title><link>https://metafunctor.com/post/2026-02-14-posthumous/</link><pubDate>Sat, 14 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-14-posthumous/</guid><description>A walkthrough of Posthumous — a self-hosted dead man's switch that monitors periodic check-ins via TOTP, progresses through escalating alert stages, and triggers automated actions if you stop responding. Covers the web UI, state machine, federation, and the notification pipeline.</description><content:encoded><![CDATA[<p>Some things should only happen after you can&rsquo;t do them yourself.</p>
-<p>Posthumous is a self-hosted dead man&rsquo;s switch. You check in periodically — via a phone, a browser, the CLI, or an API call — and if you stop, it progresses through escalating stages before triggering automated actions: sending notifications, running scripts, or anything you&rsquo;ve configured.</p>
-<p>I built it because the existing options are either cloud-hosted (you&rsquo;re trusting someone else&rsquo;s uptime for your most important automation) or single-node (one server failure and silence is indistinguishable from death). Posthumous is federated — multiple nodes watch each other — and fully self-hosted.</p>
-<p>This post walks through the basic workflows with screenshots.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Totp on metafunctor</title>
+    <link>https://metafunctor.com/tags/totp/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 24 Feb 2026 14:34:12 -0600</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/totp/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Posthumous: A Federated Dead Man&#39;s Switch</title>
+      <link>https://metafunctor.com/post/2026-02-14-posthumous/</link>
+      <pubDate>Sat, 14 Feb 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-02-14-posthumous/</guid>
+      <description>A walkthrough of Posthumous, a self-hosted dead man&#39;s switch that monitors periodic check-ins via TOTP, progresses through escalating alert stages, and triggers automated actions if you stop responding.</description>
+      <content:encoded><![CDATA[<p>Some things should only happen after you can&rsquo;t do them yourself.</p>
+<p>Posthumous is a self-hosted dead man&rsquo;s switch. You check in periodically (via phone, browser, CLI, or API call) and if you stop, it progresses through escalating stages before triggering automated actions: sending notifications, running scripts, whatever you&rsquo;ve configured.</p>
+<p>I built it because the existing options are either cloud-hosted (you&rsquo;re trusting someone else&rsquo;s uptime for your most important automation) or single-node (one server failure and silence is indistinguishable from death). Posthumous is federated, multiple nodes watch each other, and fully self-hosted.</p>
+<p>This post walks through the basic workflows.</p>
 <hr>
 <h2 id="setup">Setup</h2>
 <p>Installation is a single pip command:</p>
@@ -24,7 +53,7 @@
 </span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
 </span></span><span class="line"><span class="cl">IMPORTANT: Save this secret securely!
 </span></span><span class="line"><span class="cl"><span class="o">==================================================</span>
-</span></span></code></pre></div><p>You scan the QR code with any authenticator app — Google Authenticator, Authy, 1Password, whatever generates TOTP codes. That same code is how you prove you&rsquo;re alive.</p>
+</span></span></code></pre></div><p>You scan the QR code with any authenticator app (Google Authenticator, Authy, 1Password, whatever generates TOTP codes). That code is how you prove you&rsquo;re alive.</p>
 <p>The config file (<code>~/.posthumous/config.yaml</code>) controls timing, notifications, and actions:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">node_name</span><span class="p">:</span><span class="w"> </span><span class="l">cerebro</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l">JBSWY3DPEHPK3PXP</span><span class="w">
@@ -48,7 +77,7 @@
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Posthumous has activated.\n\nDashboard: {dashboard_url}&#34;</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="nt">script</span><span class="p">:</span><span class="w"> </span><span class="l">scripts/release-credentials.sh</span><span class="w">
-</span></span></span></code></pre></div><p>Notification messages support template variables like <code>{checkin_url}</code> and <code>{dashboard_url}</code> — so push notifications to your phone include a direct link back to the check-in page. No need to remember a URL.</p>
+</span></span></span></code></pre></div><p>Notification messages support template variables like <code>{checkin_url}</code> and <code>{dashboard_url}</code>, so push notifications to your phone include a direct link back to the check-in page.</p>
 <hr>
 <h2 id="the-check-in-flow">The Check-in Flow</h2>
 <p>Start the daemon:</p>
@@ -56,10 +85,10 @@
 </span></span><span class="line"><span class="cl">Starting Posthumous node <span class="s1">&#39;cerebro&#39;</span>...
 </span></span></code></pre></div><p>This launches the web server, watchdog timer, and scheduler. Navigate to the check-in page:</p>
 <p><img src="01-checkin-armed.png" alt="The check-in page in ARMED state, showing a TOTP input field and the node name"></p>
-<p>The UI is intentionally minimal — dark theme, big input, works on a phone screen. Enter your 6-digit TOTP code from your authenticator app and hit Check In.</p>
-<p>After a successful check-in, the timer resets and you can see the countdown:</p>
+<p>The UI is intentionally minimal. Dark theme, big input, works on a phone screen. Enter your 6-digit TOTP code and hit Check In.</p>
+<p>After a successful check-in, the timer resets and you see the countdown:</p>
 <p><img src="03-checkin-after.png" alt="Check-in page after successful authentication, showing time since last check-in and time until trigger"></p>
-<p>The status line tells you exactly how long until the system would escalate. In production you&rsquo;d have days or weeks, not seconds.</p>
+<p>The status line tells you exactly how long until the system would escalate.</p>
 <p>You can also check in via the CLI or the JSON API:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># CLI check-in (prompts for TOTP)</span>
 </span></span><span class="line"><span class="cl">$ phm checkin
@@ -75,9 +104,9 @@
 </span></span><span class="line"><span class="cl"><span class="o">{</span><span class="s2">&#34;success&#34;</span>: true, <span class="s2">&#34;status&#34;</span>: <span class="s2">&#34;armed&#34;</span>, <span class="s2">&#34;next_deadline&#34;</span>: <span class="s2">&#34;2026-02-28T11:41:43+00:00&#34;</span><span class="o">}</span>
 </span></span></code></pre></div><hr>
 <h2 id="the-dashboard">The Dashboard</h2>
-<p>The dashboard shows everything at a glance — countdown timers, check-in history, peer status, and scheduled post-trigger actions:</p>
+<p>The dashboard shows everything at a glance: countdown timers, check-in history, peer status, and scheduled post-trigger actions:</p>
 <p><img src="04-dashboard-armed.png" alt="Dashboard in ARMED state showing time remaining until each escalation stage, check-in history, peer status, and scheduled items"></p>
-<p>The color coding matches the urgency: green for &ldquo;Until warning&rdquo; (you&rsquo;re fine), orange for &ldquo;Until grace&rdquo; (getting close), red for &ldquo;Until trigger&rdquo; (last chance). The dashboard auto-refreshes every 60 seconds.</p>
+<p>The color coding matches the urgency: green for &ldquo;Until warning&rdquo; (you&rsquo;re fine), orange for &ldquo;Until grace&rdquo; (getting close), red for &ldquo;Until trigger&rdquo; (last chance). Auto-refreshes every 60 seconds.</p>
 <hr>
 <h2 id="the-state-machine">The State Machine</h2>
 <p>Posthumous progresses through four states:</p>
@@ -85,15 +114,15 @@
 </span></span><span class="line"><span class="cl">  ^                   |                   |                    |
 </span></span><span class="line"><span class="cl">  └─── check-in ──────┴─── check-in ─────┘                    v
 </span></span><span class="line"><span class="cl">                                                    (scheduler runs forever)
-</span></span></code></pre></div><p>A check-in from any pre-trigger state resets to ARMED. <strong>TRIGGERED is terminal</strong> — once activated, no check-in can undo it. This is by design: if the switch has fired, you want the actions to complete.</p>
+</span></span></code></pre></div><p>A check-in from any pre-trigger state resets to ARMED. <strong>TRIGGERED is terminal.</strong> Once activated, no check-in can undo it. This is by design: if the switch has fired, you want the actions to complete.</p>
 <p>Each transition fires its configured actions. If the node was offline and missed intermediate states (say it was down during WARNING and comes back during GRACE), the watchdog fires all skipped callbacks in order before reaching the current state. No notifications are silently dropped.</p>
 <p>When the system reaches TRIGGERED, the check-in page locks out:</p>
-<p><img src="06-checkin-triggered.png" alt="Check-in page in TRIGGERED state — the TOTP form is replaced with a message explaining the node is triggered"></p>
+<p><img src="06-checkin-triggered.png" alt="Check-in page in TRIGGERED state, the TOTP form is replaced with a message explaining the node is triggered"></p>
 <p>And the dashboard reflects the terminal state:</p>
 <p><img src="05-dashboard-triggered.png" alt="Dashboard in TRIGGERED state showing all stages as Active/Activated with the trigger timestamp"></p>
 <hr>
 <h2 id="notifications">Notifications</h2>
-<p>Posthumous uses <a href="https://github.com/caronc/apprise">Apprise</a> for notifications, which means it supports 100+ notification services out of the box: ntfy, Pushover, Telegram, Discord, email, Slack, and many more.</p>
+<p>Posthumous uses <a href="https://github.com/caronc/apprise">Apprise</a> for notifications, which means it supports 100+ notification services out of the box: ntfy, Pushover, Telegram, Discord, email, Slack, and more.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">notifications</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">default</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">ntfy://my-posthumous-channel</span><span class="w">
@@ -101,20 +130,20 @@
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">pover://user@token</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span>- <span class="l">tgram://bot_token/chat_id</span><span class="w">
 </span></span></span></code></pre></div><p>Each escalation stage can target different channels with different messages. Warning might go to ntfy (a gentle ping), while grace and trigger go to Pushover and Telegram (hard to miss).</p>
-<p>The new <code>{checkin_url}</code> variable means warning notifications include a clickable link directly to the check-in page — open the notification on your phone, tap the link, enter the TOTP code. Three taps and you&rsquo;re checked in.</p>
+<p>The <code>{checkin_url}</code> variable means warning notifications include a clickable link directly to the check-in page. Open the notification on your phone, tap the link, enter the TOTP code. Three taps and you&rsquo;re checked in.</p>
 <hr>
 <h2 id="federation">Federation</h2>
-<p>A single node has a single point of failure. If the server goes down, silence looks the same as death — which means either false triggers or missed real triggers.</p>
+<p>A single node has a single point of failure. If the server goes down, silence looks the same as death, which means either false triggers or missed real triggers.</p>
 <p>Posthumous solves this with federation. Multiple nodes share the same TOTP secret and communicate via HMAC-signed HTTP:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="c"># Node A&#39;s config</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="nt">peers</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">https://node-b.example.com:8420</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="l">https://node-c.example.com:8420</span><span class="w">
-</span></span></span></code></pre></div><p>When you check in to any node, it broadcasts to all peers. When any node triggers, it broadcasts that too. The design bias is deliberate: <strong>duplicates over silence</strong>. Multiple nodes may fire the same notification — annoying but survivable. A missed trigger is not.</p>
+</span></span></span></code></pre></div><p>When you check in to any node, it broadcasts to all peers. When any node triggers, it broadcasts that too. The design bias is deliberate: <strong>duplicates over silence</strong>. Multiple nodes may fire the same notification (annoying but survivable). A missed trigger is not.</p>
 <p>Each node tracks peer health independently, and the dashboard shows peer status with connection age and failure counts.</p>
 <hr>
 <h2 id="post-trigger-scheduling">Post-Trigger Scheduling</h2>
-<p>Once triggered, Posthumous doesn&rsquo;t just fire-and-forget. A scheduler runs forever, executing actions on configurable schedules using a small DSL:</p>
+<p>Once triggered, Posthumous doesn&rsquo;t just fire-and-forget. A scheduler runs indefinitely, executing actions on configurable schedules using a small DSL:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">post_trigger</span><span class="p">:</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">weekly-reminder</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="l">every week after trigger</span><span class="w">
@@ -129,16 +158,16 @@
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">when</span><span class="p">:</span><span class="w"> </span><span class="l">every year on trigger anniversary</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">notify</span><span class="p">:</span><span class="w"> </span><span class="l">default</span><span class="w">
 </span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;Annual memorial notification.&#34;</span><span class="w">
-</span></span></span></code></pre></div><p>The <code>when</code> expressions support relative timing (<code>30 days after trigger</code>), recurring patterns (<code>every week after trigger</code>), anniversaries (<code>every year on trigger anniversary</code>), and absolute dates. Each execution is deduplicated by period key — if a node restarts, it won&rsquo;t re-run actions for the current period.</p>
+</span></span></span></code></pre></div><p>The <code>when</code> expressions support relative timing (<code>30 days after trigger</code>), recurring patterns (<code>every week after trigger</code>), anniversaries (<code>every year on trigger anniversary</code>), and absolute dates. Each execution is deduplicated by period key. If a node restarts, it won&rsquo;t re-run actions for the current period.</p>
 <hr>
 <h2 id="security">Security</h2>
 <p>Authentication uses TOTP (the same protocol as Google Authenticator). This means:</p>
 <ul>
-<li><strong>No passwords stored on the server</strong> — only the shared secret</li>
-<li><strong>Time-based codes expire every 30 seconds</strong> — replay attacks have a narrow window</li>
-<li><strong>Brute-force protection</strong> — after configurable failed attempts, the account locks out for a configurable duration</li>
+<li><strong>No passwords stored on the server</strong>, only the shared secret</li>
+<li><strong>Time-based codes expire every 30 seconds</strong>, replay attacks have a narrow window</li>
+<li><strong>Brute-force protection</strong>, after configurable failed attempts the account locks out for a configurable duration</li>
 </ul>
-<p>The check-in page properly locks out after too many failures, and the API returns HTTP 429.</p>
+<p>The check-in page locks out after too many failures, and the API returns HTTP 429.</p>
 <p>Peer communication is authenticated with HMAC-SHA256 signatures derived from the shared secret. State files can optionally be encrypted at rest with Fernet (AES-128-CBC), enabled with a single config flag:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">encrypt_at_rest</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
 </span></span></span></code></pre></div><hr>
@@ -165,12 +194,33 @@
 </span></span><span class="line"><span class="cl"><span class="o">}</span>
 </span></span></code></pre></div><hr>
 <h2 id="whats-next">What&rsquo;s Next</h2>
-<p>Posthumous is at v0.5. The core workflows are solid — check-in, state machine, notifications, federation, scheduling, encryption at rest. Some things I&rsquo;m considering:</p>
+<p>Posthumous is at v0.5. The core workflows are solid: check-in, state machine, notifications, federation, scheduling, encryption at rest. Some things I&rsquo;m considering:</p>
 <ul>
-<li><strong>Static site integration</strong> — generating a Hugo/Jekyll site from post-trigger content, hosted on GitHub Pages</li>
-<li><strong>Multi-factor escalation</strong> — requiring check-ins from multiple sources (web + CLI + API) before considering you &ldquo;alive&rdquo;</li>
-<li><strong>Better peer discovery</strong> — automatic peer registration instead of manual URL configuration</li>
+<li><strong>Static site integration</strong>: generating a Hugo/Jekyll site from post-trigger content, hosted on GitHub Pages</li>
+<li><strong>Multi-factor escalation</strong>: requiring check-ins from multiple sources (web + CLI + API) before considering you &ldquo;alive&rdquo;</li>
+<li><strong>Better peer discovery</strong>: automatic peer registration instead of manual URL configuration</li>
 </ul>
 <p>The code is on GitHub: <a href="https://github.com/queelius/posthumous">queelius/posthumous</a>. It&rsquo;s a single <code>pip install</code> and about 2,200 lines of Python (plus 3,700 lines of tests at 99% coverage).</p>
 <hr>
-<p><em>Posthumous is named for the obvious reason. Some automations only make sense after the fact.</em></p>]]></content:encoded><category>posthumous</category><category>dead-mans-switch</category><category>python</category><category>asyncio</category><category>totp</category><category>federation</category><category>open-source</category></item></channel></rss>
+<p><em>Posthumous is named for the obvious reason. Some automations only make sense after the fact.</em></p>]]></content:encoded>
+      
+      
+      <category>posthumous</category>
+      
+      <category>dead-mans-switch</category>
+      
+      <category>python</category>
+      
+      <category>asyncio</category>
+      
+      <category>totp</category>
+      
+      <category>federation</category>
+      
+      <category>open-source</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>
