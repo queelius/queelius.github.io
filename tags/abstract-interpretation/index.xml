@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Abstract-Interpretation on metafunctor</title><link>https://metafunctor.com/tags/abstract-interpretation/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 15:37:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/abstract-interpretation/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Lattices: Fixed Points and Iteration</title><link>https://metafunctor.com/post/2026-03-lattice-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-lattice-stepanov/</guid><description>A lattice has two operations, meet and join, satisfying absorption laws. Tarski's theorem gives a generic fixed-point algorithm. Lattice structure determines the iteration, just as monoid structure determines power-by-squaring.</description><content:encoded><![CDATA[<p><em>Lattices have two operations of a different kind than rings. The structure determines a fixed-point algorithm.</em></p>
+<h2 id="two-operations-different-rules">Two Operations, Different Rules</h2>
+<p>Monoids have one binary operation. Rings have two (addition and multiplication) linked by distributivity. Lattices also have two operations, but with different laws entirely.</p>
+<p>A <strong>lattice</strong> is a set with two operations:</p>
+<ul>
+<li><strong>meet</strong> (\(\wedge\)): greatest lower bound</li>
+<li><strong>join</strong> (\(\vee\)): least upper bound</li>
+</ul>
+<p>Both are idempotent, commutative, and associative. And they satisfy the <strong>absorption laws</strong>:</p>
+$$a \wedge (a \vee b) = a \qquad a \vee (a \wedge b) = a$$<p>Absorption is what distinguishes lattices from a pair of unrelated monoids. It ties meet and join together: knowing one constrains the other.</p>
+<p>A <strong>bounded lattice</strong> adds a least element (bottom, \(\bot\)) and a greatest element (top, \(\top\)). Bottom is the identity for join, top is the identity for meet.</p>
+<p>In C++20 concepts, with ADL free functions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">L</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Lattice</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">semiregular</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">L</span> <span class="n">a</span><span class="p">,</span> <span class="n">L</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">meet</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">join</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">L</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">BoundedLattice</span> <span class="o">=</span> <span class="n">Lattice</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">L</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">bottom</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">top</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span></code></pre></div><h2 id="four-examples">Four Examples</h2>
+<p><strong>Sign lattice.</strong> Abstract signs of integers: bottom (unreachable), negative, zero, positive, top (unknown). Meet is greatest lower bound, join is least upper bound in the Hasse diagram. This is the classic abstract interpretation domain. You can define abstract arithmetic on it: <code>pos * neg = neg</code>, <code>neg + neg = neg</code>, <code>pos + neg = top</code>.</p>
+<p><strong>Intervals.</strong> Closed intervals \([a, b]\) ordered by inclusion. Meet is intersection. Join is the smallest enclosing interval. Bottom is the empty interval. Top is the full range. This is the foundation of interval arithmetic.</p>
+<p><strong>Divisors.</strong> Positive integers ordered by divisibility. Meet is gcd, join is lcm. Bottom is 1 (divides everything), top is 0 (everything divides 0). Lattice structure appearing in number theory.</p>
+<p><strong>Power sets.</strong> Subsets of \(\{0, \ldots, N-1\}\). Meet is intersection (bitwise AND), join is union (bitwise OR). Bottom is the empty set, top is the full set.</p>
+<p>All four satisfy <code>BoundedLattice</code>. All four satisfy the same laws. The concept constrains the interface; the laws constrain the semantics.</p>
+<h2 id="the-algorithm-tarskis-fixed-point-theorem">The Algorithm: Tarski&rsquo;s Fixed-Point Theorem</h2>
+<p>Here is the payoff. Tarski&rsquo;s theorem: any monotone function on a complete lattice has a least fixed point, computable by iterating from bottom.</p>
+<p>Start at \(\bot\). Apply \(f\). Join the result with the current value. Repeat until nothing changes. This is Kleene iteration:</p>
+$$x_0 = \bot, \quad x_{n+1} = x_n \vee f(x_n)$$<p>The sequence \(x_0 \leq x_1 \leq x_2 \leq \cdots\) is ascending. In a finite lattice, it must terminate.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">BoundedLattice</span> <span class="n">L</span><span class="p">,</span> <span class="k">typename</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">L</span> <span class="n">least_fixed_point</span><span class="p">(</span><span class="n">F</span> <span class="n">f</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">max_iter</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">L</span> <span class="n">x</span> <span class="o">=</span> <span class="n">bottom</span><span class="p">(</span><span class="n">L</span><span class="p">{});</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max_iter</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">L</span> <span class="n">next</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">next</span> <span class="o">==</span> <span class="n">x</span><span class="p">)</span> <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x</span> <span class="o">=</span> <span class="n">next</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is the lattice analog of <code>power()</code> from the peasant post. There, monoid structure gave us repeated squaring. Here, lattice structure gives us fixed-point iteration. Different algebra, different algorithm, same principle: the structure determines the computation.</p>
+<h2 id="application-abstract-interpretation">Application: Abstract Interpretation</h2>
+<p>The sign lattice is not just a mathematical curiosity. It is the simplest example of <strong>abstract interpretation</strong>, a technique for reasoning about programs without running them.</p>
+<p>Consider a program variable <code>x</code>. Instead of tracking its concrete value, track its abstract sign. An assignment <code>x = 3</code> gives <code>x = positive</code>. An operation <code>x = a * b</code> where <code>a</code> is negative and <code>b</code> is positive gives <code>x = negative</code>.</p>
+<p>For loops, we need a fixed point. If a loop body adds a positive number to a variable starting at zero, what sign does the variable have after the loop? We compute the least fixed point of the transfer function:</p>
+<ol>
+<li>Start: <code>x = bot</code> (unreachable)</li>
+<li>Join with initial condition: <code>join(bot, zero) = zero</code></li>
+<li>Apply transfer: <code>zero + positive = positive</code></li>
+<li>Join: <code>join(zero, positive) = top</code></li>
+<li>Apply transfer: <code>top + positive = top</code></li>
+<li>Join: <code>join(top, top) = top</code>. Fixed point reached.</li>
+</ol>
+<p>The result is <code>top</code>: the variable could be zero or positive (or, conservatively, anything). The sign lattice is too coarse to distinguish &ldquo;non-negative&rdquo; from &ldquo;unknown&rdquo;. A richer lattice (like intervals) would give a tighter answer.</p>
+<p>The point is that the algorithm is the same regardless of the lattice. Swap <code>sign_lattice</code> for <code>interval&lt;int&gt;</code> or <code>powerset&lt;N&gt;</code>, and <code>least_fixed_point</code> still works. The lattice structure determines the iteration.</p>
+<h2 id="the-connection">The Connection</h2>
+<p>In the peasant post, the observation was: any monoid supports efficient exponentiation. In the accumulator post: any monoid supports composable streaming computation. Here: any bounded lattice supports fixed-point iteration.</p>
+<p>Each algebraic structure comes with its own generic algorithm. Monoid structure gives <code>power()</code>. Lattice structure gives <code>least_fixed_point()</code>. The pattern repeats: define the algebra, get the algorithm.</p>
+<p>Algorithms arise from algebraic structure.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Davey &amp; Priestley, <em>Introduction to Lattices and Order</em></li>
+<li>Cousot &amp; Cousot, &ldquo;Abstract Interpretation: A Unified Lattice Model&rdquo;</li>
+<li>Tarski, &ldquo;A Lattice-Theoretical Fixpoint Theorem and its Applications&rdquo;</li>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>lattices</category><category>abstract-interpretation</category></item></channel></rss>

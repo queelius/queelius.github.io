@@ -1,33 +1,631 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0"
-     xmlns:atom="http://www.w3.org/2005/Atom"
-     xmlns:content="http://purl.org/rss/1.0/modules/content/"
-     xmlns:dc="http://purl.org/dc/elements/1.1/"
-     xmlns:media="http://search.yahoo.com/mrss/">
-  <channel>
-    <title>Algorithms on metafunctor</title>
-    <link>http://localhost:40461/tags/algorithms/</link>
-    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
-    <language>en-us</language>
-    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
-    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
-    
-    <lastBuildDate>Fri, 27 Feb 2026 17:25:24 -0600</lastBuildDate>
-    <atom:link href="http://localhost:40461/tags/algorithms/" rel="self" type="application/rss+xml" />
-    <image>
-      <url>http://localhost:40461/images/og-image.jpg</url>
-      <title>metafunctor</title>
-      <link>http://localhost:40461/</link>
-    </image>
-    
-    <item>
-      <title>Seeing Structure First</title>
-      <link>http://localhost:40461/post/2026-01-18-synthesis-stepanov/</link>
-      <pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/post/2026-01-18-synthesis-stepanov/</guid>
-      <description>A reflection on eleven explorations in generic programming, and how algorithms arise from algebraic structure.</description>
-      <content:encoded><![CDATA[<p><em>A reflection on eleven explorations in generic programming</em></p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Algorithms on metafunctor</title><link>https://metafunctor.com/tags/algorithms/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 15:37:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/algorithms/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Free Algebras: Why Lists and Polynomials Are Universal</title><link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid><description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description><content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
+<h2 id="why-lists">Why Lists?</h2>
+<p>Arrays are more cache-friendly. Hash maps have better lookup. Yet lists (sequences, vectors, streams) remain the default container in nearly every language. The standard explanation is convention, or ease of construction. The real explanation is algebraic.</p>
+<p>A list is the <strong>free monoid</strong>. It is the most general monoid you can build from a set of generators. And the universal property of free monoids says that fold, the operation that processes a list element by element, is not a design pattern. It is a theorem.</p>
+<h2 id="the-free-monoid">The Free Monoid</h2>
+<p>Start with a set \(S\) of generators. The free monoid on \(S\) is the set of all finite sequences of elements from \(S\), with concatenation as the operation and the empty sequence as the identity.</p>
+<p>&ldquo;Free&rdquo; means: no equations hold except those forced by the monoid axioms (associativity and identity). In particular:</p>
+<ul>
+<li>\([a, b] \neq [b, a]\). Commutativity is not imposed.</li>
+<li>\([a, a] \neq [a]\). Idempotency is not imposed.</li>
+<li>\([a, b, c] = [a] \cdot [b] \cdot [c]\). Every sequence is a product of singletons.</li>
+</ul>
+<p>In C++:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">free_monoid</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">elements_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">free_monoid</span><span class="p">()</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">explicit</span> <span class="nf">free_monoid</span><span class="p">(</span><span class="n">T</span> <span class="n">x</span><span class="p">)</span> <span class="o">:</span> <span class="n">elements_</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">x</span><span class="p">)}</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Monoid operations via ADL
+</span></span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">free_monoid</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">op</span><span class="p">(</span><span class="k">const</span> <span class="n">free_monoid</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">a</span><span class="p">,</span> <span class="k">const</span> <span class="n">free_monoid</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">b</span><span class="p">);</span>  <span class="c1">// concatenation
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">free_monoid</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">identity</span><span class="p">(</span><span class="k">const</span> <span class="n">free_monoid</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span><span class="p">);</span>  <span class="c1">// empty sequence
+</span></span></span></code></pre></div><p>The <code>free_monoid&lt;int&gt;</code> is the type of finite sequences of integers. Its operation is concatenation. It satisfies the <code>Monoid</code> concept. And it is the most general monoid on <code>int</code>: no structure beyond associativity and identity.</p>
+<h2 id="the-universal-property">The Universal Property</h2>
+<p>Here is the key fact. Given any function \(f: S \to M\) where \(M\) is a monoid, there exists a <strong>unique</strong> monoid homomorphism \(\overline{f}: \text{Free}(S) \to M\) extending \(f\). This homomorphism is defined by:</p>
+$$\overline{f}([a_1, a_2, \ldots, a_n]) = f(a_1) \cdot f(a_2) \cdot \ldots \cdot f(a_n)$$<p>In code:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Monoid</span> <span class="n">M</span><span class="p">,</span> <span class="k">typename</span> <span class="n">T</span><span class="p">,</span> <span class="k">typename</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">M</span> <span class="n">extend</span><span class="p">(</span><span class="n">F</span> <span class="n">f</span><span class="p">,</span> <span class="k">const</span> <span class="n">free_monoid</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">xs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">M</span> <span class="n">result</span> <span class="o">=</span> <span class="n">identity</span><span class="p">(</span><span class="n">M</span><span class="p">{});</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">x</span> <span class="p">:</span> <span class="n">xs</span><span class="p">.</span><span class="n">elements</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">op</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is fold. The universal property says fold is the <strong>only</strong> structure-preserving way to interpret a list in a monoid. Any function that respects the monoid structure must agree with fold.</p>
+<h2 id="fold-is-a-theorem">Fold Is a Theorem</h2>
+<p>When you write <code>std::accumulate</code> or <code>std::reduce</code>, you are invoking the universal property. The homomorphism condition:</p>
+$$\overline{f}(\text{op}(xs, ys)) = \text{op}(\overline{f}(xs), \overline{f}(ys))$$<p>is not something you need to verify. It follows from the construction. Fold preserves concatenation because it is the unique homomorphism.</p>
+<p>This also explains why fold over an empty list returns the identity element. Not by convention, but by the homomorphism property: \(\overline{f}([]) = e_M\), because homomorphisms preserve identity.</p>
+<h2 id="concrete-examples">Concrete Examples</h2>
+<p>Every standard reduction is an instance of <code>extend</code>:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Target monoid</th>
+          <th>Operation</th>
+          <th>Identity</th>
+          <th><code>extend</code> computes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>additive&lt;int&gt;</code></td>
+          <td>+</td>
+          <td>0</td>
+          <td>sum</td>
+      </tr>
+      <tr>
+          <td><code>multiplicative&lt;int&gt;</code></td>
+          <td>*</td>
+          <td>1</td>
+          <td>product</td>
+      </tr>
+      <tr>
+          <td><code>max_monoid&lt;int&gt;</code></td>
+          <td>max</td>
+          <td>lowest</td>
+          <td>maximum</td>
+      </tr>
+      <tr>
+          <td><code>string_concat</code></td>
+          <td>+</td>
+          <td>&quot;&quot;</td>
+          <td>concatenation</td>
+      </tr>
+  </tbody>
+</table>
+<p>Length is also an instance: map every element to 1 in <code>additive&lt;int&gt;</code>, then fold. The count of elements in a list is a monoid homomorphism from the free monoid to \((\mathbb{Z}, +, 0)\).</p>
+<h2 id="free-commutative-monoids-multisets">Free Commutative Monoids: Multisets</h2>
+<p>The free monoid imposes no commutativity. What if we do?</p>
+<p>The free <strong>commutative</strong> monoid on \(S\) is the set of multisets (bags) over \(S\). Order is forgotten, but multiplicity is preserved. \({a, b} = {b, a}\), but \({a, a} \neq {a}\).</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">free_commutative_monoid</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span> <span class="n">counts_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Operation: add counts. Identity: empty multiset.
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Adding more axioms yields more specialized structures:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Free algebra</th>
+          <th>Axioms imposed</th>
+          <th>Elements are</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Free monoid</td>
+          <td>associativity, identity</td>
+          <td>sequences (lists)</td>
+      </tr>
+      <tr>
+          <td>Free commutative monoid</td>
+          <td>+ commutativity</td>
+          <td>multisets (bags)</td>
+      </tr>
+      <tr>
+          <td>Free abelian group</td>
+          <td>+ inverses</td>
+          <td>signed multisets</td>
+      </tr>
+      <tr>
+          <td>Free commutative ring</td>
+          <td>ring axioms</td>
+          <td>polynomials</td>
+      </tr>
+  </tbody>
+</table>
+<p>Each row adds equations. Each addition collapses more elements into equivalence. The free monoid is the most general; polynomials are the most constrained in this table.</p>
+<h2 id="the-polynomial-connection">The Polynomial Connection</h2>
+<p>The <a href="https://metafunctor.com/post/2020-07-polynomials-stepanov/">polynomial post</a> built polynomial arithmetic as a Euclidean domain. But a polynomial in one variable over a ring \(R\) is an element of the free commutative \(R\)-algebra on one generator. Polynomial evaluation at a point \(a\):</p>
+$$p(x) = c_0 + c_1 x + c_2 x^2 + \cdots \mapsto c_0 + c_1 a + c_2 a^2 + \cdots$$<p>is the universal homomorphism from the free algebra to \(R\). The polynomial post was working with a free algebra all along. Evaluation is <code>extend</code>, with the generator \(x\) mapped to the value \(a\).</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>Free algebras explain why certain data structures recur across programming languages and mathematical disciplines. Lists appear everywhere because the free monoid is universal: any computation that respects associativity and identity factors through it. Multisets appear in combinatorics because the free commutative monoid is universal for commutative computations. Polynomials appear in algebra because the free ring is universal for ring computations.</p>
+<p>These structures are not design choices. They are forced by the axioms. The free algebra on a set of axioms is the inevitable starting point, the structure you get before imposing any problem-specific equations.</p>
+<p>Algorithms arise from algebraic structure. Free algebras explain which structures are the starting points.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Mac Lane, <em>Categories for the Working Mathematician</em>, ch. IV (free algebras)</li>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+<li>Awodey, <em>Category Theory</em>, ch. 2 (free/forgetful adjunction)</li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>category-theory</category></item><item><title>Homomorphisms: The Maps Between Structures</title><link>https://metafunctor.com/post/2026-03-homomorphism-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-homomorphism-stepanov/</guid><description>A homomorphism preserves structure. fold is the universal homomorphism from the free monoid. This is the algebraic reason that fold, evaluation, and parallelism work.</description><content:encoded><![CDATA[<p><em>A homomorphism is a function that preserves algebraic structure. This post shows that fold, sum, length, and even the logarithm are all the same idea.</em></p>
+<h2 id="structures-and-maps">Structures and Maps</h2>
+<p>The series so far has built up algebraic structures: monoids in the <a href="https://metafunctor.com/post/2019-03-peasant-stepanov/">peasant post</a>, rings in the <a href="https://metafunctor.com/post/2019-06-modular-stepanov/">modular post</a>, Euclidean domains in the <a href="https://metafunctor.com/post/2020-07-polynomials-stepanov/">polynomial post</a>, product monoids in the <a href="https://metafunctor.com/post/2026-03-accumulator-stepanov/">accumulator post</a>. But structures alone are half the story. The other half is the maps between them.</p>
+<p>A <strong>homomorphism</strong> is a function \(f: A \to B\) between two structures of the same kind that preserves the operation:</p>
+$$f(a \oplus b) = f(a) \oplus f(b)$$<p>The operation on the left is in \(A\). The operation on the right is in \(B\). The function \(f\) &ldquo;commutes&rdquo; with the operation. That is the entire definition.</p>
+<h2 id="the-concept">The Concept</h2>
+<p>We need a monoid concept for this post. A monoid has an associative binary operation and an identity element. As always, the operations are ADL free functions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Monoid</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">semiregular</span><span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">M</span> <span class="n">a</span><span class="p">,</span> <span class="n">M</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">op</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">identity</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span></code></pre></div><p>And a runtime check that a function preserves the monoid structure:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Monoid</span> <span class="n">A</span><span class="p">,</span> <span class="n">Monoid</span> <span class="n">B</span><span class="p">,</span> <span class="k">typename</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">is_homomorphism</span><span class="p">(</span><span class="n">F</span> <span class="n">f</span><span class="p">,</span> <span class="k">const</span> <span class="n">A</span><span class="o">&amp;</span> <span class="n">a1</span><span class="p">,</span> <span class="k">const</span> <span class="n">A</span><span class="o">&amp;</span> <span class="n">a2</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">f</span><span class="p">(</span><span class="n">op</span><span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">))</span> <span class="o">==</span> <span class="n">op</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">a1</span><span class="p">),</span> <span class="n">f</span><span class="p">(</span><span class="n">a2</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This tests one pair of inputs. It is not a proof, but it catches violations.</p>
+<h2 id="examples-everywhere">Examples Everywhere</h2>
+<p><strong>Length.</strong> The string monoid (concatenation, empty string) maps to the integers under addition. The map is <code>length</code>. And length is a homomorphism:</p>
+$$\text{length}(s_1 + s_2) = \text{length}(s_1) + \text{length}(s_2)$$<p>The length of a concatenation is the sum of the lengths. This is not a coincidence. It is the homomorphism property.</p>
+<p><strong>Sum.</strong> Lists of integers under concatenation form a monoid. The integers under addition form a monoid. The map <code>sum</code> is a homomorphism:</p>
+$$\text{sum}(xs \mathbin{+\!\!+} ys) = \text{sum}(xs) + \text{sum}(ys)$$<p><strong>Product.</strong> Same source monoid, different target. Now the integers under multiplication:</p>
+$$\text{prod}(xs \mathbin{+\!\!+} ys) = \text{prod}(xs) \times \text{prod}(ys)$$<p><strong>Logarithm.</strong> The positive reals under multiplication form a monoid. The reals under addition form a monoid. The logarithm maps one to the other:</p>
+$$\log(a \times b) = \log(a) + \log(b)$$<p>This is the defining property of the logarithm, stated as algebra. The logarithm is a homomorphism from \((\mathbb{R}^+, \times, 1)\) to \((\mathbb{R}, +, 0)\).</p>
+<p><strong>Count.</strong> For any type \(T\), the function that sends a list to its length is a homomorphism from the list monoid to \((\mathbb{Z}, +, 0)\). This is the same as the string length example, generalized.</p>
+<p>These are not arbitrary functions. They are structure-preserving maps.</p>
+<h2 id="fold-the-universal-homomorphism">Fold: The Universal Homomorphism</h2>
+<p>Here is the deepest example. Lists are the <strong>free monoid</strong>: the most general monoid on a set of generators. Given any set \(T\), the lists over \(T\) form a monoid under concatenation, and this monoid is &ldquo;free&rdquo; in a precise sense.</p>
+<p>The universal property: for any monoid \(M\) and any function \(f: T \to M\), there is exactly one homomorphism from the free monoid on \(T\) to \(M\) that extends \(f\). That homomorphism is <code>fold</code>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Monoid</span> <span class="n">M</span><span class="p">,</span> <span class="k">typename</span> <span class="n">T</span><span class="p">,</span> <span class="k">typename</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span> <span class="n">std</span><span class="o">::</span><span class="n">invocable</span><span class="o">&lt;</span><span class="n">F</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">          <span class="o">&amp;&amp;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">invoke_result_t</span><span class="o">&lt;</span><span class="n">F</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">M</span> <span class="n">fold</span><span class="p">(</span><span class="n">F</span> <span class="n">f</span><span class="p">,</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&amp;</span> <span class="n">xs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">M</span> <span class="n">result</span> <span class="o">=</span> <span class="n">identity</span><span class="p">(</span><span class="n">M</span><span class="p">{});</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">x</span> <span class="p">:</span> <span class="n">xs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">op</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">invoke</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is <code>fold</code> stated as algebra. The function \(f\) maps generators to the target monoid. <code>fold</code> extends that map to entire lists by applying the monoid operation. The result is a homomorphism: <code>fold(f, xs ++ ys) = op(fold(f, xs), fold(f, ys))</code>.</p>
+<p>Sum is <code>fold</code> where \(f\) sends each integer to itself in the additive monoid. Product is <code>fold</code> where \(f\) sends each integer to itself in the multiplicative monoid. String concatenation is <code>fold</code> where \(f\) is the identity on the string monoid.</p>
+<p>Every time you write a loop that accumulates a result by combining elements one at a time, you are computing a fold. And every fold is a homomorphism.</p>
+<h2 id="the-peasant-connection">The Peasant Connection</h2>
+<p>The <a href="https://metafunctor.com/post/2019-03-peasant-stepanov/">peasant post</a> computed \(x^n\) by repeated squaring. The binary representation of \(n\) is a sequence of bits: a word in the free monoid on \({0, 1}\). The function <code>power()</code> reads this word bit by bit, squaring when it sees a 0 and multiplying by \(x\) when it sees a 1.</p>
+<p>This is a homomorphism. The free monoid on \({0, 1}\) (bit strings under concatenation) maps to the endomorphism monoid (functions from the monoid to itself, under composition). Each bit maps to either &ldquo;square&rdquo; or &ldquo;square and multiply.&rdquo; <code>power()</code> folds this sequence of operations into a single result.</p>
+<p>The binary representation decomposes the exponent. The homomorphism reassembles it in the target monoid. The correctness of repeated squaring is a consequence of this algebraic structure.</p>
+<h2 id="what-homomorphisms-buy-you">What Homomorphisms Buy You</h2>
+<p>If \(f\) is a homomorphism and you can split the input into parts, you can compute \(f\) on each part independently and combine the results:</p>
+$$f(a \oplus b \oplus c) = f(a) \oplus f(b) \oplus f(c)$$<p>This is the algebraic reason parallelism works. The <a href="https://metafunctor.com/post/2026-03-accumulator-stepanov/">accumulator post</a> showed that accumulators are monoids and that <code>fold</code> over accumulators gives parallel statistics. The reason the partitioning works, the reason you can split data across threads and merge results, is that fold is a homomorphism. Associativity alone lets you re-parenthesize. The homomorphism property lets you distribute across parts.</p>
+<p>Not every function is a homomorphism. The square function \(x \mapsto x^2\) is not a homomorphism from \((\mathbb{Z}, +)\) to \((\mathbb{Z}, +)\), because \((a+b)^2 \neq a^2 + b^2\). Functions that fail the homomorphism property cannot be parallelized by splitting and combining. The algebra tells you which functions admit this decomposition and which do not.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<p>Every homomorphism in this post has the same shape:</p>
+<ol>
+<li>Two monoids, a source and a target.</li>
+<li>A function between them.</li>
+<li>The function commutes with the operation.</li>
+</ol>
+<p>When condition 3 holds, you get composability (homomorphisms compose), parallelism (split, compute, combine), and correctness (the algebra guarantees it).</p>
+<p>Algorithms arise from algebraic structure. Homomorphisms are the maps that carry that structure from one domain to another.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Mac Lane, <em>Categories for the Working Mathematician</em>, Ch. 1 (free objects and universal properties)</li>
+<li>Bird &amp; de Moor, <em>Algebra of Programming</em> (homomorphisms and program derivation)</li>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>homomorphisms</category></item><item><title>Lattices: Fixed Points and Iteration</title><link>https://metafunctor.com/post/2026-03-lattice-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-lattice-stepanov/</guid><description>A lattice has two operations, meet and join, satisfying absorption laws. Tarski's theorem gives a generic fixed-point algorithm. Lattice structure determines the iteration, just as monoid structure determines power-by-squaring.</description><content:encoded><![CDATA[<p><em>Lattices have two operations of a different kind than rings. The structure determines a fixed-point algorithm.</em></p>
+<h2 id="two-operations-different-rules">Two Operations, Different Rules</h2>
+<p>Monoids have one binary operation. Rings have two (addition and multiplication) linked by distributivity. Lattices also have two operations, but with different laws entirely.</p>
+<p>A <strong>lattice</strong> is a set with two operations:</p>
+<ul>
+<li><strong>meet</strong> (\(\wedge\)): greatest lower bound</li>
+<li><strong>join</strong> (\(\vee\)): least upper bound</li>
+</ul>
+<p>Both are idempotent, commutative, and associative. And they satisfy the <strong>absorption laws</strong>:</p>
+$$a \wedge (a \vee b) = a \qquad a \vee (a \wedge b) = a$$<p>Absorption is what distinguishes lattices from a pair of unrelated monoids. It ties meet and join together: knowing one constrains the other.</p>
+<p>A <strong>bounded lattice</strong> adds a least element (bottom, \(\bot\)) and a greatest element (top, \(\top\)). Bottom is the identity for join, top is the identity for meet.</p>
+<p>In C++20 concepts, with ADL free functions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">L</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Lattice</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">semiregular</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">L</span> <span class="n">a</span><span class="p">,</span> <span class="n">L</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">meet</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">join</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">L</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">BoundedLattice</span> <span class="o">=</span> <span class="n">Lattice</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">L</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">bottom</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">top</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">L</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span></code></pre></div><h2 id="four-examples">Four Examples</h2>
+<p><strong>Sign lattice.</strong> Abstract signs of integers: bottom (unreachable), negative, zero, positive, top (unknown). Meet is greatest lower bound, join is least upper bound in the Hasse diagram. This is the classic abstract interpretation domain. You can define abstract arithmetic on it: <code>pos * neg = neg</code>, <code>neg + neg = neg</code>, <code>pos + neg = top</code>.</p>
+<p><strong>Intervals.</strong> Closed intervals \([a, b]\) ordered by inclusion. Meet is intersection. Join is the smallest enclosing interval. Bottom is the empty interval. Top is the full range. This is the foundation of interval arithmetic.</p>
+<p><strong>Divisors.</strong> Positive integers ordered by divisibility. Meet is gcd, join is lcm. Bottom is 1 (divides everything), top is 0 (everything divides 0). Lattice structure appearing in number theory.</p>
+<p><strong>Power sets.</strong> Subsets of \(\{0, \ldots, N-1\}\). Meet is intersection (bitwise AND), join is union (bitwise OR). Bottom is the empty set, top is the full set.</p>
+<p>All four satisfy <code>BoundedLattice</code>. All four satisfy the same laws. The concept constrains the interface; the laws constrain the semantics.</p>
+<h2 id="the-algorithm-tarskis-fixed-point-theorem">The Algorithm: Tarski&rsquo;s Fixed-Point Theorem</h2>
+<p>Here is the payoff. Tarski&rsquo;s theorem: any monotone function on a complete lattice has a least fixed point, computable by iterating from bottom.</p>
+<p>Start at \(\bot\). Apply \(f\). Join the result with the current value. Repeat until nothing changes. This is Kleene iteration:</p>
+$$x_0 = \bot, \quad x_{n+1} = x_n \vee f(x_n)$$<p>The sequence \(x_0 \leq x_1 \leq x_2 \leq \cdots\) is ascending. In a finite lattice, it must terminate.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">BoundedLattice</span> <span class="n">L</span><span class="p">,</span> <span class="k">typename</span> <span class="n">F</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">L</span> <span class="n">least_fixed_point</span><span class="p">(</span><span class="n">F</span> <span class="n">f</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">max_iter</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">L</span> <span class="n">x</span> <span class="o">=</span> <span class="n">bottom</span><span class="p">(</span><span class="n">L</span><span class="p">{});</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max_iter</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">L</span> <span class="n">next</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">next</span> <span class="o">==</span> <span class="n">x</span><span class="p">)</span> <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">x</span> <span class="o">=</span> <span class="n">next</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This is the lattice analog of <code>power()</code> from the peasant post. There, monoid structure gave us repeated squaring. Here, lattice structure gives us fixed-point iteration. Different algebra, different algorithm, same principle: the structure determines the computation.</p>
+<h2 id="application-abstract-interpretation">Application: Abstract Interpretation</h2>
+<p>The sign lattice is not just a mathematical curiosity. It is the simplest example of <strong>abstract interpretation</strong>, a technique for reasoning about programs without running them.</p>
+<p>Consider a program variable <code>x</code>. Instead of tracking its concrete value, track its abstract sign. An assignment <code>x = 3</code> gives <code>x = positive</code>. An operation <code>x = a * b</code> where <code>a</code> is negative and <code>b</code> is positive gives <code>x = negative</code>.</p>
+<p>For loops, we need a fixed point. If a loop body adds a positive number to a variable starting at zero, what sign does the variable have after the loop? We compute the least fixed point of the transfer function:</p>
+<ol>
+<li>Start: <code>x = bot</code> (unreachable)</li>
+<li>Join with initial condition: <code>join(bot, zero) = zero</code></li>
+<li>Apply transfer: <code>zero + positive = positive</code></li>
+<li>Join: <code>join(zero, positive) = top</code></li>
+<li>Apply transfer: <code>top + positive = top</code></li>
+<li>Join: <code>join(top, top) = top</code>. Fixed point reached.</li>
+</ol>
+<p>The result is <code>top</code>: the variable could be zero or positive (or, conservatively, anything). The sign lattice is too coarse to distinguish &ldquo;non-negative&rdquo; from &ldquo;unknown&rdquo;. A richer lattice (like intervals) would give a tighter answer.</p>
+<p>The point is that the algorithm is the same regardless of the lattice. Swap <code>sign_lattice</code> for <code>interval&lt;int&gt;</code> or <code>powerset&lt;N&gt;</code>, and <code>least_fixed_point</code> still works. The lattice structure determines the iteration.</p>
+<h2 id="the-connection">The Connection</h2>
+<p>In the peasant post, the observation was: any monoid supports efficient exponentiation. In the accumulator post: any monoid supports composable streaming computation. Here: any bounded lattice supports fixed-point iteration.</p>
+<p>Each algebraic structure comes with its own generic algorithm. Monoid structure gives <code>power()</code>. Lattice structure gives <code>least_fixed_point()</code>. The pattern repeats: define the algebra, get the algorithm.</p>
+<p>Algorithms arise from algebraic structure.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Davey &amp; Priestley, <em>Introduction to Lattices and Order</em></li>
+<li>Cousot &amp; Cousot, &ldquo;Abstract Interpretation: A Unified Lattice Model&rdquo;</li>
+<li>Tarski, &ldquo;A Lattice-Theoretical Fixpoint Theorem and its Applications&rdquo;</li>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>lattices</category><category>abstract-interpretation</category></item><item><title>Semirings: One Algorithm, Six Graph Problems</title><link>https://metafunctor.com/post/2026-03-semiring-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-semiring-stepanov/</guid><description>A semiring has two monoidal operations linked by distributivity. Matrix multiplication over different semirings gives shortest paths, longest paths, widest paths, reachability, and path counting, all from the same code.</description><content:encoded><![CDATA[<p><em>The peasant post showed that power() works on any monoid. But what happens when you have two operations instead of one?</em></p>
+<h2 id="from-monoids-to-semirings">From Monoids to Semirings</h2>
+<p>A monoid is one operation with an identity element. The peasant algorithm exploits this: give it any monoid and it computes powers by repeated squaring. The accumulator post used the same structure for streaming statistics.</p>
+<p>A semiring is two monoids on the same set, linked by a compatibility condition. Formally, a semiring \((S, +, \times, 0, 1)\) satisfies:</p>
+<ol>
+<li>\((S, +, 0)\) is a commutative monoid</li>
+<li>\((S, \times, 1)\) is a monoid</li>
+<li>\(\times\) distributes over \(+\): \(a \times (b + c) = a \times b + a \times c\)</li>
+<li>\(0\) annihilates: \(0 \times a = a \times 0 = 0\)</li>
+</ol>
+<p>In C++20, using the same ADL free functions as the peasant post:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Semiring</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">semiregular</span><span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">S</span> <span class="n">a</span><span class="p">,</span> <span class="n">S</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">zero</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">one</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span></code></pre></div><p>The concept captures syntax. The axioms (associativity, distributivity, annihilation) are semantic requirements that the programmer must ensure.</p>
+<h2 id="five-semirings">Five Semirings</h2>
+<p>The ordinary integers are a semiring. But there are others, and each one corresponds to a different graph problem.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Semiring</th>
+          <th>\(+\)</th>
+          <th>\(\times\)</th>
+          <th>\(0\)</th>
+          <th>\(1\)</th>
+          <th>Graph problem</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Boolean</td>
+          <td>or</td>
+          <td>and</td>
+          <td>false</td>
+          <td>true</td>
+          <td>Reachability</td>
+      </tr>
+      <tr>
+          <td>Tropical min</td>
+          <td>min</td>
+          <td>plus</td>
+          <td>\(\infty\)</td>
+          <td>0</td>
+          <td>Shortest paths</td>
+      </tr>
+      <tr>
+          <td>Tropical max</td>
+          <td>max</td>
+          <td>plus</td>
+          <td>\(-\infty\)</td>
+          <td>0</td>
+          <td>Longest paths</td>
+      </tr>
+      <tr>
+          <td>Bottleneck</td>
+          <td>max</td>
+          <td>min</td>
+          <td>\(-\infty\)</td>
+          <td>\(\infty\)</td>
+          <td>Widest paths</td>
+      </tr>
+      <tr>
+          <td>Counting</td>
+          <td>plus</td>
+          <td>times</td>
+          <td>0</td>
+          <td>1</td>
+          <td>Number of paths</td>
+      </tr>
+  </tbody>
+</table>
+<p>The naming of the tropical semirings is counterintuitive but standard. In the tropical min semiring, the &ldquo;addition&rdquo; is min and the &ldquo;multiplication&rdquo; is ordinary addition. This matters because matrix multiplication uses both operations, and we need the algebraic structure to be correct: the inner product of a row and column computes the best path through an intermediate node.</p>
+<p>Each semiring is a small struct with <code>operator+</code>, <code>operator*</code>, and ADL functions <code>zero()</code> and <code>one()</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">boolean_semiring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="n">val</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="n">boolean_semiring</span> <span class="k">operator</span><span class="o">+</span><span class="p">(</span><span class="n">boolean_semiring</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nf">boolean_semiring</span><span class="p">(</span><span class="n">val</span> <span class="o">||</span> <span class="n">rhs</span><span class="p">.</span><span class="n">val</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="n">boolean_semiring</span> <span class="k">operator</span><span class="o">*</span><span class="p">(</span><span class="n">boolean_semiring</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nf">boolean_semiring</span><span class="p">(</span><span class="n">val</span> <span class="o">&amp;&amp;</span> <span class="n">rhs</span><span class="p">.</span><span class="n">val</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">boolean_semiring</span> <span class="nf">zero</span><span class="p">(</span><span class="n">boolean_semiring</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">boolean_semiring</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">boolean_semiring</span> <span class="nf">one</span><span class="p">(</span><span class="n">boolean_semiring</span><span class="p">)</span>  <span class="p">{</span> <span class="k">return</span> <span class="n">boolean_semiring</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span> <span class="p">}</span>
+</span></span></code></pre></div><h2 id="matrices-over-a-semiring">Matrices Over a Semiring</h2>
+<p>Matrix multiplication requires addition and multiplication. That is exactly what a semiring provides. If \(S\) is a semiring, then \(n \times n\) matrices over \(S\) form a semiring too, with entry-wise addition and the usual row-times-column product (using \(S\)&rsquo;s operations).</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Semiring</span> <span class="n">S</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">matrix</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">S</span> <span class="n">data_</span><span class="p">[</span><span class="n">N</span><span class="p">][</span><span class="n">N</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="n">matrix</span> <span class="k">operator</span><span class="o">*</span><span class="p">(</span><span class="k">const</span> <span class="n">matrix</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">matrix</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="o">++</span><span class="n">k</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">result</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">=</span> <span class="n">result</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="n">data_</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">rhs</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>This is ordinary matrix multiplication. The only difference is that <code>+</code> and <code>*</code> are the semiring operations, not necessarily arithmetic addition and multiplication.</p>
+<h2 id="the-insight">The Insight</h2>
+<p>Represent a graph as an adjacency matrix over a semiring. Entry \(A(i,j)\) holds the edge weight from node \(i\) to node \(j\), or the semiring zero if there is no edge.</p>
+<p>Now compute \(A^k\). Entry \(A^k(i,j)\) combines, over all \(k\)-hop paths from \(i\) to \(j\), the &ldquo;product&rdquo; of edge weights along each path, then takes the &ldquo;sum&rdquo; across all such paths. What &ldquo;product&rdquo; and &ldquo;sum&rdquo; mean depends on the semiring:</p>
+<ul>
+<li><strong>Boolean</strong>: \(A^k(i,j)\) is true iff there exists a path of length \(k\). Product is AND (all edges must exist), sum is OR (any path suffices).</li>
+<li><strong>Tropical min</strong>: \(A^k(i,j)\) is the shortest \(k\)-edge path. Product is addition (path length is the sum of edge weights), sum is min (we want the shortest).</li>
+<li><strong>Tropical max</strong>: \(A^k(i,j)\) is the longest \(k\)-edge path. Same idea, but sum is max.</li>
+<li><strong>Bottleneck</strong>: \(A^k(i,j)\) is the widest \(k\)-edge path. Product is min (capacity is the narrowest edge), sum is max (we want the widest such path).</li>
+<li><strong>Counting</strong>: \(A^k(i,j)\) is the number of \(k\)-edge paths. Product is multiplication (each intermediate edge multiplies the count), sum is addition (paths from different intermediaries add up).</li>
+</ul>
+<p>Five different graph algorithms. One matrix power computation. The semiring determines the semantics.</p>
+<h2 id="the-algorithm">The Algorithm</h2>
+<p>To find all-pairs answers considering paths of any length, compute the closure: \(I + A + A^2 + \cdots + A^{N-1}\), where \(N\) is the number of nodes. For a graph with no negative cycles, \(N-1\) hops suffice to cover all simple paths.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Semiring</span> <span class="n">S</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;</span> <span class="n">closure</span><span class="p">(</span><span class="k">const</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;&amp;</span> <span class="n">adj</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">max_hops</span> <span class="o">=</span> <span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;::</span><span class="n">identity</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">ak</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;::</span><span class="n">identity</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="n">max_hops</span><span class="p">;</span> <span class="o">++</span><span class="n">k</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">ak</span> <span class="o">=</span> <span class="n">ak</span> <span class="o">*</span> <span class="n">adj</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">ak</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The individual matrix powers use the same repeated-squaring algorithm from the peasant post:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Semiring</span> <span class="n">S</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;</span> <span class="n">power</span><span class="p">(</span><span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;</span> <span class="n">base</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">exp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="n">S</span><span class="p">,</span> <span class="n">N</span><span class="o">&gt;::</span><span class="n">identity</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">base</span> <span class="o">=</span> <span class="n">base</span> <span class="o">*</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">exp</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Same algorithm. Richer algebraic structure. The power function does not know whether it is computing reachability, shortest paths, or path counts. It only knows it has a semiring.</p>
+<h2 id="example">Example</h2>
+<p>Consider a 4-node graph:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">0 --2--&gt; 1 --3--&gt; 3
+</span></span><span class="line"><span class="cl">|        |
+</span></span><span class="line"><span class="cl">5        1
+</span></span><span class="line"><span class="cl">v        v
+</span></span><span class="line"><span class="cl">2 --4--&gt; 3
+</span></span></code></pre></div><p>Build the adjacency matrix once, then swap the semiring:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Shortest paths (tropical min)
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">dist</span> <span class="o">=</span> <span class="n">closure</span><span class="p">(</span><span class="n">adjacency</span><span class="o">&lt;</span><span class="n">tropical_min</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">,</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">({</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tropical_min</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">tropical_min</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">tropical_min</span><span class="p">(</span><span class="mf">3.0</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">tropical_min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">tropical_min</span><span class="p">(</span><span class="mf">4.0</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl"><span class="p">}));</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// dist(0, 3).val == 5.0  (path 0-&gt;1-&gt;3, cost 2+3)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// dist(0, 2).val == 3.0  (path 0-&gt;1-&gt;2, cost 2+1, not direct 5)
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Number of paths (counting)
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">paths</span> <span class="o">=</span> <span class="n">closure</span><span class="p">(</span><span class="n">adjacency</span><span class="o">&lt;</span><span class="n">counting</span><span class="p">,</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">({</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">counting</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">counting</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">counting</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">counting</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">counting</span><span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
+</span></span><span class="line"><span class="cl"><span class="p">}));</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// paths(0, 3).val == 3  (three paths: 0-&gt;1-&gt;3, 0-&gt;2-&gt;3, 0-&gt;1-&gt;2-&gt;3)
+</span></span></span></code></pre></div><p>The graph topology is the same. The semiring determines what question gets answered.</p>
+<h2 id="the-connection">The Connection</h2>
+<p>The peasant post established the pattern: identify the algebraic structure, then write the algorithm once. There, the structure was a monoid and the algorithm was <code>power()</code>. Here, the structure is a semiring and the algorithm is still <code>power()</code>, applied to matrices.</p>
+<p>The accumulator post composed monoids via the product construction. Here, we compose two monoids via distributivity to get a semiring. Same principle at a different level of abstraction.</p>
+<p>Algorithms arise from algebraic structure. The more structure you identify, the more algorithms you get from the same code.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Gondran &amp; Minoux, <em>Graphs, Dioids and Semirings</em></li>
+<li>Dolan, &ldquo;Fun with Semirings&rdquo; (Haskell Symposium 2013)</li>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>semirings</category><category>graph-theory</category></item><item><title>Streaming Statistics, One Monoid at a Time</title><link>https://metafunctor.com/post/2026-03-accumulator-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-accumulator-stepanov/</guid><description>Online accumulators are monoids. Default construction is the identity, combination via += is the binary operation, and parallel composition gives the product monoid, computing arbitrary statistics in a single pass.</description><content:encoded><![CDATA[<p><em>Accumulators are monoids. The same algebraic structure from the peasant post, in a different domain.</em></p>
+<h2 id="accumulators-as-monoids">Accumulators as Monoids</h2>
+<p>An accumulator processes a stream of values, maintaining state that can be queried at any point. Write a class with <code>operator+=</code> for each statistic you need. Sum, mean, variance, min, max. Five statistics, five classes.</p>
+<p>The problem is combinations. Sum <em>and</em> min? Write a sixth class. Sum, min, <em>and</em> max? A seventh. Every new combination requires new code.</p>
+<p>But every accumulator has the same structure:</p>
+<ol>
+<li><strong>Process</strong> a value incrementally: <code>operator+=(value)</code></li>
+<li><strong>Combine</strong> with another accumulator of the same type: <code>operator+=(accumulator)</code></li>
+<li><strong>Extract</strong> a result: <code>.eval()</code></li>
+</ol>
+<p>Default construction gives you an empty accumulator: the <strong>identity element</strong>. Combination via <code>+=</code> is <strong>associative</strong>. Together, a monoid. The <a href="https://metafunctor.com/post/2019-03-peasant-stepanov/">peasant post</a> used the same structure for exponentiation. Here we use it for streaming computation.</p>
+<p>In C++20 concepts:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Accumulator</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">semiregular</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span><span class="p">(</span><span class="n">A</span> <span class="n">a</span><span class="p">,</span> <span class="n">A</span> <span class="n">b</span><span class="p">,</span> <span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">a</span> <span class="o">+=</span> <span class="n">v</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&amp;&gt;</span><span class="p">;</span>   <span class="c1">// process one value
+</span></span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">a</span> <span class="o">+=</span> <span class="n">b</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&amp;&gt;</span><span class="p">;</span>   <span class="c1">// combine two accumulators
+</span></span></span><span class="line"><span class="cl">        <span class="p">{</span> <span class="n">a</span><span class="p">.</span><span class="n">eval</span><span class="p">()</span> <span class="p">};</span>                       <span class="c1">// extract result
+</span></span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span></code></pre></div><h2 id="kbn-compensated-summation">KBN: Compensated Summation</h2>
+<p>The simplest accumulator is a sum. But naive floating-point summation accumulates O(n) rounding error:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">sum</span> <span class="o">+=</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1&#39;000&#39;000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sum</span> <span class="o">+=</span> <span class="mf">1e-10</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Expected: 1.0001    Actual: ~1.00009999999...8
+</span></span></span></code></pre></div><p>When you add a tiny number to a large one, the tiny number&rsquo;s low-order bits get dropped. After a million additions, these losses add up.</p>
+<p>Kahan-Babuska-Neumaier (KBN) summation tracks what gets lost:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">floating_point</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">kbn_sum</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">sum_</span> <span class="o">=</span> <span class="n">T</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">comp_</span> <span class="o">=</span> <span class="n">T</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>   <span class="c1">// compensation for lost bits
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">T</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="n">kbn_sum</span><span class="o">&amp;</span> <span class="k">operator</span><span class="o">+=</span><span class="p">(</span><span class="k">const</span> <span class="n">T</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">T</span> <span class="n">t</span> <span class="o">=</span> <span class="n">sum_</span> <span class="o">+</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">comp_</span> <span class="o">+=</span> <span class="n">abs_</span><span class="p">(</span><span class="n">sum_</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">abs_</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">?</span> <span class="p">(</span><span class="n">sum_</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">+</span> <span class="nl">v</span>
+</span></span><span class="line"><span class="cl">                                       <span class="p">:</span> <span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">+</span> <span class="n">sum_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sum_</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="n">T</span> <span class="nf">eval</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="n">sum_</span> <span class="o">+</span> <span class="n">comp_</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The correction term <code>comp_</code> recovers the bits that floating-point addition drops. O(1) error instead of O(n), regardless of sequence length.</p>
+<p><code>kbn_sum</code> is a monoid:</p>
+<ul>
+<li><strong>Identity</strong>: <code>kbn_sum{}</code> (sum=0, compensation=0)</li>
+<li><strong>Operation</strong>: <code>a += b</code> (combine two compensated sums)</li>
+</ul>
+<h2 id="welford-online-mean-and-variance">Welford: Online Mean and Variance</h2>
+<p>Computing the mean is just sum/count. Variance is harder. The textbook formula \(\sigma^2 = \frac{1}{n}\sum(x_i - \bar{x})^2\) requires two passes: one for the mean, one for the deviations.</p>
+<p>Welford&rsquo;s algorithm computes both in a single pass:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">welford</span><span class="o">&amp;</span> <span class="k">operator</span><span class="o">+=</span><span class="p">(</span><span class="k">const</span> <span class="n">T</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="o">++</span><span class="n">n_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">delta</span> <span class="o">=</span> <span class="n">v</span> <span class="o">-</span> <span class="n">mean_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mean_</span> <span class="o">+=</span> <span class="n">delta</span> <span class="o">/</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">n_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">delta2</span> <span class="o">=</span> <span class="n">v</span> <span class="o">-</span> <span class="n">mean_</span><span class="p">;</span>   <span class="c1">// uses *updated* mean
+</span></span></span><span class="line"><span class="cl">    <span class="n">m2_</span> <span class="o">+=</span> <span class="n">delta</span> <span class="o">*</span> <span class="n">delta2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><code>delta</code> uses the old mean, <code>delta2</code> uses the new mean. Their product accumulates into <code>m2_</code>, the sum of squared deviations. At any point, <code>variance = m2_ / n</code>.</p>
+<p>What makes this a monoid is the combination formula. Given two independent Welford accumulators with means \(\bar{x}_A, \bar{x}_B\) and counts \(n_A, n_B\), Chan et al. showed how to merge them:</p>
+$$\bar{x}\_{AB} = \frac{n_A \bar{x}_A + n_B \bar{x}_B}{n_A + n_B}$$$$M\_{2,AB} = M\_{2,A} + M\_{2,B} + \delta^2 \frac{n_A n_B}{n_A + n_B}$$<p>where \(\delta = \bar{x}_B - \bar{x}_A\). This makes <code>welford</code> a monoid. You can split data across threads, compute partial statistics independently, and merge the results. Correctness follows from the algebra.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<p>Every accumulator I&rsquo;ve built follows the same pattern:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Accumulator</th>
+          <th>Identity</th>
+          <th>Combine operation</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>kbn_sum</code></td>
+          <td>sum=0</td>
+          <td>add sums</td>
+      </tr>
+      <tr>
+          <td><code>welford</code></td>
+          <td>n=0, mean=0, m2=0</td>
+          <td>parallel merge</td>
+      </tr>
+      <tr>
+          <td><code>min_accumulator</code></td>
+          <td>+infinity</td>
+          <td>take smaller</td>
+      </tr>
+      <tr>
+          <td><code>max_accumulator</code></td>
+          <td>-infinity</td>
+          <td>take larger</td>
+      </tr>
+      <tr>
+          <td><code>count_accumulator</code></td>
+          <td>0</td>
+          <td>add counts</td>
+      </tr>
+  </tbody>
+</table>
+<p>Default construction always gives the identity element. Combination via <code>+=</code> is always associative. This isn&rsquo;t a coincidence. Without associativity and an identity element, combination wouldn&rsquo;t be well-defined.</p>
+<p>And associativity is what buys us something concrete. It means we can partition data arbitrarily and combine partial results in any order:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">fold({a, b, c, d, e, f})
+</span></span><span class="line"><span class="cl">    = fold({a, b, c}) += fold({d, e, f})      // split in half
+</span></span><span class="line"><span class="cl">    = fold({a, b}) += fold({c, d, e, f})      // different split
+</span></span></code></pre></div><p>All three give the same answer. That&rsquo;s parallelism, not from a threading library, but from the algebra.</p>
+<h2 id="composition-the-product-monoid">Composition: The Product Monoid</h2>
+<p>Each accumulator is a monoid. The standard construction: <strong>if A and B are monoids, then A x B is a monoid</strong> with component-wise operations. The product monoid.</p>
+<p>In code, this is <code>parallel&lt;A, B&gt;</code>. Both accumulators process the same data stream, each maintaining its own state:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Accumulator</span> <span class="n">A</span><span class="p">,</span> <span class="n">Accumulator</span> <span class="n">B</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span><span class="p">,</span> <span class="k">typename</span> <span class="n">B</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">parallel</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">A</span> <span class="n">a_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">B</span> <span class="n">b_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">parallel</span><span class="o">&amp;</span> <span class="k">operator</span><span class="o">+=</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a_</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span> <span class="n">b_</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">parallel</span><span class="o">&amp;</span> <span class="k">operator</span><span class="o">+=</span><span class="p">(</span><span class="k">const</span> <span class="n">parallel</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a_</span> <span class="o">+=</span> <span class="n">other</span><span class="p">.</span><span class="n">a_</span><span class="p">;</span> <span class="n">b_</span> <span class="o">+=</span> <span class="n">other</span><span class="p">.</span><span class="n">b_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="nf">eval</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">make_tuple</span><span class="p">(</span><span class="n">a_</span><span class="p">.</span><span class="n">eval</span><span class="p">(),</span> <span class="n">b_</span><span class="p">.</span><span class="n">eval</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p><code>parallel&lt;A, B&gt;</code> itself satisfies <code>Accumulator</code>, so it nests:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Sum, min, and max in one pass
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">{}</span> <span class="o">|</span> <span class="n">min_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">{}</span> <span class="o">|</span> <span class="n">max_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">{};</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">double</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">stats</span> <span class="o">+=</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="p">[</span><span class="n">inner</span><span class="p">,</span> <span class="n">max</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="n">eval</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="p">[</span><span class="n">sum</span><span class="p">,</span> <span class="n">min</span><span class="p">]</span> <span class="o">=</span> <span class="n">inner</span><span class="p">;</span>
+</span></span></code></pre></div><p>The <code>|</code> operator constructs a <code>parallel</code>. Nesting <code>parallel&lt;parallel&lt;A, B&gt;, C&gt;</code> computes three statistics with a single loop. Four statistics? Nest again. The structure composes without limit.</p>
+<p>You don&rsquo;t write new code for each combination. You compose existing accumulators. The product monoid construction guarantees that the result is itself a valid accumulator. One loop, arbitrary statistics.</p>
+<h2 id="fold-the-algorithm">fold: The Algorithm</h2>
+<p>Every accumulator is a monoid. Every monoid has a natural fold:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">Accumulator</span> <span class="n">Acc</span><span class="p">,</span> <span class="k">typename</span> <span class="n">It</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">Acc</span> <span class="n">fold</span><span class="p">(</span><span class="n">It</span> <span class="n">first</span><span class="p">,</span> <span class="n">It</span> <span class="n">last</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Acc</span> <span class="n">acc</span><span class="p">{};</span>    <span class="c1">// identity element
+</span></span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(;</span> <span class="n">first</span> <span class="o">!=</span> <span class="n">last</span><span class="p">;</span> <span class="o">++</span><span class="n">first</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">acc</span> <span class="o">+=</span> <span class="o">*</span><span class="n">first</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">acc</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Compare this to <code>power()</code> from the peasant post. <code>power()</code> repeats multiplication guided by an exponent. <code>fold()</code> repeats accumulation guided by a data stream. Same pattern.</p>
+<p>Because <code>+=</code> is associative, we could split the range, fold each piece independently, and combine. That&rsquo;s <code>std::reduce</code> with parallel execution, and it works correctly for the same reason the partitioning above works.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// All statistics in one pass
+</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">parallel</span><span class="o">&lt;</span><span class="n">kbn_sum</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                       <span class="n">parallel</span><span class="o">&lt;</span><span class="n">welford</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                <span class="n">parallel</span><span class="o">&lt;</span><span class="n">min_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                         <span class="n">max_accumulator</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">fold</span><span class="o">&lt;</span><span class="n">stats</span><span class="o">&gt;</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">data</span><span class="p">.</span><span class="n">end</span><span class="p">());</span>
+</span></span></code></pre></div><h2 id="the-connection">The Connection</h2>
+<p>In the peasant post, the observation was: any monoid supports efficient exponentiation. Here: any monoid supports composable streaming computation. Same structure, different domain.</p>
+<p>The product monoid is what turns five independent classes into a composable algebra. Arbitrary combinations, built from parts, with correctness following from the structure. No new code per combination.</p>
+<p>Algorithms arise from algebraic structure.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Kahan, &ldquo;Pracniques: Further Remarks on Reducing Truncation Errors&rdquo;</li>
+<li>Welford, &ldquo;Note on a Method for Calculating Corrected Sums of Squares and Products&rdquo;</li>
+<li>Chan, Golub &amp; LeVeque, &ldquo;Updating Formulae and a Pairwise Algorithm for Computing Sample Variances&rdquo;</li>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>statistics</category></item><item><title>Seeing Structure First</title><link>https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</link><pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</guid><description>A reflection on eleven explorations in generic programming, and how algorithms arise from algebraic structure.</description><content:encoded><![CDATA[<p><em>A reflection on eleven explorations in generic programming</em></p>
 <h2 id="the-question-behind-the-code">The Question Behind the Code</h2>
 <p>What do these computations have in common?</p>
 <ul>
@@ -488,619 +1086,18 @@ $$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges
 <li>Ireland &amp; Rosen, <em>A Classical Introduction to Modern Number Theory</em> &ndash; modular arithmetic</li>
 <li>Graham, Knuth, Patashnik, <em>Concrete Mathematics</em> &ndash; rational numbers, recurrences</li>
 </ul>
-]]></content:encoded>
-      
-      
-      <category>C&#43;&#43;</category>
-      
-      <category>generic-programming</category>
-      
-      <category>algorithms</category>
-      
-      <category>monoids</category>
-      
-      <category>algebraic-structures</category>
-      
-      <category>stepanov</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Alexander Stepanov: Efficient Programming with Components (A9 Lectures)</title>
-      <link>http://localhost:40461/media/stepanov-lectures-a9/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/stepanov-lectures-a9/</guid>
-      <description>Notes 18-part lecture series on efficient programming. Covers the intellectual foundations behind STL.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
-<p>18-part lecture series on efficient programming. Covers the intellectual foundations behind STL.</p>
-]]></content:encoded>
-      
-      
-      <category>generic-programming</category>
-      
-      <category>algorithms</category>
-      
-      <category>c&#43;&#43;</category>
-      
-      <category>stl</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Alexander Stepanov: Notes on Programming</title>
-      <link>http://localhost:40461/media/stepanov-notes-programming/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/stepanov-notes-programming/</guid>
-      <description>Notes Collected notes on programming philosophy. Free PDF.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
-<p>Collected notes on programming philosophy. Free PDF.</p>
-]]></content:encoded>
-      
-      
-      <category>programming</category>
-      
-      <category>algorithms</category>
-      
-      <category>philosophy</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Algorithm Design</title>
-      <link>http://localhost:40461/media/algorithm-design/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/algorithm-design/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>graph-theory</category>
-      
-      <category>dynamic-programming</category>
-      
-      <category>textbook</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Algorithms</title>
-      <link>http://localhost:40461/media/algorithms/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/algorithms/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>java</category>
-      
-      <category>textbook</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Concrete Mathematics</title>
-      <link>http://localhost:40461/media/concrete-mathematics/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/concrete-mathematics/</guid>
-      <description>Notes Blends discrete mathematics with analysis and algorithm design.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
-<p>Blends discrete mathematics with analysis and algorithm design.</p>
-]]></content:encoded>
-      
-      
-      <category>discrete-mathematics</category>
-      
-      <category>algorithms</category>
-      
-      <category>analysis</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Convex Optimization</title>
-      <link>http://localhost:40461/media/convex-optimization/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/convex-optimization/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>optimization</category>
-      
-      <category>convex</category>
-      
-      <category>algorithms</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Elements of Programming</title>
-      <link>http://localhost:40461/media/stepanov-elements-programming/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/stepanov-elements-programming/</guid>
-      <description>Notes Rigorous foundations of generic programming. Connects algebra and algorithms. Stepanov’s magnum opus.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>algebraic-structures</category><category>stepanov</category></item><item><title>Alexander Stepanov: Efficient Programming with Components (A9 Lectures)</title><link>https://metafunctor.com/media/stepanov-lectures-a9/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/stepanov-lectures-a9/</guid><description>Notes 18-part lecture series on efficient programming. Covers the intellectual foundations behind STL.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+&lt;p>18-part lecture series on efficient programming. Covers the intellectual foundations behind STL.&lt;/p>
+</content:encoded><category>generic-programming</category><category>algorithms</category><category>c++</category><category>stl</category></item><item><title>Alexander Stepanov: Notes on Programming</title><link>https://metafunctor.com/media/stepanov-notes-programming/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/stepanov-notes-programming/</guid><description>Notes Collected notes on programming philosophy. Free PDF.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+&lt;p>Collected notes on programming philosophy. Free PDF.&lt;/p>
+</content:encoded><category>programming</category><category>algorithms</category><category>philosophy</category></item><item><title>Algorithm Design</title><link>https://metafunctor.com/media/algorithm-design/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/algorithm-design/</guid><description/><content:encoded></content:encoded><category>algorithms</category><category>graph-theory</category><category>dynamic-programming</category><category>textbook</category></item><item><title>Algorithms</title><link>https://metafunctor.com/media/algorithms/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/algorithms/</guid><description/><content:encoded></content:encoded><category>algorithms</category><category>java</category><category>textbook</category></item><item><title>Concrete Mathematics</title><link>https://metafunctor.com/media/concrete-mathematics/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/concrete-mathematics/</guid><description>Notes Blends discrete mathematics with analysis and algorithm design.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+&lt;p>Blends discrete mathematics with analysis and algorithm design.&lt;/p>
+</content:encoded><category>discrete-mathematics</category><category>algorithms</category><category>analysis</category></item><item><title>Convex Optimization</title><link>https://metafunctor.com/media/convex-optimization/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/convex-optimization/</guid><description/><content:encoded></content:encoded><category>optimization</category><category>convex</category><category>algorithms</category></item><item><title>Elements of Programming</title><link>https://metafunctor.com/media/stepanov-elements-programming/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/stepanov-elements-programming/</guid><description>Notes Rigorous foundations of generic programming. Connects algebra and algorithms. Stepanov’s magnum opus.</description><content:encoded><![CDATA[<h2 id="notes">Notes</h2>
 <p>Rigorous foundations of generic programming. Connects algebra and algorithms. Stepanov&rsquo;s magnum opus.</p>
-]]></content:encoded>
-      
-      
-      <category>generic-programming</category>
-      
-      <category>algorithms</category>
-      
-      <category>abstract-algebra</category>
-      
-      <category>c&#43;&#43;</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>From Mathematics to Generic Programming</title>
-      <link>http://localhost:40461/media/stepanov-from-mathematics-to-generic/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/stepanov-from-mathematics-to-generic/</guid>
-      <description>Notes History of mathematical ideas underlying generic programming. More accessible than EoP.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
-<p>History of mathematical ideas underlying generic programming. More accessible than EoP.</p>
-]]></content:encoded>
-      
-      
-      <category>generic-programming</category>
-      
-      <category>mathematics</category>
-      
-      <category>algorithms</category>
-      
-      <category>history</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Introduction to Algorithms (CLRS)</title>
-      <link>http://localhost:40461/media/introduction-to-algorithms-clrs/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/introduction-to-algorithms-clrs/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>textbook</category>
-      
-      <category>classic</category>
-      
-      <category>reference</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Numerical Recipes: The Art of Scientific Computing</title>
-      <link>http://localhost:40461/media/numerical-recipes/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/numerical-recipes/</guid>
-      <description>Notes Broad coverage of numerical algorithms in science and engineering. Classic cross-topic numerical algorithms.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
-<p>Broad coverage of numerical algorithms in science and engineering. Classic cross-topic numerical algorithms.</p>
-]]></content:encoded>
-      
-      
-      <category>numerical-methods</category>
-      
-      <category>algorithms</category>
-      
-      <category>scientific-computing</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Pearls of Functional Algorithm Design</title>
-      <link>http://localhost:40461/media/pearls-of-functional-algorithm-design/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/pearls-of-functional-algorithm-design/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>functional-programming</category>
-      
-      <category>haskell</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Programming Pearls</title>
-      <link>http://localhost:40461/media/programming-pearls/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/programming-pearls/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>problem-solving</category>
-      
-      <category>classic</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>Sean Parent: C&#43;&#43; Seasoning (That&#39;s a Rotate)</title>
-      <link>http://localhost:40461/media/sean-parent-rotate/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/sean-parent-rotate/</guid>
-      <description>Notes Classic talk on recognizing algorithmic patterns. ‘No raw loops’ - shows how rotate solves many problems elegantly.
-</description>
-      <content:encoded><![CDATA[<h2 id="notes">Notes</h2>
+]]></content:encoded><category>generic-programming</category><category>algorithms</category><category>abstract-algebra</category><category>c++</category></item><item><title>From Mathematics to Generic Programming</title><link>https://metafunctor.com/media/stepanov-from-mathematics-to-generic/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/stepanov-from-mathematics-to-generic/</guid><description>Notes History of mathematical ideas underlying generic programming. More accessible than EoP.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+&lt;p>History of mathematical ideas underlying generic programming. More accessible than EoP.&lt;/p>
+</content:encoded><category>generic-programming</category><category>mathematics</category><category>algorithms</category><category>history</category></item><item><title>Introduction to Algorithms (CLRS)</title><link>https://metafunctor.com/media/introduction-to-algorithms-clrs/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/introduction-to-algorithms-clrs/</guid><description/><content:encoded></content:encoded><category>algorithms</category><category>textbook</category><category>classic</category><category>reference</category></item><item><title>Numerical Recipes: The Art of Scientific Computing</title><link>https://metafunctor.com/media/numerical-recipes/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/numerical-recipes/</guid><description>Notes Broad coverage of numerical algorithms in science and engineering. Classic cross-topic numerical algorithms.</description><content:encoded>&lt;h2 id="notes">Notes&lt;/h2>
+&lt;p>Broad coverage of numerical algorithms in science and engineering. Classic cross-topic numerical algorithms.&lt;/p>
+</content:encoded><category>numerical-methods</category><category>algorithms</category><category>scientific-computing</category></item><item><title>Pearls of Functional Algorithm Design</title><link>https://metafunctor.com/media/pearls-of-functional-algorithm-design/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/pearls-of-functional-algorithm-design/</guid><description/><content:encoded></content:encoded><category>algorithms</category><category>functional-programming</category><category>haskell</category></item><item><title>Programming Pearls</title><link>https://metafunctor.com/media/programming-pearls/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/programming-pearls/</guid><description/><content:encoded></content:encoded><category>algorithms</category><category>problem-solving</category><category>classic</category></item><item><title>Sean Parent: C++ Seasoning (That's a Rotate)</title><link>https://metafunctor.com/media/sean-parent-rotate/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/sean-parent-rotate/</guid><description>Notes Classic talk on recognizing algorithmic patterns. ‘No raw loops’ - shows how rotate solves many problems elegantly.</description><content:encoded><![CDATA[<h2 id="notes">Notes</h2>
 <p>Classic talk on recognizing algorithmic patterns. &lsquo;No raw loops&rsquo; - shows how rotate solves many problems elegantly.</p>
-]]></content:encoded>
-      
-      
-      <category>c&#43;&#43;</category>
-      
-      <category>algorithms</category>
-      
-      <category>stl</category>
-      
-      <category>generic-programming</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>The Algorithm Design Manual</title>
-      <link>http://localhost:40461/media/the-algorithm-design-manual/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/the-algorithm-design-manual/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>data-structures</category>
-      
-      <category>practical</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>The Art of Computer Programming, Vol 1: Fundamental Algorithms</title>
-      <link>http://localhost:40461/media/taocp-vol1/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/taocp-vol1/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>data-structures</category>
-      
-      <category>classic</category>
-      
-      <category>reference</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>The Art of Computer Programming, Vol 2: Seminumerical Algorithms</title>
-      <link>http://localhost:40461/media/taocp-vol2/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/taocp-vol2/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>random-numbers</category>
-      
-      <category>arithmetic</category>
-      
-      <category>classic</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>The Art of Computer Programming, Vol 3: Sorting and Searching</title>
-      <link>http://localhost:40461/media/taocp-vol3/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/taocp-vol3/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>sorting</category>
-      
-      <category>searching</category>
-      
-      <category>classic</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>The Art of Computer Programming, Vol 4A: Combinatorial Algorithms</title>
-      <link>http://localhost:40461/media/taocp-vol4a/</link>
-      <pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/media/taocp-vol4a/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-      
-      
-      <category>algorithms</category>
-      
-      <category>combinatorics</category>
-      
-      <category>enumeration</category>
-      
-      <category>classic</category>
-      
-      
-    </item>
-    
-    <item>
-      <title>AlgoGraph: Immutable Graph Library with Functional Transformers</title>
-      <link>http://localhost:40461/post/2025-11-30-algograph/</link>
-      <pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate>
-      <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">http://localhost:40461/post/2025-11-30-algograph/</guid>
-      <description>AlgoGraph is an immutable graph library for Python with pipe-based transformers, declarative selectors, and lazy views.</description>
-      <content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/AlgoGraph/">AlgoGraph</a></strong> is an immutable graph library for Python. Version 2.0.0 introduces pipe-based transformers, declarative selectors, and lazy views, which together cut boilerplate by roughly 90% for common graph operations.</p>
-<h2 id="why-immutability-for-graphs">Why Immutability for Graphs?</h2>
-<p>Mutable graph libraries like NetworkX are powerful but carry hidden costs:</p>
-<ul>
-<li><strong>Side effects</strong>: Modifying a graph can break other code holding references to it</li>
-<li><strong>Debugging difficulty</strong>: Hard to track when and where a graph changed</li>
-<li><strong>Thread unsafety</strong>: Concurrent modifications cause subtle bugs</li>
-</ul>
-<p>AlgoGraph takes a different approach: <strong>all operations return new graph objects</strong>. The original is never modified.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">g1</span> <span class="o">=</span> <span class="n">Graph</span><span class="o">.</span><span class="n">from_edges</span><span class="p">((</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl"><span class="n">g2</span> <span class="o">=</span> <span class="n">g1</span><span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;D&#39;</span><span class="p">)</span>  <span class="c1"># g1 unchanged, g2 is new graph</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">g1</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">in</span> <span class="n">g2</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
-</span></span></code></pre></div><p>This is the same idea behind persistent data structures in Clojure or Haskell. You get referential transparency, which means you can reason about graph transformations without worrying about what else might be mutating the same object.</p>
-<h2 id="pipe-based-transformers">Pipe-Based Transformers</h2>
-<p>The main feature of v2.0.0 is the transformer pipeline using Python&rsquo;s <code>|</code> operator:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">largest_component</span><span class="p">,</span> <span class="n">stats</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Compose operations declaratively</span>
-</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">graph</span>
-</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">largest_component</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">stats</span><span class="p">())</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># result: {&#39;vertex_count&#39;: 42, &#39;edge_count&#39;: 156, &#39;density&#39;: 0.18, ...}</span>
-</span></span></code></pre></div><p>Compare with the imperative alternative:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Old way (NetworkX-style)</span>
-</span></span><span class="line"><span class="cl"><span class="n">active</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">subgraph</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">)])</span>
-</span></span><span class="line"><span class="cl"><span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">connected_components</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl"><span class="n">largest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">subgraph</span> <span class="o">=</span> <span class="n">active</span><span class="o">.</span><span class="n">subgraph</span><span class="p">(</span><span class="n">largest</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">stats</span> <span class="o">=</span> <span class="n">compute_stats</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
-</span></span></code></pre></div><p>The pipe version reads top to bottom. Each step is a function. You can compose them, reuse them, test them independently.</p>
-<p><strong>Available transformers:</strong></p>
-<ul>
-<li><code>filter_vertices(pred)</code>, <code>filter_edges(pred)</code> &ndash; Filter by predicate</li>
-<li><code>map_vertices(fn)</code>, <code>map_edges(fn)</code> &ndash; Transform attributes</li>
-<li><code>reverse()</code>, <code>to_undirected()</code> &ndash; Structure transformations</li>
-<li><code>largest_component()</code>, <code>minimum_spanning_tree()</code> &ndash; Algorithm-based</li>
-<li><code>to_dict()</code>, <code>to_adjacency_list()</code>, <code>stats()</code> &ndash; Export operations</li>
-</ul>
-<h2 id="declarative-selectors">Declarative Selectors</h2>
-<p>Query vertices and edges with logical operators instead of filtering lambdas:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.graph_selectors</span> <span class="kn">import</span> <span class="n">vertex</span> <span class="k">as</span> <span class="n">v</span><span class="p">,</span> <span class="n">edge</span> <span class="k">as</span> <span class="n">e</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Find active users with high degree</span>
-</span></span><span class="line"><span class="cl"><span class="n">power_users</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Find heavy edges from admin nodes</span>
-</span></span><span class="line"><span class="cl"><span class="n">admin_edges</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_edges</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;admin&#39;</span><span class="p">))</span> <span class="o">&amp;</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span><span class="p">(</span><span class="n">min_weight</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Complex queries with OR, NOT, XOR</span>
-</span></span><span class="line"><span class="cl"><span class="n">special</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">vip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">|</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">50</span><span class="p">))</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">banned</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p>You specify <em>what</em> you want, not <em>how</em> to find it. The selector algebra handles the rest.</p>
-<h2 id="lazy-views">Lazy Views</h2>
-<p>Views provide efficient filtering without copying data:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.views</span> <span class="kn">import</span> <span class="n">filtered_view</span><span class="p">,</span> <span class="n">neighborhood_view</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Create view without copying (O(1) space)</span>
-</span></span><span class="line"><span class="cl"><span class="n">view</span> <span class="o">=</span> <span class="n">filtered_view</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">large_graph</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">vertex_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="n">edge_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span> <span class="o">&gt;</span> <span class="mf">5.0</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Iterate lazily</span>
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="n">view</span><span class="o">.</span><span class="n">vertices</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">vertex</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Materialize only when needed</span>
-</span></span><span class="line"><span class="cl"><span class="n">small_graph</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">materialize</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Explore k-hop neighborhood</span>
-</span></span><span class="line"><span class="cl"><span class="n">local</span> <span class="o">=</span> <span class="n">neighborhood_view</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="s1">&#39;Alice&#39;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span></span></code></pre></div><p><strong>View types:</strong></p>
-<ul>
-<li><code>filtered_view()</code> &ndash; Filter vertices/edges</li>
-<li><code>subgraph_view()</code> &ndash; View specific vertices</li>
-<li><code>reversed_view()</code> &ndash; Reverse edge directions</li>
-<li><code>undirected_view()</code> &ndash; View as undirected</li>
-<li><code>neighborhood_view()</code> &ndash; k-hop neighborhood</li>
-</ul>
-<h2 id="56-algorithms">56+ Algorithms</h2>
-<p>AlgoGraph includes broad algorithm coverage:</p>
-<h3 id="traversal">Traversal</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dfs</span><span class="p">,</span> <span class="n">bfs</span><span class="p">,</span> <span class="n">topological_sort</span><span class="p">,</span> <span class="n">find_path</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">visited</span> <span class="o">=</span> <span class="n">dfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">levels</span> <span class="o">=</span> <span class="n">bfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">order</span> <span class="o">=</span> <span class="n">topological_sort</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># DAG only</span>
-</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">find_path</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="shortest-paths">Shortest Paths</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">bellman_ford</span><span class="p">,</span> <span class="n">floyd_warshall</span><span class="p">,</span> <span class="n">a_star</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">bellman_ford</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>  <span class="c1"># Handles negative weights</span>
-</span></span><span class="line"><span class="cl"><span class="n">all_pairs</span> <span class="o">=</span> <span class="n">floyd_warshall</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">a_star</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">,</span> <span class="n">heuristic</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="centrality">Centrality</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">pagerank</span><span class="p">,</span> <span class="n">betweenness_centrality</span><span class="p">,</span> <span class="n">closeness_centrality</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">social_network</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">bc</span> <span class="o">=</span> <span class="n">betweenness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">cc</span> <span class="o">=</span> <span class="n">closeness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="flow-networks">Flow Networks</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">max_flow</span><span class="p">,</span> <span class="n">min_cut</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">flow_value</span> <span class="o">=</span> <span class="n">max_flow</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">cut_value</span><span class="p">,</span> <span class="n">source_set</span><span class="p">,</span> <span class="n">sink_set</span> <span class="o">=</span> <span class="n">min_cut</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="matching">Matching</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">hopcroft_karp</span><span class="p">,</span> <span class="n">maximum_bipartite_matching</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">matching</span> <span class="o">=</span> <span class="n">hopcroft_karp</span><span class="p">(</span><span class="n">bipartite_graph</span><span class="p">,</span> <span class="n">left_set</span><span class="p">,</span> <span class="n">right_set</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">max_matching</span> <span class="o">=</span> <span class="n">maximum_bipartite_matching</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="graph-coloring">Graph Coloring</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">welsh_powell</span><span class="p">,</span> <span class="n">chromatic_number</span><span class="p">,</span> <span class="n">dsatur</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">welsh_powell</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">num_colors</span> <span class="o">=</span> <span class="n">chromatic_number</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">dsatur</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># Often better than greedy</span>
-</span></span></code></pre></div><h2 id="interactive-shell">Interactive Shell</h2>
-<p>Explore graphs with a filesystem-like interface:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
-</span></span><span class="line"><span class="cl">algograph network.json
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">graph(5v):/$ ls
-</span></span><span class="line"><span class="cl">Alice/  [2 neighbors]
-</span></span><span class="line"><span class="cl">Bob/    [3 neighbors]
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">graph(5v):/$ cd Alice
-</span></span><span class="line"><span class="cl">graph(5v):/Alice$ ls
-</span></span><span class="line"><span class="cl">Attributes:
-</span></span><span class="line"><span class="cl">  age = 30
-</span></span><span class="line"><span class="cl">neighbors/  [2 vertices]
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">graph(5v):/Alice$ path Bob Eve
-</span></span><span class="line"><span class="cl">Path found: Alice -&gt; Bob -&gt; Diana -&gt; Eve
-</span></span></code></pre></div><p>I like this shell. Graphs are inherently navigable structures, and treating them like a filesystem makes exploration feel natural.</p>
-<h2 id="relationship-to-algotree">Relationship to AlgoTree</h2>
-<p>AlgoGraph and <a href="/post/algotree-post/">AlgoTree</a> share the same design philosophy:</p>
-<ul>
-<li>Immutable data structures</li>
-<li>Pipe-based transformers</li>
-<li>Declarative selectors</li>
-<li>Lazy views</li>
-</ul>
-<p>They also interoperate:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Tree</span>
-</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">tree_to_graph</span><span class="p">,</span> <span class="n">graph_to_tree</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Tree to Graph</span>
-</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Graph to Tree (extracts spanning tree)</span>
-</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">graph_to_tree</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s1">&#39;root&#39;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="quick-start">Quick Start</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
-</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">pagerank</span>
-</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">stats</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Build a graph</span>
-</span></span><span class="line"><span class="cl"><span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">Graph</span><span class="o">.</span><span class="n">builder</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">build</span><span class="p">())</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Run algorithms</span>
-</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Transform with pipes</span>
-</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">g</span> <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">)</span> <span class="o">|</span> <span class="n">stats</span><span class="p">()</span>
-</span></span></code></pre></div><h2 id="resources">Resources</h2>
-<ul>
-<li><strong>PyPI</strong>: <a href="https://pypi.org/project/AlgoGraph/">pypi.org/project/AlgoGraph/</a></li>
-<li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoGraph">github.com/queelius/AlgoGraph</a></li>
-<li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoGraph/">queelius.github.io/AlgoGraph/</a></li>
-</ul>
-]]></content:encoded>
-      
-      
-      <category>Python</category>
-      
-      <category>graphs</category>
-      
-      <category>algorithms</category>
-      
-      <category>functional-programming</category>
-      
-      <category>data-structures</category>
-      
-      <category>immutability</category>
-      
-      
-    </item>
-    
-  </channel>
-</rss>
+]]></content:encoded><category>c++</category><category>algorithms</category><category>stl</category><category>generic-programming</category></item><item><title>The Algorithm Design Manual</title><link>https://metafunctor.com/media/the-algorithm-design-manual/</link><pubDate>Wed, 17 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/media/the-algorithm-design-manual/</guid><description/><content:encoded></content:encoded><category>algorithms</category><category>data-structures</category><category>practical</category></item></channel></rss>

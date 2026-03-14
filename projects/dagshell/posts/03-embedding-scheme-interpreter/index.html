@@ -1,1493 +1,323 @@
-<!DOCTYPE html>
-<html lang="en-us" prefix="og: https://ogp.me/ns#">
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=40461&amp;path=livereload" data-no-instant defer></script>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-
-  
-  <title>Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations | metafunctor</title>
-  <meta name="title" content="Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations | metafunctor">
-  <meta name="description" content="How to implement a minimal Scheme and integrate it with your application">
-
-  
-  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
-  <meta name="author" content="Alex Towell">
-  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <link rel="canonical" href="http://localhost:40461/projects/dagshell/posts/03-embedding-scheme-interpreter/">
-
-  
-  
-
-  
-  <link rel="alternate" hreflang="en" href="http://localhost:40461/projects/dagshell/posts/03-embedding-scheme-interpreter/">
-  <link rel="alternate" hreflang="x-default" href="http://localhost:40461/projects/dagshell/posts/03-embedding-scheme-interpreter/">
-
-  
-  
-<style>
- 
-
- 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  font-size: 17px;
-  line-height: 1.7;
-  color: #2c2c2c;
-  background: #ffffff;
-}
-
- 
-.elegant-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: rgba(254, 254, 254, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-}
-
-.header-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.site-logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2c2c2c;
-  text-decoration: none;
-}
-
-.nav-primary ul {
-  display: flex;
-  gap: 2rem;
-  list-style: none;
-}
-
-.nav-primary a {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #4a4a4a;
-  text-decoration: none;
-}
-
- 
-.hero-elegant {
-  padding: 5rem 2rem;
-  text-align: center;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
-}
-
-.hero-title {
-  font-size: 3.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.hero-subtitle {
-  font-size: 1.25rem;
-  color: #4a4a4a;
-  max-width: 600px;
-  margin: 0 auto 3rem;
-}
-
- 
-.skip-to-main {
-  position: absolute;
-  top: -100px;
-  left: 0;
-  background: #0050a0;
-  color: white;
-  padding: 0.5rem 1rem;
-  text-decoration: none;
-  font-weight: 600;
-  z-index: 10000;
-}
-
-.skip-to-main:focus {
-  top: 0;
-}
-
- 
-.preload * {
-  transition: none !important;
-}
-</style>
-
-
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="dns-prefetch" href="https://www.google-analytics.com">
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-
-  
-  <meta property="og:type" content="article">
-  <meta property="og:url" content="http://localhost:40461/projects/dagshell/posts/03-embedding-scheme-interpreter/">
-  <meta property="og:title" content="Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations">
-  <meta property="og:description" content="How to implement a minimal Scheme and integrate it with your application">
-  <meta property="og:image" content="http://localhost:40461/images/og-image.jpg">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:site_name" content="metafunctor">
-  <meta property="og:locale" content="en_US">
-  
-  <meta property="article:author" content="Alex Towell">
-  
-  <meta property="article:modified_time" content="2026-01-04T19:06:19-06:00">
-  
-  
-  
-
-  
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="http://localhost:40461/projects/dagshell/posts/03-embedding-scheme-interpreter/">
-  <meta name="twitter:title" content="Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations">
-  <meta name="twitter:description" content="How to implement a minimal Scheme and integrate it with your application">
-  <meta name="twitter:image" content="http://localhost:40461/images/og-image.jpg">
-  <meta name="twitter:site" content="@queelius">
-  <meta name="twitter:creator" content="@queelius">
-
-  
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "SoftwareSourceCode",
-        "@id": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/#primaryContent",
-        
-        "headline": "Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations",
-        "description": "How to implement a minimal Scheme and integrate it with your application",
-        "url": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/",
-        "inLanguage": "en-US",
-        "datePublished": "0001-01-01T00:00:00Z",
-        "dateModified": "2026-01-04T19:06:19-06:00",
-        "wordCount":  1601 ,
-        "timeRequired": "PT8M",
-        "author": {
-          "@type": "Person",
-          "@id": "http:\/\/localhost:40461\/#author",
-          "name": "Alex Towell",
-          "url": "http:\/\/localhost:40461\/about/"
-        },
-        "publisher": {
-          "@type": "Organization",
-          "@id": "http:\/\/localhost:40461\/#organization",
-          "name": "metafunctor",
-          "url": "http:\/\/localhost:40461\/",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "http:\/\/localhost:40461\/images\/og-image.jpg"
-          }
-        }
-        
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/#breadcrumb",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "http:\/\/localhost:40461\/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Posts",
-            "item": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/"
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": "Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations",
-            "item": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/"
-          }
-        ]
-      }
-    ]
-  }
-  </script>
-
-  
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
-
-  
-  <link rel="stylesheet" href="../../../../css/refined-elegant.css">
-
-  
-  <link rel="stylesheet" href="../../../../css/micro-interactions.css">
-
-  
-  <link rel="stylesheet" href="../../../../css/elegant.css" media="print" onload="this.media='all'">
-
-  
-  <link rel="stylesheet" href="../../../../css/custom.css">
-
-  
-  <link rel="stylesheet" href="../../../../css/beautify.css">
-
-  
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
-  
-  
-  
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      renderMathInElement(document.body, {
-        delimiters: [
-          {left: "$$", right: "$$", display: true},
-          {left: "\\[", right: "\\]", display: true},
-          {left: "$", right: "$", display: false},
-          {left: "\\(", right: "\\)", display: false}
-        ]
-      });
-    });
-  </script>
-  
-
-  
-  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
-
-  
-  
-
-
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareSourceCode",
-  "@id": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/#software",
-  "name": "Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations",
-  "description": "How to implement a minimal Scheme and integrate it with your application",
-  "url": "http:\/\/localhost:40461\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/",
-  "dateCreated": "0001-01-01T00:00:00Z",
-  "dateModified": "2026-01-04T19:06:19-06:00",
-  "author": {
-    "@type": "Person",
-    "name": "Alex Towell",
-    "@id": "http:\/\/localhost:40461\/#author"
-  },
-  "operatingSystem": "Cross-platform",
-  "applicationCategory": "DeveloperApplication",
-  "isAccessibleForFree": true
-}
-</script>
-
-
-
-  
-  
-
-  
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
-      <script>
-        var doNotTrack = false;
-        if ( true ) {
-          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
-          var doNotTrack = (dnt == "1" || dnt == "yes");
-        }
-        if (!doNotTrack) {
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-E08ZXTFTTY');
-        }
-      </script>
-  <meta name="generator" content="Hugo 0.157.0">
-</head>
-<body>
-  
-  <a href="#main-content" class="skip-to-main">Skip to main content</a>
-
-  <header class="elegant-header" role="banner">
-  <div class="header-inner">
-    <div class="site-identity">
-      <a href="http://localhost:40461/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
-      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
-    </div>
-    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
-      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-      <ul role="list">
-        <li><a href="http://localhost:40461/" >Home</a></li>
-        <li><a href="http://localhost:40461/post/" >Posts</a></li>
-        <li><a href="http://localhost:40461/series/" >Series</a></li>
-        <li class="nav-dropdown">
-          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
-            Academic <i class="fas fa-chevron-down dropdown-icon"></i>
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            <li role="menuitem"><a href="http://localhost:40461/papers/" >Papers</a></li>
-            <li role="menuitem"><a href="http://localhost:40461/publications/" >Publications</a></li>
-            <li role="menuitem"><a href="http://localhost:40461/research/" >Research</a></li>
-          </ul>
-        </li>
-        <li class="nav-dropdown">
-          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
-            Creative <i class="fas fa-chevron-down dropdown-icon"></i>
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            <li role="menuitem"><a href="http://localhost:40461/writing/" >Writing</a></li>
-            <li role="menuitem"><a href="http://localhost:40461/media/" >Media</a></li>
-          </ul>
-        </li>
-        <li><a href="http://localhost:40461/projects/" class="active" aria-current="page">Projects</a></li>
-        <li><a href="http://localhost:40461/about/" >About</a></li>
-        <li><a href="http://localhost:40461/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
-      </ul>
-    </nav>
-  </div>
-</header>
-
-<style>
- 
-.nav-dropdown {
-  position: relative;
-}
-
-.dropdown-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  cursor: pointer;
-}
-
-.dropdown-icon {
-  font-size: 0.6rem;
-  transition: transform 0.2s ease;
-}
-
-.nav-dropdown.open .dropdown-icon {
-  transform: rotate(180deg);
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 160px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 0.5rem 0;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 9999;
-  list-style: none;
-}
-
-.nav-dropdown.open .dropdown-menu {
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  transform: translateX(-50%) translateY(0) scale(1) !important;
-}
-
- 
-.dropdown-menu::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-bottom: 6px solid #fff;
-  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
-}
-
-.dropdown-menu li {
-  margin: 0;
-}
-
-.nav-dropdown .dropdown-menu a {
-  display: block !important;
-  padding: 0.6rem 1.25rem !important;
-  color: #4a4a4a !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  text-decoration: none !important;
-  transition: all 0.15s ease !important;
-  white-space: nowrap !important;
-  cursor: pointer !important;
-  pointer-events: auto !important;
-}
-
-.nav-dropdown .dropdown-menu a:hover {
-  background: #f3f4f6 !important;
-  color: #4f46e5 !important;
-}
-
-.nav-dropdown .dropdown-menu a.active {
-  color: #4f46e5 !important;
-}
-
- 
-@media (max-width: 768px) {
-  .dropdown-menu {
-    position: static;
-    transform: none;
-    box-shadow: none;
-    border: none;
-    background: rgba(0, 0, 0, 0.03);
-    border-radius: 0;
-    padding: 0;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 1;
-    visibility: visible;
-    transition: max-height 0.2s ease;
-  }
-
-  .dropdown-menu::before {
-    display: none;
-  }
-
-  .nav-dropdown.open .dropdown-menu {
-    max-height: 300px;
-    padding: 0.5rem 0;
-  }
-
-  .dropdown-menu a {
-    padding: 0.5rem 1.5rem 0.5rem 2rem;
-    font-size: 0.85rem;
-  }
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const dropdowns = document.querySelectorAll('.nav-dropdown');
-
-  dropdowns.forEach(dropdown => {
-    const toggle = dropdown.querySelector('.dropdown-toggle');
-
-    
-    toggle.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const wasOpen = dropdown.classList.contains('open');
-
-      
-      dropdowns.forEach(d => d.classList.remove('open'));
-
-      
-      if (!wasOpen) {
-        dropdown.classList.add('open');
-      }
-    });
-  });
-
-  
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.nav-dropdown')) {
-      dropdowns.forEach(d => d.classList.remove('open'));
-    }
-  });
-
-  
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      dropdowns.forEach(d => d.classList.remove('open'));
-    }
-  });
-});
-</script>
-
-
-  
-  
-  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
-    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <a itemprop="item" href="http://localhost:40461/">
-          <span itemprop="name">Home</span>
-        </a>
-        <meta itemprop="position" content="1" />
-      </li>
-      
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <span class="breadcrumb-separator">/</span>
-        <a itemprop="item" href="http://localhost:40461/projects/dagshell/posts/">
-          <span itemprop="name">Posts</span>
-        </a>
-        <meta itemprop="position" content="2" />
-      </li>
-      
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <span class="breadcrumb-separator">/</span>
-        <span itemprop="name" aria-current="page">Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations</span>
-        <meta itemprop="position" content="3" />
-      </li>
-    </ol>
-  </nav>
-  
-
-  <main id="main-content" role="main" aria-label="Main content">
-    
-<style>
- 
-.project-container {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 3rem;
-  max-width: var(--content-width, 1400px);
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-@media (max-width: 1024px) {
-  .project-container {
-    grid-template-columns: 1fr;
-  }
-}
-
- 
-.project-sidebar {
-  position: sticky;
-  top: 2rem;
-  height: fit-content;
-  background: var(--paper, #fff);
-  border: var(--border-width, 1px) solid var(--border-color);
-  border-radius: var(--radius-lg, 8px);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.sidebar-section {
-  margin-bottom: 2rem;
-}
-
-.sidebar-section:last-child {
-  margin-bottom: 0;
-}
-
-.sidebar-section h3 {
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-lighter, #6a6a6a);
-  margin: 0 0 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.sidebar-section h3 i {
-  color: var(--accent, #0050a0);
-  font-size: 1rem;
-}
-
-.sidebar-links {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--paper-dark, #fafafa);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md, 6px);
-  color: var(--ink-light, #4a4a4a);
-  text-decoration: none;
-  transition: all var(--transition-fast);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.sidebar-link:hover {
-  background: var(--accent, #0050a0);
-  color: var(--paper, #fff);
-  border-color: var(--accent, #0050a0);
-  transform: translateX(4px);
-}
-
-.sidebar-link i {
-  flex-shrink: 0;
-  width: 20px;
-  text-align: center;
-}
-
-.sidebar-link .link-text {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
- 
-.related-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.related-item-link {
-  display: block;
-  padding: 0.625rem 0.75rem;
-  background: var(--paper-dark, #fafafa);
-  border-left: 3px solid var(--accent, #0050a0);
-  color: var(--ink-light, #4a4a4a);
-  text-decoration: none;
-  transition: all var(--transition-fast);
-  font-size: 0.875rem;
-  border-radius: 0 var(--radius-sm, 4px) var(--radius-sm, 4px) 0;
-}
-
-.related-item-link:hover {
-  background: var(--paper-darker, #f0f0f0);
-  padding-left: 1rem;
-  color: var(--accent, #0050a0);
-}
-
-.empty-state {
-  padding: 1rem;
-  text-align: center;
-  color: var(--ink-lighter, #8a8a8a);
-  font-size: 0.875rem;
-  font-style: italic;
-}
-
- 
-.project-main-content {
-  min-width: 0;
-}
-
- 
-.cross-references-section {
-  margin-top: 4rem;
-  padding-top: 3rem;
-  border-top: 2px solid var(--border-color);
-}
-
-.cross-references-header {
-  text-align: center;
-  margin-bottom: 2.5rem;
-}
-
-.cross-references-header h2 {
-  font-family: var(--font-display, 'Inter', sans-serif);
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--ink, #2c2c2c);
-  margin: 0 0 0.5rem;
-}
-
-.cross-references-header p {
-  color: var(--ink-light, #4a4a4a);
-  font-size: 1rem;
-}
-
-.cross-references-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-}
-
-.cross-ref-card {
-  background: var(--paper, #fff);
-  border: var(--border-width, 1px) solid var(--border-color);
-  border-radius: var(--radius-lg, 8px);
-  padding: 1.5rem;
-  transition: all var(--transition-base);
-}
-
-.cross-ref-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.cross-ref-card h3 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--ink, #2c2c2c);
-  margin: 0 0 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.cross-ref-card h3 i {
-  color: var(--accent, #0050a0);
-}
-
-.cross-ref-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-}
-
-.cross-ref-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-  padding: 0.75rem;
-  background: var(--paper-dark, #fafafa);
-  border-radius: var(--radius-md, 6px);
-  transition: all var(--transition-fast);
-  text-decoration: none;
-  color: var(--ink-light, #4a4a4a);
-  border: 1px solid transparent;
-}
-
-.cross-ref-item:hover {
-  background: var(--paper-darker, #f0f0f0);
-  border-color: var(--accent, #0050a0);
-}
-
-.cross-ref-item i {
-  flex-shrink: 0;
-  margin-top: 0.25rem;
-  color: var(--accent, #0050a0);
-  font-size: 0.75rem;
-}
-
-.cross-ref-item-text {
-  flex: 1;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-}
-
- 
-.paper-cross-ref {
-  padding: 1rem;
-  background: var(--paper-dark, #fafafa);
-  border-radius: var(--radius-md, 6px);
-  border-left: 3px solid var(--accent, #0050a0);
-  margin-bottom: 1rem;
-}
-
-.paper-cross-ref:last-child {
-  margin-bottom: 0;
-}
-
-.paper-cross-ref h4 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink, #2c2c2c);
-  margin: 0 0 0.375rem;
-}
-
-.paper-venue {
-  font-size: 0.875rem;
-  color: var(--ink-lighter, #6a6a6a);
-  margin-bottom: 0.625rem;
-  font-style: italic;
-}
-
-.paper-links {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.paper-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.875rem;
-  background: var(--accent, #0050a0);
-  color: var(--paper, #fff);
-  border-radius: 0.25rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all var(--transition-fast);
-}
-
-.paper-link:hover {
-  background: var(--accent-dark, #003d7a);
-  transform: translateY(-1px);
-}
-
- 
-@media (max-width: 1024px) {
-  .project-sidebar {
-    position: static;
-    order: 2;
-  }
-
-  .project-main-content {
-    order: 1;
-  }
-}
-
-@media (max-width: 768px) {
-  .cross-references-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
- 
-.discussion-section {
-  margin-top: 4rem;
-  padding-top: 3rem;
-  border-top: 1px solid var(--border-color, #e5e7eb);
-}
-
-.discussion-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  color: var(--ink, #1a1a1a);
-  font-family: 'Lora', Georgia, serif;
-}
-
-.giscus-container {
-  margin-top: 1rem;
-}
-
- 
-[data-theme="dark"] .discussion-section {
-  border-top-color: rgba(255, 255, 255, 0.1);
-}
-
-[data-theme="dark"] .discussion-title {
-  color: var(--ink, #e8e8e8);
-}
-</style>
-
-<script>
-
-function updateGiscusTheme() {
-  const theme = document.documentElement.getAttribute('data-theme') || 'light';
-  const giscusTheme = theme === 'dark' ? 'dark' : 'light';
-
-  const iframe = document.querySelector('iframe.giscus-frame');
-  if (iframe) {
-    iframe.contentWindow.postMessage({
-      giscus: {
-        setConfig: {
-          theme: giscusTheme
-        }
-      }
-    }, 'https://giscus.app');
-  }
-}
-
-
-const observer = new MutationObserver(updateGiscusTheme);
-observer.observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ['data-theme']
-});
-
-
-setTimeout(updateGiscusTheme, 1000);
-</script>
-
-<div class="project-container">
-  
-  <div class="project-main-content">
-    <article class="project-showcase">
-      <header class="project-header">
-        <div class="project-badges">
-          
-          
-          
-        </div>
-
-        <h1 class="project-title">Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations</h1>
-
-        
-        <p class="project-description">How to implement a minimal Scheme and integrate it with your application</p>
-        
-
-        <div class="project-meta">
-          
-          
-        </div>
-      </header>
-
-  
-
-  
-
-  
-
-      <section class="project-content elegant-content">
-        <p>Every sufficiently complex application eventually grows a scripting language. Emacs has Elisp. AutoCAD has AutoLISP. Blender has Python. The pattern is clear: users need programmability beyond what a fixed UI provides.</p>
-<p>But embedding a full language runtime is heavy. What if we just need something small—variables, functions, conditionals, loops? A Lisp-family language is perfect for this: the syntax is trivial to parse, the semantics are clean, and it&rsquo;s powerful enough for real scripting.</p>
-<p>In this post, I&rsquo;ll walk through building a minimal Scheme interpreter in Python and integrating it with a virtual filesystem. We&rsquo;ll cover the complete pipeline: tokenization, parsing, evaluation, and extension with custom primitives.</p>
-<h2 id="why-scheme">Why Scheme?</h2>
-<p>Scheme is a minimalist Lisp dialect. Its syntax is just parentheses and atoms:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-scheme" data-lang="scheme"><span class="line"><span class="cl"><span class="p">(</span><span class="k">define </span><span class="nv">x</span> <span class="mi">10</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">+ </span><span class="nv">x</span> <span class="p">(</span><span class="nb">* </span><span class="mi">2</span> <span class="mi">3</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nb">&gt; </span><span class="nv">x</span> <span class="mi">5</span><span class="p">)</span> <span class="s">&#34;big&#34;</span> <span class="s">&#34;small&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><p>This uniformity makes parsing trivial. There&rsquo;s no operator precedence, no complex grammar—just:</p>
-<ol>
-<li>Atoms: numbers, strings, symbols</li>
-<li>Lists: <code>(thing thing thing ...)</code></li>
-</ol>
-<p>That&rsquo;s it. The entire parser can be written in under 50 lines.</p>
-<h2 id="step-1-tokenization">Step 1: Tokenization</h2>
-<p>First, we convert source code into tokens. Scheme&rsquo;s tokenization is simple: split on whitespace, but respect strings and parentheses.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Convert Scheme code into tokens.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># Handle comments (lines starting with ;)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">lines</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Add spaces around parens for easy splitting</span>
-</span></span><span class="line"><span class="cl">    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;(&#39;</span><span class="p">,</span> <span class="s1">&#39; ( &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;)&#39;</span><span class="p">,</span> <span class="s1">&#39; ) &#39;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Split, handling string literals</span>
-</span></span><span class="line"><span class="cl">    <span class="n">tokens</span> <span class="o">=</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">    <span class="n">in_string</span> <span class="o">=</span> <span class="kc">False</span>
-</span></span><span class="line"><span class="cl">    <span class="n">current</span> <span class="o">=</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">char</span> <span class="o">==</span> <span class="s1">&#39;&#34;&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">in_string</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">in_string</span>
-</span></span><span class="line"><span class="cl">            <span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="n">in_string</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="n">char</span><span class="o">.</span><span class="n">isspace</span><span class="p">():</span>
-</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">current</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">current</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">                <span class="n">current</span> <span class="o">=</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">current</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="n">tokens</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">current</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">tokens</span>
+<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations | metafunctor</title><meta name=title content="Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations | metafunctor"><meta name=description content="How to implement a minimal Scheme and integrate it with your application"><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/projects/dagshell/posts/03-embedding-scheme-interpreter/><link rel=alternate hreflang=en href=https://metafunctor.com/projects/dagshell/posts/03-embedding-scheme-interpreter/><link rel=alternate hreflang=x-default href=https://metafunctor.com/projects/dagshell/posts/03-embedding-scheme-interpreter/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/projects/dagshell/posts/03-embedding-scheme-interpreter/"><meta property="og:title" content="Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations"><meta property="og:description" content="How to implement a minimal Scheme and integrate it with your application"><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:modified_time" content="2026-01-04T19:06:19-06:00"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/projects/dagshell/posts/03-embedding-scheme-interpreter/"><meta name=twitter:title content="Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations"><meta name=twitter:description content="How to implement a minimal Scheme and integrate it with your application"><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"SoftwareSourceCode","@id":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/#primaryContent","headline":"Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations","description":"How to implement a minimal Scheme and integrate it with your application","url":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/","inLanguage":"en-US","datePublished":"0001-01-01T00:00:00Z","dateModified":"2026-01-04T19:06:19-06:00","wordCount":1601,"timeRequired":"PT8M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}}},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"Posts","item":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/"},{"@type":"ListItem","position":3,"name":"Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations","item":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=../../../../css/refined-elegant.css><link rel=stylesheet href=../../../../css/micro-interactions.css><link rel=stylesheet href=../../../../css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=../../../../css/custom.css><link rel=stylesheet href=../../../../css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script type=application/ld+json>{"@context":"https://schema.org","@type":"SoftwareSourceCode","@id":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/#software","name":"Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations","description":"How to implement a minimal Scheme and integrate it with your application","url":"https:\/\/metafunctor.com\/projects\/dagshell\/posts\/03-embedding-scheme-interpreter\/","dateCreated":"0001-01-01T00:00:00Z","dateModified":"2026-01-04T19:06:19-06:00","author":{"@type":"Person","name":"Alex Towell","@id":"https:\/\/metafunctor.com\/#author"},"operatingSystem":"Cross-platform","applicationCategory":"DeveloperApplication","isAccessibleForFree":true}</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.157.0"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
+<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
+<span></span>
+<span></span>
+<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/post/>Posts</a></li><li><a href=https://metafunctor.com/series/>Series</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Academic <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li></ul></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Creative <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li><li role=menuitem><a href=https://metafunctor.com/media/>Media</a></li></ul></li><li><a href=https://metafunctor.com/projects/ class=active aria-current=page>Projects</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
+</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
+<a itemprop=item href=https://metafunctor.com/projects/dagshell/posts/><span itemprop=name>Posts</span>
+</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
+<span itemprop=name aria-current=page>Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations</span>
+<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><style>.project-container{display:grid;grid-template-columns:1fr 300px;gap:3rem;max-width:var(--content-width,1400px);margin:0 auto;padding:2rem}@media(max-width:1024px){.project-container{grid-template-columns:1fr}}.project-sidebar{position:sticky;top:2rem;height:fit-content;background:var(--paper,#fff);border:var(--border-width,1px)solid var(--border-color);border-radius:var(--radius-lg,8px);padding:1.5rem;box-shadow:var(--shadow-sm)}.sidebar-section{margin-bottom:2rem}.sidebar-section:last-child{margin-bottom:0}.sidebar-section h3{font-size:.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-lighter,#6a6a6a);margin:0 0 1rem;display:flex;align-items:center;gap:.5rem}.sidebar-section h3 i{color:var(--accent,#0050a0);font-size:1rem}.sidebar-links{display:flex;flex-direction:column;gap:.75rem}.sidebar-link{display:flex;align-items:center;gap:.75rem;padding:.75rem;background:var(--paper-dark,#fafafa);border:1px solid var(--border-color);border-radius:var(--radius-md,6px);color:var(--ink-light,#4a4a4a);text-decoration:none;transition:all var(--transition-fast);font-size:.875rem;font-weight:500}.sidebar-link:hover{background:var(--accent,#0050a0);color:var(--paper,#fff);border-color:var(--accent,#0050a0);transform:translateX(4px)}.sidebar-link i{flex-shrink:0;width:20px;text-align:center}.sidebar-link .link-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.related-items-list{display:flex;flex-direction:column;gap:.5rem}.related-item-link{display:block;padding:.625rem .75rem;background:var(--paper-dark,#fafafa);border-left:3px solid var(--accent,#0050a0);color:var(--ink-light,#4a4a4a);text-decoration:none;transition:all var(--transition-fast);font-size:.875rem;border-radius:0 var(--radius-sm,4px)var(--radius-sm,4px)0}.related-item-link:hover{background:var(--paper-darker,#f0f0f0);padding-left:1rem;color:var(--accent,#0050a0)}.empty-state{padding:1rem;text-align:center;color:var(--ink-lighter,#8a8a8a);font-size:.875rem;font-style:italic}.project-main-content{min-width:0}.cross-references-section{margin-top:4rem;padding-top:3rem;border-top:2px solid var(--border-color)}.cross-references-header{text-align:center;margin-bottom:2.5rem}.cross-references-header h2{font-family:var(--font-display,'Inter',sans-serif);font-size:2rem;font-weight:700;color:var(--ink,#2c2c2c);margin:0 0 .5rem}.cross-references-header p{color:var(--ink-light,#4a4a4a);font-size:1rem}.cross-references-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem}.cross-ref-card{background:var(--paper,#fff);border:var(--border-width,1px)solid var(--border-color);border-radius:var(--radius-lg,8px);padding:1.5rem;transition:all var(--transition-base)}.cross-ref-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}.cross-ref-card h3{font-size:1.125rem;font-weight:700;color:var(--ink,#2c2c2c);margin:0 0 1rem;display:flex;align-items:center;gap:.625rem}.cross-ref-card h3 i{color:var(--accent,#0050a0)}.cross-ref-list{display:flex;flex-direction:column;gap:.625rem}.cross-ref-item{display:flex;align-items:flex-start;gap:.625rem;padding:.75rem;background:var(--paper-dark,#fafafa);border-radius:var(--radius-md,6px);transition:all var(--transition-fast);text-decoration:none;color:var(--ink-light,#4a4a4a);border:1px solid transparent}.cross-ref-item:hover{background:var(--paper-darker,#f0f0f0);border-color:var(--accent,#0050a0)}.cross-ref-item i{flex-shrink:0;margin-top:.25rem;color:var(--accent,#0050a0);font-size:.75rem}.cross-ref-item-text{flex:1;font-size:.9375rem;line-height:1.5}.paper-cross-ref{padding:1rem;background:var(--paper-dark,#fafafa);border-radius:var(--radius-md,6px);border-left:3px solid var(--accent,#0050a0);margin-bottom:1rem}.paper-cross-ref:last-child{margin-bottom:0}.paper-cross-ref h4{font-size:1rem;font-weight:600;color:var(--ink,#2c2c2c);margin:0 0 .375rem}.paper-venue{font-size:.875rem;color:var(--ink-lighter,#6a6a6a);margin-bottom:.625rem;font-style:italic}.paper-links{display:flex;gap:.75rem;flex-wrap:wrap}.paper-link{display:inline-flex;align-items:center;gap:.375rem;padding:.375rem .875rem;background:var(--accent,#0050a0);color:var(--paper,#fff);border-radius:.25rem;font-size:.8125rem;font-weight:600;text-decoration:none;transition:all var(--transition-fast)}.paper-link:hover{background:var(--accent-dark,#003d7a);transform:translateY(-1px)}@media(max-width:1024px){.project-sidebar{position:static;order:2}.project-main-content{order:1}}@media(max-width:768px){.cross-references-grid{grid-template-columns:1fr}}.discussion-section{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.discussion-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.giscus-container{margin-top:1rem}[data-theme=dark] .discussion-section{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .discussion-title{color:var(--ink,#e8e8e8)}</style><script>function updateGiscusTheme(){const t=document.documentElement.getAttribute("data-theme")||"light",n=t==="dark"?"dark":"light",e=document.querySelector("iframe.giscus-frame");e&&e.contentWindow.postMessage({giscus:{setConfig:{theme:n}}},"https://giscus.app")}const observer=new MutationObserver(updateGiscusTheme);observer.observe(document.documentElement,{attributes:!0,attributeFilter:["data-theme"]}),setTimeout(updateGiscusTheme,1e3)</script><div class=project-container><div class=project-main-content><article class=project-showcase><header class=project-header><div class=project-badges></div><h1 class=project-title>Embedding a Scheme Interpreter: Building a DSL for Filesystem Operations</h1><p class=project-description>How to implement a minimal Scheme and integrate it with your application</p><div class=project-meta></div></header><section class="project-content elegant-content"><p>Every sufficiently complex application eventually grows a scripting language. Emacs has Elisp. AutoCAD has AutoLISP. Blender has Python. The pattern is clear: users need programmability beyond what a fixed UI provides.</p><p>But embedding a full language runtime is heavy. What if we just need something small—variables, functions, conditionals, loops? A Lisp-family language is perfect for this: the syntax is trivial to parse, the semantics are clean, and it&rsquo;s powerful enough for real scripting.</p><p>In this post, I&rsquo;ll walk through building a minimal Scheme interpreter in Python and integrating it with a virtual filesystem. We&rsquo;ll cover the complete pipeline: tokenization, parsing, evaluation, and extension with custom primitives.</p><h2 id=why-scheme>Why Scheme?</h2><p>Scheme is a minimalist Lisp dialect. Its syntax is just parentheses and atoms:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-scheme data-lang=scheme><span class=line><span class=cl><span class=p>(</span><span class=k>define </span><span class=nv>x</span> <span class=mi>10</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nb>+ </span><span class=nv>x</span> <span class=p>(</span><span class=nb>* </span><span class=mi>2</span> <span class=mi>3</span><span class=p>))</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=k>if </span><span class=p>(</span><span class=nb>&gt; </span><span class=nv>x</span> <span class=mi>5</span><span class=p>)</span> <span class=s>&#34;big&#34;</span> <span class=s>&#34;small&#34;</span><span class=p>)</span>
+</span></span></code></pre></div><p>This uniformity makes parsing trivial. There&rsquo;s no operator precedence, no complex grammar—just:</p><ol><li>Atoms: numbers, strings, symbols</li><li>Lists: <code>(thing thing thing ...)</code></li></ol><p>That&rsquo;s it. The entire parser can be written in under 50 lines.</p><h2 id=step-1-tokenization>Step 1: Tokenization</h2><p>First, we convert source code into tokens. Scheme&rsquo;s tokenization is simple: split on whitespace, but respect strings and parentheses.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>tokenize</span><span class=p>(</span><span class=n>text</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>List</span><span class=p>[</span><span class=nb>str</span><span class=p>]:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Convert Scheme code into tokens.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># Handle comments (lines starting with ;)</span>
+</span></span><span class=line><span class=cl>    <span class=n>lines</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s1>&#39;</span><span class=se>\n</span><span class=s1>&#39;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>text</span> <span class=o>=</span> <span class=s1>&#39;</span><span class=se>\n</span><span class=s1>&#39;</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>line</span><span class=o>.</span><span class=n>split</span><span class=p>(</span><span class=s1>&#39;;&#39;</span><span class=p>)[</span><span class=mi>0</span><span class=p>]</span> <span class=k>for</span> <span class=n>line</span> <span class=ow>in</span> <span class=n>lines</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Add spaces around parens for easy splitting</span>
+</span></span><span class=line><span class=cl>    <span class=n>text</span> <span class=o>=</span> <span class=n>text</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s1>&#39;(&#39;</span><span class=p>,</span> <span class=s1>&#39; ( &#39;</span><span class=p>)</span><span class=o>.</span><span class=n>replace</span><span class=p>(</span><span class=s1>&#39;)&#39;</span><span class=p>,</span> <span class=s1>&#39; ) &#39;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Split, handling string literals</span>
+</span></span><span class=line><span class=cl>    <span class=n>tokens</span> <span class=o>=</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>    <span class=n>in_string</span> <span class=o>=</span> <span class=kc>False</span>
+</span></span><span class=line><span class=cl>    <span class=n>current</span> <span class=o>=</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=n>char</span> <span class=ow>in</span> <span class=n>text</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>char</span> <span class=o>==</span> <span class=s1>&#39;&#34;&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>in_string</span> <span class=o>=</span> <span class=ow>not</span> <span class=n>in_string</span>
+</span></span><span class=line><span class=cl>            <span class=n>current</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>char</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>elif</span> <span class=n>in_string</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>current</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>char</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>elif</span> <span class=n>char</span><span class=o>.</span><span class=n>isspace</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=n>current</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>tokens</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=s1>&#39;&#39;</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>current</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>                <span class=n>current</span> <span class=o>=</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>        <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>current</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>char</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>current</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>tokens</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=s1>&#39;&#39;</span><span class=o>.</span><span class=n>join</span><span class=p>(</span><span class=n>current</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>tokens</span>
 </span></span></code></pre></div><p>Input: <code>(define x (+ 1 2))</code>
-Output: <code>['(', 'define', 'x', '(', '+', '1', '2', ')', ')']</code></p>
-<h2 id="step-2-parsing">Step 2: Parsing</h2>
-<p>Parsing converts tokens into an Abstract Syntax Tree (AST). In Scheme, the AST is just nested Python lists:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span>
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Symbol</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Represents a Scheme symbol.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Parse tokens into an AST.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">parse_expr</span><span class="p">(</span><span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-</span></span><span class="line"><span class="cl">        <span class="n">token</span> <span class="o">=</span> <span class="n">tokens</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;(&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="c1"># Parse a list</span>
-</span></span><span class="line"><span class="cl">            <span class="n">lst</span> <span class="o">=</span> <span class="p">[]</span>
-</span></span><span class="line"><span class="cl">            <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl">            <span class="k">while</span> <span class="n">tokens</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;)&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="n">expr</span><span class="p">,</span> <span class="n">index</span> <span class="o">=</span> <span class="n">parse_expr</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">                <span class="n">lst</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">lst</span><span class="p">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;)&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s2">&#34;Unexpected )&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="c1"># Parse an atom</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">parse_atom</span><span class="p">(</span><span class="n">token</span><span class="p">),</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">expr</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">parse_expr</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">expr</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">parse_atom</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Parse a single atom.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="c1"># Try integer</span>
-</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">pass</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Try float</span>
-</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">pass</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># String literal</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">token</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&#34;&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">token</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;&#34;&#39;</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Boolean</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;#t&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">True</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">token</span> <span class="o">==</span> <span class="s1">&#39;#f&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">False</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Symbol</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">Symbol</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+Output: <code>['(', 'define', 'x', '(', '+', '1', '2', ')', ')']</code></p><h2 id=step-2-parsing>Step 2: Parsing</h2><p>Parsing converts tokens into an Abstract Syntax Tree (AST). In Scheme, the AST is just nested Python lists:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=nd>@dataclass</span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>Symbol</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Represents a Scheme symbol.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>name</span><span class=p>:</span> <span class=nb>str</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>parse</span><span class=p>(</span><span class=n>tokens</span><span class=p>:</span> <span class=n>List</span><span class=p>[</span><span class=nb>str</span><span class=p>])</span> <span class=o>-&gt;</span> <span class=n>Any</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Parse tokens into an AST.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>parse_expr</span><span class=p>(</span><span class=n>index</span><span class=p>:</span> <span class=nb>int</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Tuple</span><span class=p>[</span><span class=n>Any</span><span class=p>,</span> <span class=nb>int</span><span class=p>]:</span>
+</span></span><span class=line><span class=cl>        <span class=n>token</span> <span class=o>=</span> <span class=n>tokens</span><span class=p>[</span><span class=n>index</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>token</span> <span class=o>==</span> <span class=s1>&#39;(&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=c1># Parse a list</span>
+</span></span><span class=line><span class=cl>            <span class=n>lst</span> <span class=o>=</span> <span class=p>[]</span>
+</span></span><span class=line><span class=cl>            <span class=n>index</span> <span class=o>+=</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl>            <span class=k>while</span> <span class=n>tokens</span><span class=p>[</span><span class=n>index</span><span class=p>]</span> <span class=o>!=</span> <span class=s1>&#39;)&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>expr</span><span class=p>,</span> <span class=n>index</span> <span class=o>=</span> <span class=n>parse_expr</span><span class=p>(</span><span class=n>index</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=n>lst</span><span class=o>.</span><span class=n>append</span><span class=p>(</span><span class=n>expr</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>lst</span><span class=p>,</span> <span class=n>index</span> <span class=o>+</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>elif</span> <span class=n>token</span> <span class=o>==</span> <span class=s1>&#39;)&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>raise</span> <span class=ne>SyntaxError</span><span class=p>(</span><span class=s2>&#34;Unexpected )&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=c1># Parse an atom</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>parse_atom</span><span class=p>(</span><span class=n>token</span><span class=p>),</span> <span class=n>index</span> <span class=o>+</span> <span class=mi>1</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>expr</span><span class=p>,</span> <span class=n>_</span> <span class=o>=</span> <span class=n>parse_expr</span><span class=p>(</span><span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>expr</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>parse_atom</span><span class=p>(</span><span class=n>token</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Any</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Parse a single atom.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=c1># Try integer</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nb>int</span><span class=p>(</span><span class=n>token</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>pass</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Try float</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=nb>float</span><span class=p>(</span><span class=n>token</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>pass</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># String literal</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>token</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s1>&#39;&#34;&#39;</span><span class=p>)</span> <span class=ow>and</span> <span class=n>token</span><span class=o>.</span><span class=n>endswith</span><span class=p>(</span><span class=s1>&#39;&#34;&#39;</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>token</span><span class=p>[</span><span class=mi>1</span><span class=p>:</span><span class=o>-</span><span class=mi>1</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Boolean</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>token</span> <span class=o>==</span> <span class=s1>&#39;#t&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>True</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>token</span> <span class=o>==</span> <span class=s1>&#39;#f&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>False</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Symbol</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>Symbol</span><span class=p>(</span><span class=n>token</span><span class=p>)</span>
 </span></span></code></pre></div><p>Input tokens: <code>['(', 'define', 'x', '(', '+', '1', '2', ')', ')']</code>
-Output AST: <code>[Symbol('define'), Symbol('x'), [Symbol('+'), 1, 2]]</code></p>
-<p>The beauty of Lisp: the AST <em>is</em> the syntax. There&rsquo;s no separate tree structure—it&rsquo;s just lists of symbols and values.</p>
-<h2 id="step-3-the-environment">Step 3: The Environment</h2>
-<p>Before evaluation, we need an environment to track variable bindings. This is where lexical scoping lives:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Environment</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Lexical environment for variable bindings.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s1">&#39;Environment&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">parent</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">define</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Define a new binding in this environment.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Look up a binding, checking parent scopes.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Undefined variable: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Update an existing binding.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">bindings</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-</span></span><span class="line"><span class="cl">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Undefined variable: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><p>Each function call creates a new Environment with the current one as its parent. This chain enables closures—inner functions that remember their enclosing scope.</p>
-<h2 id="step-4-evaluation">Step 4: Evaluation</h2>
-<p>The evaluator is the heart of the interpreter. It walks the AST and computes values:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n">Environment</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Evaluate an expression in an environment.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Self-evaluating: numbers, strings, booleans</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">))):</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">expr</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Variable lookup</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Must be a list (function call or special form)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">expr</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">expr</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">op</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Special forms</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">Symbol</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;quote&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;define&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">name</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">            <span class="n">value</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">value</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;if&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">condition</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">condition</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="kc">None</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;lambda&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">params</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">            <span class="n">body</span> <span class="o">=</span> <span class="n">expr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">Procedure</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Function application</span>
-</span></span><span class="line"><span class="cl">    <span class="n">func</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">evaluate</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">env</span><span class="p">)</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">expr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
-</span></span></code></pre></div><p>Special forms (<code>define</code>, <code>if</code>, <code>lambda</code>, etc.) have custom evaluation rules. Everything else is a function call: evaluate the operator, evaluate the arguments, call the function.</p>
-<h2 id="step-5-user-defined-functions">Step 5: User-Defined Functions</h2>
-<p>The <code>lambda</code> form creates procedures. A Procedure captures its parameters, body, and defining environment:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="nd">@dataclass</span>
-</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Procedure</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;A user-defined function.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Symbol</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="n">body</span><span class="p">:</span> <span class="n">Any</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="p">:</span> <span class="n">Environment</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="c1"># Create a new environment for the call</span>
-</span></span><span class="line"><span class="cl">        <span class="n">local_env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span><span class="n">parent</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="c1"># Bind parameters to arguments</span>
-</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">            <span class="n">local_env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="c1"># Evaluate the body in this new environment</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">body</span><span class="p">,</span> <span class="n">local_env</span><span class="p">)</span>
-</span></span></code></pre></div><p>When called, a Procedure:</p>
-<ol>
-<li>Creates a new environment with its defining environment as parent (closure!)</li>
-<li>Binds parameters to the passed arguments</li>
-<li>Evaluates its body in this new environment</li>
-</ol>
-<p>This simple structure gives us closures, higher-order functions, and lexical scoping.</p>
-<h2 id="step-6-built-in-primitives">Step 6: Built-in Primitives</h2>
-<p>The global environment provides built-in functions:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">create_global_env</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Environment</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Create environment with built-in primitives.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Arithmetic</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="kc">None</span><span class="p">:</span> <span class="o">-</span><span class="n">a</span> <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">/</span> <span class="n">b</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Comparison</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;=&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">==</span> <span class="n">b</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># List operations</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;car&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">lst</span><span class="p">:</span> <span class="n">lst</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cdr&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">lst</span><span class="p">:</span> <span class="n">lst</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cons&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;list&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;null?&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">lst</span><span class="p">:</span> <span class="n">lst</span> <span class="o">==</span> <span class="p">[])</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Higher-order functions</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;map&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lst</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;filter&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">:</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">lst</span> <span class="k">if</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)])</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;reduce&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">,</span> <span class="n">init</span><span class="p">:</span> <span class="n">reduce</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">lst</span><span class="p">,</span> <span class="n">init</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">env</span>
-</span></span></code></pre></div><p>Each primitive is just a Python function. The interpreter treats them identically to user-defined procedures.</p>
-<h2 id="step-7-filesystem-integration">Step 7: Filesystem Integration</h2>
-<p>Now the interesting part: extending Scheme with filesystem primitives.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">create_global_env</span><span class="p">(</span><span class="n">shell</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Environment</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># ... standard primitives ...</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1"># Filesystem primitives (if shell provided)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">shell</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;ls&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">ls</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">lines</span><span class="p">())</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cat&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;mkdir&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">path</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;write&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="n">shell</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">content</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span> <span class="ow">and</span> <span class="n">path</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;exists?&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;cd&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">path</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">env</span><span class="o">.</span><span class="n">define</span><span class="p">(</span><span class="s1">&#39;pwd&#39;</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">shell</span><span class="o">.</span><span class="n">_cwd</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">env</span>
-</span></span></code></pre></div><p>Now Scheme can script filesystem operations:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-scheme" data-lang="scheme"><span class="line"><span class="cl"><span class="c1">; Create a project structure</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project/src&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project/tests&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">write </span><span class="s">&#34;/project/README.md&#34;</span> <span class="s">&#34;# My Project\n&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">write </span><span class="s">&#34;/project/src/main.py&#34;</span> <span class="s">&#34;def main(): pass\n&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">; List files</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">ls</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="c1">; =&gt; (&#34;README.md&#34; &#34;src&#34; &#34;tests&#34;)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">; Check existence</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">if </span><span class="p">(</span><span class="nf">exists?</span> <span class="s">&#34;/project/README.md&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;Found it!&#34;</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;Not found&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="step-8-the-repl">Step 8: The REPL</h2>
-<p>A Read-Eval-Print Loop ties it together:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SchemeREPL</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">create_global_env</span><span class="p">(</span><span class="n">shell</span><span class="o">=</span><span class="n">shell</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">eval_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Evaluate a string of Scheme code.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">tokens</span> <span class="o">=</span> <span class="n">tokenize</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="ow">not</span> <span class="n">tokens</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="kc">None</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
-</span></span><span class="line"><span class="cl">        <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">            <span class="n">expr</span><span class="p">,</span> <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_one</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="n">result</span> <span class="o">=</span> <span class="n">evaluate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span></span><span class="line"><span class="cl">        <span class="s2">&#34;&#34;&#34;Interactive REPL.&#34;&#34;&#34;</span>
-</span></span><span class="line"><span class="cl">        <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Scheme REPL (type &#39;quit&#39; to exit)&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">            <span class="k">try</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="n">code</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&#34;scheme&gt; &#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="n">code</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;quit&#39;</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                    <span class="k">break</span>
-</span></span><span class="line"><span class="cl">                <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">eval_string</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                    <span class="nb">print</span><span class="p">(</span><span class="n">format_value</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span></span><span class="line"><span class="cl">                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="example-session">Example Session</h2>
-<p>Here&rsquo;s what a session looks like:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">scheme&gt; (define double (lambda (x) (* x 2)))
-</span></span><span class="line"><span class="cl">scheme&gt; (double 21)
-</span></span><span class="line"><span class="cl">42
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">scheme&gt; (map double (list 1 2 3 4 5))
-</span></span><span class="line"><span class="cl">(2 4 6 8 10)
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">scheme&gt; (mkdir &#34;/data&#34;)
-</span></span><span class="line"><span class="cl">&#34;/data&#34;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">scheme&gt; (write &#34;/data/numbers.txt&#34; &#34;1\n2\n3\n&#34;)
-</span></span><span class="line"><span class="cl">&#34;/data/numbers.txt&#34;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">scheme&gt; (cat &#34;/data/numbers.txt&#34;)
-</span></span><span class="line"><span class="cl">&#34;1\n2\n3\n&#34;
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">scheme&gt; (filter (lambda (x) (&gt; x 1))
-</span></span><span class="line"><span class="cl">               (map (lambda (s) (string-&gt;number s))
-</span></span><span class="line"><span class="cl">                    (string-split (cat &#34;/data/numbers.txt&#34;) &#34;\n&#34;)))
-</span></span><span class="line"><span class="cl">(2 3)
-</span></span></code></pre></div><p>We&rsquo;ve built a scriptable filesystem with a dozen lines of primitives!</p>
-<h2 id="design-patterns">Design Patterns</h2>
-<p>Several patterns make this work:</p>
-<p><strong>Homoiconicity</strong>: Code is data. The AST is just lists, so we can generate and manipulate code programmatically.</p>
-<p><strong>Closures</strong>: Functions capture their environment, enabling powerful patterns like partial application and callbacks.</p>
-<p><strong>Extension via primitives</strong>: Adding features is just adding functions to the global environment. No interpreter changes needed.</p>
-<p><strong>Separation of concerns</strong>: Tokenizing, parsing, and evaluating are distinct phases with clean interfaces.</p>
-<h2 id="trade-offs">Trade-offs</h2>
-<p>This simple interpreter has limitations:</p>
-<ol>
-<li><strong>No tail-call optimization</strong>: Deep recursion will overflow the Python stack.</li>
-<li><strong>No macros</strong>: We can&rsquo;t extend the language&rsquo;s syntax.</li>
-<li><strong>Error messages are basic</strong>: Line numbers would require more tracking.</li>
-<li><strong>Performance</strong>: Pure interpretation is slow for heavy computation.</li>
-</ol>
-<p>For a DSL extending an application, these trade-offs are often acceptable. The simplicity enables understanding and modification.</p>
-<h2 id="conclusion">Conclusion</h2>
-<p>Embedding a language isn&rsquo;t black magic. At its core:</p>
-<ol>
-<li><strong>Tokenize</strong>: Break text into tokens</li>
-<li><strong>Parse</strong>: Build an AST (for Lisp, just nested lists)</li>
-<li><strong>Evaluate</strong>: Walk the AST, computing values</li>
-<li><strong>Extend</strong>: Add primitives that call into your application</li>
-</ol>
-<p>Scheme&rsquo;s minimal syntax makes this especially tractable. In a few hundred lines, we get variables, functions, closures, conditionals, recursion, and extensibility.</p>
-<p>The result is a scriptable application where users can automate, experiment, and build beyond what the core interface provides—exactly what we want from a DSL.</p>
-<hr>
-<p><em>The complete implementation is in <a href="https://github.com/queelius/dagshell">DagShell</a>, demonstrating Scheme as a filesystem scripting language alongside Python&rsquo;s fluent API.</em></p>
-<p><em>This is the final post in the series. Previous posts: <a href="../01-immutable-content-addressed-filesystem/">Immutable Content-Addressed Filesystems</a> and <a href="../02-unix-philosophy-python/">Unix Philosophy in Python</a>.</em></p>
-
-      </section>
-
-      
-      
-
-      
-      <section class="discussion-section">
-        <h2 class="discussion-title">Discussion</h2>
-        <div class="giscus-container"></div>
-        <script src="https://giscus.app/client.js"
-                data-repo="queelius/metafunctor"
-                data-repo-id="R_kgDONbcL1g"
-                data-category="General"
-                data-category-id="DIC_kwDONbcL1s4CwFJ7"
-                data-mapping="pathname"
-                data-strict="0"
-                data-reactions-enabled="1"
-                data-emit-metadata="0"
-                data-input-position="bottom"
-                data-theme="preferred_color_scheme"
-                data-lang="en"
-                crossorigin="anonymous"
-                async>
-        </script>
-      </section>
-    </article>
-  </div>
-
-  
-  <aside class="project-sidebar">
-    
-    
-
-    
-    
-
-    
-    
-
-    
-    
-
-    
-    
-  </aside>
-</div>
-
-  </main>
-  
-  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
-    <div class="footer-content">
-      <div class="footer-about">
-        <h3>metafunctor</h3>
-        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
-        <nav aria-label="Social media links" class="social-links">
-          
-          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-            <i class="fab fa-twitter" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-            <i class="fab fa-github" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-            <i class="fab fa-linkedin" aria-hidden="true"></i>
-          </a>
-          
-          <a href="../../../../index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
-            <i class="fas fa-rss" aria-hidden="true"></i>
-          </a>
-          
-          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
-            <i class="fas fa-envelope" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
-            <i class="fab fa-keybase" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-            <i class="fab fa-youtube" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
-            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
-          </a>
-          
-          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
-            <i class="fab fa-orcid" aria-hidden="true"></i>
-          </a>
-          
-        </nav>
-      </div>
-
-      <nav class="footer-section" aria-labelledby="footer-content">
-        <h4 id="footer-content">Content</h4>
-        <div class="footer-links">
-          <a href="http://localhost:40461/post/">Posts</a>
-          <a href="http://localhost:40461/papers/">Papers</a>
-          <a href="http://localhost:40461/series/">Series</a>
-          <a href="http://localhost:40461/publications/">Publications</a>
-          <a href="http://localhost:40461/writing/">Writing</a>
-        </div>
-      </nav>
-
-      <nav class="footer-section" aria-labelledby="footer-code">
-        <h4 id="footer-code">Code</h4>
-        <div class="footer-links">
-          <a href="http://localhost:40461/projects/">Projects</a>
-          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
-        </div>
-      </nav>
-
-      <nav class="footer-section" aria-labelledby="footer-connect">
-        <h4 id="footer-connect">Connect</h4>
-        <div class="footer-links">
-          <a href="http://localhost:40461/about/">About</a>
-          <a href="mailto:lex@metafunctor.com">Contact</a>
-          <a href="http://localhost:40461/index.xml" type="application/rss+xml">RSS Feed</a>
-        </div>
-      </nav>
-    </div>
-    <div class="footer-bottom">
-      <p class="copyright">
-        © 2026 Alex Towell. All rights reserved.
-      </p>
-      <p class="accessibility-note">
-        <a href="#main-content">Back to top</a>
-      </p>
-    </div>
-  </footer>
-
-  
-  <script src="../../../../js/performance-optimizations.js" defer></script>
-  <script src="../../../../js/performance-enhancements.js" defer></script>
-
-  
-  <script src="../../../../js/mobile-menu.js" defer></script>
-  <script src="../../../../js/modern-interactions.js" defer></script>
-  <script src="../../../../js/search.js" defer></script>
-
-  
-  <script src="../../../../js/reading-progress.js" defer></script>
-  <script src="../../../../js/copy-code.js" defer></script>
-  <script src="../../../../js/anchor-links.js" defer></script>
-
-  
-  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
-    <i class="fas fa-arrow-up"></i>
-  </button>
-
-  <script>
-    
-    const backToTop = document.getElementById('back-to-top');
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 300) {
-        backToTop.style.display = 'block';
-      } else {
-        backToTop.style.display = 'none';
-      }
-    });
-    backToTop.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  </script>
-
-  
-  <script data-goatcounter="https://queelius.goatcounter.com/count"
-          async src="//gc.zgo.at/count.js"></script>
-</body>
-</html>
+Output AST: <code>[Symbol('define'), Symbol('x'), [Symbol('+'), 1, 2]]</code></p><p>The beauty of Lisp: the AST <em>is</em> the syntax. There&rsquo;s no separate tree structure—it&rsquo;s just lists of symbols and values.</p><h2 id=step-3-the-environment>Step 3: The Environment</h2><p>Before evaluation, we need an environment to track variable bindings. This is where lexical scoping lives:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>class</span> <span class=nc>Environment</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Lexical environment for variable bindings.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>parent</span><span class=p>:</span> <span class=n>Optional</span><span class=p>[</span><span class=s1>&#39;Environment&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=kc>None</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>bindings</span><span class=p>:</span> <span class=n>Dict</span><span class=p>[</span><span class=nb>str</span><span class=p>,</span> <span class=n>Any</span><span class=p>]</span> <span class=o>=</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>parent</span> <span class=o>=</span> <span class=n>parent</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>define</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>name</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>Any</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;Define a new binding in this environment.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>bindings</span><span class=p>[</span><span class=n>name</span><span class=p>]</span> <span class=o>=</span> <span class=n>value</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>get</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>name</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Any</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;Look up a binding, checking parent scopes.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>name</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>bindings</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>bindings</span><span class=p>[</span><span class=n>name</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=k>elif</span> <span class=bp>self</span><span class=o>.</span><span class=n>parent</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>parent</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>raise</span> <span class=ne>NameError</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Undefined variable: </span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>set</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>name</span><span class=p>:</span> <span class=nb>str</span><span class=p>,</span> <span class=n>value</span><span class=p>:</span> <span class=n>Any</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;Update an existing binding.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>name</span> <span class=ow>in</span> <span class=bp>self</span><span class=o>.</span><span class=n>bindings</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=bp>self</span><span class=o>.</span><span class=n>bindings</span><span class=p>[</span><span class=n>name</span><span class=p>]</span> <span class=o>=</span> <span class=n>value</span>
+</span></span><span class=line><span class=cl>        <span class=k>elif</span> <span class=bp>self</span><span class=o>.</span><span class=n>parent</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=bp>self</span><span class=o>.</span><span class=n>parent</span><span class=o>.</span><span class=n>set</span><span class=p>(</span><span class=n>name</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>else</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>raise</span> <span class=ne>NameError</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Undefined variable: </span><span class=si>{</span><span class=n>name</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span></code></pre></div><p>Each function call creates a new Environment with the current one as its parent. This chain enables closures—inner functions that remember their enclosing scope.</p><h2 id=step-4-evaluation>Step 4: Evaluation</h2><p>The evaluator is the heart of the interpreter. It walks the AST and computes values:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>evaluate</span><span class=p>(</span><span class=n>expr</span><span class=p>:</span> <span class=n>Any</span><span class=p>,</span> <span class=n>env</span><span class=p>:</span> <span class=n>Environment</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Any</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Evaluate an expression in an environment.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Self-evaluating: numbers, strings, booleans</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>expr</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>,</span> <span class=nb>str</span><span class=p>,</span> <span class=nb>bool</span><span class=p>,</span> <span class=nb>type</span><span class=p>(</span><span class=kc>None</span><span class=p>))):</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>expr</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Variable lookup</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>expr</span><span class=p>,</span> <span class=n>Symbol</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>env</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>expr</span><span class=o>.</span><span class=n>name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Must be a list (function call or special form)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>expr</span><span class=p>,</span> <span class=nb>list</span><span class=p>)</span> <span class=ow>or</span> <span class=ow>not</span> <span class=n>expr</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>expr</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>op</span> <span class=o>=</span> <span class=n>expr</span><span class=p>[</span><span class=mi>0</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Special forms</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>op</span><span class=p>,</span> <span class=n>Symbol</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>op</span><span class=o>.</span><span class=n>name</span> <span class=o>==</span> <span class=s1>&#39;quote&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>expr</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>op</span><span class=o>.</span><span class=n>name</span> <span class=o>==</span> <span class=s1>&#39;define&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>name</span> <span class=o>=</span> <span class=n>expr</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>            <span class=n>value</span> <span class=o>=</span> <span class=n>evaluate</span><span class=p>(</span><span class=n>expr</span><span class=p>[</span><span class=mi>2</span><span class=p>],</span> <span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=n>name</span><span class=o>.</span><span class=n>name</span><span class=p>,</span> <span class=n>value</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>value</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>op</span><span class=o>.</span><span class=n>name</span> <span class=o>==</span> <span class=s1>&#39;if&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>condition</span> <span class=o>=</span> <span class=n>evaluate</span><span class=p>(</span><span class=n>expr</span><span class=p>[</span><span class=mi>1</span><span class=p>],</span> <span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=n>condition</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=n>evaluate</span><span class=p>(</span><span class=n>expr</span><span class=p>[</span><span class=mi>2</span><span class=p>],</span> <span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>elif</span> <span class=nb>len</span><span class=p>(</span><span class=n>expr</span><span class=p>)</span> <span class=o>&gt;</span> <span class=mi>3</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=n>evaluate</span><span class=p>(</span><span class=n>expr</span><span class=p>[</span><span class=mi>3</span><span class=p>],</span> <span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>op</span><span class=o>.</span><span class=n>name</span> <span class=o>==</span> <span class=s1>&#39;lambda&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>params</span> <span class=o>=</span> <span class=n>expr</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>            <span class=n>body</span> <span class=o>=</span> <span class=n>expr</span><span class=p>[</span><span class=mi>2</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>Procedure</span><span class=p>(</span><span class=n>params</span><span class=p>,</span> <span class=n>body</span><span class=p>,</span> <span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Function application</span>
+</span></span><span class=line><span class=cl>    <span class=n>func</span> <span class=o>=</span> <span class=n>evaluate</span><span class=p>(</span><span class=n>op</span><span class=p>,</span> <span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>args</span> <span class=o>=</span> <span class=p>[</span><span class=n>evaluate</span><span class=p>(</span><span class=n>arg</span><span class=p>,</span> <span class=n>env</span><span class=p>)</span> <span class=k>for</span> <span class=n>arg</span> <span class=ow>in</span> <span class=n>expr</span><span class=p>[</span><span class=mi>1</span><span class=p>:]]</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>func</span><span class=p>(</span><span class=o>*</span><span class=n>args</span><span class=p>)</span>
+</span></span></code></pre></div><p>Special forms (<code>define</code>, <code>if</code>, <code>lambda</code>, etc.) have custom evaluation rules. Everything else is a function call: evaluate the operator, evaluate the arguments, call the function.</p><h2 id=step-5-user-defined-functions>Step 5: User-Defined Functions</h2><p>The <code>lambda</code> form creates procedures. A Procedure captures its parameters, body, and defining environment:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=nd>@dataclass</span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>Procedure</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;A user-defined function.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>params</span><span class=p>:</span> <span class=n>List</span><span class=p>[</span><span class=n>Symbol</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=n>body</span><span class=p>:</span> <span class=n>Any</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=p>:</span> <span class=n>Environment</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__call__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=o>*</span><span class=n>args</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=c1># Create a new environment for the call</span>
+</span></span><span class=line><span class=cl>        <span class=n>local_env</span> <span class=o>=</span> <span class=n>Environment</span><span class=p>(</span><span class=n>parent</span><span class=o>=</span><span class=bp>self</span><span class=o>.</span><span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># Bind parameters to arguments</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>param</span><span class=p>,</span> <span class=n>arg</span> <span class=ow>in</span> <span class=nb>zip</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>params</span><span class=p>,</span> <span class=n>args</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=n>local_env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=n>param</span><span class=o>.</span><span class=n>name</span><span class=p>,</span> <span class=n>arg</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1># Evaluate the body in this new environment</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>evaluate</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>body</span><span class=p>,</span> <span class=n>local_env</span><span class=p>)</span>
+</span></span></code></pre></div><p>When called, a Procedure:</p><ol><li>Creates a new environment with its defining environment as parent (closure!)</li><li>Binds parameters to the passed arguments</li><li>Evaluates its body in this new environment</li></ol><p>This simple structure gives us closures, higher-order functions, and lexical scoping.</p><h2 id=step-6-built-in-primitives>Step 6: Built-in Primitives</h2><p>The global environment provides built-in functions:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>create_global_env</span><span class=p>()</span> <span class=o>-&gt;</span> <span class=n>Environment</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=s2>&#34;&#34;&#34;Create environment with built-in primitives.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span> <span class=o>=</span> <span class=n>Environment</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Arithmetic</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=o>*</span><span class=n>args</span><span class=p>:</span> <span class=nb>sum</span><span class=p>(</span><span class=n>args</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=o>=</span><span class=kc>None</span><span class=p>:</span> <span class=o>-</span><span class=n>a</span> <span class=k>if</span> <span class=n>b</span> <span class=ow>is</span> <span class=kc>None</span> <span class=k>else</span> <span class=n>a</span> <span class=o>-</span> <span class=n>b</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=o>*</span><span class=n>args</span><span class=p>:</span> <span class=n>reduce</span><span class=p>(</span><span class=k>lambda</span> <span class=n>x</span><span class=p>,</span> <span class=n>y</span><span class=p>:</span> <span class=n>x</span> <span class=o>*</span> <span class=n>y</span><span class=p>,</span> <span class=n>args</span><span class=p>,</span> <span class=mi>1</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>/</span> <span class=n>b</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Comparison</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;=&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>==</span> <span class=n>b</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;&lt;&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>&lt;</span> <span class=n>b</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;&gt;&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>&gt;</span> <span class=n>b</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># List operations</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;car&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>lst</span><span class=p>:</span> <span class=n>lst</span><span class=p>[</span><span class=mi>0</span><span class=p>])</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;cdr&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>lst</span><span class=p>:</span> <span class=n>lst</span><span class=p>[</span><span class=mi>1</span><span class=p>:])</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;cons&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=p>[</span><span class=n>a</span><span class=p>]</span> <span class=o>+</span> <span class=nb>list</span><span class=p>(</span><span class=n>b</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;list&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=o>*</span><span class=n>args</span><span class=p>:</span> <span class=nb>list</span><span class=p>(</span><span class=n>args</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;null?&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>lst</span><span class=p>:</span> <span class=n>lst</span> <span class=o>==</span> <span class=p>[])</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Higher-order functions</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;map&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>f</span><span class=p>,</span> <span class=n>lst</span><span class=p>:</span> <span class=p>[</span><span class=n>f</span><span class=p>(</span><span class=n>x</span><span class=p>)</span> <span class=k>for</span> <span class=n>x</span> <span class=ow>in</span> <span class=n>lst</span><span class=p>])</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;filter&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>f</span><span class=p>,</span> <span class=n>lst</span><span class=p>:</span> <span class=p>[</span><span class=n>x</span> <span class=k>for</span> <span class=n>x</span> <span class=ow>in</span> <span class=n>lst</span> <span class=k>if</span> <span class=n>f</span><span class=p>(</span><span class=n>x</span><span class=p>)])</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;reduce&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>f</span><span class=p>,</span> <span class=n>lst</span><span class=p>,</span> <span class=n>init</span><span class=p>:</span> <span class=n>reduce</span><span class=p>(</span><span class=n>f</span><span class=p>,</span> <span class=n>lst</span><span class=p>,</span> <span class=n>init</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>env</span>
+</span></span></code></pre></div><p>Each primitive is just a Python function. The interpreter treats them identically to user-defined procedures.</p><h2 id=step-7-filesystem-integration>Step 7: Filesystem Integration</h2><p>Now the interesting part: extending Scheme with filesystem primitives.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>def</span> <span class=nf>create_global_env</span><span class=p>(</span><span class=n>shell</span><span class=o>=</span><span class=kc>None</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Environment</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>env</span> <span class=o>=</span> <span class=n>Environment</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># ... standard primitives ...</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1># Filesystem primitives (if shell provided)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=n>shell</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;ls&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>path</span><span class=o>=</span><span class=s1>&#39;/&#39;</span><span class=p>:</span> <span class=n>shell</span><span class=o>.</span><span class=n>ls</span><span class=p>(</span><span class=n>path</span><span class=p>)</span><span class=o>.</span><span class=n>lines</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;cat&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>path</span><span class=p>:</span> <span class=n>shell</span><span class=o>.</span><span class=n>cat</span><span class=p>(</span><span class=n>path</span><span class=p>)</span><span class=o>.</span><span class=n>text</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;mkdir&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>path</span><span class=p>:</span> <span class=n>shell</span><span class=o>.</span><span class=n>mkdir</span><span class=p>(</span><span class=n>path</span><span class=p>)</span> <span class=ow>and</span> <span class=n>path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;write&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>path</span><span class=p>,</span> <span class=n>content</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>shell</span><span class=o>.</span><span class=n>fs</span><span class=o>.</span><span class=n>write</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>content</span><span class=o>.</span><span class=n>encode</span><span class=p>())</span> <span class=ow>and</span> <span class=n>path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;exists?&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>path</span><span class=p>:</span> <span class=n>shell</span><span class=o>.</span><span class=n>fs</span><span class=o>.</span><span class=n>exists</span><span class=p>(</span><span class=n>path</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;cd&#39;</span><span class=p>,</span> <span class=k>lambda</span> <span class=n>path</span><span class=p>:</span> <span class=n>shell</span><span class=o>.</span><span class=n>cd</span><span class=p>(</span><span class=n>path</span><span class=p>)</span> <span class=ow>and</span> <span class=n>path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>env</span><span class=o>.</span><span class=n>define</span><span class=p>(</span><span class=s1>&#39;pwd&#39;</span><span class=p>,</span> <span class=k>lambda</span><span class=p>:</span> <span class=n>shell</span><span class=o>.</span><span class=n>_cwd</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>env</span>
+</span></span></code></pre></div><p>Now Scheme can script filesystem operations:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-scheme data-lang=scheme><span class=line><span class=cl><span class=c1>; Create a project structure</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nf>mkdir</span> <span class=s>&#34;/project&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nf>mkdir</span> <span class=s>&#34;/project/src&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nf>mkdir</span> <span class=s>&#34;/project/tests&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nb>write </span><span class=s>&#34;/project/README.md&#34;</span> <span class=s>&#34;# My Project\n&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nb>write </span><span class=s>&#34;/project/src/main.py&#34;</span> <span class=s>&#34;def main(): pass\n&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>; List files</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=nf>ls</span> <span class=s>&#34;/project&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=c1>; =&gt; (&#34;README.md&#34; &#34;src&#34; &#34;tests&#34;)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>; Check existence</span>
+</span></span><span class=line><span class=cl><span class=p>(</span><span class=k>if </span><span class=p>(</span><span class=nf>exists?</span> <span class=s>&#34;/project/README.md&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;Found it!&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;Not found&#34;</span><span class=p>)</span>
+</span></span></code></pre></div><h2 id=step-8-the-repl>Step 8: The REPL</h2><p>A Read-Eval-Print Loop ties it together:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>class</span> <span class=nc>SchemeREPL</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>shell</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>env</span> <span class=o>=</span> <span class=n>create_global_env</span><span class=p>(</span><span class=n>shell</span><span class=o>=</span><span class=n>shell</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>eval_string</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>code</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Any</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;Evaluate a string of Scheme code.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=n>tokens</span> <span class=o>=</span> <span class=n>tokenize</span><span class=p>(</span><span class=n>code</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=ow>not</span> <span class=n>tokens</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>result</span> <span class=o>=</span> <span class=kc>None</span>
+</span></span><span class=line><span class=cl>        <span class=n>idx</span> <span class=o>=</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>while</span> <span class=n>idx</span> <span class=o>&lt;</span> <span class=nb>len</span><span class=p>(</span><span class=n>tokens</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>            <span class=n>expr</span><span class=p>,</span> <span class=n>idx</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_parse_one</span><span class=p>(</span><span class=n>tokens</span><span class=p>,</span> <span class=n>idx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>result</span> <span class=o>=</span> <span class=n>evaluate</span><span class=p>(</span><span class=n>expr</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>env</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>result</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>run</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
+</span></span><span class=line><span class=cl>        <span class=s2>&#34;&#34;&#34;Interactive REPL.&#34;&#34;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=nb>print</span><span class=p>(</span><span class=s2>&#34;Scheme REPL (type &#39;quit&#39; to exit)&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>try</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>code</span> <span class=o>=</span> <span class=nb>input</span><span class=p>(</span><span class=s2>&#34;scheme&gt; &#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=n>code</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span> <span class=o>==</span> <span class=s1>&#39;quit&#39;</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                    <span class=k>break</span>
+</span></span><span class=line><span class=cl>                <span class=n>result</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>eval_string</span><span class=p>(</span><span class=n>code</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=n>result</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                    <span class=nb>print</span><span class=p>(</span><span class=n>format_value</span><span class=p>(</span><span class=n>result</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>            <span class=k>except</span> <span class=ne>Exception</span> <span class=k>as</span> <span class=n>e</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Error: </span><span class=si>{</span><span class=n>e</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+</span></span></code></pre></div><h2 id=example-session>Example Session</h2><p>Here&rsquo;s what a session looks like:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>scheme&gt; (define double (lambda (x) (* x 2)))
+</span></span><span class=line><span class=cl>scheme&gt; (double 21)
+</span></span><span class=line><span class=cl>42
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>scheme&gt; (map double (list 1 2 3 4 5))
+</span></span><span class=line><span class=cl>(2 4 6 8 10)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>scheme&gt; (mkdir &#34;/data&#34;)
+</span></span><span class=line><span class=cl>&#34;/data&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>scheme&gt; (write &#34;/data/numbers.txt&#34; &#34;1\n2\n3\n&#34;)
+</span></span><span class=line><span class=cl>&#34;/data/numbers.txt&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>scheme&gt; (cat &#34;/data/numbers.txt&#34;)
+</span></span><span class=line><span class=cl>&#34;1\n2\n3\n&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>scheme&gt; (filter (lambda (x) (&gt; x 1))
+</span></span><span class=line><span class=cl>               (map (lambda (s) (string-&gt;number s))
+</span></span><span class=line><span class=cl>                    (string-split (cat &#34;/data/numbers.txt&#34;) &#34;\n&#34;)))
+</span></span><span class=line><span class=cl>(2 3)
+</span></span></code></pre></div><p>We&rsquo;ve built a scriptable filesystem with a dozen lines of primitives!</p><h2 id=design-patterns>Design Patterns</h2><p>Several patterns make this work:</p><p><strong>Homoiconicity</strong>: Code is data. The AST is just lists, so we can generate and manipulate code programmatically.</p><p><strong>Closures</strong>: Functions capture their environment, enabling powerful patterns like partial application and callbacks.</p><p><strong>Extension via primitives</strong>: Adding features is just adding functions to the global environment. No interpreter changes needed.</p><p><strong>Separation of concerns</strong>: Tokenizing, parsing, and evaluating are distinct phases with clean interfaces.</p><h2 id=trade-offs>Trade-offs</h2><p>This simple interpreter has limitations:</p><ol><li><strong>No tail-call optimization</strong>: Deep recursion will overflow the Python stack.</li><li><strong>No macros</strong>: We can&rsquo;t extend the language&rsquo;s syntax.</li><li><strong>Error messages are basic</strong>: Line numbers would require more tracking.</li><li><strong>Performance</strong>: Pure interpretation is slow for heavy computation.</li></ol><p>For a DSL extending an application, these trade-offs are often acceptable. The simplicity enables understanding and modification.</p><h2 id=conclusion>Conclusion</h2><p>Embedding a language isn&rsquo;t black magic. At its core:</p><ol><li><strong>Tokenize</strong>: Break text into tokens</li><li><strong>Parse</strong>: Build an AST (for Lisp, just nested lists)</li><li><strong>Evaluate</strong>: Walk the AST, computing values</li><li><strong>Extend</strong>: Add primitives that call into your application</li></ol><p>Scheme&rsquo;s minimal syntax makes this especially tractable. In a few hundred lines, we get variables, functions, closures, conditionals, recursion, and extensibility.</p><p>The result is a scriptable application where users can automate, experiment, and build beyond what the core interface provides—exactly what we want from a DSL.</p><hr><p><em>The complete implementation is in <a href=https://github.com/queelius/dagshell>DagShell</a>, demonstrating Scheme as a filesystem scripting language alongside Python&rsquo;s fluent API.</em></p><p><em>This is the final post in the series. Previous posts: <a href=../01-immutable-content-addressed-filesystem/>Immutable Content-Addressed Filesystems</a> and <a href=../02-unix-philosophy-python/>Unix Philosophy in Python</a>.</em></p></section><section class=discussion-section><h2 class=discussion-title>Discussion</h2><div class=giscus-container></div><script src=https://giscus.app/client.js data-repo=queelius/metafunctor data-repo-id=R_kgDONbcL1g data-category=General data-category-id=DIC_kwDONbcL1s4CwFJ7 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=preferred_color_scheme data-lang=en crossorigin=anonymous async></script></section></article></div><aside class=project-sidebar></aside></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
+</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
+</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
+</a><a href=../../../../index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
+</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
+</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
+</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
+</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
+</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-content><h4 id=footer-content>Content</h4><div class=footer-links><a href=https://metafunctor.com/post/>Posts</a>
+<a href=https://metafunctor.com/papers/>Papers</a>
+<a href=https://metafunctor.com/series/>Series</a>
+<a href=https://metafunctor.com/publications/>Publications</a>
+<a href=https://metafunctor.com/writing/>Writing</a></div></nav><nav class=footer-section aria-labelledby=footer-code><h4 id=footer-code>Code</h4><div class=footer-links><a href=https://metafunctor.com/projects/>Projects</a>
+<a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
+<a href=mailto:lex@metafunctor.com>Contact</a>
+<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=../../../../js/performance-optimizations.js defer></script><script src=../../../../js/performance-enhancements.js defer></script><script src=../../../../js/mobile-menu.js defer></script><script src=../../../../js/modern-interactions.js defer></script><script src=../../../../js/search.js defer></script><script src=../../../../js/reading-progress.js defer></script><script src=../../../../js/copy-code.js defer></script><script src=../../../../js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
+<i class="fas fa-arrow-up"></i>
+</button>
+<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
