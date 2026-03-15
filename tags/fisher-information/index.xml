@@ -1,89 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Fisher-Information on metafunctor</title><link>https://metafunctor.com/tags/fisher-information/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 22:25:34 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/fisher-information/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Your Optimizer Is (Approximately) Doing Fisher Flow</title><link>https://metafunctor.com/post/2026-03-14-your-optimizer-is-approximately-doing-fisher-flow/</link><pubDate>Sat, 14 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-14-your-optimizer-is-approximately-doing-fisher-flow/</guid><description>Adam, K-FAC, and EWC are all propagating Fisher information with different approximation structures. Here's the math and the caveats.</description><content:encoded><![CDATA[<p>Adam&rsquo;s second moment estimate tracks a diagonal approximation to the empirical Fisher Information Matrix. K-FAC uses a Kronecker-factored approximation. EWC uses the Fisher as a regularization penalty. Natural gradient uses the full thing. They&rsquo;re all doing the same computation at different fidelity levels.</p>
-<p>None of this is my observation. Amari formalized natural gradient in 1998. Khan and Rue (2023) unified these algorithms (and more) under a single Bayesian learning rule. Martens (2020) wrote a 76-page treatment that covers most of the relevant theory. Kunstner, Hennig, and Balles (2019) showed where the empirical Fisher approximation breaks down.</p>
-<p>This post walks through the connections, the math, and the caveats.</p>
-<h2 id="fisher-information-in-30-seconds">Fisher Information in 30 Seconds</h2>
-<p>Start with a parametric model $p(x | \theta)$, where $x$ is the observed data and $\theta \in \mathbb{R}^d$ is the parameter vector you&rsquo;re estimating. The <strong>score</strong> is the gradient of the log-likelihood with respect to the parameters:</p>
-$$s(\theta) = \nabla_\theta \log p(x|\theta)$$<p>The <strong>Fisher Information Matrix</strong> $\mathcal{I}(\theta) \in \mathbb{R}^{d \times d}$ is the expected outer product of the score:</p>
-$$\mathcal{I}(\theta) = \mathbb{E}_{x \sim p(x|\theta)}\left[s(\theta) \, s(\theta)^\top\right]$$<p>where the expectation is over data drawn from the model. Equivalently, $\mathcal{I}(\theta) = -\mathbb{E}[\nabla^2_\theta \log p(x|\theta)]$, the expected negative Hessian. It measures how sharply the likelihood peaks around the current parameters. Sharper peak, more information, less uncertainty.</p>
-<p>The property that makes everything work: Fisher information from independent observations $x_1, \ldots, x_n$ adds up.</p>
-$$\mathcal{I}_{1:n}(\theta) = \sum_{i=1}^n \mathcal{I}_{x_i}(\theta)$$<p>where $\mathcal{I}_{x_i}(\theta)$ is the Fisher contribution from observation $x_i$.</p>
-<p>So sequential estimation is bookkeeping. Maintain a running estimate $\hat\theta_t \in \mathbb{R}^d$ (your best guess at time $t$) and accumulated information $\mathcal{I}<em>t \in \mathbb{R}^{d \times d}$ (your running total of Fisher information). When new data arrives with score $s_t$ and Fisher contribution $\mathcal{I}</em>{\text{new}}$:</p>
-$$\mathcal{I}_t = \mathcal{I}_{t-1} + \mathcal{I}_{\text{new}}$$<p>
-</p>
-$$\hat\theta_t = \hat\theta_{t-1} + \mathcal{I}_t^{-1} \cdot s_t$$<p>The $\mathcal{I}_t^{-1}$ preconditioner is what makes this a <em>natural</em> gradient. It rescales the update to respect the geometry of the parameter space (the Fisher-Rao metric on the statistical manifold) rather than treating all directions equally.</p>
-<h2 id="the-optimizer-taxonomy">The Optimizer Taxonomy</h2>
-<p>Different optimizers approximate the Fisher at different levels:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Method</th>
-          <th>Fisher approximation</th>
-          <th>Cost</th>
-          <th>What&rsquo;s lost</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>SGD</td>
-          <td>$\mathcal{I} = \lambda I_d$ (scalar times identity)</td>
-          <td>$O(1)$</td>
-          <td>All curvature information</td>
-      </tr>
-      <tr>
-          <td>Adam</td>
-          <td>$\mathcal{I} = \text{diag}(v)$ (diagonal, $v \in \mathbb{R}^d$)</td>
-          <td>$O(d)$</td>
-          <td>Off-diagonal interactions</td>
-      </tr>
-      <tr>
-          <td>K-FAC</td>
-          <td>$\mathcal{I} \approx A \otimes B$ ($A \in \mathbb{R}^{n \times n}$, $B \in \mathbb{R}^{m \times m}$ for a weight matrix $W \in \mathbb{R}^{m \times n}$)</td>
-          <td>$O(m^3 + n^3)$</td>
-          <td>Cross-layer interactions</td>
-      </tr>
-      <tr>
-          <td>Natural gradient</td>
-          <td>Full $\mathcal{I} \in \mathbb{R}^{d \times d}$</td>
-          <td>$O(d^3)$</td>
-          <td>Nothing (but intractable for large $d$)</td>
-      </tr>
-  </tbody>
-</table>
-<p>Here $d$ is the total number of parameters, $I_d$ is the $d \times d$ identity matrix, $\otimes$ denotes the Kronecker product, and $A$, $B$ are the input covariance and output gradient covariance factors from K-FAC (Martens and Grosse, 2015).</p>
-<p>The Adam case is the most interesting because it&rsquo;s the most widely used and the equivalence is the most approximate.</p>
-<h2 id="adam-is-simplified-diagonal-fisher-flow">Adam Is Simplified Diagonal Fisher Flow</h2>
-<p>Adam&rsquo;s second moment $\hat{v}<em>t = \beta_2 \hat{v}</em>{t-1} + (1-\beta_2) g_t^2$ (where $g_t \in \mathbb{R}^d$ is the gradient at step $t$, $\beta_2 \in [0,1)$ is the decay rate, and the squaring is element-wise) tracks the diagonal of an exponentially-weighted empirical Fisher. The equivalence isn&rsquo;t exact. It requires simplifications:</p>
-<ol>
-<li>No bias correction (remove the $1/(1 - \beta_2^t)$ term)</li>
-<li>No epsilon</li>
-<li>Use $v_t$ directly instead of $\sqrt{v_t}$ (this one matters: Adam uses a square-root preconditioner, not the standard natural gradient preconditioner)</li>
-<li>The &ldquo;Fisher&rdquo; Adam estimates is the <em>empirical</em> Fisher (outer product of gradients at current parameters), not the <em>true</em> Fisher (expectation under the model&rsquo;s own distribution). These differ away from convergence (Kunstner et al., 2019).</li>
-</ol>
-<p>To verify this yourself: implement simplified Adam (no bias correction, $v_t$ instead of $\sqrt{v_t}$, no $\epsilon$) and diagonal Fisher Flow with exponential forgetting factor $\beta_2$. Run both on the same gradient sequence. The parameter trajectories match to machine precision. Full Adam diverges because the simplifications matter.</p>
-<p>He (2024) provides a rigorous treatment in the FAdam paper.</p>
-<h2 id="ewc-is-fisher-regularization-by-definition">EWC Is Fisher Regularization by Definition</h2>
-<p>EWC (Kirkpatrick et al., 2017) uses the Fisher directly in its loss function. There&rsquo;s no approximation to demonstrate because EWC was <em>defined</em> this way:</p>
-$$\mathcal{L}_{\text{EWC}}(\theta) = \mathcal{L}_{\text{new}}(\theta) + \frac{\lambda}{2} \sum_{i=1}^{d} F_i (\theta_i - \theta_i^*)^2$$<p>where $\mathcal{L}_{\text{new}}$ is the loss on the new task, $\lambda &gt; 0$ controls regularization strength, $F_i$ is the $i$-th diagonal entry of the Fisher from the previous task, $\theta^* \in \mathbb{R}^d$ are the parameters after training on the previous task, and the sum runs over all $d$ parameters. Parameters with high $F_i$ were important for the old task and get penalized for moving.</p>
-<p>There&rsquo;s nothing to verify here. The EWC penalty <em>is</em> Fisher regularization. Kirkpatrick et al. defined it that way.</p>
-<h2 id="when-the-theory-applies-and-when-it-doesnt">When the Theory Applies (and When It Doesn&rsquo;t)</h2>
-<p>Two regimes.</p>
-<p><strong>Classical.</strong> You train to convergence. The Fisher at the optimum is the negative Hessian of the log-likelihood. Asymptotic theory applies: consistency, normality, Cramer-Rao efficiency. Fisher-based uncertainty quantification is meaningful.</p>
-<p><strong>Modern ML.</strong> You stop before convergence. The Fisher accumulated along the training trajectory is not the Fisher at any optimum. It encodes something about the path through parameter space, not about curvature at a stationary point.</p>
-<p>Most of the elegant theory (additivity, efficiency, $\mathcal{I}^{-1}$ as uncertainty) assumes you&rsquo;re in the classical regime. In practice, you&rsquo;re usually not. Barrett and Dherin (2021) showed that SGD implicitly penalizes the trace of the empirical Fisher. Jastrzebski et al. (2021) showed that the Fisher trace early in training critically affects generalization. The Fisher still matters in the modern regime. It just means something different.</p>
-<h2 id="references">References</h2>
-<ul>
-<li>Amari, S. (1998). Natural gradient works efficiently in learning. <em>Neural Computation</em>, 10(2), 251-276.</li>
-<li>Khan, M.E. and Rue, H. (2023). The Bayesian Learning Rule. <em>JMLR</em>, 24(281), 1-76.</li>
-<li>Martens, J. (2020). New Insights and Perspectives on the Natural Gradient Method. <em>JMLR</em>, 21(146), 1-76.</li>
-<li>Kunstner, F., Hennig, P., and Balles, L. (2019). Limitations of the Empirical Fisher Approximation. <em>NeurIPS</em>.</li>
-<li>Kirkpatrick, J. et al. (2017). Overcoming catastrophic forgetting in neural networks. <em>PNAS</em>, 114(13), 3521-3526.</li>
-<li>Martens, J. and Grosse, R. (2015). Optimizing Neural Networks with Kronecker-Factored Approximate Curvature. <em>ICML</em>.</li>
-<li>He, D. (2024). FAdam: Adam is a natural gradient optimizer using diagonal empirical Fisher information. <em>ICLR 2025</em>.</li>
-<li>Barrett, D.G.T. and Dherin, B. (2021). Implicit Gradient Regularization. <em>ICLR</em>.</li>
-<li>Jastrzebski, S. et al. (2021). Catastrophic Fisher Explosion. <em>ICML</em>.</li>
-<li>Davis, O. et al. (2024). Fisher Flow Matching for Generative Modeling over Discrete Data. <em>NeurIPS</em>. (Note: different &ldquo;Fisher Flow,&rdquo; same manifold.)</li>
-</ul>
-]]></content:encoded><category>fisher-information</category><category>natural-gradient</category><category>optimization</category><category>information-geometry</category></item><item><title>Closed-Form Results for Masked Exponential Series Systems</title><link>https://metafunctor.com/post/2024-04-15-expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-04-15-expo-masked-fim/</guid><description>Closed-form MLEs and Fisher information for exponential series systems with masked failure data. No numerical optimization required.</description><content:encoded><![CDATA[<p>In a series system, the system fails when any component fails. You observe the system failure time \(t\) and a candidate set \(C \subseteq \lbrace 1,2,\ldots,m\rbrace\) of components that might have caused the failure. But you do not know which component in \(C\) actually failed. This is masked failure data.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Fisher Information on metafunctor</title><link>https://metafunctor.com/tags/fisher-information/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 22:31:36 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/fisher-information/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Closed-Form Results for Masked Exponential Series Systems</title><link>https://metafunctor.com/post/2024-04-15-expo-masked-fim/</link><pubDate>Tue, 02 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-04-15-expo-masked-fim/</guid><description>Closed-form MLEs and Fisher information for exponential series systems with masked failure data. No numerical optimization required.</description><content:encoded><![CDATA[<p>In a series system, the system fails when any component fails. You observe the system failure time \(t\) and a candidate set \(C \subseteq \lbrace 1,2,\ldots,m\rbrace\) of components that might have caused the failure. But you do not know which component in \(C\) actually failed. This is masked failure data.</p>
 <p>The standard approach is numerical optimization of the likelihood. This paper shows that for exponential component lifetimes, everything has a closed form.</p>
 <h2 id="closed-form-fisher-information">Closed-Form Fisher Information</h2>
 <p>For exponential masked data with arbitrary masking patterns:</p>
@@ -322,7 +237,100 @@ $$\sqrt{n}(\hat{\boldsymbol{\lambda}}_n - \boldsymbol{\lambda}^\star) \xrightarr
   });
 })();
 </script>
-]]></content:encoded><category>statistics</category><category>information geometry</category><category>sequential estimation</category><category>fisher information</category><category>hessian</category><category>maximum likelihood</category></item><item><title>algebraic.mle: MLEs as Algebraic Objects</title><link>https://metafunctor.com/post/2024-05-15-algebraic.mle/</link><pubDate>Sat, 15 May 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-05-15-algebraic.mle/</guid><description>An R package that treats MLEs as algebraic objects. They carry Fisher information, compose through independent likelihoods, and propagate uncertainty correctly.</description><content:encoded><![CDATA[<p>Maximum likelihood estimators have rich mathematical structure. They are consistent, asymptotically normal, efficient. <a href="https://github.com/queelius/algebraic.mle">algebraic.mle</a> exposes this structure through an algebra where MLEs are objects you compose, transform, and query.</p>
+]]></content:encoded><category>statistics</category><category>information geometry</category><category>sequential estimation</category><category>fisher information</category><category>hessian</category><category>maximum likelihood</category></item><item><title>Your Optimizer Is (Approximately) Propagating Fisher Information</title><link>https://metafunctor.com/post/2023-09-12-your-optimizer-is-approximately-doing-fisher-flow/</link><pubDate>Tue, 12 Sep 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2023-09-12-your-optimizer-is-approximately-doing-fisher-flow/</guid><description>Adam, K-FAC, EWC, and natural gradient are all approximating the same thing at different fidelity levels. The math and the caveats.</description><content:encoded><![CDATA[<p>Adam&rsquo;s second moment estimate is a diagonal approximation to the empirical Fisher Information Matrix. K-FAC uses a Kronecker-factored approximation. EWC uses the Fisher as a regularization penalty. Natural gradient uses the full thing. Same underlying structure, different computational budgets.</p>
+<p>None of this is new. Amari formalized natural gradient in 1998. Martens (2020) wrote a thorough 76-page survey connecting it to second-order optimization. Khan and Rue (2023) unified these algorithms under a single Bayesian learning rule. Kunstner, Hennig, and Balles (2019) showed where the empirical Fisher approximation breaks. I spent a while working through the math, and the pattern is clean once you see it, so I want to write it down.</p>
+<h2 id="fisher-information">Fisher Information</h2>
+<p>Parametric model $p(x|\theta)$. Here $x$ is observed data and $\theta \in \mathbb{R}^d$ is the parameter vector. The <strong>score function</strong> is the gradient of the log-likelihood with respect to the parameters:</p>
+$$s(\theta; x) = \nabla_\theta \log p(x|\theta)$$<p>Under regularity conditions, the score has zero mean: $\mathbb{E}_{x \sim p(x|\theta)}[s(\theta; x)] = 0$. The <strong>Fisher Information Matrix</strong> $\mathcal{I}(\theta) \in \mathbb{R}^{d \times d}$ is its covariance:</p>
+$$\mathcal{I}(\theta) = \text{Cov}[s(\theta; x)] = \mathbb{E}_{x \sim p(x|\theta)}\!\left[s(\theta; x)\, s(\theta; x)^\top\right]$$<p>Under the same regularity conditions (differentiability, integrability, interchange of differentiation and integration), this equals $-\mathbb{E}[\nabla^2_\theta \log p(x|\theta)]$, the expected negative Hessian. This is Bartlett&rsquo;s second identity.</p>
+<p>What does the Fisher measure? Not how sharply the likelihood peaks around the data. It measures how well the data <em>distinguishes</em> nearby parameter values. If $\mathcal{I}(\theta)$ is large in some direction, then a small change in $\theta$ along that direction produces a large change in the distribution $p(x|\theta)$, which means the data is informative about that component. If $\mathcal{I}(\theta)$ is small, nearby parameter values produce nearly indistinguishable distributions, and the data can&rsquo;t tell them apart. Formally, the Fisher is the Hessian of the KL divergence $D_{\text{KL}}(p_\theta | p_{\theta + \delta\theta})$ at $\delta\theta = 0$.</p>
+<p>Fisher information from independent observations adds:</p>
+$$\mathcal{I}_{1:n}(\theta) = \sum_{i=1}^n \mathcal{I}_{x_i}(\theta)$$<p>where $\mathcal{I}<em>{x_i}(\theta) = s(\theta; x_i) s(\theta; x_i)^\top$ is the per-observation Fisher contribution. (For i.i.d. observations, $\mathcal{I}</em>{1:n}(\theta) = n \cdot \mathcal{I}(\theta)$, but the additivity holds for non-identical observations too, which is what makes sequential and distributed estimation clean.)</p>
+<p>This gives you a natural update rule. Maintain a running estimate $\hat\theta_t \in \mathbb{R}^d$ and accumulated Fisher information $\mathcal{I}<em>t \in \mathbb{R}^{d \times d}$. When new data arrives with score $s_t$ and Fisher contribution $\mathcal{I}</em>{\text{new}}$:</p>
+$$\mathcal{I}_t = \mathcal{I}_{t-1} + \mathcal{I}_{\text{new}}$$<p>
+</p>
+$$\hat\theta_t = \hat\theta_{t-1} + \eta\, \mathcal{I}_t^{-1} s_t$$<p>where $\eta &gt; 0$ is a learning rate. Since the score $s_t$ points in the direction of increasing log-likelihood, this is gradient <em>ascent</em> on the likelihood, preconditioned by the inverse Fisher. The preconditioner $\mathcal{I}_t^{-1}$ makes this a <em>natural</em> gradient step: it rescales the update to respect the Fisher-Rao metric on the statistical manifold, so that equal-sized steps correspond to equal changes in the distribution, not equal changes in the parameter vector. If you&rsquo;re minimizing a loss $L = -\log p$, the gradient is $-s_t$ and the update has the usual descent sign.</p>
+<h2 id="the-approximation-hierarchy">The Approximation Hierarchy</h2>
+<p>Every common optimizer can be viewed as using some approximation to the Fisher as its preconditioner. The framing is most natural for natural gradient, less natural for SGD (where it&rsquo;s more of an interpretation than a design choice):</p>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Preconditioner structure</th>
+          <th>Per-step cost</th>
+          <th>What&rsquo;s discarded</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>SGD</td>
+          <td>$\eta I_d$ (learning rate $\times$ identity)</td>
+          <td>$O(d)$</td>
+          <td>All curvature information</td>
+      </tr>
+      <tr>
+          <td>Adam</td>
+          <td>$\text{diag}(\hat{v}_t)^{-1/2}$, $\hat{v}_t \in \mathbb{R}^d$</td>
+          <td>$O(d)$</td>
+          <td>Off-diagonal structure, uses square root</td>
+      </tr>
+      <tr>
+          <td>K-FAC</td>
+          <td>$(A \otimes B)^{-1}$, $A \in \mathbb{R}^{n \times n}$, $B \in \mathbb{R}^{m \times m}$</td>
+          <td>$O(m^3 + n^3)$*</td>
+          <td>Cross-layer coupling</td>
+      </tr>
+      <tr>
+          <td>Natural gradient</td>
+          <td>$\mathcal{I}(\theta)^{-1} \in \mathbb{R}^{d \times d}$</td>
+          <td>$O(d^3)$</td>
+          <td>Nothing</td>
+      </tr>
+  </tbody>
+</table>
+<p>$d$ is the total parameter count. $I_d$ is the $d \times d$ identity. $\otimes$ is the Kronecker product. For K-FAC, $A = \mathbb{E}[a_{l-1} a_{l-1}^\top]$ is the input activation covariance and $B = \mathbb{E}[\delta_l \delta_l^\top]$ is the output gradient covariance for a layer with weight matrix $W_l \in \mathbb{R}^{m \times n}$, input activations $a_{l-1} \in \mathbb{R}^n$, and backpropagated gradients $\delta_l \in \mathbb{R}^m$ (Martens and Grosse, 2015).</p>
+<p>*K-FAC&rsquo;s $O(m^3 + n^3)$ cost is for the periodic inversion of the Kronecker factors. K-FAC does not invert every step; it amortizes the cost by inverting every $T_{\text{inv}}$ steps and using stale inverses in between. The per-step factor update (accumulating $a a^\top$ and $\delta \delta^\top$) costs $O(n^2 + m^2)$.</p>
+<p>Calling SGD a &ldquo;scalar Fisher&rdquo; approximation is the Fisher perspective&rsquo;s interpretation, not SGD&rsquo;s self-understanding. SGD uses a fixed learning rate because it works, not because someone decided to approximate the Fisher with a scalar. But the interpretation is structurally correct: SGD treats all parameter directions as equally curved, which is what happens when you precondition with a multiple of the identity.</p>
+<h2 id="adam-and-the-diagonal-fisher">Adam and the Diagonal Fisher</h2>
+<p>Adam&rsquo;s second moment update is $\hat{v}<em>t = \beta_2 \hat{v}</em>{t-1} + (1-\beta_2) g_t^2$. Here $g_t \in \mathbb{R}^d$ is the mini-batch gradient at step $t$, $\beta_2 \in [0,1)$ is the exponential decay rate, and the square is element-wise. This is an exponentially-weighted moving average of squared gradients, which tracks the diagonal of what you might call the &ldquo;empirical Fisher.&rdquo;</p>
+<p>I say &ldquo;might call&rdquo; because there are two things people mean by &ldquo;empirical Fisher,&rdquo; and they&rsquo;re not the same:</p>
+<ul>
+<li><strong>Per-sample empirical Fisher</strong>: $\hat{\mathcal{I}} = \frac{1}{n} \sum_{i=1}^n s(\theta; x_i) s(\theta; x_i)^\top$, where each $s(\theta; x_i)$ is the per-sample gradient. The diagonal of this is $\frac{1}{n} \sum_i [s(\theta; x_i)]^2$, the mean of per-sample squared gradients.</li>
+<li><strong>Mini-batch gradient outer product</strong>: $g_t g_t^\top$, where $g_t = \frac{1}{|B|}\sum_{i \in B} s(\theta; x_i)$ is the batch-averaged gradient. The diagonal is $g_t^2$.</li>
+</ul>
+<p>Adam tracks the second one, not the first. These differ because $(\frac{1}{n}\sum_i s_i)^2 \neq \frac{1}{n}\sum_i s_i^2$ in general. The distinction is discussed by Kunstner et al. (2019), who show that neither version generally approximates the true Fisher well away from critical points.</p>
+<p>The connection between Adam and natural gradient is real but requires four simplifications to make exact:</p>
+<ol>
+<li><strong>Drop bias correction.</strong> Remove the $1/(1 - \beta_2^t)$ warmup term.</li>
+<li><strong>Drop epsilon.</strong> Set the numerical stability constant to zero.</li>
+<li><strong>Drop the square root.</strong> This is the big one. Adam divides by $\sqrt{\hat{v}_t} + \epsilon$. The natural gradient preconditioner divides by $\hat{v}_t$. Adam is using a square-root preconditioner: $\text{diag}(\hat{v}_t)^{-1/2}$ rather than $\text{diag}(\hat{v}_t)^{-1}$. These are different objects with different scaling properties.</li>
+<li><strong>Accept the empirical Fisher.</strong> The true Fisher is $\mathbb{E}<em>{x \sim p</em>\theta}[s(\theta; x) s(\theta; x)^\top]$, an expectation under the <em>model&rsquo;s</em> distribution. The empirical Fisher uses the <em>training data</em> distribution. They agree when the gradient is zero (i.e., at critical points of the expected log-likelihood, where the model&rsquo;s distribution matches the data distribution in the relevant sense). In practice you are almost never at such a point.</li>
+</ol>
+<p>With all four simplifications, simplified Adam and diagonal natural gradient with exponential forgetting $\beta_2$ produce identical parameter trajectories. Without them, they don&rsquo;t. The square root is the most consequential difference: it changes the effective preconditioning from $1/v_i$ to $1/\sqrt{v_i}$, compressing the dynamic range of the per-parameter learning rates.</p>
+<p>This tells you what Adam is actually doing: per-parameter learning rate adaptation based on recent gradient magnitudes. It is not principled curvature estimation in most of parameter space. The Fisher interpretation holds approximately near convergence, where the empirical and true Fisher converge and the square root is a monotonic distortion that preserves the ranking of directions. Away from convergence, the interpretation is loose.</p>
+<h2 id="ewc-and-the-fisher-as-memory">EWC and the Fisher as Memory</h2>
+<p>Elastic Weight Consolidation (Kirkpatrick et al., 2017) is the simplest case because there is no approximation gap to analyze. EWC defines its loss as:</p>
+$$\mathcal{L}\_{\text{EWC}}(\theta) = \mathcal{L}\_{\text{new}}(\theta) + \frac{\lambda}{2} \sum\_{i=1}^{d} F_i (\theta_i - \theta_i^\*)^2$$<p>$\mathcal{L}_{\text{new}}(\theta)$ is the loss on the current task. $\lambda &gt; 0$ controls regularization strength. $F_i$ is the $i$-th diagonal entry of the (empirical) Fisher Information Matrix computed at the end of training on the previous task. $\theta^* \in \mathbb{R}^d$ are the parameters saved after that training.</p>
+<p>The Fisher acts as a memory of which parameters mattered. High $F_i$ means the likelihood was sensitive to parameter $\theta_i$ during the old task (equivalently, the old task&rsquo;s data was informative about $\theta_i$). The quadratic penalty is large, so $\theta_i$ resists moving. Low $F_i$ means the old task didn&rsquo;t depend on that parameter, so it&rsquo;s free to change for the new task.</p>
+<p>This <em>is</em> Fisher regularization. Kirkpatrick et al. designed it this way, citing the Fisher explicitly. There is no hidden approximation in the connection. (There is an approximation in the <em>method</em>: EWC uses a diagonal Fisher and a quadratic penalty around $\theta^<em>$, which is a Laplace approximation to the log-posterior. Whether that&rsquo;s a good approximation depends on the geometry of the loss surface near $\theta^</em>$.)</p>
+<h2 id="two-regimes">Two Regimes</h2>
+<p>All of the above assumes something that usually isn&rsquo;t true in practice: convergence.</p>
+<p><strong>Classical regime.</strong> Train to convergence on a well-specified model. At the MLE $\hat\theta_n$, the observed Fisher (negative Hessian of the log-likelihood) converges to the expected Fisher. Asymptotic theory gives you consistency, normality, and Cramer-Rao efficiency: the MLE achieves the lowest possible variance among unbiased estimators, and that variance is $\mathcal{I}(\theta_0)^{-1}/n$ where $\theta_0$ is the true parameter. Uncertainty quantification via the inverse Fisher is principled.</p>
+<p><strong>Modern ML regime.</strong> Stop before convergence, which is what actually happens. Computational budgets, early stopping for generalization, training instability. The Fisher information accumulated along the optimization trajectory is not the Fisher at any stationary point. It reflects the geometry of the path through parameter space, not curvature at the destination.</p>
+<p>The distinction matters because most results that make Fisher information elegant require the classical regime. Additivity is always true (it&rsquo;s a property of independent data, not of convergence). But the Cramer-Rao bound, the interpretation of $\mathcal{I}^{-1}$ as a covariance, the equivalence of expected and observed Fisher: these require convergence to the true parameter (or at least to a neighborhood of it).</p>
+<p>When you&rsquo;re not converged, the accumulated Fisher still does useful work, but as a different kind of object. Barrett and Dherin (2021) showed that SGD with finite learning rate implicitly penalizes the trace of the empirical Fisher, connecting the optimizer&rsquo;s discretization error to a Fisher-based regularizer. Jastrzebski et al. (2021) showed that the Fisher trace in the early phase of training has a lasting effect on generalization. The information-geometric view still applies in this regime. The classical statistical guarantees don&rsquo;t.</p>
+<h2 id="references">References</h2>
+<ul>
+<li>Amari, S. (1998). Natural gradient works efficiently in learning. <em>Neural Computation</em>, 10(2), 251-276.</li>
+<li>Barrett, D.G.T. and Dherin, B. (2021). Implicit Gradient Regularization. <em>ICLR</em>.</li>
+<li>Jastrzebski, S. et al. (2021). Catastrophic Fisher Explosion: Early Phase Fisher Matrix Impacts Generalization. <em>ICML</em>.</li>
+<li>Khan, M.E. and Rue, H. (2023). The Bayesian Learning Rule. <em>JMLR</em>, 24(281), 1-76.</li>
+<li>Kirkpatrick, J. et al. (2017). Overcoming catastrophic forgetting in neural networks. <em>PNAS</em>, 114(13), 3521-3526.</li>
+<li>Kunstner, F., Hennig, P., and Balles, L. (2019). Limitations of the Empirical Fisher Approximation for Natural Gradient Descent. <em>NeurIPS</em>.</li>
+<li>Martens, J. (2020). New Insights and Perspectives on the Natural Gradient Method. <em>JMLR</em>, 21(146), 1-76.</li>
+<li>Martens, J. and Grosse, R. (2015). Optimizing Neural Networks with Kronecker-Factored Approximate Curvature. <em>ICML</em>.</li>
+</ul>
+]]></content:encoded><category>fisher-information</category><category>natural-gradient</category><category>optimization</category><category>information-geometry</category></item><item><title>algebraic.mle: MLEs as Algebraic Objects</title><link>https://metafunctor.com/post/2024-05-15-algebraic.mle/</link><pubDate>Sat, 15 May 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-05-15-algebraic.mle/</guid><description>An R package that treats MLEs as algebraic objects. They carry Fisher information, compose through independent likelihoods, and propagate uncertainty correctly.</description><content:encoded><![CDATA[<p>Maximum likelihood estimators have rich mathematical structure. They are consistent, asymptotically normal, efficient. <a href="https://github.com/queelius/algebraic.mle">algebraic.mle</a> exposes this structure through an algebra where MLEs are objects you compose, transform, and query.</p>
 <h2 id="the-abstraction">The Abstraction</h2>
 <p>An MLE is not just a vector of parameter estimates. It is a statistical object that carries point estimates \(\hat{\theta}\), the Fisher information matrix \(I(\hat{\theta})\), the variance-covariance matrix \(I^{-1}(\hat{\theta})\), Wald-type confidence intervals from asymptotic normality, the log-likelihood value, and convergence diagnostics.</p>
 <p>The package wraps all of this in a consistent interface:</p>

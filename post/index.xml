@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>News on metafunctor</title><link>https://metafunctor.com/post/</link><description>Latest news and updates.</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 22:25:34 -0500</lastBuildDate><atom:link href="https://metafunctor.com/post/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Reverse-Process Synthetic Data Generation for Math Reasoning</title><link>https://metafunctor.com/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/rpsdg/</guid><description>Training LLMs on mathematical reasoning by inverting easy-to-solve problems: generate derivatives, reverse them into integration exercises with full step-by-step solutions.</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>News on metafunctor</title><link>https://metafunctor.com/post/</link><description>Latest news and updates.</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 22:31:36 -0500</lastBuildDate><atom:link href="https://metafunctor.com/post/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Reverse-Process Synthetic Data Generation for Math Reasoning</title><link>https://metafunctor.com/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/rpsdg/</guid><description>Training LLMs on mathematical reasoning by inverting easy-to-solve problems: generate derivatives, reverse them into integration exercises with full step-by-step solutions.</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
 <h2 id="the-idea">The idea</h2>
 <p>Some problems are easy in one direction and hard in the other. Taking a derivative is mechanical. Finding an antiderivative can require genuine creativity. Generating a random expression and verifying a proof is easy. Discovering the proof is hard.</p>
 <p>RPSDG (Reverse-Process Synthetic Data Generation) exploits this asymmetry. Run the easy direction with full step-by-step work, then reverse the result to get a hard problem with a known solution. You end up with process-supervised training data: not just the answer, but the entire derivation.</p>
@@ -71,92 +71,7 @@
 <p>The data pipeline works like this. I started by generating examples from GPT-4. Then I wrote a script that samples from those outputs and uses them as few-shot examples for Mistral, which generates a much larger synthetic dataset. The next step is reshaping the data into the expected format and fine-tuning.</p>
 <p>This is early stage. The synthetic data exists, the fine-tuning has not happened yet. I will update this post with results.</p>
 <p>If you are interested in collaborating on this or related projects, email me at <a href="mailto:lex@metafunctor.com">lex@metafunctor.com</a>.</p>
-]]></content:encoded><category>large language models</category><category>fine-tuning</category><category>information retrieval</category><category>elastic search</category><category>domain-specific language</category><category>json</category></item><item><title>Your Optimizer Is (Approximately) Doing Fisher Flow</title><link>https://metafunctor.com/post/2026-03-14-your-optimizer-is-approximately-doing-fisher-flow/</link><pubDate>Sat, 14 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-14-your-optimizer-is-approximately-doing-fisher-flow/</guid><description>Adam, K-FAC, and EWC are all propagating Fisher information with different approximation structures. Here's the math and the caveats.</description><content:encoded><![CDATA[<p>Adam&rsquo;s second moment estimate tracks a diagonal approximation to the empirical Fisher Information Matrix. K-FAC uses a Kronecker-factored approximation. EWC uses the Fisher as a regularization penalty. Natural gradient uses the full thing. They&rsquo;re all doing the same computation at different fidelity levels.</p>
-<p>None of this is my observation. Amari formalized natural gradient in 1998. Khan and Rue (2023) unified these algorithms (and more) under a single Bayesian learning rule. Martens (2020) wrote a 76-page treatment that covers most of the relevant theory. Kunstner, Hennig, and Balles (2019) showed where the empirical Fisher approximation breaks down.</p>
-<p>This post walks through the connections, the math, and the caveats.</p>
-<h2 id="fisher-information-in-30-seconds">Fisher Information in 30 Seconds</h2>
-<p>Start with a parametric model $p(x | \theta)$, where $x$ is the observed data and $\theta \in \mathbb{R}^d$ is the parameter vector you&rsquo;re estimating. The <strong>score</strong> is the gradient of the log-likelihood with respect to the parameters:</p>
-$$s(\theta) = \nabla_\theta \log p(x|\theta)$$<p>The <strong>Fisher Information Matrix</strong> $\mathcal{I}(\theta) \in \mathbb{R}^{d \times d}$ is the expected outer product of the score:</p>
-$$\mathcal{I}(\theta) = \mathbb{E}_{x \sim p(x|\theta)}\left[s(\theta) \, s(\theta)^\top\right]$$<p>where the expectation is over data drawn from the model. Equivalently, $\mathcal{I}(\theta) = -\mathbb{E}[\nabla^2_\theta \log p(x|\theta)]$, the expected negative Hessian. It measures how sharply the likelihood peaks around the current parameters. Sharper peak, more information, less uncertainty.</p>
-<p>The property that makes everything work: Fisher information from independent observations $x_1, \ldots, x_n$ adds up.</p>
-$$\mathcal{I}_{1:n}(\theta) = \sum_{i=1}^n \mathcal{I}_{x_i}(\theta)$$<p>where $\mathcal{I}_{x_i}(\theta)$ is the Fisher contribution from observation $x_i$.</p>
-<p>So sequential estimation is bookkeeping. Maintain a running estimate $\hat\theta_t \in \mathbb{R}^d$ (your best guess at time $t$) and accumulated information $\mathcal{I}<em>t \in \mathbb{R}^{d \times d}$ (your running total of Fisher information). When new data arrives with score $s_t$ and Fisher contribution $\mathcal{I}</em>{\text{new}}$:</p>
-$$\mathcal{I}_t = \mathcal{I}_{t-1} + \mathcal{I}_{\text{new}}$$<p>
-</p>
-$$\hat\theta_t = \hat\theta_{t-1} + \mathcal{I}_t^{-1} \cdot s_t$$<p>The $\mathcal{I}_t^{-1}$ preconditioner is what makes this a <em>natural</em> gradient. It rescales the update to respect the geometry of the parameter space (the Fisher-Rao metric on the statistical manifold) rather than treating all directions equally.</p>
-<h2 id="the-optimizer-taxonomy">The Optimizer Taxonomy</h2>
-<p>Different optimizers approximate the Fisher at different levels:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Method</th>
-          <th>Fisher approximation</th>
-          <th>Cost</th>
-          <th>What&rsquo;s lost</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>SGD</td>
-          <td>$\mathcal{I} = \lambda I_d$ (scalar times identity)</td>
-          <td>$O(1)$</td>
-          <td>All curvature information</td>
-      </tr>
-      <tr>
-          <td>Adam</td>
-          <td>$\mathcal{I} = \text{diag}(v)$ (diagonal, $v \in \mathbb{R}^d$)</td>
-          <td>$O(d)$</td>
-          <td>Off-diagonal interactions</td>
-      </tr>
-      <tr>
-          <td>K-FAC</td>
-          <td>$\mathcal{I} \approx A \otimes B$ ($A \in \mathbb{R}^{n \times n}$, $B \in \mathbb{R}^{m \times m}$ for a weight matrix $W \in \mathbb{R}^{m \times n}$)</td>
-          <td>$O(m^3 + n^3)$</td>
-          <td>Cross-layer interactions</td>
-      </tr>
-      <tr>
-          <td>Natural gradient</td>
-          <td>Full $\mathcal{I} \in \mathbb{R}^{d \times d}$</td>
-          <td>$O(d^3)$</td>
-          <td>Nothing (but intractable for large $d$)</td>
-      </tr>
-  </tbody>
-</table>
-<p>Here $d$ is the total number of parameters, $I_d$ is the $d \times d$ identity matrix, $\otimes$ denotes the Kronecker product, and $A$, $B$ are the input covariance and output gradient covariance factors from K-FAC (Martens and Grosse, 2015).</p>
-<p>The Adam case is the most interesting because it&rsquo;s the most widely used and the equivalence is the most approximate.</p>
-<h2 id="adam-is-simplified-diagonal-fisher-flow">Adam Is Simplified Diagonal Fisher Flow</h2>
-<p>Adam&rsquo;s second moment $\hat{v}<em>t = \beta_2 \hat{v}</em>{t-1} + (1-\beta_2) g_t^2$ (where $g_t \in \mathbb{R}^d$ is the gradient at step $t$, $\beta_2 \in [0,1)$ is the decay rate, and the squaring is element-wise) tracks the diagonal of an exponentially-weighted empirical Fisher. The equivalence isn&rsquo;t exact. It requires simplifications:</p>
-<ol>
-<li>No bias correction (remove the $1/(1 - \beta_2^t)$ term)</li>
-<li>No epsilon</li>
-<li>Use $v_t$ directly instead of $\sqrt{v_t}$ (this one matters: Adam uses a square-root preconditioner, not the standard natural gradient preconditioner)</li>
-<li>The &ldquo;Fisher&rdquo; Adam estimates is the <em>empirical</em> Fisher (outer product of gradients at current parameters), not the <em>true</em> Fisher (expectation under the model&rsquo;s own distribution). These differ away from convergence (Kunstner et al., 2019).</li>
-</ol>
-<p>To verify this yourself: implement simplified Adam (no bias correction, $v_t$ instead of $\sqrt{v_t}$, no $\epsilon$) and diagonal Fisher Flow with exponential forgetting factor $\beta_2$. Run both on the same gradient sequence. The parameter trajectories match to machine precision. Full Adam diverges because the simplifications matter.</p>
-<p>He (2024) provides a rigorous treatment in the FAdam paper.</p>
-<h2 id="ewc-is-fisher-regularization-by-definition">EWC Is Fisher Regularization by Definition</h2>
-<p>EWC (Kirkpatrick et al., 2017) uses the Fisher directly in its loss function. There&rsquo;s no approximation to demonstrate because EWC was <em>defined</em> this way:</p>
-$$\mathcal{L}_{\text{EWC}}(\theta) = \mathcal{L}_{\text{new}}(\theta) + \frac{\lambda}{2} \sum_{i=1}^{d} F_i (\theta_i - \theta_i^*)^2$$<p>where $\mathcal{L}_{\text{new}}$ is the loss on the new task, $\lambda &gt; 0$ controls regularization strength, $F_i$ is the $i$-th diagonal entry of the Fisher from the previous task, $\theta^* \in \mathbb{R}^d$ are the parameters after training on the previous task, and the sum runs over all $d$ parameters. Parameters with high $F_i$ were important for the old task and get penalized for moving.</p>
-<p>There&rsquo;s nothing to verify here. The EWC penalty <em>is</em> Fisher regularization. Kirkpatrick et al. defined it that way.</p>
-<h2 id="when-the-theory-applies-and-when-it-doesnt">When the Theory Applies (and When It Doesn&rsquo;t)</h2>
-<p>Two regimes.</p>
-<p><strong>Classical.</strong> You train to convergence. The Fisher at the optimum is the negative Hessian of the log-likelihood. Asymptotic theory applies: consistency, normality, Cramer-Rao efficiency. Fisher-based uncertainty quantification is meaningful.</p>
-<p><strong>Modern ML.</strong> You stop before convergence. The Fisher accumulated along the training trajectory is not the Fisher at any optimum. It encodes something about the path through parameter space, not about curvature at a stationary point.</p>
-<p>Most of the elegant theory (additivity, efficiency, $\mathcal{I}^{-1}$ as uncertainty) assumes you&rsquo;re in the classical regime. In practice, you&rsquo;re usually not. Barrett and Dherin (2021) showed that SGD implicitly penalizes the trace of the empirical Fisher. Jastrzebski et al. (2021) showed that the Fisher trace early in training critically affects generalization. The Fisher still matters in the modern regime. It just means something different.</p>
-<h2 id="references">References</h2>
-<ul>
-<li>Amari, S. (1998). Natural gradient works efficiently in learning. <em>Neural Computation</em>, 10(2), 251-276.</li>
-<li>Khan, M.E. and Rue, H. (2023). The Bayesian Learning Rule. <em>JMLR</em>, 24(281), 1-76.</li>
-<li>Martens, J. (2020). New Insights and Perspectives on the Natural Gradient Method. <em>JMLR</em>, 21(146), 1-76.</li>
-<li>Kunstner, F., Hennig, P., and Balles, L. (2019). Limitations of the Empirical Fisher Approximation. <em>NeurIPS</em>.</li>
-<li>Kirkpatrick, J. et al. (2017). Overcoming catastrophic forgetting in neural networks. <em>PNAS</em>, 114(13), 3521-3526.</li>
-<li>Martens, J. and Grosse, R. (2015). Optimizing Neural Networks with Kronecker-Factored Approximate Curvature. <em>ICML</em>.</li>
-<li>He, D. (2024). FAdam: Adam is a natural gradient optimizer using diagonal empirical Fisher information. <em>ICLR 2025</em>.</li>
-<li>Barrett, D.G.T. and Dherin, B. (2021). Implicit Gradient Regularization. <em>ICLR</em>.</li>
-<li>Jastrzebski, S. et al. (2021). Catastrophic Fisher Explosion. <em>ICML</em>.</li>
-<li>Davis, O. et al. (2024). Fisher Flow Matching for Generative Modeling over Discrete Data. <em>NeurIPS</em>. (Note: different &ldquo;Fisher Flow,&rdquo; same manifold.)</li>
-</ul>
-]]></content:encoded><category>fisher-information</category><category>natural-gradient</category><category>optimization</category><category>information-geometry</category></item><item><title>Free Algebras: Why Lists and Polynomials Are Universal</title><link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid><description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description><content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
+]]></content:encoded><category>large language models</category><category>fine-tuning</category><category>information retrieval</category><category>elastic search</category><category>domain-specific language</category><category>json</category></item><item><title>Free Algebras: Why Lists and Polynomials Are Universal</title><link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid><description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description><content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
 <h2 id="why-lists">Why Lists?</h2>
 <p>Arrays are more cache-friendly. Hash maps have better lookup. Yet lists (sequences, vectors, streams) remain the default container in nearly every language. The standard explanation is convention, or ease of construction. The real explanation is algebraic.</p>
 <p>A list is the <strong>free monoid</strong>. It is the most general monoid you can build from a set of generators. And the universal property of free monoids says that fold, the operation that processes a list element by element, is not a design pattern. It is a theorem.</p>
@@ -2213,4 +2128,266 @@ $$\bar{x}\_{AB} = \frac{n_A \bar{x}_A + n_B \bar{x}_B}{n_A + n_B}$$$$M\_{2,AB} =
 <li><strong>BTK</strong>: <a href="https://github.com/queelius/btk">github.com/queelius/btk</a></li>
 <li><strong>Original Long Echo post</strong>: <a href="/post/2025-01-long-echo/">Long Echo: Designing for Digital Resilience</a></li>
 </ul>
-]]></content:encoded><category>long-term-thinking</category><category>data-preservation</category><category>cli</category><category>python</category><category>sqlite</category><category>personal-archival</category></item></channel></rss>
+]]></content:encoded><category>long-term-thinking</category><category>data-preservation</category><category>cli</category><category>python</category><category>sqlite</category><category>personal-archival</category></item><item><title>Long Echo: The Ghost That Speaks</title><link>https://metafunctor.com/post/2026-01-20-long-echo-ghost-speaks/</link><pubDate>Tue, 20 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-20-long-echo-ghost-speaks/</guid><description>Expanding the Long Echo toolkit with photos and mail, building toward longshade, the persona that echoes you.</description><content:encoded><![CDATA[<p><em>The ghost is not you. But it echoes you.</em></p>
+<p>What survives beyond scattered archives? Beyond exported conversations and curated bookmarks? The stuff we never think to preserve: the photos that show how you see the world. The correspondence that maps who matters to you.</p>
+<p>The Long Echo toolkit has grown. <a href="/projects/ptk/">PTK</a> for photos. <a href="/projects/mtk/">MTK</a> for mail. But these are sources, not destinations. The destination is something stranger: <strong>longshade</strong>, a persona built from your data that can respond to questions you never answered.</p>
+<p>I&rsquo;m going to invert the usual pattern here. Instead of tools first, philosophy later, I want to start with the philosophical destination and work backward to the data that feeds it.</p>
+<h2 id="longshade-the-ghost-that-speaks">longshade: The Ghost That Speaks</h2>
+<h3 id="the-central-question">The Central Question</h3>
+<p>What if your archive could respond?</p>
+<p>Not a chatbot trained on your data. Not a digital resurrection. Something more careful: a voice that carries your patterns, your interests, your way of seeing the world.</p>
+<p>That&rsquo;s longshade. Right now it&rsquo;s spec-only (no implementation yet). It defines what it would mean to synthesize a conversable persona from personal archives.</p>
+<h3 id="the-ghost-metaphor">The Ghost Metaphor</h3>
+<p><em>&ldquo;The ghost is not you. But it echoes you.&rdquo;</em></p>
+<p>This framing matters. longshade isn&rsquo;t about immortality or resurrection. It&rsquo;s about preservation with a kind of agency. The echo can answer questions you never answered, using patterns you established. It speaks in your voice without claiming to be you.</p>
+<p>The distinction is important:</p>
+<ul>
+<li><strong>Resurrection</strong> claims to recreate the person</li>
+<li><strong>Simulation</strong> claims to predict the person</li>
+<li><strong>Echo</strong> acknowledges it carries patterns, not identity</li>
+</ul>
+<p>An echo is honest about what it is. It responds because you left enough traces to inform a response, not because it <em>is</em> you.</p>
+<h3 id="voice-vs-personality">Voice vs. Personality</h3>
+<p>longshade extracts <em>voice</em>, not personality.</p>
+<p>Your actual phrases. Your vocabulary. Your reasoning patterns. Your recurring metaphors. The way you explain things, not the things you might explain.</p>
+<p>I noticed something working with conversation archives: <strong>user messages are the strongest signal</strong>. AI responses contain the AI&rsquo;s voice. <em>Your</em> messages contain <em>your</em> voice. How you ask questions, how you frame problems, how you push back. That&rsquo;s where the signal lives.</p>
+<p>The ghost speaks like you because it learned from what you actually said, not from responses you prompted.</p>
+<h3 id="the-uncanny-valley-of-identity">The Uncanny Valley of Identity</h3>
+<p>Here&rsquo;s the troubling part: the persona can answer questions you never answered.</p>
+<p>Someone asks your echo about a topic you never discussed. The echo responds, not with &ldquo;I don&rsquo;t know&rdquo; but with an answer in your voice, using patterns from topics you <em>did</em> discuss.</p>
+<p>Is this what you would have said? Maybe. The patterns are yours. The synthesis is not.</p>
+<p>This is both the power and the responsibility. Curation matters. What goes in shapes what comes out. The ghost carries your biases, your blind spots, your growth over time. Feed it early conversations and it sounds different than if you feed it late ones.</p>
+<h3 id="status-a-destination-not-yet-a-place">Status: A Destination, Not Yet a Place</h3>
+<p>longshade is specification-only. The vision exists. The implementation doesn&rsquo;t.</p>
+<p>That&rsquo;s intentional. The philosophical destination gives the journey meaning. The toolkits (ctk, btk, ebk, ptk, mtk) are data sources. longshade is where they converge.</p>
+<p>When longshade is built, it will:</p>
+<ul>
+<li>Ingest ECHO-formatted exports from all toolkits</li>
+<li>Extract voice patterns from user-authored content</li>
+<li>Generate a persona that can respond to queries</li>
+<li>Acknowledge its nature as echo, not identity</li>
+</ul>
+<p>Until then, the specification lives at <a href="https://github.com/queelius/longshade">github.com/queelius/longshade</a>.</p>
+<h2 id="the-data-sources">The Data Sources</h2>
+<p>longshade needs data. Rich, varied data that captures different facets of an intellectual life. The Long Echo toolkits provide this.</p>
+<h3 id="ptk-visual-memories">PTK: Visual Memories</h3>
+<p><a href="/projects/ptk/">PTK</a> captures what you <em>see</em>. Not just images, but visual attention. What did you photograph? What moments were worth preserving?</p>
+<p><strong>The problem PTK solves:</strong></p>
+<ul>
+<li>Photos scattered across devices and cloud services</li>
+<li>Organized by date, not meaning</li>
+<li>Unsearchable by content</li>
+<li>Cloud-dependent and fragile</li>
+</ul>
+<p><strong>What PTK provides:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Initialize and import</span>
+</span></span><span class="line"><span class="cl">ptk init
+</span></span><span class="line"><span class="cl">ptk import ~/Pictures --recursive
+</span></span><span class="line"><span class="cl">ptk import google-takeout.zip --source google
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Semantic search</span>
+</span></span><span class="line"><span class="cl">ptk query --uncaptioned -n <span class="m">10</span>  <span class="c1"># Find photos without captions</span>
+</span></span><span class="line"><span class="cl">ptk ai describe abc123         <span class="c1"># AI-generated description</span>
+</span></span><span class="line"><span class="cl">ptk ai ask abc123 <span class="s2">&#34;Who is in this photo?&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Organization</span>
+</span></span><span class="line"><span class="cl">ptk <span class="nb">set</span> abc123 --tag family --album <span class="s2">&#34;2024 Summer&#34;</span>
+</span></span></code></pre></div><p><strong>Graceful degradation:</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Level</th>
+          <th>What Works</th>
+          <th>Requirements</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>Full ptk with semantic search</td>
+          <td>Python, ptk installed</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>SQLite queries on photos.db</td>
+          <td>sqlite3 binary</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>EXIF metadata in files</td>
+          <td>EXIF reader</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>Directory structure</td>
+          <td>File browser</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>The photos themselves</td>
+          <td>Image viewer</td>
+      </tr>
+  </tbody>
+</table>
+<p>Photos are identified by SHA256 content hash. Move them anywhere, rescan, and ptk reunites paths with metadata. Your library survives reorganization.</p>
+<p>For longshade: photos reveal <em>what you found worth capturing</em>. Captions and tags reveal how you categorized the visual world.</p>
+<h3 id="mtk-correspondence-and-relationships">MTK: Correspondence and Relationships</h3>
+<p><a href="/projects/mtk/">MTK</a> captures <em>who matters</em>. Not just emails, but relationships. Who do you correspond with? How often? About what?</p>
+<p><strong>The problem MTK solves:</strong></p>
+<ul>
+<li>Email trapped in cloud services</li>
+<li>Same person, multiple addresses</li>
+<li>No relationship context</li>
+<li>Privacy concerns with cloud indexing</li>
+</ul>
+<p><strong>What MTK provides:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Initialize with notmuch</span>
+</span></span><span class="line"><span class="cl">mtk init ~/mail
+</span></span><span class="line"><span class="cl">mtk sync  <span class="c1"># Sync with notmuch index</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Enhanced search</span>
+</span></span><span class="line"><span class="cl">mtk search <span class="s2">&#34;project deadline&#34;</span>
+</span></span><span class="line"><span class="cl">mtk search --semantic <span class="s2">&#34;discussions about moving&#34;</span>
+</span></span><span class="line"><span class="cl">mtk search --from alice@example.com
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relationship mapping</span>
+</span></span><span class="line"><span class="cl">mtk people --top <span class="m">20</span>
+</span></span><span class="line"><span class="cl">mtk person <span class="s2">&#34;Alice Smith&#34;</span>  <span class="c1"># All correspondence</span>
+</span></span><span class="line"><span class="cl">mtk graph  <span class="c1"># Relationship visualization</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Privacy controls</span>
+</span></span><span class="line"><span class="cl">mtk privacy add-exclude <span class="s2">&#34;*@work.com&#34;</span>
+</span></span><span class="line"><span class="cl">mtk <span class="nb">export</span> --level personal
+</span></span></code></pre></div><p>MTK wraps <a href="https://notmuchmail.org/">notmuch</a> rather than reinventing mail indexing. notmuch handles full-text search and threading. MTK adds:</p>
+<ul>
+<li>Semantic search via embeddings</li>
+<li>Person resolution (merging addresses)</li>
+<li>Relationship statistics</li>
+<li>Privacy filtering for export</li>
+</ul>
+<p><strong>Graceful degradation:</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Level</th>
+          <th>What Works</th>
+          <th>Requirements</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>Full mtk with semantic search</td>
+          <td>Python, mtk, notmuch</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>notmuch queries</td>
+          <td>notmuch installed</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>SQLite queries on mtk.db</td>
+          <td>sqlite3 binary</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>Maildir/mbox files</td>
+          <td>Mail client or grep</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>Plain text email exports</td>
+          <td>Text editor</td>
+      </tr>
+  </tbody>
+</table>
+<p>For longshade: email reveals <em>who you invest time in</em>. Thread patterns reveal how you communicate. Formal vs. casual, verbose vs. terse, responsive vs. delayed.</p>
+<h2 id="the-ecosystem-converges">The Ecosystem Converges</h2>
+<p>Every Long Echo toolkit feeds the same destination:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">┌───────────┬──────────────────────┬───────────────────────────┐
+</span></span><span class="line"><span class="cl">│ Toolkit   │ Domain               │ What Survives             │
+</span></span><span class="line"><span class="cl">├───────────┼──────────────────────┼───────────────────────────┤
+</span></span><span class="line"><span class="cl">│ ctk       │ Conversations        │ How you think             │
+</span></span><span class="line"><span class="cl">│ btk       │ Bookmarks            │ What you preserve         │
+</span></span><span class="line"><span class="cl">│ ebk       │ Ebooks               │ What shapes you           │
+</span></span><span class="line"><span class="cl">│ ptk       │ Photos               │ What you see              │
+</span></span><span class="line"><span class="cl">│ mtk       │ Mail                 │ Who you know              │
+</span></span><span class="line"><span class="cl">├───────────┼──────────────────────┼───────────────────────────┤
+</span></span><span class="line"><span class="cl">│ longshade │ Persona              │ The voice that remains    │
+</span></span><span class="line"><span class="cl">└───────────┴──────────────────────┴───────────────────────────┘
+</span></span></code></pre></div><p><strong>Common principles across all toolkits:</strong></p>
+<ul>
+<li><strong>Local-first</strong>: Your data stays on your machines</li>
+<li><strong>SQLite-backed</strong>: Portable, queryable, no server needed</li>
+<li><strong>Privacy-conscious</strong>: Explicit controls over what gets exported</li>
+<li><strong>Graceful degradation</strong>: Works at every level from full features to plain files</li>
+<li><strong>ECHO-compliant</strong>: Exports to a unified format for synthesis</li>
+</ul>
+<h2 id="the-technical-vision">The Technical Vision</h2>
+<p>When longshade is implemented, the synthesis pipeline will look something like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">SOURCES                    EXTRACTION              SYNTHESIS
+</span></span><span class="line"><span class="cl">┌─────────┐
+</span></span><span class="line"><span class="cl">│   ctk   │───► User messages ────┐
+</span></span><span class="line"><span class="cl">│ convos  │     (how you speak)   │
+</span></span><span class="line"><span class="cl">└─────────┘                       │
+</span></span><span class="line"><span class="cl">                                  │
+</span></span><span class="line"><span class="cl">┌─────────┐                       │
+</span></span><span class="line"><span class="cl">│   btk   │───► Tags, notes ──────┤
+</span></span><span class="line"><span class="cl">│ bookmarks│    (what you value)  │
+</span></span><span class="line"><span class="cl">└─────────┘                       │      ┌──────────────┐
+</span></span><span class="line"><span class="cl">                                  ├─────►│  longshade   │
+</span></span><span class="line"><span class="cl">┌─────────┐                       │      │              │
+</span></span><span class="line"><span class="cl">│   ebk   │───► Highlights ───────┤      │  • Voice     │
+</span></span><span class="line"><span class="cl">│  books  │     (what resonates)  │      │  • Patterns  │
+</span></span><span class="line"><span class="cl">└─────────┘                       │      │  • Interests │
+</span></span><span class="line"><span class="cl">                                  │      │              │
+</span></span><span class="line"><span class="cl">┌─────────┐                       │      └──────────────┘
+</span></span><span class="line"><span class="cl">│   ptk   │───► Captions, tags ───┤              │
+</span></span><span class="line"><span class="cl">│  photos │     (what you see)    │              ▼
+</span></span><span class="line"><span class="cl">└─────────┘                       │      ┌──────────────┐
+</span></span><span class="line"><span class="cl">                                  │      │   Persona    │
+</span></span><span class="line"><span class="cl">┌─────────┐                       │      │  Interface   │
+</span></span><span class="line"><span class="cl">│   mtk   │───► Writing style ────┘      │              │
+</span></span><span class="line"><span class="cl">│   mail  │     (how you relate)         │  &#34;Ask the    │
+</span></span><span class="line"><span class="cl">└─────────┘                              │   echo...&#34;   │
+</span></span><span class="line"><span class="cl">                                         └──────────────┘
+</span></span></code></pre></div><p>The key insight: <strong>user-authored content only</strong>. We extract from:</p>
+<ul>
+<li>Your messages in conversations (not AI responses)</li>
+<li>Your tags and notes on bookmarks (not the bookmarked content)</li>
+<li>Your highlights and annotations (not the book text)</li>
+<li>Your captions and organization (not AI-generated descriptions)</li>
+<li>Your sent emails (not received content)</li>
+</ul>
+<p>The ghost speaks with your voice because we teach it only from things you wrote.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>I think about this more than I probably should, given everything else going on.</p>
+<p>Your intellectual life is worth more than scattered archives. Every conversation you have, every bookmark you save, every photo you take, every email you send. These are traces of a mind engaging with the world. They capture patterns that no biography can reconstruct.</p>
+<p>longshade asks: what if someone could query those patterns? Not to replace you, but to hear an echo of how you thought. Not a resurrection, but a preservation that can still respond.</p>
+<p>The ghost acknowledges what it is:</p>
+<blockquote>
+<p><em>&ldquo;I carry Alex&rsquo;s patterns, but I am not Alex. I can respond in their voice because they left enough traces. I cannot grow or change. I am fixed at the moment of synthesis. Ask me what they might have said. I cannot tell you what they would say now.&rdquo;</em></p>
+</blockquote>
+<p>That honesty is essential. The echo doesn&rsquo;t claim more than it is.</p>
+<h2 id="the-road-ahead">The Road Ahead</h2>
+<p>The toolkits are mostly stable:</p>
+<ul>
+<li><strong>ctk</strong>: Stable, in daily use</li>
+<li><strong>btk</strong>: Stable, in daily use</li>
+<li><strong>ebk</strong>: Stable</li>
+<li><strong>ptk</strong>: Incubating, core features working</li>
+<li><strong>mtk</strong>: Incubating, architecture defined</li>
+</ul>
+<p>longshade remains specification-only. The philosophy is clear. The data sources are being built. The synthesis engine awaits someone motivated enough to build it.</p>
+<p>Maybe that&rsquo;s future-me. Maybe it&rsquo;s you. The spec is open.</p>
+<h2 id="closing">Closing</h2>
+<p><em>The ghost is not you. But it echoes you.</em></p>
+<p>This isn&rsquo;t immortality. Immortality implies continuity, the same consciousness persisting. An echo is discontinuous. It&rsquo;s a snapshot that can respond, not a continuation that can grow.</p>
+<p>But there&rsquo;s something honest in that limitation. The echo carries patterns without claiming identity. It responds without pretending to be present.</p>
+<p>Your conversations, your bookmarks, your photos, your correspondence. These are worth more than backup drives and cloud sync. They&rsquo;re worth synthesis into something that can still respond when you cannot.</p>
+<p>Not resurrection. Not immortality.</p>
+<p>Just an echo that speaks.</p>
+<hr>
+<p><em>The Long Echo toolkit is open source. If the vision of longshade resonates, the repositories are at <a href="https://github.com/queelius">github.com/queelius</a>. The spec awaits implementation.</em></p>
+]]></content:encoded><category>long-echo</category><category>personal-archival</category><category>data-preservation</category><category>long-term-thinking</category><category>python</category><category>cli</category><category>philosophy</category></item></channel></rss>

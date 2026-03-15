@@ -1,89 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Computer Science on metafunctor</title><link>https://metafunctor.com/categories/computer-science/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 22:25:34 -0500</lastBuildDate><atom:link href="https://metafunctor.com/categories/computer-science/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Your Optimizer Is (Approximately) Doing Fisher Flow</title><link>https://metafunctor.com/post/2026-03-14-your-optimizer-is-approximately-doing-fisher-flow/</link><pubDate>Sat, 14 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-14-your-optimizer-is-approximately-doing-fisher-flow/</guid><description>Adam, K-FAC, and EWC are all propagating Fisher information with different approximation structures. Here's the math and the caveats.</description><content:encoded><![CDATA[<p>Adam&rsquo;s second moment estimate tracks a diagonal approximation to the empirical Fisher Information Matrix. K-FAC uses a Kronecker-factored approximation. EWC uses the Fisher as a regularization penalty. Natural gradient uses the full thing. They&rsquo;re all doing the same computation at different fidelity levels.</p>
-<p>None of this is my observation. Amari formalized natural gradient in 1998. Khan and Rue (2023) unified these algorithms (and more) under a single Bayesian learning rule. Martens (2020) wrote a 76-page treatment that covers most of the relevant theory. Kunstner, Hennig, and Balles (2019) showed where the empirical Fisher approximation breaks down.</p>
-<p>This post walks through the connections, the math, and the caveats.</p>
-<h2 id="fisher-information-in-30-seconds">Fisher Information in 30 Seconds</h2>
-<p>Start with a parametric model $p(x | \theta)$, where $x$ is the observed data and $\theta \in \mathbb{R}^d$ is the parameter vector you&rsquo;re estimating. The <strong>score</strong> is the gradient of the log-likelihood with respect to the parameters:</p>
-$$s(\theta) = \nabla_\theta \log p(x|\theta)$$<p>The <strong>Fisher Information Matrix</strong> $\mathcal{I}(\theta) \in \mathbb{R}^{d \times d}$ is the expected outer product of the score:</p>
-$$\mathcal{I}(\theta) = \mathbb{E}_{x \sim p(x|\theta)}\left[s(\theta) \, s(\theta)^\top\right]$$<p>where the expectation is over data drawn from the model. Equivalently, $\mathcal{I}(\theta) = -\mathbb{E}[\nabla^2_\theta \log p(x|\theta)]$, the expected negative Hessian. It measures how sharply the likelihood peaks around the current parameters. Sharper peak, more information, less uncertainty.</p>
-<p>The property that makes everything work: Fisher information from independent observations $x_1, \ldots, x_n$ adds up.</p>
-$$\mathcal{I}_{1:n}(\theta) = \sum_{i=1}^n \mathcal{I}_{x_i}(\theta)$$<p>where $\mathcal{I}_{x_i}(\theta)$ is the Fisher contribution from observation $x_i$.</p>
-<p>So sequential estimation is bookkeeping. Maintain a running estimate $\hat\theta_t \in \mathbb{R}^d$ (your best guess at time $t$) and accumulated information $\mathcal{I}<em>t \in \mathbb{R}^{d \times d}$ (your running total of Fisher information). When new data arrives with score $s_t$ and Fisher contribution $\mathcal{I}</em>{\text{new}}$:</p>
-$$\mathcal{I}_t = \mathcal{I}_{t-1} + \mathcal{I}_{\text{new}}$$<p>
-</p>
-$$\hat\theta_t = \hat\theta_{t-1} + \mathcal{I}_t^{-1} \cdot s_t$$<p>The $\mathcal{I}_t^{-1}$ preconditioner is what makes this a <em>natural</em> gradient. It rescales the update to respect the geometry of the parameter space (the Fisher-Rao metric on the statistical manifold) rather than treating all directions equally.</p>
-<h2 id="the-optimizer-taxonomy">The Optimizer Taxonomy</h2>
-<p>Different optimizers approximate the Fisher at different levels:</p>
-<table>
-  <thead>
-      <tr>
-          <th>Method</th>
-          <th>Fisher approximation</th>
-          <th>Cost</th>
-          <th>What&rsquo;s lost</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>SGD</td>
-          <td>$\mathcal{I} = \lambda I_d$ (scalar times identity)</td>
-          <td>$O(1)$</td>
-          <td>All curvature information</td>
-      </tr>
-      <tr>
-          <td>Adam</td>
-          <td>$\mathcal{I} = \text{diag}(v)$ (diagonal, $v \in \mathbb{R}^d$)</td>
-          <td>$O(d)$</td>
-          <td>Off-diagonal interactions</td>
-      </tr>
-      <tr>
-          <td>K-FAC</td>
-          <td>$\mathcal{I} \approx A \otimes B$ ($A \in \mathbb{R}^{n \times n}$, $B \in \mathbb{R}^{m \times m}$ for a weight matrix $W \in \mathbb{R}^{m \times n}$)</td>
-          <td>$O(m^3 + n^3)$</td>
-          <td>Cross-layer interactions</td>
-      </tr>
-      <tr>
-          <td>Natural gradient</td>
-          <td>Full $\mathcal{I} \in \mathbb{R}^{d \times d}$</td>
-          <td>$O(d^3)$</td>
-          <td>Nothing (but intractable for large $d$)</td>
-      </tr>
-  </tbody>
-</table>
-<p>Here $d$ is the total number of parameters, $I_d$ is the $d \times d$ identity matrix, $\otimes$ denotes the Kronecker product, and $A$, $B$ are the input covariance and output gradient covariance factors from K-FAC (Martens and Grosse, 2015).</p>
-<p>The Adam case is the most interesting because it&rsquo;s the most widely used and the equivalence is the most approximate.</p>
-<h2 id="adam-is-simplified-diagonal-fisher-flow">Adam Is Simplified Diagonal Fisher Flow</h2>
-<p>Adam&rsquo;s second moment $\hat{v}<em>t = \beta_2 \hat{v}</em>{t-1} + (1-\beta_2) g_t^2$ (where $g_t \in \mathbb{R}^d$ is the gradient at step $t$, $\beta_2 \in [0,1)$ is the decay rate, and the squaring is element-wise) tracks the diagonal of an exponentially-weighted empirical Fisher. The equivalence isn&rsquo;t exact. It requires simplifications:</p>
-<ol>
-<li>No bias correction (remove the $1/(1 - \beta_2^t)$ term)</li>
-<li>No epsilon</li>
-<li>Use $v_t$ directly instead of $\sqrt{v_t}$ (this one matters: Adam uses a square-root preconditioner, not the standard natural gradient preconditioner)</li>
-<li>The &ldquo;Fisher&rdquo; Adam estimates is the <em>empirical</em> Fisher (outer product of gradients at current parameters), not the <em>true</em> Fisher (expectation under the model&rsquo;s own distribution). These differ away from convergence (Kunstner et al., 2019).</li>
-</ol>
-<p>To verify this yourself: implement simplified Adam (no bias correction, $v_t$ instead of $\sqrt{v_t}$, no $\epsilon$) and diagonal Fisher Flow with exponential forgetting factor $\beta_2$. Run both on the same gradient sequence. The parameter trajectories match to machine precision. Full Adam diverges because the simplifications matter.</p>
-<p>He (2024) provides a rigorous treatment in the FAdam paper.</p>
-<h2 id="ewc-is-fisher-regularization-by-definition">EWC Is Fisher Regularization by Definition</h2>
-<p>EWC (Kirkpatrick et al., 2017) uses the Fisher directly in its loss function. There&rsquo;s no approximation to demonstrate because EWC was <em>defined</em> this way:</p>
-$$\mathcal{L}_{\text{EWC}}(\theta) = \mathcal{L}_{\text{new}}(\theta) + \frac{\lambda}{2} \sum_{i=1}^{d} F_i (\theta_i - \theta_i^*)^2$$<p>where $\mathcal{L}_{\text{new}}$ is the loss on the new task, $\lambda &gt; 0$ controls regularization strength, $F_i$ is the $i$-th diagonal entry of the Fisher from the previous task, $\theta^* \in \mathbb{R}^d$ are the parameters after training on the previous task, and the sum runs over all $d$ parameters. Parameters with high $F_i$ were important for the old task and get penalized for moving.</p>
-<p>There&rsquo;s nothing to verify here. The EWC penalty <em>is</em> Fisher regularization. Kirkpatrick et al. defined it that way.</p>
-<h2 id="when-the-theory-applies-and-when-it-doesnt">When the Theory Applies (and When It Doesn&rsquo;t)</h2>
-<p>Two regimes.</p>
-<p><strong>Classical.</strong> You train to convergence. The Fisher at the optimum is the negative Hessian of the log-likelihood. Asymptotic theory applies: consistency, normality, Cramer-Rao efficiency. Fisher-based uncertainty quantification is meaningful.</p>
-<p><strong>Modern ML.</strong> You stop before convergence. The Fisher accumulated along the training trajectory is not the Fisher at any optimum. It encodes something about the path through parameter space, not about curvature at a stationary point.</p>
-<p>Most of the elegant theory (additivity, efficiency, $\mathcal{I}^{-1}$ as uncertainty) assumes you&rsquo;re in the classical regime. In practice, you&rsquo;re usually not. Barrett and Dherin (2021) showed that SGD implicitly penalizes the trace of the empirical Fisher. Jastrzebski et al. (2021) showed that the Fisher trace early in training critically affects generalization. The Fisher still matters in the modern regime. It just means something different.</p>
-<h2 id="references">References</h2>
-<ul>
-<li>Amari, S. (1998). Natural gradient works efficiently in learning. <em>Neural Computation</em>, 10(2), 251-276.</li>
-<li>Khan, M.E. and Rue, H. (2023). The Bayesian Learning Rule. <em>JMLR</em>, 24(281), 1-76.</li>
-<li>Martens, J. (2020). New Insights and Perspectives on the Natural Gradient Method. <em>JMLR</em>, 21(146), 1-76.</li>
-<li>Kunstner, F., Hennig, P., and Balles, L. (2019). Limitations of the Empirical Fisher Approximation. <em>NeurIPS</em>.</li>
-<li>Kirkpatrick, J. et al. (2017). Overcoming catastrophic forgetting in neural networks. <em>PNAS</em>, 114(13), 3521-3526.</li>
-<li>Martens, J. and Grosse, R. (2015). Optimizing Neural Networks with Kronecker-Factored Approximate Curvature. <em>ICML</em>.</li>
-<li>He, D. (2024). FAdam: Adam is a natural gradient optimizer using diagonal empirical Fisher information. <em>ICLR 2025</em>.</li>
-<li>Barrett, D.G.T. and Dherin, B. (2021). Implicit Gradient Regularization. <em>ICLR</em>.</li>
-<li>Jastrzebski, S. et al. (2021). Catastrophic Fisher Explosion. <em>ICML</em>.</li>
-<li>Davis, O. et al. (2024). Fisher Flow Matching for Generative Modeling over Discrete Data. <em>NeurIPS</em>. (Note: different &ldquo;Fisher Flow,&rdquo; same manifold.)</li>
-</ul>
-]]></content:encoded><category>fisher-information</category><category>natural-gradient</category><category>optimization</category><category>information-geometry</category></item><item><title>Free Algebras: Why Lists and Polynomials Are Universal</title><link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid><description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description><content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Computer Science on metafunctor</title><link>https://metafunctor.com/categories/computer-science/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sat, 14 Mar 2026 22:31:36 -0500</lastBuildDate><atom:link href="https://metafunctor.com/categories/computer-science/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Free Algebras: Why Lists and Polynomials Are Universal</title><link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid><description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description><content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
 <h2 id="why-lists">Why Lists?</h2>
 <p>Arrays are more cache-friendly. Hash maps have better lookup. Yet lists (sequences, vectors, streams) remain the default container in nearly every language. The standard explanation is convention, or ease of construction. The real explanation is algebraic.</p>
 <p>A list is the <strong>free monoid</strong>. It is the most general monoid you can build from a set of generators. And the universal property of free monoids says that fold, the operation that processes a list element by element, is not a design pattern. It is a theorem.</p>
@@ -3444,4 +3359,404 @@ $$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges
 <li><a href="/computer-science/stepanov/2022-04-finite-diff/">Numerical Differentiation</a> - Finite difference schemes</li>
 <li><a href="/computer-science/stepanov/2023-08-integration/">Numerical Integration with Generic Concepts</a> - Leibniz rule via dual numbers</li>
 </ul>
-]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>numerical-methods</category><category>calculus</category><category>machine-learning</category><category>dual-numbers</category></item></channel></rss>
+]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>numerical-methods</category><category>calculus</category><category>machine-learning</category><category>dual-numbers</category></item><item><title>JAF: Streaming Boolean Algebra Over Nested JSON</title><link>https://metafunctor.com/post/2024-12-jaf/</link><pubDate>Fri, 20 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-12-jaf/</guid><description>A streaming data processing system implementing boolean algebra over nested JSON structures, with lazy evaluation, S-expression queries, and memory-efficient windowed operations.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/jaf">JAF (Just Another Flow)</a></strong> is a streaming data processing system for JSON/JSONL data. It implements boolean algebra over nested JSON structures with lazy evaluation, composable operations, and a fluent API. JAF is the production version of the concepts I explored in <a href="/post/2024-12-dotsuite/">dotsuite</a>.</p>
+<h2 id="the-relationship-to-dotsuite">The Relationship to Dotsuite</h2>
+<p>The short version:</p>
+<ul>
+<li><strong>dotsuite</strong>: &ldquo;This is how it works.&rdquo; Pedagogical, simple, learn-by-building.</li>
+<li><strong>JAF</strong>: &ldquo;This is what you use.&rdquo; Feature-complete, lazy, handles real data.</li>
+</ul>
+<p>JAF implements the highest level of dotsuite&rsquo;s architecture: boolean algebra over collections of nested documents. Where dotsuite teaches the concepts through isolated simple tools, JAF combines them into a unified streaming framework.</p>
+<h3 id="the-boolean-algebra-branch">The Boolean Algebra Branch</h3>
+<p>In dotsuite&rsquo;s three-pillar architecture (Depth, Truth, Shape), JAF focuses on the collections layer, specifically the boolean wing that provides filtering operations with full boolean algebra:</p>
+\[
+\text{filter}: (\mathcal{D} \to \mathbb{B}) \to (C \to C)
+\]<p>Where \(\mathcal{D}\) is the document space, \(\mathbb{B}\) is boolean values, and \(C\) is a collection of documents.</p>
+<p>JAF lifts boolean operations to streams: AND is intersection of filtered streams, OR is union, NOT is complement, and composition gives you chainable predicates with guaranteed homomorphism.</p>
+<h2 id="core-innovation-lazy-streaming">Core Innovation: Lazy Streaming</h2>
+<h3 id="the-problem">The Problem</h3>
+<p>Traditional data processing loads entire datasets into memory:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Eager evaluation - loads everything</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_data</span> <span class="o">=</span> <span class="n">load_json</span><span class="p">(</span><span class="s2">&#34;huge_file.jsonl&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">filtered</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">all_data</span> <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">25</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">mapped</span> <span class="o">=</span> <span class="p">[</span><span class="n">transform</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">filtered</span><span class="p">]</span>
+</span></span></code></pre></div><p>This fails on large datasets and wastes resources when you only need the first 10 results.</p>
+<h3 id="jafs-solution">JAF&rsquo;s Solution</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Lazy evaluation - nothing executes yet</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;huge_file.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">25</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Only processes 10 matching items</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span></span></code></pre></div><p>Constant memory (processes one item at a time), early termination (stops after <code>take(10)</code>), composable (build complex pipelines declaratively), and works with infinite streams.</p>
+<h2 id="three-query-syntaxes">Three Query Syntaxes</h2>
+<p>JAF supports multiple query syntaxes that all compile to the same internal representation.</p>
+<h3 id="s-expression-syntax-lisp-like">S-Expression Syntax (Lisp-like)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Simple</span> <span class="nv">comparisons</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">eq?</span> <span class="nv">@status</span> <span class="s">&#34;active&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">gt?</span> <span class="nv">@age</span> <span class="mi">25</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">contains?</span> <span class="nv">@tags</span> <span class="s">&#34;python&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Boolean</span> <span class="nv">logic</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">and</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nv">gte?</span> <span class="nv">@age</span> <span class="mi">18</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@verified</span> <span class="nv">true</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Nested</span> <span class="nv">expressions</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">or</span> <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@role</span> <span class="s">&#34;admin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nb">and</span> <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@role</span> <span class="s">&#34;user&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">         <span class="p">(</span><span class="nv">gt?</span> <span class="nv">@score</span> <span class="mi">100</span><span class="p">)))</span>
+</span></span></code></pre></div><p>S-expressions because: unambiguous parsing (no precedence rules), easy to serialize, homoiconic (code is data), composable ASTs.</p>
+<h3 id="json-array-syntax">JSON Array Syntax</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Same queries in JSON</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">25</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;gte?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">18</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span><span class="p">,</span> <span class="n">true</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span></code></pre></div><p>Easy to generate programmatically, standard JSON format, network-transmissible.</p>
+<h3 id="infix-dsl-syntax">Infix DSL Syntax</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Natural infix notation</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@status</span> <span class="o">==</span> <span class="s2">&#34;active&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@age</span> <span class="o">&gt;</span> <span class="mi">25</span> <span class="ow">and</span> <span class="nd">@verified</span> <span class="o">==</span> <span class="n">true</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@role</span> <span class="o">==</span> <span class="s2">&#34;admin&#34;</span> <span class="ow">or</span> <span class="p">(</span><span class="nd">@role</span> <span class="o">==</span> <span class="s2">&#34;user&#34;</span> <span class="ow">and</span> <span class="nd">@score</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">)</span>
+</span></span></code></pre></div><p>Human-readable, familiar, good for CLI usage. All three compile to the same AST.</p>
+<h2 id="advanced-path-system">Advanced Path System</h2>
+<p>JAF extends dotsuite&rsquo;s simple dot notation with more powerful features:</p>
+<h3 id="exact-paths">Exact Paths</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@user.profile.name&#34;</span><span class="p">,</span> <span class="s2">&#34;Alice&#34;</span><span class="p">])</span>
+</span></span></code></pre></div><h3 id="wildcards">Wildcards</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Match any array element</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@users.*.email&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Recursive descent</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@**.id&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="regex-key-matching">Regex Key Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Match keys by pattern</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;regex_key&#34;</span><span class="p">,</span> <span class="s2">&#34;^error_</span><span class="se">\\</span><span class="s2">d+$&#34;</span><span class="p">]</span>
+</span></span></code></pre></div><h3 id="fuzzy-matching">Fuzzy Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Tolerate typos</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;fuzzy_key&#34;</span><span class="p">,</span> <span class="s2">&#34;username&#34;</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">]</span>  <span class="c1"># 80% similarity</span>
+</span></span></code></pre></div><h3 id="array-operations">Array Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Array slicing</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;@items[0:5]&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;@items[-3:]&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Predicate filtering</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;@users[?(@.age &gt; 25)]&#34;</span>
+</span></span></code></pre></div><h2 id="streaming-operations">Streaming Operations</h2>
+<h3 id="filter-boolean-algebra">Filter (Boolean Algebra)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># AND: Intersection</span>
+</span></span><span class="line"><span class="cl"><span class="n">active_verified</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span><span class="p">,</span> <span class="n">true</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># OR: Union (using boolean logic in query)</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins_or_mods</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;or&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@role&#34;</span><span class="p">,</span> <span class="s2">&#34;admin&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@role&#34;</span><span class="p">,</span> <span class="s2">&#34;moderator&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># NOT: Complement</span>
+</span></span><span class="line"><span class="cl"><span class="n">inactive</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">]])</span>
+</span></span></code></pre></div><h3 id="map-transformations">Map (Transformations)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Extract fields</span>
+</span></span><span class="line"><span class="cl"><span class="n">emails</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@email&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Reshape documents</span>
+</span></span><span class="line"><span class="cl"><span class="n">simplified</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;name&#34;</span><span class="p">,</span> <span class="s2">&#34;@firstName&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;age&#34;</span><span class="p">,</span> <span class="s2">&#34;@profile.age&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;verified&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Conditional transformations</span>
+</span></span><span class="line"><span class="cl"><span class="n">categorized</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;sales.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="s2">&#34;@timestamp&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;amount&#34;</span><span class="p">,</span> <span class="s2">&#34;@amount&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;category&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@amount&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span> <span class="s2">&#34;high&#34;</span><span class="p">,</span> <span class="s2">&#34;low&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span></code></pre></div><h3 id="takeskip-pagination">Take/Skip (Pagination)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># First 100 items</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Skip first 100, take next 100</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="batch-chunking">Batch (Chunking)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Process in groups of 1000</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">bulk_insert</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="windowed-operations-for-memory-efficiency">Windowed Operations for Memory Efficiency</h2>
+<p>JAF supports windowed operations that trade accuracy for bounded memory:</p>
+<h3 id="distinct">Distinct</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Exact distinct (potentially unbounded memory)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">(</span><span class="n">window_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Windowed distinct (bounded memory, approximate)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">(</span><span class="n">window_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="groupby">Groupby</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Tumbling window groupby</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;logs.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">key</span><span class="o">=</span><span class="s2">&#34;@level&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">window_size</span><span class="o">=</span><span class="mi">100</span>  <span class="c1"># Group every 100 items</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><h3 id="set-operations">Set Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Exact intersection</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream1</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">stream2</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Windowed intersection (memory-efficient)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream1</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">stream2</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+</span></span></code></pre></div><p>The trade-off: finite windows provide memory bounds but may miss items if windows don&rsquo;t overlap. Choose window size based on your data distribution.</p>
+<h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="log-analysis">Log Analysis</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find critical errors in authentication service</span>
+</span></span><span class="line"><span class="cl"><span class="n">critical_auth_errors</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;app.log.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;and&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@level&#34;</span><span class="p">,</span> <span class="s2">&#34;ERROR&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@service&#34;</span><span class="p">,</span> <span class="s2">&#34;auth&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;contains?&#34;</span><span class="p">,</span> <span class="s2">&#34;@message&#34;</span><span class="p">,</span> <span class="s2">&#34;critical&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;timestamp&#34;</span><span class="p">,</span> <span class="s2">&#34;@timestamp&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;user&#34;</span><span class="p">,</span> <span class="s2">&#34;@context.user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;message&#34;</span><span class="p">,</span> <span class="s2">&#34;@message&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">error</span> <span class="ow">in</span> <span class="n">critical_auth_errors</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">alert_oncall</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="etl-pipeline">ETL Pipeline</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Transform sales data</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;raw_sales.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;completed&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="s2">&#34;@timestamp&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;customer_id&#34;</span><span class="p">,</span> <span class="s2">&#34;@customer.id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;amount&#34;</span><span class="p">,</span> <span class="s2">&#34;@total&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;category&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@total&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="s2">&#34;enterprise&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s2">&#34;standard&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">warehouse</span><span class="o">.</span><span class="n">bulk_insert</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="data-validation">Data Validation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Find invalid user records</span>
+</span></span><span class="line"><span class="cl"><span class="n">invalid_users</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;or&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;exists?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;regex-match?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&#34;^[^@]+@[^@]+\.[^@]+$&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;lt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">150</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;id&#34;</span><span class="p">,</span> <span class="s2">&#34;@id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;reason&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;exists?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">            <span class="s2">&#34;missing_email&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;regex-match?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&#34;^[^@]+@[^@]+\.[^@]+$&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">                <span class="s2">&#34;invalid_email&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s2">&#34;invalid_age&#34;</span>
+</span></span><span class="line"><span class="cl">            <span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="command-line-usage">Command-Line Usage</h2>
+<p>JAF works well in Unix-style pipelines:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Filter logs</span>
+</span></span><span class="line"><span class="cl">jaf filter app.log.jsonl <span class="s1">&#39;(eq? @level &#34;ERROR&#34;)&#39;</span> --eval
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Chain operations</span>
+</span></span><span class="line"><span class="cl">jaf filter users.jsonl <span class="s1">&#39;(eq? @status &#34;active&#34;)&#39;</span> <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">jaf map - <span class="s2">&#34;@email&#34;</span> <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">jaf <span class="nb">eval</span> -
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Complex queries</span>
+</span></span><span class="line"><span class="cl">jaf filter logs.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="s1">&#39;(and (eq? @level &#34;ERROR&#34;) (gt? @timestamp &#34;2024-01-01&#34;))&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  --eval
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Integrate with other tools</span>
+</span></span><span class="line"><span class="cl">jaf filter data.jsonl <span class="s1">&#39;(exists? @metadata)&#39;</span> --eval <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">jq <span class="s1">&#39;.metadata&#39;</span> <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">sort <span class="p">|</span> uniq -c
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Batch processing</span>
+</span></span><span class="line"><span class="cl">jaf filter orders.jsonl <span class="s1">&#39;(gt? @amount 100)&#39;</span> --eval <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">ja groupby customer_id --aggregate <span class="s1">&#39;total:amount:sum&#39;</span>
+</span></span></code></pre></div><h2 id="mapping-dotsuite-concepts-to-jaf">Mapping Dotsuite Concepts to JAF</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Dotsuite Tool</th>
+          <th>JAF Feature</th>
+          <th>Notes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>dotget</strong></td>
+          <td>Path system (<code>@path</code>)</td>
+          <td>JAF adds regex, fuzzy, wildcards</td>
+      </tr>
+      <tr>
+          <td><strong>dotstar</strong></td>
+          <td>Wildcard paths</td>
+          <td><code>@users.*.name</code></td>
+      </tr>
+      <tr>
+          <td><strong>dotfilter</strong></td>
+          <td><code>.filter()</code> method</td>
+          <td>S-expression queries</td>
+      </tr>
+      <tr>
+          <td><strong>dotquery</strong></td>
+          <td>Query language</td>
+          <td>More powerful, S-expressions</td>
+      </tr>
+      <tr>
+          <td><strong>dotmod</strong></td>
+          <td><code>.map()</code> transformations</td>
+          <td>Immutable by default</td>
+      </tr>
+      <tr>
+          <td><strong>dotpipe</strong></td>
+          <td>Method chaining</td>
+          <td>Fluent API</td>
+      </tr>
+      <tr>
+          <td><strong>dotpluck</strong></td>
+          <td>Reshaping with <code>[&quot;dict&quot;, ...]</code></td>
+          <td>Transform documents</td>
+      </tr>
+      <tr>
+          <td><strong>dotrelate</strong></td>
+          <td>Planned (join/union)</td>
+          <td>Future feature</td>
+      </tr>
+  </tbody>
+</table>
+<p>The key difference: JAF is lazy by default, while dotsuite is mostly eager. This is what lets JAF handle datasets that don&rsquo;t fit in memory.</p>
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Operation</th>
+          <th>Memory</th>
+          <th>Time</th>
+          <th>Notes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Filter</strong></td>
+          <td>O(1)</td>
+          <td>O(n)</td>
+          <td>Streams one item at a time</td>
+      </tr>
+      <tr>
+          <td><strong>Map</strong></td>
+          <td>O(1)</td>
+          <td>O(n)</td>
+          <td>Zero-copy transformations</td>
+      </tr>
+      <tr>
+          <td><strong>Take</strong></td>
+          <td>O(k)</td>
+          <td>O(k)</td>
+          <td>Early termination</td>
+      </tr>
+      <tr>
+          <td><strong>Distinct</strong></td>
+          <td>O(w)</td>
+          <td>O(n)</td>
+          <td>w = window_size</td>
+      </tr>
+      <tr>
+          <td><strong>Groupby</strong></td>
+          <td>O(w*k)</td>
+          <td>O(n)</td>
+          <td>k = unique keys in window</td>
+      </tr>
+      <tr>
+          <td><strong>Batch</strong></td>
+          <td>O(b)</td>
+          <td>O(n)</td>
+          <td>b = batch_size</td>
+      </tr>
+  </tbody>
+</table>
+<p>Constant memory for basic operations (filter, map, take). Bounded memory for windowed operations. Early termination when using take/skip. Zero serialization overhead via streaming JSON parsing.</p>
+<h2 id="future-work-probabilistic-data-structures">Future Work: Probabilistic Data Structures</h2>
+<p>I plan to add probabilistic data structures for massive-scale operations:</p>
+<p><strong>Bloom filters</strong> for memory-efficient approximate distinct. <strong>Count-Min Sketch</strong> for heavy hitters detection. <strong>HyperLogLog</strong> for cardinality estimation. These provide controllable accuracy/memory tradeoffs with theoretical guarantees, enabling billion-item operations on commodity hardware.</p>
+<h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>JAF implements boolean algebra over document collections.</p>
+<h3 id="predicates-as-sets">Predicates as Sets</h3>
+<p>Each predicate \(p: \mathcal{D} \to \mathbb{B}\) defines a subset:</p>
+\[
+S_p = \lbrace d \in \mathcal{D} \mid p(d) = \text{true}\rbrace
+\]<h3 id="boolean-operations">Boolean Operations</h3>
+\[
+\text{AND}(p_1, p_2) \Rightarrow S_{p_1} \cap S_{p_2}
+\]<p>
+</p>
+\[
+\text{OR}(p_1, p_2) \Rightarrow S_{p_1} \cup S_{p_2}
+\]<p>
+</p>
+\[
+\text{NOT}(p) \Rightarrow \mathcal{D} \setminus S_p
+\]<h3 id="homomorphism">Homomorphism</h3>
+<p>The filter operation is a monoid homomorphism:</p>
+\[
+\text{filter}(C_1 \cup C_2, p) = \text{filter}(C_1, p) \cup \text{filter}(C_2, p)
+\]<p>This guarantees the operation is parallelizable (can split the collection and filter in parallel), composable (sequential filters commute), and streaming (can process incrementally).</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install</span>
+</span></span><span class="line"><span class="cl">pip install jaf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Basic usage</span>
+</span></span><span class="line"><span class="cl">jaf filter data.jsonl <span class="s1">&#39;(gt? @age 25)&#39;</span> --eval
+</span></span></code></pre></div><p>Python API:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build lazy pipeline</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@email&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Execute when ready</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">email</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">send_newsletter</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="when-to-use-jaf-vs-dotsuite">When to Use JAF vs Dotsuite</h2>
+<p>Use JAF for processing large datasets, when you need lazy evaluation, for production systems, when you need advanced path features (regex, fuzzy), and for windowed operations.</p>
+<p>Use dotsuite for learning data processing concepts, teaching and prototyping, small datasets that fit in memory, when you want simple copyable code, and for building custom tools.</p>
+<p>Or use both: prototype with dotsuite concepts, productionize with JAF.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/jaf">github.com/queelius/jaf</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/jaf/getting-started/">Getting Started</a></li>
+<li><strong>API Guide</strong>: <a href="https://queelius.github.io/jaf/api-guide/">API Reference</a></li>
+<li><strong>Query Language</strong>: <a href="https://queelius.github.io/jaf/query-language/">Query Syntax</a></li>
+<li><strong>Cookbook</strong>: <a href="https://queelius.github.io/jaf/cookbook/">Practical Examples</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+]]></content:encoded><category>Python</category><category>streaming</category><category>JSON</category><category>lazy-evaluation</category><category>functional-programming</category><category>boolean-algebra</category><category>data-processing</category><category>ETL</category></item></channel></rss>
