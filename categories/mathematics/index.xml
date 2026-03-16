@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Mathematics on metafunctor</title><link>https://metafunctor.com/categories/mathematics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sun, 15 Mar 2026 17:43:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/categories/mathematics/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Reverse-Process Synthetic Data Generation for Math Reasoning</title><link>https://metafunctor.com/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/rpsdg/</guid><description>Training LLMs on mathematical reasoning by inverting easy-to-solve problems: generate derivatives, reverse them into integration exercises with full step-by-step solutions.</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Mathematics on metafunctor</title><link>https://metafunctor.com/categories/mathematics/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Mar 2026 10:10:21 -0500</lastBuildDate><atom:link href="https://metafunctor.com/categories/mathematics/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Reverse-Process Synthetic Data Generation for Math Reasoning</title><link>https://metafunctor.com/post/rpsdg/</link><pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/rpsdg/</guid><description>Training LLMs on mathematical reasoning by inverting easy-to-solve problems: generate derivatives, reverse them into integration exercises with full step-by-step solutions.</description><content:encoded><![CDATA[<p>Check out the (early) project and source code on <a href="https://github.com/queelius/RPSDG">GitHub</a>.</p>
 <h2 id="the-idea">The idea</h2>
 <p>Some problems are easy in one direction and hard in the other. Taking a derivative is mechanical. Finding an antiderivative can require genuine creativity. Generating a random expression and verifying a proof is easy. Discovering the proof is hard.</p>
 <p>RPSDG (Reverse-Process Synthetic Data Generation) exploits this asymmetry. Run the easy direction with full step-by-step work, then reverse the result to get a hard problem with a known solution. You end up with process-supervised training data: not just the answer, but the entire derivation.</p>
@@ -2720,7 +2720,348 @@ $$\frac{\partial L}{\partial A} = -A^{-T} \left(\frac{\partial L}{\partial B}\ri
 <li><strong>Gradient accumulation</strong>: Variables used multiple times sum their gradients</li>
 </ol>
 <p>Understanding this makes PyTorch and JAX less mysterious. When <code>.backward()</code> runs, it is doing exactly what I have described: traversing the graph, calling backward functions, accumulating gradients. The scale is different, the optimizations are extensive, but the core algorithm is the same.</p>
-]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>backpropagation</category><category>machine-learning</category><category>gradients</category></item><item><title>Numerical Differentiation</title><link>https://metafunctor.com/post/2022-04-finite-diff-stepanov/</link><pubDate>Tue, 12 Apr 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2022-04-finite-diff-stepanov/</guid><description>Choosing step size h for finite differences: small enough for a good approximation, not so small that floating-point errors eat your lunch.</description><content:encoded><![CDATA[<p><em>Numerical differentiation via finite differences for C++20.</em></p>
+]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>backpropagation</category><category>machine-learning</category><category>gradients</category></item><item><title>How to Teach a Computer Calculus with Pattern Matching</title><link>https://metafunctor.com/post/2022-10-term-rewriting/</link><pubDate>Sat, 15 Oct 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2022-10-term-rewriting/</guid><description>Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate.</description><content:encoded><![CDATA[<p>Every expression is a tree. <code>(2 + 3) * x</code> looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    *            In Python: (&#39;*&#39;, (&#39;+&#39;, 2, 3), &#39;x&#39;)
+</span></span><span class="line"><span class="cl">   / \
+</span></span><span class="line"><span class="cl">  +   x          First element = operator.
+</span></span><span class="line"><span class="cl"> / \             Rest = children.
+</span></span><span class="line"><span class="cl">2   3            Tuples all the way down.
+</span></span></code></pre></div><p>A <strong>rewrite rule</strong> says: <em>when you see this pattern, replace it with that.</em> A handful of them, applied until nothing changes, can simplify or differentiate arbitrary expressions.</p>
+<p>Here&rsquo;s the whole thing. 90 lines of Python. A complete symbolic differentiator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">_W</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="s1">&#39;_&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">_</span> <span class="o">=</span> <span class="n">_W</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">rewrite</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">*</span><span class="n">rules</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">n</span> <span class="o">=</span> <span class="n">r</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span> <span class="k">break</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span> <span class="k">return</span> <span class="n">t</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">bottom_up</span><span class="p">(</span><span class="n">rule</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">go</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="n">t</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">go</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">rule</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">go</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">when</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">pat</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">pat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fn</span> <span class="o">=</span> <span class="n">pat</span><span class="p">,</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">then</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">fn</span> <span class="o">=</span> <span class="n">f</span> <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="k">lambda</span> <span class="o">*</span><span class="n">_</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="n">f</span><span class="p">:</span> <span class="n">v</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pat</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fn</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">b</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">t</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">_m</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">b</span> <span class="o">=</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="p">(</span><span class="n">t</span><span class="p">):</span> <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">            <span class="n">b</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">p</span> <span class="ow">is</span> <span class="n">_</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">b</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;$&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span> <span class="k">return</span> <span class="n">b</span> <span class="k">if</span> <span class="n">b</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">==</span> <span class="n">t</span> <span class="k">else</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">            <span class="n">b</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="n">t</span><span class="p">:</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="n">pe</span><span class="p">,</span> <span class="n">te</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">(</span><span class="n">pe</span><span class="p">,</span> <span class="n">te</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">is_lit</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">const_wrt</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">e</span> <span class="o">==</span> <span class="n">var</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span> <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">check</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">True</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">check</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">simplify</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># 0 + x = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># x + 0 = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>                    <span class="c1"># 0 * x = 0</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>                    <span class="c1"># x * 0 = 0</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># 1 * x = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># x * 1 = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>                    <span class="c1"># x^0   = 1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># x^1   = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">diff</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">const_wrt</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>                                                       <span class="c1"># constant</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>                                                                   <span class="c1"># variable</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>            <span class="c1"># sum</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>            <span class="c1"># difference</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>                                                              <span class="c1"># product</span>
+</span></span><span class="line"><span class="cl">        <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)))),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))),</span>              <span class="c1"># power</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>                                                         <span class="c1"># chain+power</span>
+</span></span><span class="line"><span class="cl">        <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span>                                              <span class="c1"># sin</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>                 <span class="c1"># chain+sin</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">))),</span>                                    <span class="c1"># cos</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>       <span class="c1"># chain+cos</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span>                                              <span class="c1"># exp</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>                 <span class="c1"># chain+exp</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;ln&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span>                                              <span class="c1"># ln</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>                                                              <span class="c1"># quotient</span>
+</span></span><span class="line"><span class="cl">        <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="mi">2</span><span class="p">))),</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="n">bottom_up</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">diff</span> <span class="o">+</span> <span class="n">simplify</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">rewrite</span><span class="p">((</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="o">*</span><span class="n">rules</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># =&gt; (&#39;+&#39;, (&#39;*&#39;, (&#39;^&#39;, &#39;x&#39;, 2), (&#39;cos&#39;, &#39;x&#39;)), (&#39;*&#39;, (&#39;sin&#39;, &#39;x&#39;), (&#39;*&#39;, 2, &#39;x&#39;)))</span>
+</span></span></code></pre></div><p>That&rsquo;s it. <code>rewrite</code> applies rules until nothing changes. <code>bottom_up</code> walks the tree leaves-first. <code>when</code> does pattern matching: <code>_</code> matches anything, <code>$x</code> captures a named variable, callables act as predicates. The rest is just calculus rules written as patterns.</p>
+<p>The chain rule is not coded explicitly. When a rule like <code>d/dx sin(u)</code> produces <code>cos(u) * d/dx u</code>, that new <code>d</code> node gets rewritten by the same rules on the next pass. The recursion emerges from the fixed-point loop.</p>
+<p>The widgets below run a JS reimplementation of the same logic. Step through each one to watch the engine think.</p>
+<h2 id="bottom-up-traversal">Bottom-up traversal</h2>
+<p>The key mechanism. Rules only match at the root of whatever they&rsquo;re given, so <code>bottom_up</code> recurses into children first, then tries the rule at the rebuilt node. Leaves light up first, then the engine works upward.</p>
+<div class="tr-demo" id="bu-demo">
+  <h3>Bottom-Up Traversal</h3>
+  <div class="tr-bar">
+    <select id="bu-example">
+      <option value="add-zero">(+ 0 (+ 0 x))  with  0+x => x</option>
+      <option value="const-fold">(+ (* 2 3) (* 4 5))  with  constant folding</option>
+      <option value="nested">(* (+ x 0) (- 5 5))  with  arithmetic rules</option>
+    </select>
+    <button id="bu-reset">Reset</button>
+    <button id="bu-step">Step</button>
+    <button id="bu-play">Play</button>
+  </div>
+  <div class="tr-canvas"><svg id="bu-svg" width="100%" height="260"></svg></div>
+  <div class="tr-info" id="bu-info">Press Step or Play.</div>
+  <div class="tr-legend">
+    <span><span class="tr-legend-dot c-visit"></span>visiting</span>
+    <span><span class="tr-legend-dot c-match"></span>rule fired</span>
+    <span><span class="tr-legend-dot c-rewrite"></span>rewritten</span>
+    <span><span class="tr-legend-dot c-done"></span>fixed point</span>
+  </div>
+</div>
+<h2 id="arithmetic-simplification">Arithmetic simplification</h2>
+<p>More rules, same engine. Identity elements, absorbing elements, constant folding, cancellation:</p>
+<div class="tr-demo" id="ar-demo">
+  <h3>Arithmetic Simplifier</h3>
+  <div class="tr-pills">
+    <span class="tr-pill">0+x &rarr; x</span>
+    <span class="tr-pill">x*0 &rarr; 0</span>
+    <span class="tr-pill">x*1 &rarr; x</span>
+    <span class="tr-pill">x-x &rarr; 0</span>
+    <span class="tr-pill">n+m &rarr; compute</span>
+  </div>
+  <div class="tr-bar">
+    <select id="ar-example">
+      <option value="ex1">(+ (* 2 3) (* 4 5))</option>
+      <option value="ex2">(* (+ x 0) (- 5 5))</option>
+      <option value="ex3">(+ (+ 0 x) (- y y))</option>
+      <option value="ex4">(/ (* 3 (+ 2 4)) (- 9 3))</option>
+    </select>
+    <button id="ar-reset">Reset</button>
+    <button id="ar-step">Step</button>
+    <button id="ar-play">Play</button>
+  </div>
+  <div class="tr-canvas"><svg id="ar-svg" width="100%" height="280"></svg></div>
+  <div class="tr-info" id="ar-info">Press Step or Play.</div>
+</div>
+<h2 id="symbolic-differentiation">Symbolic differentiation</h2>
+<p>The same engine with the <code>diff</code> rules from above. Watch the product rule split $x^2 \cdot \sin(x)$ into two branches, then the power and chain rules reduce each piece, then simplification cleans up:</p>
+<div class="tr-demo" id="df-demo">
+  <h3>Symbolic Differentiation</h3>
+  <div class="tr-bar">
+    <select id="df-example">
+      <option value="power">d/dx x^3</option>
+      <option value="product">d/dx (x^2 * sin(x))</option>
+      <option value="chain">d/dx sin(x^2)</option>
+      <option value="exp-chain">d/dx e^(x^2)</option>
+      <option value="quotient">d/dx (sin(x) / x)</option>
+    </select>
+    <button id="df-reset">Reset</button>
+    <button id="df-step">Step</button>
+    <button id="df-play">Play</button>
+  </div>
+  <div class="tr-canvas"><svg id="df-svg" width="100%" height="380"></svg></div>
+  <div class="tr-info" id="df-info">Press Step or Play.</div>
+  <div class="tr-iter" id="df-iter"></div>
+</div>
+<style>
+/* ── Container ────────────────────────────────── */
+.tr-demo {
+  max-width: 680px;
+  margin: 2.5em auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.tr-demo h3 {
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin: 0 0 10px;
+}
+
+/* ── Controls ─────────────────────────────────── */
+.tr-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.tr-bar select {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fafafa;
+  flex: 1;
+  min-width: 160px;
+}
+
+.tr-bar button {
+  font-size: 13px;
+  padding: 5px 14px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.tr-bar button:hover:not(:disabled) { background: #f0f0f0; }
+.tr-bar button:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Canvas ───────────────────────────────────── */
+.tr-canvas {
+  border: 1px solid #e4e4e4;
+  border-radius: 6px;
+  background: #fdfdfd;
+  overflow: hidden;
+  min-height: 200px;
+}
+.tr-canvas svg { display: block; width: 100%; }
+
+/* ── Info line ────────────────────────────────── */
+.tr-info {
+  font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  padding: 6px 10px;
+  margin-top: 6px;
+  background: #f7f7f7;
+  border-radius: 4px;
+  min-height: 1.8em;
+  color: #444;
+}
+
+.tr-iter {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+  font-family: 'SF Mono', monospace;
+}
+
+/* ── Rules pills ──────────────────────────────── */
+.tr-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.tr-pill {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  color: #666;
+}
+
+/* ── SVG tree nodes ───────────────────────────── */
+.tr-edge {
+  stroke: #bbb;
+  stroke-width: 1.5;
+  fill: none;
+  transition: stroke 0.25s;
+}
+
+.tr-node circle {
+  fill: #fff;
+  stroke: #555;
+  stroke-width: 2;
+  transition: fill 0.25s, stroke 0.25s;
+}
+.tr-node text {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  fill: #333;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+/* States */
+.tr-node.visiting circle {
+  fill: #dbeafe;
+  stroke: #3b82f6;
+  stroke-width: 2.5;
+}
+.tr-node.matched circle {
+  fill: #fef3c7;
+  stroke: #f59e0b;
+  stroke-width: 2.5;
+}
+.tr-node.rewritten circle {
+  fill: #d1fae5;
+  stroke: #10b981;
+  stroke-width: 2.5;
+}
+.tr-node.done circle {
+  fill: #ede9fe;
+  stroke: #8b5cf6;
+  stroke-width: 2;
+}
+
+/* ── Color legend (inline) ────────────────────── */
+.tr-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+}
+.tr-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.tr-legend-dot.c-visit   { background: #dbeafe; border: 1.5px solid #3b82f6; }
+.tr-legend-dot.c-match   { background: #fef3c7; border: 1.5px solid #f59e0b; }
+.tr-legend-dot.c-rewrite { background: #d1fae5; border: 1.5px solid #10b981; }
+.tr-legend-dot.c-done    { background: #ede9fe; border: 1.5px solid #8b5cf6; }
+
+</style>
+<script>
+"use strict";(()=>{function y(e){return!Array.isArray(e)}function H(e){return Array.isArray(e)?e[0]:e}function I(e,t){return y(e)&&y(t)?e===t:y(e)||y(t)||e.length!==t.length?!1:e.every((n,r)=>I(n,t[r]))}function v(e){return y(e)?e:e.map(v)}function R(e){return y(e)?String(e):"("+e.map(R).join(" ")+")"}function T(e){return typeof e=="number"}function k(e,t){if(e===t)return!1;if(y(e))return!0;for(let n=1;n<e.length;n++)if(!k(e[n],t))return!1;return!0}function B(e,t){let n=[],r=0;function s(u){let f=r++;if(y(u))return n.push({nodeIdx:f,type:"visit",label:String(u)}),u;let c=[u[0]];for(let a=1;a<u.length;a++)c.push(s(u[a]));n.push({nodeIdx:f,type:"visit",label:String(c[0])});for(let a of t)if(a.match(c))return n.push({nodeIdx:f,type:"match",label:a.name,rule:a.name}),a.apply(c);return c}return{result:s(e),events:n}}function O(e,t,n=50){let r=[];for(let s=0;s<n;s++){let{result:p,events:u}=B(e,t);if(r.push({before:v(e),after:v(p),events:u}),I(p,e))break;e=v(p)}return r}function F(e,t,n){let r=[],s=[],p=0;function u(o){let d=p++;if(y(o))return{width:1,tree:o,id:d,label:String(o),children:[]};let h=[];for(let b=1;b<o.length;b++)h.push(u(o[b]));let E=h.reduce((b,l)=>b+l.width,0);return{width:Math.max(E,1),tree:o,id:d,label:String(H(o)),children:h}}function f(o,d,h,E){let b=d+h/2,l={id:o.id,x:b,y:E,label:o.label};if(r.push(l),o.children.length>0){let w=o.children.reduce((S,A)=>S+A.width,0),x=d;for(let S of o.children){let A=S.width/w*h,P=f(S,x,A,E+60);s.push({from:l,to:P}),x+=A}}return l}let c=u(e),a=40;return f(c,a,t-a*2,36),{nodes:r,edges:s}}var C="http://www.w3.org/2000/svg";function j(e){for(;e.firstChild;)e.removeChild(e.firstChild)}function q(e,t){j(e);for(let r of t.edges){let s=document.createElementNS(C,"line");s.setAttribute("x1",String(r.from.x)),s.setAttribute("y1",String(r.from.y)),s.setAttribute("x2",String(r.to.x)),s.setAttribute("y2",String(r.to.y)),s.setAttribute("class","tr-edge"),e.appendChild(s)}for(let r of t.nodes){let s=document.createElementNS(C,"g");s.setAttribute("class","tr-node"),s.setAttribute("transform",`translate(${r.x},${r.y})`),s.dataset.nid=String(r.id);let p=Math.max(16,r.label.length*5+8),u=document.createElementNS(C,"circle");u.setAttribute("r",String(p)),s.appendChild(u);let f=document.createElementNS(C,"text");f.textContent=r.label,s.appendChild(f),e.appendChild(s)}let n=t.nodes.reduce((r,s)=>Math.max(r,s.y),0);e.setAttribute("height",String(n+56))}function M(e,t,n){let r=e.querySelector(`g[data-nid="${t}"]`);r&&r.setAttribute("class","tr-node"+(n?" "+n:""))}function X(e){e.querySelectorAll("g.tr-node").forEach(t=>t.setAttribute("class","tr-node"))}function i(e,t,n){return{name:e,match:t,apply:n}}function m(e,t){return Array.isArray(e)&&e[0]===t&&e.length===3}var N=[i("0 + x \u2192 x",e=>m(e,"+")&&e[1]===0,e=>e[2]),i("x + 0 \u2192 x",e=>m(e,"+")&&e[2]===0,e=>e[1]),i("0 \xD7 x \u2192 0",e=>m(e,"*")&&e[1]===0,()=>0),i("x \xD7 0 \u2192 0",e=>m(e,"*")&&e[2]===0,()=>0),i("1 \xD7 x \u2192 x",e=>m(e,"*")&&e[1]===1,e=>e[2]),i("x \xD7 1 \u2192 x",e=>m(e,"*")&&e[2]===1,e=>e[1]),i("x \u2212 x \u2192 0",e=>m(e,"-")&&I(e[1],e[2]),()=>0),i("n + m",e=>m(e,"+")&&T(e[1])&&T(e[2]),e=>e[1]+e[2]),i("n \xD7 m",e=>m(e,"*")&&T(e[1])&&T(e[2]),e=>e[1]*e[2]),i("n \u2212 m",e=>m(e,"-")&&T(e[1])&&T(e[2]),e=>e[1]-e[2]),i("n / m",e=>m(e,"/")&&T(e[1])&&T(e[2])&&e[2]!==0,e=>{let t=e[1]/e[2];return Number.isInteger(t)?t:Math.round(t*1e3)/1e3})],U=[...N,i("x^0 \u2192 1",e=>m(e,"^")&&e[2]===0,()=>1),i("x^1 \u2192 x",e=>m(e,"^")&&e[2]===1,e=>e[1]),i("x/1 \u2192 x",e=>m(e,"/")&&e[2]===1,e=>e[1]),i("0 \u2212 n \u2192 \u2212n",e=>m(e,"-")&&e[1]===0&&T(e[2]),e=>-e[2])];function V(e){return Array.isArray(e)&&e[0]==="d"&&e.length===3}function g(e,t){return V(e)&&Array.isArray(e[1])&&e[1][0]===t}function D(e,t){return g(e,t)&&e[1][1]==="x"&&e[2]==="x"}var Y=[i("d/dx(const) = 0",e=>V(e)&&e[2]==="x"&&k(e[1],"x"),()=>0),i("d/dx(x) = 1",e=>V(e)&&e[1]==="x"&&e[2]==="x",()=>1),i("sum rule",e=>g(e,"+"),e=>{let[,[,t,n],r]=e;return["+",["d",t,r],["d",n,r]]}),i("difference rule",e=>g(e,"-")&&e[1].length===3,e=>{let[,[,t,n],r]=e;return["-",["d",t,r],["d",n,r]]}),i("product rule",e=>g(e,"*"),e=>{let[,[,t,n],r]=e;return["+",["*",t,["d",n,r]],["*",n,["d",t,r]]]}),i("power rule",e=>g(e,"^")&&e[1][1]==="x"&&T(e[1][2])&&e[2]==="x",e=>{let t=e[1][2];return["*",t,["^","x",t-1]]}),i("chain (power)",e=>g(e,"^")&&T(e[1][2]),e=>{let[,[,t,n],r]=e;return["*",["*",n,["^",t,n-1]],["d",t,r]]}),i("d/dx sin(x) = cos(x)",e=>D(e,"sin"),()=>["cos","x"]),i("chain (sin)",e=>g(e,"sin"),e=>{let[,[,t],n]=e;return["*",["cos",t],["d",t,n]]}),i("d/dx cos(x) = \u2212sin(x)",e=>D(e,"cos"),()=>["-",0,["sin","x"]]),i("chain (cos)",e=>g(e,"cos"),e=>{let[,[,t],n]=e;return["*",["-",0,["sin",t]],["d",t,n]]}),i("d/dx e^x = e^x",e=>D(e,"exp"),()=>["exp","x"]),i("chain (exp)",e=>g(e,"exp"),e=>{let[,[,t],n]=e;return["*",["exp",t],["d",t,n]]}),i("d/dx ln(x) = 1/x",e=>D(e,"ln"),()=>["/",1,"x"]),i("quotient rule",e=>g(e,"/"),e=>{let[,[,t,n],r]=e;return["/",["-",["*",n,["d",t,r]],["*",t,["d",n,r]]],["^",n,2]]})],W=[...Y,...U];var z={"add-zero":{tree:["+",0,["+",0,"x"]],rules:[N[0]]},"const-fold":{tree:["+",["*",2,3],["*",4,5]]},nested:{tree:["*",["+","x",0],["-",5,5]]}},J={ex1:{tree:["+",["*",2,3],["*",4,5]]},ex2:{tree:["*",["+","x",0],["-",5,5]]},ex3:{tree:["+",["+",0,"x"],["-","y","y"]]},ex4:{tree:["/",["*",3,["+",2,4]],["-",9,3]]}},K={power:{tree:["d",["^","x",3],"x"]},product:{tree:["d",["*",["^","x",2],["sin","x"]],"x"]},chain:{tree:["d",["sin",["^","x",2]],"x"]},"exp-chain":{tree:["d",["exp",["^","x",2]],"x"]},quotient:{tree:["d",["/",["sin","x"],"x"],"x"]}};function L(e){return document.getElementById(e)}function _(e,t,n){let r=L(e+"-svg"),s=L(e+"-info"),p=L(e+"-example"),u=L(e+"-reset"),f=L(e+"-step"),c=L(e+"-play"),a=L(e+"-iter");if(!r||!p||!s||!u||!f||!c)return;let o=null,d=null;function h(){d&&(clearInterval(d),d=null);let l=t[p.value],w=l.rules??n,x=v(l.tree),S=O(x,w),A=r.parentElement?.clientWidth??600,P=parseInt(r.getAttribute("height")??"300"),G=F(x,A,P);o={iterations:S,iterIdx:0,evtIdx:0,tree:v(x),layout:G},q(r,G),s.textContent="Press Step or Play.",a&&(a.textContent=""),f.removeAttribute("disabled"),c.removeAttribute("disabled"),c.textContent="Play"}function E(){if(!o)return;let l=o.iterations[o.iterIdx];if(!l){b();return}let w=l.events;if(o.evtIdx<w.length){let x=w[o.evtIdx];X(r),x.nodeIdx<o.layout.nodes.length&&M(r,x.nodeIdx,x.type==="match"?"matched":"visiting"),s.textContent=x.type==="visit"?`Visiting ${x.label}`:`\u2192 ${x.rule}`,o.evtIdx++}else if(I(l.before,l.after))b();else{o.tree=v(l.after),o.iterIdx++,o.evtIdx=0;let x=r.parentElement?.clientWidth??600,S=parseInt(r.getAttribute("height")??"300");o.layout=F(o.tree,x,S),q(r,o.layout);for(let A of o.layout.nodes)M(r,A.id,"rewritten");s.textContent=R(o.tree),a&&(a.textContent=`Iteration ${o.iterIdx}`)}}function b(){if(o){for(let l of o.layout.nodes)M(r,l.id,"done");s.textContent="Done: "+R(o.tree),a&&(a.textContent=`${o.iterIdx} iteration(s)`),f.setAttribute("disabled",""),c.setAttribute("disabled",""),d&&(clearInterval(d),d=null)}}p.addEventListener("change",h),u.addEventListener("click",h),f.addEventListener("click",E),c.addEventListener("click",()=>{d?(clearInterval(d),d=null,c.textContent="Play"):(d=setInterval(E,450),c.textContent="Pause")}),h()}function $(){_("bu",z,N),_("ar",J,N),_("df",K,W)}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",$):$();})();
+
+</script>
+]]></content:encoded><category>term-rewriting</category><category>pattern-matching</category><category>symbolic-computation</category><category>python</category><category>interactive</category><category>calculus</category></item><item><title>Numerical Differentiation</title><link>https://metafunctor.com/post/2022-04-finite-diff-stepanov/</link><pubDate>Tue, 12 Apr 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2022-04-finite-diff-stepanov/</guid><description>Choosing step size h for finite differences: small enough for a good approximation, not so small that floating-point errors eat your lunch.</description><content:encoded><![CDATA[<p><em>Numerical differentiation via finite differences for C++20.</em></p>
 <h2 id="overview">Overview</h2>
 <p>The derivative is defined as a limit:</p>
 $$f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}$$<p>We cannot take h = 0 on a computer, but we can choose small h. The whole game is picking h wisely: small enough that the approximation is good, not so small that floating-point errors dominate. There is a sweet spot, and it depends on the method.</p>
@@ -2879,109 +3220,4 @@ $$\frac{d(\text{Error})}{dh} = \frac{h}{3}|f'''| - \frac{\varepsilon}{h^2}|f| = 
 <li>You have the source code</li>
 </ul>
 <p>Finite differences are the duct tape of numerical computing. They always work, they are easy to implement, and they give you a reasonable answer. Automatic differentiation is what you graduate to when &ldquo;reasonable&rdquo; is not good enough. I cover autodiff in a <a href="/post/2023-01-autodiff-stepanov/">later post in this series</a>.</p>
-]]></content:encoded><category>C++</category><category>numerical-methods</category><category>differentiation</category><category>error-analysis</category><category>calculus</category></item><item><title>Forward-Mode Automatic Differentiation</title><link>https://metafunctor.com/post/2021-09-dual-stepanov/</link><pubDate>Mon, 20 Sep 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2021-09-dual-stepanov/</guid><description>Dual numbers extend our number system with an infinitesimal epsilon where epsilon^2 = 0. Evaluating f(x + epsilon) yields f(x) + epsilon * f'(x)—the derivative emerges automatically from the algebra.</description><content:encoded><![CDATA[<p><em>Forward-mode automatic differentiation via dual numbers for C++20.</em></p>
-<h2 id="overview">Overview</h2>
-<p>Dual numbers are a simple yet powerful technique for computing exact derivatives. The key insight: if we extend our number system with an element <code>epsilon</code> where <code>epsilon^2 = 0</code>, then evaluating <code>f(x + epsilon)</code> yields <code>f(x) + epsilon * f'(x)</code>. The derivative emerges automatically from the algebra.</p>
-<h2 id="quick-start">Quick Start</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;dual/dual.hpp&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="k">namespace</span> <span class="n">dual</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Create a dual variable at x = 2
-</span></span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">x</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Compute f(x) = x^3 - 3x + 1
-</span></span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">x</span> <span class="o">-</span> <span class="mf">3.0</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;f(2) = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">f</span><span class="p">.</span><span class="n">value</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>       <span class="c1">// 3.0
-</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;f&#39;(2) = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">f</span><span class="p">.</span><span class="n">derivative</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span> <span class="c1">// 9.0
-</span></span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><h2 id="the-mathematics">The Mathematics</h2>
-<p>A dual number has the form \(a + b\varepsilon\) where \(\varepsilon^2 = 0\). Arithmetic follows naturally:</p>
-$$(a + b\varepsilon) + (c + d\varepsilon) = (a+c) + (b+d)\varepsilon$$$$(a + b\varepsilon)(c + d\varepsilon) = ac + (ad + bc)\varepsilon + bd\varepsilon^2 = ac + (ad + bc)\varepsilon$$<p>Notice how the \(bd\varepsilon^2\) term vanishes because \(\varepsilon^2 = 0\).</p>
-<p>For a function \(f\), Taylor expansion gives:</p>
-$$f(a + b\varepsilon) = f(a) + bf'(a)\varepsilon + \frac{b^2}{2}f''(a)\varepsilon^2 + \cdots = f(a) + bf'(a)\varepsilon$$<p>If we set \(b = 1\) (marking \(x\) as &ldquo;the variable we&rsquo;re differentiating with respect to&rdquo;), then:</p>
-$$f(x + \varepsilon) = f(x) + f'(x)\varepsilon$$<p>The derivative appears as the coefficient of epsilon!</p>
-<h2 id="api-reference">API Reference</h2>
-<h3 id="dual">dual<T></h3>
-<p>The core dual number type.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Create a variable for differentiation
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">x</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">3.0</span><span class="p">);</span>  <span class="c1">// x = 3, dx = 1
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Create a constant
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">c</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">constant</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>  <span class="c1">// c = 2, dc = 0
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Access values
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">val</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>       <span class="c1">// 3.0
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">deriv</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">derivative</span><span class="p">();</span> <span class="c1">// 1.0
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Arithmetic operators: +, -, *, /
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">y</span> <span class="o">=</span> <span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Convenience function
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="p">[</span><span class="n">value</span><span class="p">,</span> <span class="n">deriv</span><span class="p">]</span> <span class="o">=</span> <span class="n">differentiate</span><span class="p">([](</span><span class="k">auto</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="p">;</span> <span class="p">},</span> <span class="mf">3.0</span><span class="p">);</span>
-</span></span></code></pre></div><h3 id="mathematical-functions">Mathematical Functions</h3>
-<p>All standard math functions are supported with correct derivative propagation:</p>
-<ul>
-<li><strong>Basic</strong>: <code>sqrt</code>, <code>cbrt</code>, <code>abs</code></li>
-<li><strong>Exponential</strong>: <code>exp</code>, <code>exp2</code>, <code>expm1</code>, <code>log</code>, <code>log2</code>, <code>log10</code>, <code>log1p</code></li>
-<li><strong>Trigonometric</strong>: <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>asin</code>, <code>acos</code>, <code>atan</code>, <code>atan2</code></li>
-<li><strong>Hyperbolic</strong>: <code>sinh</code>, <code>cosh</code>, <code>tanh</code>, <code>asinh</code>, <code>acosh</code>, <code>atanh</code></li>
-<li><strong>Power</strong>: <code>pow</code>, <code>hypot</code></li>
-<li><strong>Special</strong>: <code>erf</code>, <code>erfc</code></li>
-</ul>
-<h3 id="higher-order-derivatives">Higher-Order Derivatives</h3>
-<p><strong>Second derivatives with dual2:</strong></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">result</span> <span class="o">=</span> <span class="n">differentiate2</span><span class="p">([](</span><span class="k">auto</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nf">sin</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">},</span> <span class="mf">1.0</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// result.value  = sin(1)
-</span></span></span><span class="line"><span class="cl"><span class="c1">// result.first  = cos(1)
-</span></span></span><span class="line"><span class="cl"><span class="c1">// result.second = -sin(1)
-</span></span></span></code></pre></div><p><strong>Arbitrary order with jets:</strong></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compute f, f&#39;, f&#39;&#39;, f&#39;&#39;&#39;, f&#39;&#39;&#39;&#39; at x = 1
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">derivs</span> <span class="o">=</span> <span class="n">derivatives</span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">([](</span><span class="k">auto</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nf">exp</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">},</span> <span class="mf">1.0</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// All derivatives of e^x at x=1 equal e
-</span></span></span></code></pre></div><h2 id="forward-vs-reverse-mode">Forward vs Reverse Mode</h2>
-<p>This library implements <strong>forward mode</strong> AD:</p>
-<ul>
-<li><strong>Pros</strong>: Simple, no memory overhead, exact derivatives</li>
-<li><strong>Cons</strong>: Cost is O(n) for n input variables</li>
-</ul>
-<p>For functions with many inputs and few outputs (like neural network loss functions), <strong>reverse mode</strong> (backpropagation) is more efficient.</p>
-<table>
-  <thead>
-      <tr>
-          <th>Use Case</th>
-          <th>Best Mode</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>f: R -&gt; R^n (one input, many outputs)</td>
-          <td>Forward</td>
-      </tr>
-      <tr>
-          <td>f: R^n -&gt; R (many inputs, one output)</td>
-          <td>Reverse</td>
-      </tr>
-      <tr>
-          <td>Jacobian-vector products</td>
-          <td>Forward</td>
-      </tr>
-      <tr>
-          <td>Vector-Jacobian products</td>
-          <td>Reverse</td>
-      </tr>
-  </tbody>
-</table>
-<h2 id="why-dual-numbers-matter">Why Dual Numbers Matter</h2>
-<p>Forward-mode AD via dual numbers is:</p>
-<ol>
-<li><strong>Exact</strong>: No truncation error like finite differences</li>
-<li><strong>Simple</strong>: Just overload arithmetic operators</li>
-<li><strong>Composable</strong>: Chain rule is automatic via operator overloading</li>
-<li><strong>Generic</strong>: Works with any function written in terms of overloaded operators</li>
-</ol>
-<p>The algebraic structure (dual numbers form a ring) determines the algorithm&rsquo;s correctness. This is Stepanov&rsquo;s insight applied to calculus.</p>
-]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>dual-numbers</category><category>calculus</category><category>machine-learning</category></item></channel></rss>
+]]></content:encoded><category>C++</category><category>numerical-methods</category><category>differentiation</category><category>error-analysis</category><category>calculus</category></item></channel></rss>

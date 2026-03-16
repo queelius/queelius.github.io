@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Regex on metafunctor</title><link>https://metafunctor.com/tags/regex/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Mar 2026 10:10:21 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/regex/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Regex Under the Hood</title><link>https://metafunctor.com/post/2022-09-12-regex-machines/</link><pubDate>Mon, 12 Sep 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2022-09-12-regex-machines/</guid><description>Your regex compiles into a state machine. Type a pattern, feed it a string, and watch the machine think — step by step.</description><content:encoded><![CDATA[<p>You type <code>grep 'a*b+' file.txt</code> and results appear. But what actually happened in that fraction of a second? Your pattern compiled into a <em>state machine</em> — a tiny computer with no memory except &ldquo;where am I right now?&rdquo;</p>
+<p>This post builds that machine from scratch and lets you watch it think.</p>
+<h2 id="the-pipeline">The Pipeline</h2>
+<p>Every regex engine follows the same path:</p>
+<p><strong>Regex → NFA → DFA → Match</strong></p>
+<ol>
+<li>
+<p><strong>Parse</strong> the regex and build a Nondeterministic Finite Automaton (NFA) using Thompson&rsquo;s construction. The NFA can be in <em>multiple states at once</em> and can take free epsilon (ε) transitions without consuming input.</p>
+</li>
+<li>
+<p><strong>Convert</strong> the NFA to a Deterministic Finite Automaton (DFA) using subset construction. Each DFA state represents a <em>set</em> of NFA states. One state at a time, one transition per symbol.</p>
+</li>
+<li>
+<p><strong>Simulate</strong> the DFA on input — one character, one lookup, O(n). No backtracking.</p>
+</li>
+</ol>
+<h2 id="thompsons-construction">Thompson&rsquo;s Construction</h2>
+<p>Thompson&rsquo;s construction builds NFAs by snapping together small templates. Each template has exactly one start and one accepting state:</p>
+<p><strong>Single character</strong> <code>a</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">──▶(q0)──a──▶((q1))
+</span></span></code></pre></div><p><strong>Concatenation</strong> <code>ab</code> — chain the fragments, connecting the first&rsquo;s accept to the second&rsquo;s start via ε:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">──▶(q0)─a─▶(q1)─ε─▶(q2)─b─▶((q3))
+</span></span></code></pre></div><p><strong>Union</strong> <code>a|b</code> — new start fans out via ε, both accepts converge via ε:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">       ┌─ε─▶(q2)─a─▶(q3)─ε─┐
+</span></span><span class="line"><span class="cl">──▶(q0)┤                     ├▶((q5))
+</span></span><span class="line"><span class="cl">       └─ε─▶(q4)─b─▶(q5)─ε─┘
+</span></span></code></pre></div><p><strong>Kleene star</strong> <code>a*</code> — ε-bypass for zero occurrences, ε-loop for repetition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    ┌────────ε────────┐
+</span></span><span class="line"><span class="cl">    │   ┌──ε──┐       │
+</span></span><span class="line"><span class="cl">──▶(q0)─ε─▶(q1)─a─▶(q2)─ε─▶((q3))
+</span></span><span class="line"><span class="cl">    │                       ▲
+</span></span><span class="line"><span class="cl">    └───────────ε───────────┘
+</span></span></code></pre></div><p>These compose mechanically. <code>(a|b)*abb</code> nests a union inside a star, then concatenates three symbols. The result is a graph of states and transitions that <em>exactly</em> encodes the regex&rsquo;s meaning.</p>
+<h2 id="try-it">Try It</h2>
+<p>Type a regex and an input string. <strong>Build</strong> constructs the NFA, then <strong>Step</strong> through the input one character at a time. Watch which states light up — the NFA explores all possibilities simultaneously.</p>
+<div id="nfa-sim">
+  <div class="sim-controls">
+    <div class="sim-fields">
+      <div class="sim-field">
+        <label for="sim-regex">Pattern</label>
+        <input id="sim-regex" type="text" value="(a|b)*abb" spellcheck="false" autocomplete="off" />
+      </div>
+      <div class="sim-field">
+        <label for="sim-input">Input</label>
+        <input id="sim-input" type="text" value="aabb" spellcheck="false" autocomplete="off" />
+      </div>
+      <button id="sim-build">Build</button>
+    </div>
+    <div class="sim-presets">
+      <button data-regex="(a|b)*abb" data-input="aabb">classic</button>
+      <button data-regex="a*b+" data-input="aaabb">a*b+</button>
+      <button data-regex="(ab|cd)*" data-input="ababcd">groups</button>
+      <button data-regex="a(b|c)*d" data-input="abcbd">nested</button>
+    </div>
+  </div>
+  <div class="sim-error" id="sim-error"></div>
+  <div class="sim-tabs">
+    <button class="sim-tab active" data-tab="nfa">NFA</button>
+    <button class="sim-tab" data-tab="dfa">DFA</button>
+  </div>
+  <div class="sim-canvas">
+    <svg id="sim-svg"></svg>
+  </div>
+  <div class="sim-legend" id="sim-legend"></div>
+  <div class="sim-tape" id="sim-tape"></div>
+  <div class="sim-playback">
+    <button id="sim-reset" disabled>Reset</button>
+    <button id="sim-step" disabled>Step</button>
+    <button id="sim-play" disabled>Play</button>
+  </div>
+  <div class="sim-result" id="sim-result"></div>
+  <div class="sim-trace" id="sim-trace"></div>
+</div>
+<style>
+#nfa-sim {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  max-width: 720px;
+  margin: 2em auto;
+  padding: 0;
+}
+#nfa-sim *, #nfa-sim *::before, #nfa-sim *::after {
+  box-sizing: border-box;
+}
+.sim-controls {
+  margin-bottom: 12px;
+}
+.sim-fields {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.sim-field {
+  flex: 1;
+  min-width: 120px;
+}
+.sim-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.sim-field input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 15px;
+  background: #fafafa;
+}
+.sim-field input:focus {
+  outline: none;
+  border-color: #4a90d9;
+  background: #fff;
+}
+#sim-build {
+  padding: 8px 18px;
+  background: #4a90d9;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#sim-build:hover { background: #357abd; }
+.sim-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sim-presets button {
+  padding: 3px 10px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  cursor: pointer;
+  color: #555;
+}
+.sim-presets button:hover { background: #e0e0e0; }
+.sim-error {
+  display: none;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  color: #b91c1c;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.sim-error.visible { display: block; }
+.sim-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+}
+.sim-tab {
+  padding: 6px 20px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #666;
+}
+.sim-tab.active {
+  background: #fff;
+  color: #333;
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 1;
+}
+.sim-canvas {
+  border: 1px solid #ccc;
+  border-radius: 0 4px 4px 4px;
+  background: #fff;
+  min-height: 180px;
+  overflow: hidden;
+}
+#sim-svg {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+}
+.sim-legend {
+  font-size: 12px;
+  color: #666;
+  padding: 6px 10px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  line-height: 1.6;
+  border: 1px solid #eee;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  background: #fafafa;
+  display: none;
+}
+.sim-legend.visible { display: block; }
+.sim-tape {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin: 14px 0 10px;
+  min-height: 36px;
+  align-items: center;
+}
+.tape-cell {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  background: #fff;
+  transition: all 0.2s;
+}
+.tape-cell.consumed {
+  background: #f5f5f5;
+  color: #aaa;
+  border-color: #e0e0e0;
+}
+.tape-cell.current {
+  background: #e67e22;
+  color: #fff;
+  border-color: #d35400;
+  transform: scale(1.1);
+}
+.sim-playback {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sim-playback button {
+  padding: 6px 18px;
+  background: #f8f8f8;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.sim-playback button:hover:not(:disabled) { background: #eee; }
+.sim-playback button:disabled { opacity: 0.4; cursor: default; }
+#sim-play.playing {
+  background: #e67e22;
+  color: #fff;
+  border-color: #d35400;
+}
+.sim-result {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  display: none;
+}
+.sim-result.accept {
+  display: block;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+.sim-result.reject {
+  display: block;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+.sim-trace {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #555;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  display: none;
+}
+.sim-trace.visible { display: block; }
+.sim-trace .trace-line { padding: 1px 0; }
+.sim-trace .trace-line.current { color: #e67e22; font-weight: 600; }
+.sim-trace .trace-line .sym { color: #4a90d9; font-weight: 700; }
+
+/* SVG styles */
+.st-circle { transition: fill 0.2s, stroke 0.2s; }
+.st-label { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; pointer-events: none; }
+.edge-path { fill: none; transition: stroke 0.2s; }
+.edge-label {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  pointer-events: none;
+}
+@media (max-width: 500px) {
+  .sim-fields { flex-direction: column; }
+  #sim-build { width: 100%; }
+  .tape-cell { width: 26px; height: 26px; font-size: 13px; }
+}
+
+</style>
+<script>
+"use strict";(()=>{var g="\u03B5";var dt="http://www.w3.org/2000/svg";function y(t,n,e,s){t[n]||(t[n]={}),t[n][e]||(t[n][e]=[]),t[n][e].includes(s)||t[n][e].push(s)}function j(t,n){for(let e in n)for(let s in n[e])for(let o of n[e][s])y(t,e,s,o)}function H(t,n){let e=new Set(n),s=[...n];for(;s.length;){let o=s.pop(),a=t.transitions[o]?.[g];if(a)for(let f of a)e.has(f)||(e.add(f),s.push(f))}return e}function nt(t,n,e){let s=new Set;for(let o of n){let a=t.transitions[o]?.[e];if(a)for(let f of a)s.add(f)}return s}function O(t){return[...t].sort((n,e)=>(parseInt(n.replace(/\D/g,""))||0)-(parseInt(e.replace(/\D/g,""))||0)).join(", ")}function mt(t){return[...t].sort().join(",")}function gt(t){let n={},e={},s=0,o=[...t.alphabet].filter(h=>h!==g).sort(),a=H(t,new Set([t.initial])),f=mt(a),C="D"+s++;n[f]={name:C,nfaStates:a},e[C]=a;let S={},p=new Set,d=new Set([C]);[...a].some(h=>t.accepting.has(h))&&p.add(C);let b=[f],A=new Set;for(;b.length;){let h=b.shift();if(A.has(h))continue;A.add(h);let L=n[h];for(let T of o){let k=nt(t,L.nfaStates,T),c=H(t,k);if(c.size===0)continue;let i=mt(c);if(!n[i]){let m="D"+s++;n[i]={name:m,nfaStates:c},e[m]=c,d.add(m),b.push(i),[...c].some(P=>t.accepting.has(P))&&p.add(m)}y(S,L.name,T,n[i].name)}}return{states:d,alphabet:new Set(o),transitions:S,initial:C,accepting:p,stateMap:e}}var yt=0;function I(){return"q"+yt++}function G(t,n,e,s,o){return{initial:t,accepting:new Set(n),states:new Set(e),alphabet:new Set(s),transitions:o}}function $t(t){let n=[];for(let e=0;e<t.length;e++)if(n.push(t[e]),e+1<t.length){let s=t[e],o=t[e+1],a=s!=="("&&s!=="|",f=o!==")"&&!"*+?|".includes(o);a&&f&&n.push("\xB7")}return n.join("")}function ht(t){return t==="|"?1:t==="\xB7"?2:3}function It(t){let n=[],e=[];for(let s of t)if(s==="(")e.push(s);else if(s===")"){for(;e.length&&e[e.length-1]!=="(";)n.push(e.pop());e.length&&e.pop()}else if("|*+?\xB7".includes(s)){for(;e.length&&e[e.length-1]!=="("&&ht(e[e.length-1])>=ht(s);)n.push(e.pop());e.push(s)}else n.push(s);for(;e.length;)n.push(e.pop());return n.join("")}function Lt(t){let n=I(),e=I(),s={};return y(s,n,t,e),G(n,[e],[n,e],[t],s)}function Nt(t,n){let e={};j(e,t.transitions),j(e,n.transitions);for(let s of t.accepting)y(e,s,g,n.initial);return G(t.initial,[...n.accepting],[...t.states,...n.states],[...new Set([...t.alphabet,...n.alphabet])],e)}function Mt(t,n){let e=I(),s=I(),o={};j(o,t.transitions),j(o,n.transitions),y(o,e,g,t.initial),y(o,e,g,n.initial);for(let a of t.accepting)y(o,a,g,s);for(let a of n.accepting)y(o,a,g,s);return G(e,[s],[e,s,...t.states,...n.states],[...new Set([...t.alphabet,...n.alphabet])],o)}function Rt(t){let n=I(),e=I(),s={};j(s,t.transitions),y(s,n,g,t.initial),y(s,n,g,e);for(let o of t.accepting)y(s,o,g,e),y(s,o,g,t.initial);return G(n,[e],[n,e,...t.states],[...t.alphabet],s)}function Dt(t){let n=I(),e=I(),s={};j(s,t.transitions),y(s,n,g,t.initial);for(let o of t.accepting)y(s,o,g,e),y(s,o,g,t.initial);return G(n,[e],[n,e,...t.states],[...t.alphabet],s)}function Bt(t){let n=I(),e=I(),s={};j(s,t.transitions),y(s,n,g,t.initial),y(s,n,g,e);for(let o of t.accepting)y(s,o,g,e);return G(n,[e],[n,e,...t.states],[...t.alphabet],s)}function xt(t){let n=0;for(let e of t)if(e==="("?n++:e===")"&&n--,n<0)return"Unmatched closing parenthesis.";return n!==0?"Unmatched opening parenthesis.":t.includes("()")?"Empty group.":t.length>0&&"*+?".includes(t[0])?"Nothing to repeat.":null}function st(t){if(yt=0,!t){let s=I(),o=I(),a={};return y(a,s,g,o),G(s,[o],[s,o],[],a)}let n=It($t(t)),e=[];for(let s of n)if(s==="\xB7"){if(e.length>=2){let o=e.pop();e.push(Nt(e.pop(),o))}}else if(s==="|"){if(e.length>=2){let o=e.pop();e.push(Mt(e.pop(),o))}}else s==="*"?e.length&&e.push(Rt(e.pop())):s==="+"?e.length&&e.push(Dt(e.pop())):s==="?"?e.length&&e.push(Bt(e.pop())):e.push(Lt(s));return e.length?e[0]:st("")}function ot(t){let n={},e=new Set,s=[t.initial];for(n[t.initial]=0,e.add(t.initial);s.length;){let p=s.shift(),d=t.transitions[p];if(d)for(let b in d)for(let A of d[b])e.has(A)||(e.add(A),n[A]=n[p]+1,s.push(A))}let o=Math.max(0,...Object.values(n));for(let p of t.states)p in n||(o++,n[p]=o);let a={};for(let[p,d]of Object.entries(n))a[d]||(a[d]=[]),a[d].push(p);for(let p in a)a[p].sort((d,b)=>(parseInt(d.replace(/\D/g,""))||0)-(parseInt(b.replace(/\D/g,""))||0));let f=100,C=70,S={};for(let[p,d]of Object.entries(a)){let b=parseInt(p),A=(d.length-1)*C;d.forEach((h,L)=>{S[h]={x:60+b*f,y:120-A/2+L*C}})}return S}function St(t){let n={},e=t.transitions;for(let s in e)for(let o in e[s])for(let a of e[s][o]){let f=s+">"+a;n[f]||(n[f]={from:s,to:a,symbols:[]}),n[f].symbols.includes(o)||n[f].symbols.push(o)}return Object.values(n).map(s=>({...s,bidir:!!n[s.to+">"+s.from]&&s.from!==s.to}))}function N(t,n){let e=document.createElementNS(dt,t);if(n)for(let[s,o]of Object.entries(n))e.setAttribute(s,String(o));return e}function it(t,n){let e=N("marker",{id:t,viewBox:"0 0 10 10",refX:10,refY:5,markerWidth:6,markerHeight:6,orient:"auto"});return e.appendChild(N("path",{d:"M 0 1 L 10 5 L 0 9 z",fill:n})),e}function bt(t,n,e,s){if(t.textContent="",!e||Object.keys(e).length===0)return;let o=1/0,a=1/0,f=-1/0,C=-1/0;for(let c of Object.values(e))c.x<o&&(o=c.x),c.y<a&&(a=c.y),c.x>f&&(f=c.x),c.y>C&&(C=c.y);let S=55,p=o-S-30,d=a-S-15,b=f-o+2*S+30,A=C-a+2*S+15;A<120&&(A=120),t.setAttribute("viewBox",`${p} ${d} ${b} ${A}`),t.style.height=Math.min(Math.max(A,140),360)+"px";let h=N("defs");h.appendChild(it("ah","#999")),h.appendChild(it("ah-act","#e67e22")),h.appendChild(it("ah-eps","#bbb")),t.appendChild(h);let L=N("g");t.appendChild(L);for(let c of St(n)){let i=e[c.from],m=e[c.to];if(!i||!m)continue;let P=c.from===c.to,M=c.symbols.length===1&&c.symbols[0]===g,l=s.has(c.from)&&s.has(c.to),E=c.symbols.join(", "),w,u,x;if(P)w=`M ${i.x-8} ${i.y-20} C ${i.x-28} ${i.y-20-42} ${i.x+28} ${i.y-20-42} ${i.x+8} ${i.y-20}`,u=i.x,x=i.y-20-36;else{let Q=m.x-i.x,W=m.y-i.y,lt=Math.sqrt(Q*Q+W*W)||1,q=Q/lt,V=W/lt;if(c.bidir){let z=(i.x+m.x)/2,K=(i.y+m.y)/2,X=-V,Y=q,ft=22*(c.from<c.to?1:-1),U=z+X*ft,_=K+Y*ft,J=U-i.x,Z=_-i.y,ut=Math.sqrt(J*J+Z*Z)||1,wt=i.x+J/ut*20,Ct=i.y+Z/ut*20,tt=U-m.x,et=_-m.y,pt=Math.sqrt(tt*tt+et*et)||1,Tt=m.x+tt/pt*20,kt=m.y+et/pt*20;w=`M ${wt} ${Ct} Q ${U} ${_} ${Tt} ${kt}`,u=(i.x+2*U+m.x)/4,x=(i.y+2*_+m.y)/4}else{let z=i.x+q*20,K=i.y+V*20,X=m.x-q*20,Y=m.y-V*20;w=`M ${z} ${K} L ${X} ${Y}`,u=(z+X)/2-V*10,x=(K+Y)/2+q*10}}let $=l?"ah-act":M?"ah-eps":"ah";L.appendChild(N("path",{d:w,stroke:l?"#e67e22":M?"#ccc":"#999","stroke-width":l?2.5:1.5,"stroke-dasharray":M?"4 3":"none",fill:"none","marker-end":`url(#${$})`}));let R=N("text",{x:u,y:x,"text-anchor":"middle","dominant-baseline":"central","font-size":11,fill:l?"#d35400":"#555","font-weight":l?700:400,"paint-order":"stroke",stroke:"#fff","stroke-width":3.5,"stroke-linecap":"butt","stroke-linejoin":"miter"});R.textContent=E,L.appendChild(R)}let T=e[n.initial];T&&L.appendChild(N("path",{d:`M ${T.x-20-28} ${T.y} L ${T.x-20} ${T.y}`,stroke:"#999","stroke-width":1.5,fill:"none","marker-end":"url(#ah)"}));let k=N("g");t.appendChild(k);for(let c of n.states){let i=e[c];if(!i)continue;let m=n.accepting.has(c),P=s.has(c),M,l;P&&m?(M="#27ae60",l="#1e8449"):P?(M="#e67e22",l="#d35400"):(M="#4a90d9",l="#357abd"),k.appendChild(N("circle",{cx:i.x,cy:i.y,r:20,fill:M,stroke:l,"stroke-width":2})),m&&k.appendChild(N("circle",{cx:i.x,cy:i.y,r:16,fill:"none",stroke:"#fff","stroke-width":1.5}));let E=c.length>3?9:c.length>2?10:11,w=N("text",{x:i.x,y:i.y,"text-anchor":"middle","dominant-baseline":"central","font-size":E,"font-weight":600,fill:"#fff"});w.textContent=c,k.appendChild(w)}}function rt(t,n,e){let s=H(t,new Set([t.initial]));return{nfa:t,dfa:n,input:e,step:-1,nfaStates:s,dfaState:n.initial,trace:[{step:-1,sym:null,nfaStates:s,dfaState:n.initial,desc:`Start: \u03B5-closure({${t.initial}}) = {${O(s)}}`}],playing:!1,interval:null}}function at(t,n){if(t.step>=t.input.length-1)return!1;t.step++;let e=t.input[t.step],s=nt(t.nfa,t.nfaStates,e),o=H(t.nfa,s);t.nfaStates=o;let a=t.dfa.transitions[t.dfaState];t.dfaState=a?.[e]?.[0]??null;let f=n==="nfa"?`move \u2192 {${O(s)}}, \u03B5-closure \u2192 {${O(o)}}`:`\u2192 ${t.dfaState??"\u2205"}`;return t.trace.push({step:t.step,sym:e,nfaStates:o,dfaState:t.dfaState,desc:f}),t.step<t.input.length-1}function At(t,n){if(!(t.input.length===0||t.step>=t.input.length-1))return null;if(n==="nfa"){for(let s of t.nfaStates)if(t.nfa.accepting.has(s))return!0;return!1}return t.dfaState!==null&&t.dfa.accepting.has(t.dfaState)}var D=null,B=null,F="nfa",Et=null,vt=null,r=null;function ct(){let t=document.getElementById("sim-regex"),n=document.getElementById("sim-input"),e=document.getElementById("sim-build"),s=document.getElementById("sim-error"),o=document.getElementById("sim-svg"),a=document.getElementById("sim-tape"),f=document.getElementById("sim-reset"),C=document.getElementById("sim-step"),S=document.getElementById("sim-play"),p=document.getElementById("sim-result"),d=document.getElementById("sim-trace"),b=document.getElementById("sim-legend"),A=document.querySelectorAll(".sim-tab");function h(l){s.textContent=l||"",s.classList.toggle("visible",!!l)}function L(){return r?F==="nfa"?r.nfaStates:r.dfaState?new Set([r.dfaState]):new Set:new Set}function T(){let l=F==="nfa"?D:B,E=F==="nfa"?Et:vt;if(l&&E&&bt(o,l,E,r?L():new Set),a.textContent="",r)for(let u=0;u<r.input.length;u++){let x=document.createElement("div");x.className="tape-cell",r.step>=0&&u<r.step?x.className+=" consumed":r.step>=0&&u===r.step&&(x.className+=" current"),x.textContent=r.input[u],a.appendChild(x)}if(d.textContent="",r&&r.trace.length>0){d.classList.add("visible");for(let u=0;u<r.trace.length;u++){let x=r.trace[u],$=document.createElement("div");if($.className="trace-line",u===r.trace.length-1&&($.className+=" current"),x.sym){let R=document.createElement("span");R.className="sym",R.textContent=`'${x.sym}'`,$.appendChild(R),$.appendChild(document.createTextNode(" \u2192 "))}$.appendChild(document.createTextNode(x.desc)),d.appendChild($)}d.scrollTop=d.scrollHeight}else d.classList.remove("visible");if(p.className="sim-result",p.textContent="",r){let u=At(r,F);u===!0?(p.className="sim-result accept",p.textContent="\u2713 Accepted"):u===!1&&(p.className="sim-result reject",p.textContent="\u2717 Rejected")}let w=!!r&&r.step<r.input.length-1;f.disabled=!r,C.disabled=!w,S.disabled=!w,b.textContent="",F==="dfa"&&B?.stateMap?(Object.keys(B.stateMap).sort((x,$)=>(parseInt(x.replace(/\D/g,""))||0)-(parseInt($.replace(/\D/g,""))||0)).forEach((x,$)=>{$>0&&b.appendChild(document.createTextNode(" \xB7 "));let R=document.createElement("span");R.textContent=`${x} = {${O(B.stateMap[x])}}`,b.appendChild(R)}),b.classList.add("visible")):b.classList.remove("visible")}function k(){i(),h(null);let l=t.value.trim(),E=n.value;if(l.length>20){h("Pattern too long (max 20 characters).");return}if(E.length>40){h("Input too long (max 40 characters).");return}let w=xt(l);if(w){h(w);return}try{D=st(l)}catch(u){h("Invalid pattern: "+(u instanceof Error?u.message:u));return}for(let u of E)if(!D.alphabet.has(u)){h(`Character '${u}' not in alphabet {${O(D.alphabet)}}.`);return}B=gt(D),Et=ot(D),vt=ot(B),r=rt(D,B,E),T()}function c(){r&&(at(r,F),T(),r.step>=r.input.length-1&&i())}function i(){r?.interval&&(clearInterval(r.interval),r.interval=null),r&&(r.playing=!1),S.textContent="Play",S.classList.remove("playing")}function m(){if(r){if(r.playing){i();return}r.playing=!0,S.textContent="Pause",S.classList.add("playing"),r.interval=setInterval(()=>{at(r,F),T(),r.step>=r.input.length-1&&i()},700)}}function P(){!D||!B||(i(),r=rt(D,B,n.value),T())}function M(l){F=l,A.forEach(E=>E.classList.toggle("active",E.getAttribute("data-tab")===l)),T()}e.addEventListener("click",k),C.addEventListener("click",c),S.addEventListener("click",m),f.addEventListener("click",P),t.addEventListener("keydown",l=>{l.key==="Enter"&&k()}),n.addEventListener("keydown",l=>{l.key==="Enter"&&k()}),A.forEach(l=>l.addEventListener("click",E=>{M(E.currentTarget.getAttribute("data-tab"))})),document.querySelectorAll(".sim-presets button").forEach(l=>l.addEventListener("click",E=>{let w=E.currentTarget;t.value=w.getAttribute("data-regex"),n.value=w.getAttribute("data-input"),k()})),k()}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",ct):ct();})();
+
+</script>
+<p>Switch to the <strong>DFA</strong> tab to see the determinized version — each DFA state is a set of NFA states, computed by subset construction. The legend below the graph shows the mapping.</p>
+<h2 id="subset-construction">Subset Construction</h2>
+<p>The NFA simulates nondeterminism by tracking <em>all possible states simultaneously</em>. Subset construction makes this explicit: each set of NFA states becomes a single DFA state.</p>
+<p>The algorithm is a BFS:</p>
+<ol>
+<li>Start with the ε-closure of the NFA&rsquo;s initial state. That&rsquo;s your first DFA state.</li>
+<li>For each DFA state, for each symbol, compute: move (follow symbol transitions), then ε-closure. The resulting set is the next DFA state.</li>
+<li>Repeat until no new DFA states are discovered.</li>
+<li>A DFA state is accepting if it contains <em>any</em> NFA accepting state.</li>
+</ol>
+<p>The result: a machine that makes exactly one transition per input character. No branching. No backtracking. O(n) matching, guaranteed.</p>
+<h2 id="what-regex-cant-do">What Regex Can&rsquo;t Do</h2>
+<p>Finite states = finite memory = no unbounded counting.</p>
+<p>A DFA can&rsquo;t match &ldquo;n <code>a</code>s followed by n <code>b</code>s&rdquo; (like <code>aaabbb</code>). It would need to <em>remember how many</em> <code>a</code>s it saw, but it has no counter — just a fixed set of states. By the Pumping Lemma, any sufficiently long string accepted by a finite automaton contains a pumpable substring, which breaks the equal-count requirement.</p>
+<p>This is why you can&rsquo;t match balanced parentheses, valid HTML nesting, or palindromes with regex. The machine would need infinitely many states. For that, you need a pushdown automaton (context-free) or a Turing machine.</p>
+<p>The limitation is exactly why regex is fast. Finite states means finite work per character. No stack, no tape, no backtracking — just a lookup table.</p>
+<hr>
+<p><em>Implementation adapted from <a href="https://github.com/queelius/nfa-tools">nfa-tools</a>. For the formal treatment: Sipser, &ldquo;Introduction to the Theory of Computation,&rdquo; Chapter 1.</em></p>
+]]></content:encoded><category>automata-theory</category><category>regex</category><category>computer-science</category><category>interactive</category></item></channel></rss>

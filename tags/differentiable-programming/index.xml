@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Differentiable Programming on metafunctor</title><link>https://metafunctor.com/tags/differentiable-programming/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sun, 15 Mar 2026 17:43:58 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/differentiable-programming/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Automatic Fuzzy Rule Discovery Through Differentiable Soft Circuits</title><link>https://metafunctor.com/papers/fuzzy-circuit/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/fuzzy-circuit/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Differentiable Programming on metafunctor</title><link>https://metafunctor.com/tags/differentiable-programming/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Mar 2026 10:10:21 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/differentiable-programming/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Automatic Fuzzy Rule Discovery Through Differentiable Soft Circuits</title><link>https://metafunctor.com/papers/fuzzy-circuit/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/fuzzy-circuit/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
 .iframe-wrap {
   width: 100%;
   max-width: 100%;
@@ -235,4 +235,434 @@
 <li>Rule extraction and interpretation methods</li>
 <li>Ablation studies on circuit architecture</li>
 </ul>
-]]></content:encoded><category>fuzzy-logic</category><category>machine-learning</category><category>differentiable-programming</category><category>soft-circuits</category><category>neural-networks</category></item></channel></rss>
+]]></content:encoded><category>fuzzy-logic</category><category>machine-learning</category><category>differentiable-programming</category><category>soft-circuits</category><category>neural-networks</category></item><item><title>Fuzzy Soft Circuits: Learning Fuzzy Rules from Data</title><link>https://metafunctor.com/post/2024-10-01-fuzzy-soft-circuits/</link><pubDate>Tue, 01 Oct 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-10-01-fuzzy-soft-circuits/</guid><description>What if fuzzy logic systems could discover their own rules? An interactive demo of differentiable fuzzy circuits that learn membership functions, rule structure, and rule existence, all via gradient descent.</description><content:encoded><![CDATA[<p>Traditional fuzzy logic systems are powerful. They encode expert knowledge as interpretable rules like &ldquo;IF temperature IS HIGH AND humidity IS LOW THEN fan speed IS FAST.&rdquo; The problem is someone has to <em>write those rules</em>.</p>
+<p>What if the rules could discover themselves?</p>
+<h2 id="the-expert-knowledge-bottleneck">The Expert Knowledge Bottleneck</h2>
+<p>Every classical fuzzy system needs three things from a human expert:</p>
+<ol>
+<li><strong>Membership functions</strong>:Where does &ldquo;HIGH&rdquo; start? Where does &ldquo;LOW&rdquo; end?</li>
+<li><strong>Rule structure</strong>:Which combinations of inputs matter?</li>
+<li><strong>Rule existence</strong>:How many rules are there? Which ones are relevant?</li>
+</ol>
+<p>This is expensive. Experts are hard to find, struggle to articulate their reasoning precisely, and can&rsquo;t easily update systems as conditions change. In emerging domains, relevant expertise might not even exist.</p>
+<p>Previous approaches have chipped away at parts of this problem. ANFIS <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup> learns membership function parameters but needs a predefined rule structure. Genetic fuzzy systems <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> can evolve rule bases but lose gradient information. The Wang-Mendel method <sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup> generates rules from data but still needs hand-designed membership functions.</p>
+<p>None of them make the <em>entire</em> system learnable end-to-end.</p>
+<h2 id="the-key-insight-make-if-differentiable">The Key Insight: Make &ldquo;IF&rdquo; Differentiable</h2>
+<p>The core idea is simple: treat a fuzzy rule&rsquo;s <strong>existence</strong> as a continuous parameter.</p>
+<p>In a traditional system, a rule either exists or it doesn&rsquo;t:it&rsquo;s a binary choice. We replace this with a <em>soft switch</em>: a sigmoid gate \(\gamma_r = \sigma(s_r)\) that smoothly interpolates between &ldquo;this rule exists&rdquo; (\(\gamma_r \to 1\)) and &ldquo;this rule doesn&rsquo;t exist&rdquo; (\(\gamma_r \to 0\)).</p>
+<p>This transforms rule discovery from a discrete search problem into a differentiable optimization problem. Gradient descent can now tell the system not just how to tune a rule, but whether the rule should exist at all.</p>
+<h2 id="architecture">Architecture</h2>
+<p>A fuzzy soft circuit has three differentiable stages:</p>
+<h3 id="1-fuzzification">1. Fuzzification</h3>
+<p>Each input \(x_i\) is mapped through \(k\) learnable Gaussian membership functions:</p>
+\[
+\mu_{i,j}(x_i) = \exp\!\left(-\frac{(x_i - c_{i,j})^2}{w_{i,j}^2}\right)
+\]<p>The centers \(c_{i,j}\) and widths \(w_{i,j}\) are learnable. We parameterize widths as \(w = e^{\hat{w}}\) to ensure positivity. No one decides where &ldquo;HIGH&rdquo; starts:the system figures it out.</p>
+<h3 id="2-soft-rule-evaluation">2. Soft Rule Evaluation</h3>
+<p>For each potential rule \(r\), two things are learned:</p>
+<p><strong>Antecedent relevance</strong>:a weight vector determines which fuzzy features matter for this rule. We use a gated product that smoothly interpolates between &ldquo;this feature participates&rdquo; and &ldquo;this feature is ignored&rdquo;:</p>
+\[
+a_r = \prod_{i} \bigl(\mu_i^{\rho_{r,i}} + (1 - \rho_{r,i})\bigr)
+\]<p>where \(\rho_{r,i} = \sigma(w_{r,i})\). When \(\rho \to 1\), the term becomes \(\mu_i\) (feature matters). When \(\rho \to 0\), the term becomes 1 (neutral element of multiplication:feature ignored).</p>
+<p><strong>Rule switch</strong>:the soft gate:</p>
+\[
+R_r = a_r \cdot \sigma(s_r)
+\]<p>During training, unnecessary rules naturally have their switches driven toward zero.</p>
+<h3 id="3-defuzzification">3. Defuzzification</h3>
+<p>Outputs are a normalized weighted combination of rule consequents:</p>
+\[
+y_j = \frac{\sum_r R_r \cdot \sigma(v_{j,r}) \cdot \sigma(q_{r,j})}{\sum_r R_r \cdot \sigma(v_{j,r}) + \epsilon}
+\]<p>The entire pipeline is differentiable. We minimize MSE over training data:</p>
+\[
+\mathcal{L} = \frac{1}{N}\sum_{i=1}^{N} \|\mathbf{y}^{(i)} - \hat{\mathbf{y}}^{(i)}\|^2
+\]<h2 id="semantic-free-representation">Semantic-Free Representation</h2>
+<p>A philosophical point that matters in practice: during training, nothing has a name. Variables are \(x_0, x_1, \ldots\), membership functions are \(\mu_{i,0}, \mu_{i,1}, \ldots\), rules are \(R_0, R_1, \ldots\).</p>
+<p>The system discovers pure numerical patterns. Semantic interpretation:labeling a membership function as &ldquo;HIGH&rdquo; because its center is at 0.85:is a <em>post-hoc</em> human activity, not a training requirement.</p>
+<p>This is important because it means the system isn&rsquo;t constrained by human preconceptions about what the categories should be. It can discover non-obvious partitions of the input space.</p>
+<h2 id="interactive-demo">Interactive Demo</h2>
+<p>Select a target function, configure the circuit, and watch it discover rules from data in real time.</p>
+<style>
+#fsc-demo {
+  --fsc-bg: #0f0f1a;
+  --fsc-panel: #1a1a30;
+  --fsc-border: #2a2a4a;
+  --fsc-text: #d0d0e0;
+  --fsc-muted: #606080;
+  --fsc-accent: #3b82f6;
+  --fsc-radius: 8px;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fsc-text);
+  background: var(--fsc-bg);
+  border-radius: var(--fsc-radius);
+  padding: 16px;
+  margin: 2em 0;
+}
+
+#fsc-demo *, #fsc-demo *::before, #fsc-demo *::after {
+  box-sizing: border-box;
+}
+
+/* Layout */
+#fsc-demo .fsc-layout {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  #fsc-demo .fsc-layout { grid-template-columns: 1fr; }
+}
+
+/* Controls */
+#fsc-demo .fsc-controls {
+  background: var(--fsc-panel);
+  border: 1px solid var(--fsc-border);
+  border-radius: var(--fsc-radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: fit-content;
+}
+
+#fsc-demo .fsc-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#fsc-demo .fsc-ctrl label {
+  font-size: 0.8rem;
+  color: var(--fsc-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+#fsc-demo .fsc-val {
+  color: var(--fsc-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+#fsc-demo select {
+  background: #161628;
+  color: var(--fsc-text);
+  border: 1px solid var(--fsc-border);
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+#fsc-demo input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  background: var(--fsc-border);
+  border-radius: 3px;
+  outline: none;
+  width: 100%;
+}
+
+#fsc-demo input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background: var(--fsc-accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#fsc-demo .fsc-btns {
+  display: flex;
+  gap: 6px;
+}
+
+#fsc-demo button {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid var(--fsc-border);
+  border-radius: 4px;
+  background: #161628;
+  color: var(--fsc-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#fsc-demo button:hover { background: var(--fsc-border); }
+#fsc-demo button.fsc-active { background: var(--fsc-accent); border-color: var(--fsc-accent); color: #fff; }
+
+#fsc-demo .fsc-stats {
+  font-size: 0.8rem;
+  color: var(--fsc-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--fsc-border);
+  padding-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+#fsc-demo .fsc-stats span { color: var(--fsc-text); font-weight: 500; }
+
+/* Panels */
+#fsc-demo .fsc-viz {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#fsc-demo .fsc-panel {
+  background: var(--fsc-panel);
+  border: 1px solid var(--fsc-border);
+  border-radius: var(--fsc-radius);
+  overflow: hidden;
+}
+
+#fsc-demo .fsc-panel canvas {
+  display: block;
+  width: 100%;
+}
+
+#fsc-demo .fsc-surface canvas { height: 280px; }
+#fsc-demo .fsc-row { display: flex; gap: 10px; }
+#fsc-demo .fsc-row .fsc-panel { flex: 1; }
+#fsc-demo .fsc-row canvas { height: 170px; }
+
+/* Rules */
+#fsc-demo .fsc-rules-panel {
+  background: var(--fsc-panel);
+  border: 1px solid var(--fsc-border);
+  border-radius: var(--fsc-radius);
+  padding: 10px 14px;
+}
+
+#fsc-demo .fsc-rules-panel h4 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--fsc-muted);
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+#fsc-demo .fsc-muted { color: var(--fsc-muted); font-size: 0.85rem; font-style: italic; }
+
+#fsc-demo .fsc-rule {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--fsc-border);
+  font-size: 0.85rem;
+}
+
+#fsc-demo .fsc-rule:last-child { border-bottom: none; }
+#fsc-demo .fsc-rule-label { font-weight: 600; color: var(--fsc-accent); white-space: nowrap; }
+#fsc-demo .fsc-rule-strength { font-variant-numeric: tabular-nums; color: var(--fsc-muted); font-size: 0.8rem; }
+#fsc-demo .fsc-rule-body { color: var(--fsc-text); font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.78rem; }
+
+</style>
+<div id="fsc-demo">
+<div class="fsc-layout">
+<div class="fsc-controls">
+  <div class="fsc-ctrl">
+    <label for="fsc-dataset">Dataset</label>
+    <select id="fsc-dataset"></select>
+  </div>
+  <div class="fsc-ctrl">
+    <label>Memberships / input <span id="fsc-mf-value" class="fsc-val">3</span></label>
+    <input id="fsc-mf-slider" type="range" min="2" max="5" value="3" step="1" />
+  </div>
+  <div class="fsc-ctrl">
+    <label>Potential rules <span id="fsc-rules-value" class="fsc-val">6</span></label>
+    <input id="fsc-rules-slider" type="range" min="2" max="15" value="6" step="1" />
+  </div>
+  <div class="fsc-ctrl">
+    <label>Learning rate <span id="fsc-lr-value" class="fsc-val">0.30</span></label>
+    <input id="fsc-lr-slider" type="range" min="0.01" max="1.0" value="0.30" step="0.01" />
+  </div>
+  <div class="fsc-ctrl">
+    <label>Steps / frame <span id="fsc-speed-value" class="fsc-val">3</span></label>
+    <input id="fsc-speed-slider" type="range" min="1" max="20" value="3" step="1" />
+  </div>
+  <div class="fsc-btns">
+    <button id="fsc-train">Train</button>
+    <button id="fsc-reset">Reset</button>
+  </div>
+  <div class="fsc-stats">
+    <div>Epoch: <span id="fsc-epoch">0</span></div>
+    <div>Loss: <span id="fsc-loss-val">&mdash;</span></div>
+    <div>Inputs: <span id="fsc-inputs">2</span></div>
+    <div>Params: <span id="fsc-params">0</span></div>
+  </div>
+</div>
+<div class="fsc-viz">
+  <div class="fsc-panel fsc-surface"><canvas id="fsc-surface"></canvas></div>
+  <div class="fsc-row">
+    <div class="fsc-panel"><canvas id="fsc-mf0"></canvas></div>
+    <div class="fsc-panel"><canvas id="fsc-mf1"></canvas></div>
+  </div>
+  <div class="fsc-row">
+    <div class="fsc-panel"><canvas id="fsc-rules"></canvas></div>
+    <div class="fsc-panel"><canvas id="fsc-loss"></canvas></div>
+  </div>
+  <div class="fsc-rules-panel">
+    <h4>Discovered Rules</h4>
+    <div id="fsc-extracted"><span class="fsc-muted">Configure and press Train</span></div>
+  </div>
+</div>
+</div>
+</div>
+<script>
+"use strict";(()=>{function L(n){return n>500?1:n<-500?0:1/(1+Math.exp(-n))}function st(n,e,t){let s=(n-e)/t;return Math.exp(-(s*s))}function ot(n){return()=>{n|=0,n=n+2654435769|0;let e=n^n>>>16;return e=Math.imul(e,569420461),e=e^e>>>15,e=Math.imul(e,1935289751),e=e^e>>>15,(e>>>0)/4294967296}}var $=class n{constructor(e,t=42){this.config=e,this.params=n.initParams(e,t)}static initParams(e,t=42){let{nInputs:s,nOutputs:r,nMemberships:o,nRules:l}=e,a=s*o,c=ot(t),i=()=>{let g=c(),f=c();return Math.sqrt(-2*Math.log(g+1e-10))*Math.cos(2*Math.PI*f)},p=[],b=[];for(let g=0;g<s;g++){let f=[],C=[];for(let y=0;y<o;y++)f.push(o>1?y/(o-1):.5),C.push(Math.log(.3));p.push(f),b.push(C)}let m=Array.from({length:l},()=>Array.from({length:a},()=>i()*1.5)),x=Array.from({length:l},()=>i()*.5),u=Array.from({length:l},()=>Array.from({length:r},()=>i()*1)),h=Array.from({length:r},()=>Array.from({length:l},()=>i()*.5));return{mfCenters:p,mfLogWidths:b,ruleAntecedents:m,ruleSwitches:x,ruleConsequents:u,outputWeights:h}}forward(e,t,s){let r=t??this.params,{nInputs:o,nOutputs:l,nMemberships:a,nRules:c}=this.config,i=[];for(let u=0;u<o;u++)for(let h=0;h<a;h++){let g=r.mfCenters[u][h],f=Math.exp(r.mfLogWidths[u][h]);i.push(st(e[u],g,f))}let p=[],b=[],m=[];for(let u=0;u<c;u++){let h=1;for(let f=0;f<i.length;f++){let C=L(r.ruleAntecedents[u][f]);h*=i[f]*C+(1-C)}let g=L(r.ruleSwitches[u]);p.push(h),b.push(g),m.push(h*g)}let x=[];for(let u=0;u<l;u++){let h=0,g=1e-10;for(let f=0;f<c;f++){let C=L(r.outputWeights[u][f]),y=L(r.ruleConsequents[f][u]);h+=m[f]*C*y,g+=m[f]*C}x.push(h/g)}return{output:x,fuzzyValues:i,ruleActivations:p,switchValues:b,ruleStrengths:m}}flatten(e){let t=e??this.params,s=[];for(let r of t.mfCenters)s.push(...r);for(let r of t.mfLogWidths)s.push(...r);for(let r of t.ruleAntecedents)s.push(...r);s.push(...t.ruleSwitches);for(let r of t.ruleConsequents)s.push(...r);for(let r of t.outputWeights)s.push(...r);return s}unflatten(e){let{nInputs:t,nOutputs:s,nMemberships:r,nRules:o}=this.config,l=t*r,a=0,c=p=>{let b=e.slice(a,a+p);return a+=p,b},i=(p,b)=>Array.from({length:p},()=>c(b));return{mfCenters:i(t,r),mfLogWidths:i(t,r),ruleAntecedents:i(o,l),ruleSwitches:c(o),ruleConsequents:i(o,s),outputWeights:i(s,o)}}paramCount(){let{nInputs:e,nOutputs:t,nMemberships:s,nRules:r}=this.config,o=e*s;return e*s+e*s+r*o+r+r*t+t*r}extractRules(e,t=.3){let s=e??this.params,{nInputs:r,nOutputs:o,nMemberships:l,nRules:a}=this.config,c=[];for(let i=0;i<a;i++){let p=L(s.ruleSwitches[i]);if(p<t)continue;let b=[];for(let x=0;x<r;x++)for(let u=0;u<l;u++){let h=x*l+u,g=L(s.ruleAntecedents[i][h]);g>t&&b.push({input:x,membership:u,relevance:g})}let m=[];for(let x=0;x<o;x++)m.push(L(s.ruleConsequents[i][x]));b.length>0&&c.push({index:i,strength:p,antecedents:b,consequents:m})}return c.sort((i,p)=>p.strength-i.strength)}};function N(n,e,t){let s=0;for(let{input:r,output:o}of e){let{output:l}=n.forward(r,t);for(let a=0;a<o.length;a++){let c=l[a]-o[a];s+=c*c}}return s/e.length}function rt(n,e,t,s=1e-4){let r=new Array(t.length);for(let o=0;o<t.length;o++){let l=t[o];t[o]=l+s;let a=N(n,e,n.unflatten(t));t[o]=l-s;let c=N(n,e,n.unflatten(t));t[o]=l,r[o]=(a-c)/(2*s)}return r}function K(n){return{m:new Array(n).fill(0),v:new Array(n).fill(0),t:0}}function it(n,e,t,s,r=.9,o=.999,l=1e-8){t.t++;let a=t.t,c=new Array(n.length);for(let i=0;i<n.length;i++){t.m[i]=r*t.m[i]+(1-r)*e[i],t.v[i]=o*t.v[i]+(1-o)*e[i]*e[i];let p=t.m[i]/(1-Math.pow(r,a)),b=t.v[i]/(1-Math.pow(o,a));c[i]=n[i]-s*p/(Math.sqrt(b)+l)}return c}function Q(n,e,t,s,r){let o=N(n,e,n.unflatten(t)),l=rt(n,e,t),a;return r?a=it(t,l,r,s):a=t.map((c,i)=>c-s*l[i]),{flatParams:a,loss:o}}function at(n){return()=>{n|=0,n=n+2654435769|0;let e=n^n>>>16;return e=Math.imul(e,569420461),e=e^e>>>15,e=Math.imul(e,1935289751),e=e^e>>>15,(e>>>0)/4294967296}}function F(n,e,t){let s=[];for(let r=0;r<n;r++)for(let o=0;o<e;o++){let l=r/(n-1),a=o/(e-1);s.push({input:[l,a],output:[t(l,a)]})}return s}function O(n,e,t,s=77){let r=at(s),o=[];for(let l=0;l<e;l++){let a=Array.from({length:n},()=>r());o.push({input:a,output:[t(a)]})}return o}var j=[{name:"XOR (2D)",description:"Output high when inputs differ",nInputs:2,data:F(5,5,(n,e)=>n*(1-e)+(1-n)*e)},{name:"AND (2D)",description:"Output high only when both inputs high",nInputs:2,data:F(5,5,(n,e)=>n*e)},{name:"Saddle (2D)",description:"Smooth saddle surface",nInputs:2,data:F(6,6,(n,e)=>.5+.5*Math.sin(Math.PI*n)*Math.cos(Math.PI*e))},{name:"Peaks (2D)",description:"Two Gaussian peaks",nInputs:2,data:F(7,7,(n,e)=>{let t=Math.exp(-((n-.3)**2+(e-.3)**2)/.05),s=Math.exp(-((n-.7)**2+(e-.7)**2)/.05);return Math.min(1,t+s)})},{name:"Step (2D)",description:"Diagonal step boundary",nInputs:2,data:F(6,6,(n,e)=>n+e>1?.9:.1)},{name:"Majority (3D)",description:"Output high when 2+ of 3 inputs are high",nInputs:3,data:O(3,60,n=>n.filter(t=>t>.5).length>=2?.9:.1)},{name:"Interaction (3D)",description:"x0*x1 + x2*(1-x0), all inputs matter",nInputs:3,data:O(3,60,n=>{let e=n[0]*n[1]+n[2]*(1-n[0]);return Math.max(0,Math.min(1,e))})},{name:"Sparse (5D)",description:"Only inputs 0 and 3 matter (tests pruning)",nInputs:5,data:O(5,80,n=>n[0]*(1-n[3])+(1-n[0])*n[3])},{name:"Random (5D)",description:"Complex random function, all 5 inputs contribute",nInputs:5,data:O(5,80,n=>{let e=Math.sin(Math.PI*n[0])*Math.cos(Math.PI*n[1])*.35+Math.sin(2*Math.PI*n[2])*.25+n[3]*n[4]*.3+.5;return Math.max(0,Math.min(1,e))})}];function V(n){n=Math.max(0,Math.min(1,n));let e=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]],t=n*(e.length-1),s=Math.min(Math.floor(t),e.length-2),r=t-s;return[Math.round(e[s][0]+r*(e[s+1][0]-e[s][0])),Math.round(e[s][1]+r*(e[s+1][1]-e[s][1])),Math.round(e[s][2]+r*(e[s+1][2]-e[s][2]))]}function _(n,e,t,s=1){return s<1?`rgba(${n},${e},${t},${s})`:`rgb(${n},${e},${t})`}var U=["#3b82f6","#ef4444","#22c55e","#f59e0b","#a855f7"];function q(n){let e=window.devicePixelRatio||1,t=n.getBoundingClientRect();n.width=t.width*e,n.height=t.height*e;let s=n.getContext("2d");return s.scale(e,e),s}function B(n,e){let t=e.getBoundingClientRect();n.clearRect(0,0,t.width,t.height)}function Y(n,e,t,s,r=40){let o=q(n),l=n.getBoundingClientRect(),a=l.width,c=l.height;B(o,n);let i={top:24,right:8,bottom:28,left:32},p=a-i.left-i.right,b=c-i.top-i.bottom,m=p/r,x=b/r,u=e.config.nInputs,h=new Array(u).fill(.5);for(let f=0;f<r;f++)for(let C=0;C<r;C++){let y=[...h];y[0]=f/(r-1),y[1]=1-C/(r-1);let{output:w}=e.forward(y,t),[E,T,A]=V(w[0]);o.fillStyle=_(E,T,A),o.fillRect(i.left+f*m,i.top+C*x,m+.5,x+.5)}for(let{input:f,output:C}of s){let y=i.left+f[0]*p,w=i.top+(1-f[1])*b,[E,T,A]=V(C[0]);o.beginPath(),o.arc(y,w,4,0,Math.PI*2),o.fillStyle=_(E,T,A),o.fill(),o.strokeStyle="#fff",o.lineWidth=1.5,o.stroke()}o.fillStyle="#a0a0b0",o.font="11px system-ui, sans-serif",o.textAlign="center",o.fillText("input 0",i.left+p/2,c-4),o.save(),o.translate(12,i.top+b/2),o.rotate(-Math.PI/2),o.fillText("input 1",0,0),o.restore(),o.fillStyle="#d0d0e0",o.font="bold 12px system-ui, sans-serif",o.textAlign="center";let g=u>2?`Learned Surface (slice: inputs 2..${u-1} = 0.5)`:"Learned Surface";o.fillText(g,a/2,16)}function G(n,e,t){let s=q(n),r=n.getBoundingClientRect(),o=r.width,l=r.height;B(s,n);let a={top:24,right:8,bottom:24,left:32},c=o-a.left-a.right,i=l-a.top-a.bottom,p=e.mfCenters[t].length,b=100;for(let m=0;m<p;m++){let x=e.mfCenters[t][m],u=Math.exp(e.mfLogWidths[t][m]),h=U[m%U.length];s.beginPath(),s.moveTo(a.left,a.top+i);for(let f=0;f<=b;f++){let C=f/b,y=(C-x)/u,w=Math.exp(-(y*y));s.lineTo(a.left+C*c,a.top+(1-w)*i)}s.lineTo(a.left+c,a.top+i),s.closePath(),s.fillStyle=h+"20",s.fill(),s.beginPath();for(let f=0;f<=b;f++){let C=f/b,y=(C-x)/u,w=Math.exp(-(y*y)),E=a.left+C*c,T=a.top+(1-w)*i;f===0?s.moveTo(E,T):s.lineTo(E,T)}s.strokeStyle=h,s.lineWidth=2,s.stroke(),s.fillStyle=h,s.font="10px system-ui, sans-serif",s.textAlign="center";let g=a.left+Math.max(0,Math.min(1,x))*c;s.fillText(`mf_${m}`,g,a.top-2)}s.strokeStyle="#404060",s.lineWidth=1,s.beginPath(),s.moveTo(a.left,a.top),s.lineTo(a.left,a.top+i),s.lineTo(a.left+c,a.top+i),s.stroke(),s.fillStyle="#a0a0b0",s.font="11px system-ui, sans-serif",s.textAlign="center",s.fillText(`input ${t}`,a.left+c/2,l-4),s.font="9px system-ui, sans-serif";for(let m of[0,.5,1]){let x=a.left+m*c;s.fillText(m.toFixed(1),x,a.top+i+14)}}function Z(n,e){let t=q(n),s=n.getBoundingClientRect(),r=s.width,o=s.height;B(t,n);let l={top:24,right:8,bottom:8,left:46},a=r-l.left-l.right,c=o-l.top-l.bottom,i=e.ruleSwitches.length,p=Math.min(20,(c-(i-1)*2)/i),b=2;for(let m=0;m<i;m++){let x=L(e.ruleSwitches[m]),u=l.top+m*(p+b);t.fillStyle="#1e1e3a",t.fillRect(l.left,u,a,p);let[h,g,f]=V(x);t.fillStyle=_(h,g,f,.8),t.fillRect(l.left,u,a*x,p),t.strokeStyle="#404060",t.lineWidth=.5,t.strokeRect(l.left,u,a,p),t.fillStyle="#a0a0b0",t.font="10px system-ui, sans-serif",t.textAlign="right",t.fillText(`rule ${m}`,l.left-4,u+p*.75),t.fillStyle="#d0d0e0",t.textAlign="left",t.fillText(x.toFixed(2),l.left+a*x+4,u+p*.75)}t.fillStyle="#d0d0e0",t.font="bold 12px system-ui, sans-serif",t.textAlign="center",t.fillText("Rule Switches",r/2,16)}function tt(n,e){let t=q(n),s=n.getBoundingClientRect(),r=s.width,o=s.height;B(t,n);let l={top:24,right:12,bottom:28,left:44},a=r-l.left-l.right,c=o-l.top-l.bottom;if(e.length<2){t.fillStyle="#606080",t.font="12px system-ui, sans-serif",t.textAlign="center",t.fillText("Press Train to begin",r/2,o/2);return}let i=e.map(u=>Math.log10(Math.max(u,1e-8))),p=Math.min(...i),b=Math.max(...i),m=b-p||1;t.strokeStyle="#252545",t.lineWidth=.5;for(let u=0;u<=4;u++){let h=l.top+u/4*c;t.beginPath(),t.moveTo(l.left,h),t.lineTo(l.left+a,h),t.stroke()}t.beginPath();for(let u=0;u<i.length;u++){let h=l.left+u/(i.length-1)*a,g=l.top+(1-(i[u]-p)/m)*c;u===0?t.moveTo(h,g):t.lineTo(h,g)}t.strokeStyle="#3b82f6",t.lineWidth=2,t.stroke(),t.strokeStyle="#404060",t.lineWidth=1,t.beginPath(),t.moveTo(l.left,l.top),t.lineTo(l.left,l.top+c),t.lineTo(l.left+a,l.top+c),t.stroke(),t.fillStyle="#a0a0b0",t.font="9px system-ui, sans-serif",t.textAlign="right";for(let u=0;u<=4;u++){let h=b-u/4*m,g=l.top+u/4*c;t.fillText(Math.pow(10,h).toExponential(0),l.left-4,g+3)}t.fillStyle="#a0a0b0",t.font="11px system-ui, sans-serif",t.textAlign="center",t.fillText("epoch",l.left+a/2,o-4);let x=e[e.length-1];t.fillStyle="#d0d0e0",t.font="10px system-ui, sans-serif",t.textAlign="right",t.fillText(`loss: ${x.toFixed(6)}`,r-l.right,l.top-4),t.fillStyle="#d0d0e0",t.font="bold 12px system-ui, sans-serif",t.textAlign="center",t.fillText("Training Loss (log scale)",r/2,16)}function X(){let n=document.getElementById("fsc-demo");if(!n)return;let e=M=>n.querySelector(`#${M}`),t=e("fsc-surface"),s=e("fsc-mf0"),r=e("fsc-mf1"),o=e("fsc-rules"),l=e("fsc-loss"),a=e("fsc-dataset"),c=e("fsc-mf-slider"),i=e("fsc-mf-value"),p=e("fsc-rules-slider"),b=e("fsc-rules-value"),m=e("fsc-lr-slider"),x=e("fsc-lr-value"),u=e("fsc-speed-slider"),h=e("fsc-speed-value"),g=e("fsc-train"),f=e("fsc-reset"),C=e("fsc-epoch"),y=e("fsc-loss-val"),w=e("fsc-params"),E=e("fsc-inputs"),T=e("fsc-extracted");j.forEach((M,v)=>{let S=document.createElement("option");S.value=String(v),S.textContent=M.name,a.appendChild(S)});function A(){let M=parseInt(a.value)||0,v=parseInt(c.value),S=parseInt(p.value),P=parseFloat(m.value),D=parseInt(u.value),H=j[M],R=new $({nInputs:H.nInputs,nOutputs:1,nMemberships:v,nRules:S}),I=R.flatten();return{circuit:R,flatParams:I,adam:K(I.length),data:H.data,datasetIndex:M,lossHistory:[],epoch:0,running:!1,stepsPerFrame:D,learningRate:P,nMemberships:v,nRules:S}}let d=A();function et(){let M=d.circuit.unflatten(d.flatParams),v=d.circuit.extractRules(M,.3);for(;T.firstChild;)T.removeChild(T.firstChild);if(v.length===0){let S=document.createElement("span");S.className="fsc-muted",S.textContent="No active rules yet (switches below threshold)",T.appendChild(S);return}for(let S of v){let P=document.createElement("div");P.className="fsc-rule";let D=document.createElement("span");D.className="fsc-rule-label",D.textContent=`Rule ${S.index}`,P.appendChild(D);let H=document.createElement("span");H.className="fsc-rule-strength",H.textContent=S.strength.toFixed(2),P.appendChild(H);let R=document.createElement("div");R.className="fsc-rule-body";let I="IF ";I+=S.antecedents.map(z=>`input_${z.input} uses mf_${z.membership}`).join(" AND "),I+=` THEN output \u2248 ${S.consequents.map(z=>z.toFixed(2)).join(", ")}`,R.textContent=I,P.appendChild(R),T.appendChild(P)}}function W(){let M=d.circuit.unflatten(d.flatParams);Y(t,d.circuit,M,d.data),G(s,M,0),G(r,M,1),Z(o,M),tt(l,d.lossHistory),C.textContent=String(d.epoch),y.textContent=d.lossHistory.length>0?d.lossHistory[d.lossHistory.length-1].toFixed(6):"\u2014",w.textContent=String(d.circuit.paramCount()),E.textContent=String(d.circuit.config.nInputs),et()}function J(){if(d.running){for(let M=0;M<d.stepsPerFrame;M++){let v=Q(d.circuit,d.data,d.flatParams,d.learningRate,d.adam);d.flatParams=v.flatParams,d.lossHistory.push(v.loss),d.epoch++}W()}requestAnimationFrame(J)}function k(){d.running=!1,g.textContent="Train",g.classList.remove("fsc-active"),d=A(),W()}g.addEventListener("click",()=>{d.running=!d.running,g.textContent=d.running?"Pause":"Train",g.classList.toggle("fsc-active",d.running)}),f.addEventListener("click",k),a.addEventListener("change",k),c.addEventListener("input",()=>{i.textContent=c.value,k()}),p.addEventListener("input",()=>{b.textContent=p.value,k()}),m.addEventListener("input",()=>{d.learningRate=parseFloat(m.value),x.textContent=parseFloat(m.value).toFixed(2)}),u.addEventListener("input",()=>{d.stepsPerFrame=parseInt(u.value),h.textContent=u.value});let nt=new ResizeObserver(()=>{d.running||W()});[t,s,r,o,l].forEach(M=>nt.observe(M)),W(),J()}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",X):X();})();
+
+</script>
+<h3 id="reading-the-panels">Reading the panels</h3>
+<p>The demo has six panels. Here&rsquo;s what each one shows.</p>
+<p><strong>Learned Surface</strong> (top right). This is the function the circuit has learned so far. The two axes are <code>input_0</code> (horizontal) and <code>input_1</code> (vertical), both ranging from 0 to 1. Color encodes the output value: dark purple is near 0, bright yellow is near 1. The small circles are training data points, colored by their <em>target</em> value. Before training the surface is a flat wash (the circuit outputs roughly 0.5 everywhere). As training progresses, the colors should shift to match the dots.</p>
+<p><strong>Membership functions</strong> (middle row, two panels). Each panel shows the Gaussian curves for one input variable (always inputs 0 and 1). These are the &ldquo;categories&rdquo; the system is learning. At initialization, the curves are evenly spaced across [0, 1]. During training they slide, stretch, and compress as the system discovers which partitions of the input space are useful. The key thing to notice: nobody told the system where to put these curves. It figured out the boundaries on its own.</p>
+<p><strong>Rule Switches</strong> (bottom left). Each horizontal bar represents one potential rule. The fill shows the switch value, from 0 (rule is off) to 1 (rule is fully active). Before training, switches start at random values near 0.5. During training, <em>useful</em> rules get pushed toward 1.0, and <em>unnecessary</em> rules get pushed toward 0.0. This is the automatic pruning in action: the system is deciding which rules should exist.</p>
+<p><strong>Training Loss</strong> (bottom right). The loss curve on a log scale. This shows how well the circuit&rsquo;s output matches the training data over time. A steep initial drop followed by a plateau is normal. If the loss stalls at a high value, try increasing the learning rate or adding more rules.</p>
+<p><strong>Discovered Rules</strong> (below the panels). A text readout of the active rules (those with switch &gt; 0.3). Each rule shows which input membership functions it uses and what output it produces. Early in training these will be messy (many antecedents per rule). As training converges, rules simplify: irrelevant antecedents get pruned and consequents sharpen toward 0 or 1.</p>
+<h3 id="what-to-try">What to try</h3>
+<p>Start with the <strong>XOR</strong> dataset. It needs at least 4 rules to capture (output is high when exactly one input is high). Press Train and watch:</p>
+<ol>
+<li>The surface starts as a uniform wash</li>
+<li>Within ~100 epochs, color contrast appears in the corners</li>
+<li>Rule switches diverge: some go to ~1.0, others drop toward 0</li>
+<li>By ~500 epochs, the surface matches the XOR pattern and 2 rules have been pruned</li>
+</ol>
+<p>Then try <strong>Step</strong> (a sharp diagonal boundary, tests whether the system can learn a discontinuity) or <strong>Peaks</strong> (two localized bumps, tests whether the membership functions move to the right places).</p>
+<p>For higher-dimensional problems, try <strong>Sparse (5D)</strong>. The target function only depends on inputs 0 and 3, but the circuit doesn&rsquo;t know that. It has to discover which of the 5 inputs matter and which to ignore. Watch the discovered rules: the surviving ones should only reference inputs 0 and 3. The surface plot shows a 2D slice (inputs 0 vs 1, others fixed at 0.5), so it won&rsquo;t look like the full picture, but the loss will still drop.</p>
+<p><strong>Random (5D)</strong> is the hardest. All 5 inputs contribute to a complex nonlinear function. The parameter count jumps significantly (the stats readout updates when you switch datasets), and training is slower per step because each gradient computation requires more forward passes. Crank the steps/frame slider up and give it time.</p>
+<h2 id="what-the-system-discovers">What the System Discovers</h2>
+<p>On the XOR dataset (\(f(x_0, x_1) = x_0(1-x_1) + (1-x_0)x_1\)), the system typically converges to 4 active rules with 2 pruned:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Rule</th>
+          <th>Switch</th>
+          <th>Pattern</th>
+          <th>Output</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>R₀</td>
+          <td>0.97</td>
+          <td>\(x_0\) low, \(x_1\) high</td>
+          <td>≈ 1.00</td>
+      </tr>
+      <tr>
+          <td>R₃</td>
+          <td>1.00</td>
+          <td>\(x_0\) low, \(x_1\) low</td>
+          <td>≈ 0.00</td>
+      </tr>
+      <tr>
+          <td>R₄</td>
+          <td>0.91</td>
+          <td>Both high</td>
+          <td>≈ 0.00</td>
+      </tr>
+      <tr>
+          <td>R₅</td>
+          <td>0.85</td>
+          <td>\(x_0\) high, \(x_1\) low</td>
+          <td>≈ 1.00</td>
+      </tr>
+  </tbody>
+</table>
+<p>That&rsquo;s the XOR truth table, discovered from 25 data points with zero prior knowledge.</p>
+<p>Rules R₁ and R₂ have their switches driven to near zero:the system decided they weren&rsquo;t needed and effectively deleted them. This is automatic model selection happening inside gradient descent.</p>
+<h2 id="implementation-notes">Implementation Notes</h2>
+<p>The implementation is pure TypeScript with zero runtime dependencies. A few design choices worth noting:</p>
+<p><strong>Adam optimizer</strong> instead of vanilla SGD. The gated product in the antecedent evaluation creates vastly different gradient magnitudes across parameter groups:membership centers get strong gradients while antecedent weights (buried in a product chain) get tiny ones. Adam&rsquo;s per-parameter adaptive learning rates handle this naturally.</p>
+<p><strong>Numerical gradients</strong> via central finite differences. For \(\sim\!100\) parameters and \(\sim\!25\) data points, this is fast enough for real-time browser training. No autodiff library needed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-typescript" data-lang="typescript"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kd">let</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">params</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nx">params</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">+=</span> <span class="nx">epsilon</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">const</span> <span class="nx">lossPlus</span> <span class="o">=</span> <span class="nx">computeLoss</span><span class="p">(</span><span class="nx">params</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nx">params</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">2</span> <span class="o">*</span> <span class="nx">epsilon</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kr">const</span> <span class="nx">lossMinus</span> <span class="o">=</span> <span class="nx">computeLoss</span><span class="p">(</span><span class="nx">params</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nx">params</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">+=</span> <span class="nx">epsilon</span><span class="p">;</span> <span class="c1">// restore
+</span></span></span><span class="line"><span class="cl">  <span class="nx">grad</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nx">lossPlus</span> <span class="o">-</span> <span class="nx">lossMinus</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="nx">epsilon</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Log-parameterized widths.</strong> Membership function widths must be positive, but gradient descent can push them negative. Storing \(\hat{w}\) and computing \(w = e^{\hat{w}}\) ensures positivity without clamping or constraints.</p>
+<h2 id="comparison-with-related-approaches">Comparison with Related Approaches</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Approach</th>
+          <th>Learns MFs</th>
+          <th>Learns Rules</th>
+          <th>Learns Rule Existence</th>
+          <th>Differentiable</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Classical Fuzzy</td>
+          <td>No</td>
+          <td>No</td>
+          <td>No</td>
+          <td>No</td>
+      </tr>
+      <tr>
+          <td>ANFIS</td>
+          <td>Yes</td>
+          <td>No</td>
+          <td>No</td>
+          <td>Yes</td>
+      </tr>
+      <tr>
+          <td>Genetic Fuzzy</td>
+          <td>Yes</td>
+          <td>Yes</td>
+          <td>Yes</td>
+          <td>No</td>
+      </tr>
+      <tr>
+          <td>Wang-Mendel</td>
+          <td>No</td>
+          <td>Yes</td>
+          <td>Yes</td>
+          <td>No</td>
+      </tr>
+      <tr>
+          <td><strong>Fuzzy Soft Circuits</strong></td>
+          <td><strong>Yes</strong></td>
+          <td><strong>Yes</strong></td>
+          <td><strong>Yes</strong></td>
+          <td><strong>Yes</strong></td>
+      </tr>
+  </tbody>
+</table>
+<p>The key differentiator is the last column. Making everything differentiable means we can use the same optimizer for all three learning tasks simultaneously, and the components can co-adapt during training.</p>
+<h2 id="limitations">Limitations</h2>
+<p>This is a research demo, not a production system:</p>
+<ul>
+<li><strong>Scalability</strong>:the gated product over all features creates vanishing gradients for high-dimensional inputs (&gt;10 variables). A sum-based aggregation or attention mechanism would scale better.</li>
+<li><strong>Rule count</strong>:the number of potential rules is fixed at initialization. L1 regularization on the switch parameters could automate this.</li>
+<li><strong>Local optima</strong>:different random seeds find different (sometimes worse) rule sets. Ensemble methods or better initialization could help.</li>
+<li><strong>No theoretical guarantees</strong>:convergence depends on initialization, learning rate, and problem structure.</li>
+</ul>
+<div class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1">
+<p>Jang, J.-S. R. (1993). ANFIS: Adaptive-network-based fuzzy inference system. <em>IEEE Transactions on Systems, Man, and Cybernetics</em>, 23(3), 665–685.&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2">
+<p>Cordón, O., Herrera, F., Hoffmann, F., &amp; Magdalena, L. (2001). <em>Genetic Fuzzy Systems: Evolutionary Tuning and Learning of Fuzzy Knowledge Bases</em>. World Scientific.&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3">
+<p>Wang, L.-X. &amp; Mendel, J. M. (1992). Generating fuzzy rules by learning from examples. <em>IEEE Transactions on Systems, Man, and Cybernetics</em>, 22(6), 1414–1427.&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</div>
+]]></content:encoded><category>machine-learning</category><category>fuzzy-logic</category><category>differentiable-programming</category><category>interactive</category></item></channel></rss>
