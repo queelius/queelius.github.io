@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Erdos on metafunctor</title><link>https://metafunctor.com/tags/erdos/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 16 Mar 2026 21:30:55 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/erdos/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>What We Learned From 5,000 Tests on Erdős Problems</title><link>https://metafunctor.com/post/2026-03-16-computational-explorations/</link><pubDate>Mon, 16 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-16-computational-explorations/</guid><description>A curiosity-driven exploration of Erdős problems that accidentally produced a new subfield of coprime Ramsey theory, exact values nobody had computed, and a survival analysis of mathematical problem-solving.</description><content:encoded><![CDATA[<h1 id="what-happens-when-you-point-a-sat-solver-at-1000-erdos-problems">What Happens When You Point a SAT Solver at 1,000 Erdos Problems</h1>
+<p><em>Alex Towell, March 2026</em></p>
+<hr>
+<p>Paul Erdos posed more than a thousand open problems before he died in 1996.
+They span number theory, combinatorics, graph theory, geometry &ndash; the full
+breadth of discrete mathematics. Some carry cash prizes. Many remain unsolved.
+All of them are hard.</p>
+<p>This is the story of what happened when I &ndash; a CS PhD student with a taste
+for combinatorics and too much free time &ndash; decided to attack about sixty of
+them with computation, and accidentally discovered a new corner of Ramsey theory
+that nobody had studied before.</p>
+<hr>
+<h2 id="the-setup">The Setup</h2>
+<p>The starting point was Terence Tao&rsquo;s <code>erdosproblems</code> database on GitHub: 1,183
+problems, each tagged with metadata, linked to OEIS sequences, and tracked for
+resolution status. I wrote Python scripts to analyze the structure of the
+database itself &ndash; which problems cluster together, which tags predict
+solvability, which areas are overdue for a breakthrough.</p>
+<p>That meta-analysis was interesting on its own (more on that later), but the real
+fun started when I began running actual computations on the problems. SAT
+solvers. Exhaustive searches. Backtracking algorithms. Lean 4 formalizations.
+Over a few months, the codebase grew to 64 Python modules and 65 test files.</p>
+<p>Along the way, the project surfaced something I did not expect to find.</p>
+<hr>
+<h2 id="the-coprime-graph-and-its-secrets">The Coprime Graph and Its Secrets</h2>
+<p>Take the integers 1 through <em>n</em>. Draw an edge between every pair that shares no
+common factor &ndash; that is, every pair (a, b) where gcd(a, b) = 1. The resulting
+object is called the <strong>coprime graph</strong>, and it has been studied for decades.
+Erdos and Sarkozy wrote about its cycle structure back in 1997.</p>
+<p>The coprime graph is dense. About 60.8% of all possible edges are present &ndash; a
+number that equals 6/pi-squared, the probability that two random integers are
+coprime. It is also highly structured: vertex 1 is connected to everything,
+primes form a clique, and even numbers are an independent set.</p>
+<p>People had studied clique numbers, chromatic numbers, and independence numbers
+of the coprime graph. But as far as I could determine, nobody had asked the
+following natural question:</p>
+<blockquote>
+<p>If you 2-color every edge of the coprime graph on {1, &hellip;, n}, what is the
+smallest n that guarantees a monochromatic clique of size k?</p>
+</blockquote>
+<p>This is the <strong>coprime Ramsey number</strong>, which I denote R_cop(k). It is the
+Ramsey number, but played on the coprime graph instead of the complete graph.</p>
+<hr>
+<h2 id="computing-r_cop3--11">Computing R_cop(3) = 11</h2>
+<p>Classical Ramsey theory says R(3,3) = 6: every 2-coloring of the edges of K_6
+contains a monochromatic triangle. But the coprime graph on {1, &hellip;, 6} is
+missing some edges (for example, 2 and 4 share a factor), so you might be able
+to dodge monochromatic triangles longer.</p>
+<p>How much longer? My first attempt used random sampling: generate 10,000 random
+2-colorings, check for monochromatic triangles. This declared R_cop(3) = 10.</p>
+<p><strong>It was wrong.</strong> At n = 10, the coprime graph has 31 edges and roughly 2
+billion possible 2-colorings. Only 156 of them avoid monochromatic triangles.
+Random sampling had about a 0.07% chance of finding one. This was the first
+lesson of the project: random search can fail silently on rare combinatorial
+objects.</p>
+<p>The fix was an exact algorithm: incremental extension. Start at n = 8, where
+there are exactly 36 avoiding colorings. Try to extend each one to n = 9 (still
+36 valid extensions). Then n = 10 (156 valid extensions &ndash; the space briefly
+expands as new edges create new freedom). Then n = 11 &ndash; and the set collapses
+to zero. No 2-coloring of the coprime edges on {1, &hellip;, 11} avoids a
+monochromatic triangle.</p>
+<p><strong>R_cop(3) = 11.</strong> Almost double the classical value.</p>
+<hr>
+<h2 id="r_cop4--59-and-a-pattern-emerges">R_cop(4) = 59 (and a Pattern Emerges)</h2>
+<p>Finding R_cop(4) was harder. The incremental extension method hits a wall
+because the number of avoiding colorings at intermediate values of <em>n</em> is too
+large to enumerate.</p>
+<p>My first heuristic estimate was R_cop(4) = 20. <strong>This was wildly wrong.</strong> When I
+brought in a SAT solver (Glucose4, via the <code>pysat</code> library), it found avoiding
+colorings instantly at every n up to 58. The true value is nearly three times
+what random sampling suggested.</p>
+<p>The breakthrough came from combining SAT solving (for the lower bound) with
+extension checking (for the upper bound). At n = 58, the SAT solver produces
+valid K_4-free colorings. But 100 independently generated colorings of [58]
+all fail to extend to [59]. The clause-to-variable ratio of the extension
+formula is approximately 109, far above the empirical UNSAT threshold.</p>
+<p><strong>R_cop(4) = 59.</strong> Or, more precisely: we have very strong computational
+evidence for this. The lower bound (SAT finds colorings at n = 58) is rigorous.
+The upper bound (no extension to n = 59 among 100 trials) is strong evidence
+but not a complete proof &ndash; we have not exhaustively checked all avoiding
+colorings at n = 58, nor obtained an UNSAT certificate for n = 59 directly.</p>
+<p>And here is the thing that made me sit up:</p>
+<table>
+  <thead>
+      <tr>
+          <th>k</th>
+          <th>R_cop(k)</th>
+          <th>R(k,k)</th>
+          <th>Prime?</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2</td>
+          <td>2</td>
+          <td>2</td>
+          <td>Yes</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>11</td>
+          <td>6</td>
+          <td>Yes</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>59</td>
+          <td>18</td>
+          <td>Yes</td>
+      </tr>
+  </tbody>
+</table>
+<p>Every coprime clique Ramsey number computed so far is prime.</p>
+<hr>
+<h2 id="the-full-table">The Full Table</h2>
+<p>Once the machinery was in place, I computed coprime Ramsey numbers for paths,
+cycles, bipartite graphs, multiple colors, and Gallai-type variants. Here is
+the full table of exact values, all verified by SAT:</p>
+<p><strong>Clique Ramsey (2 colors)</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>k</th>
+          <th>R_cop(k)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2</td>
+          <td>2</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>11</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>59</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Multi-color (monochromatic triangle)</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Colors</th>
+          <th>R_cop(3; c)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>2</td>
+          <td>11</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>53</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Path Ramsey P_cop(k)</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>k</th>
+          <th>3</th>
+          <th>4</th>
+          <th>5</th>
+          <th>6</th>
+          <th>7</th>
+          <th>8</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>P_cop</td>
+          <td>5</td>
+          <td>7</td>
+          <td>9</td>
+          <td>10</td>
+          <td>13</td>
+          <td>13</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Cycle Ramsey C_cop(k)</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>k</th>
+          <th>3</th>
+          <th>4</th>
+          <th>5</th>
+          <th>6</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>C_cop</td>
+          <td>11</td>
+          <td>8</td>
+          <td>13</td>
+          <td>11</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Bipartite R_cop(s,t)</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>(s,t)</th>
+          <th>(2,3)</th>
+          <th>(2,4)</th>
+          <th>(3,4)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>R_cop</td>
+          <td>3</td>
+          <td>5</td>
+          <td>19</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Gallai coprime</strong>: GR_cop(3; 3) = 29</p>
+<p>That is 25+ exact values in a family of numbers that, as far as I can tell, did
+not exist in the literature before March 2026. (Thorough literature search
+recommended before making strong novelty claims.)</p>
+<p>Of the four clique/multi-color values &ndash; 2, 11, 53, 59 &ndash; all four are prime.
+Across all 18 coprime Ramsey invariants computed, 15 are prime. This is
+suspicious enough to warrant a conjecture:</p>
+<blockquote>
+<p><strong>Conjecture (NPG-30)</strong>: The coprime clique Ramsey number R_cop(k) is prime
+for all k.</p>
+</blockquote>
+<p>The heuristic mechanism: when n is prime, it is coprime to every integer less
+than n. So adding vertex n to the coprime graph creates a maximum-connectivity
+event &ndash; n new edges, all at once. This clique-count explosion at primes may be
+what drives the Ramsey transition.</p>
+<hr>
+<h2 id="the-bigger-picture">The Bigger Picture</h2>
+<h3 id="the-6pi-squared-constant">The 6/pi-squared constant</h3>
+<p>The number 6/pi-squared (approximately 0.608) kept appearing:</p>
+<ul>
+<li>It is the edge density of the coprime graph (the probability that two random
+integers are coprime).</li>
+<li>It is the density of squarefree integers.</li>
+<li>It appears as the coprime pair density in primitive sets.</li>
+<li>It governs the coprime Ramsey transition density.</li>
+</ul>
+<p>All of these are manifestations of the same fact: 6/pi-squared = 1/zeta(2),
+where zeta is the Riemann zeta function. The coprime graph is, in a sense, a
+combinatorial avatar of the zeta function.</p>
+<h3 id="the-schur-sidon-bridge">The Schur-Sidon bridge</h3>
+<p>While investigating Erdos Problem #483 (Schur numbers: how large can [N] be
+k-colored without monochromatic a + b = c?) and Problem #43 (Sidon sets: sets
+where all pairwise sums are distinct), I found they share a Fourier obstruction.</p>
+<p>Dense sum-free sets have spectral concentration growing linearly with N (the
+largest Fourier coefficient is roughly N times the mean). Sidon sets are
+spectrally flat (ratio close to 2). The gap between these regimes is 31x to
+104x depending on N. No set in my experiments was simultaneously sum-free and
+Sidon at any meaningful density. The two constraints are, in a precise spectral
+sense, mutually exclusive.</p>
+<h3 id="order-invariance-and-its-failure">Order-invariance and its failure</h3>
+<p>For finite abelian groups G, define S(G, k) as the maximum size of a subset
+that can be k-colored with each color class sum-free. I verified the following
+for all abelian groups of order up to 20:</p>
+<ul>
+<li><strong>k = 1 and k = 2</strong>: S(G, k) depends only on |G|, not the isomorphism type.
+Z/12Z and Z/2Z x Z/6Z give the same answer.</li>
+<li><strong>k = 3</strong>: The invariance <strong>breaks</strong>. S(Z/9Z, 3) = 8, but S(Z/3Z x Z/3Z, 3)
+= 7. The group structure finally matters.</li>
+</ul>
+<p>The k = 1 invariance may follow from Green and Ruzsa (2005). The k = 2
+invariance and the k = 3 failure appear to be new.</p>
+<hr>
+<h2 id="what-makes-a-math-problem-interesting">What Makes a Math Problem &ldquo;Interesting&rdquo;?</h2>
+<p>Having a database of 1,183 problems with resolution status, tags, prizes, OEIS
+links, and formalization history turns out to be useful for a question that
+mathematicians rarely quantify: what makes a problem interesting?</p>
+<p>I decomposed &ldquo;interestingness&rdquo; into five dimensions &ndash; depth, difficulty,
+surprise potential, fertility (how many other problems it connects to), and
+community investment &ndash; and scored every problem. The top-ranked: Erdos Problem
+#3 (bounds for sets without 3-term arithmetic progressions), which is also the
+$5,000 prize problem at the heart of Kelley-Meka&rsquo;s 2023 breakthrough.</p>
+<p>The <strong>hidden gems</strong> &ndash; high intrinsic interest, low community attention &ndash; were
+more surprising. Problem #883 (cycles in coprime graphs) ranked first. It has
+no prize, no formalization, no OEIS link, and yet it sits at the intersection
+of number theory and graph theory in a way that generates new mathematics.
+Our coprime Ramsey work grew directly from poking at it.</p>
+<h3 id="the-ai-acceleration">The AI acceleration</h3>
+<p>Meanwhile, the real world was moving fast. Between August 2025 and March 2026,
+213 Erdos problems were solved &ndash; roughly 30 per month, compared to a historical
+baseline of about 0.28 per month. That is a 108x acceleration, driven largely
+by AI tools: GPT-5.2 generating proof sketches, Harmonic&rsquo;s Aristotle system
+formalizing them in Lean, and humans verifying the results. Kevin Barreto&rsquo;s
+AI-assisted solution to Problem #728 (verified by Terence Tao in January 2026)
+was the first fully autonomous AI solution to an Erdos problem.</p>
+<p>The formalization rate was particularly striking: 55% of the problems solved in
+the AI era came with machine-checked Lean proofs, compared to a negligible
+fraction historically.</p>
+<hr>
+<h2 id="what-we-got-wrong">What We Got Wrong</h2>
+<p>I want to be honest about the errors, because they are instructive.</p>
+<p><strong>The R_cop(4) = 20 heuristic.</strong> My initial random-sampling estimate was off by
+a factor of three. The actual value, 59, was found only after switching to SAT
+solving. Random search simply cannot find the needle when there are 2^(thousands)
+haystacks.</p>
+<p><strong>The MS(k) off-by-one.</strong> Early computations of multiplicative Schur numbers
+(MS(1) = 4, MS(2) = 32) were wrong by exactly one. The correct values are
+MS(1) = 3, MS(2) = 31. Off-by-one errors in Ramsey-type computations are
+insidious because the wrong answers are still plausible.</p>
+<p><strong>The DS definition sensitivity.</strong> Density Schur numbers depend on whether you
+index from 0 or from 1. On {0, &hellip;, N-1}, the element 0 satisfies 0 + 0 = 0,
+which is a &ldquo;free&rdquo; Schur triple that forces any color containing 0 to have one.
+On {1, &hellip;, N}, no such element exists. Both conventions are valid; they give
+different numerical answers. I had code using one convention and a Lean proof
+using the other, and it took an embarrassingly long time to realize they were
+talking about different things.</p>
+<p><strong>The NPG-7 conjecture.</strong> I proposed using Dirichlet characters mod 6 to detect
+coprime graph cycles. After deeper review, this approach has a fundamental flaw:
+characters mod 6 only detect coprimality with 2 and 3, not with larger primes.
+The conjecture was genuinely novel but mathematically broken. I reformulated it
+using Mobius inversion, which correctly handles all primes. The lesson: &ldquo;novel
+direction&rdquo; and &ldquo;valid argument&rdquo; are different things.</p>
+<p>Every one of these errors was caught by the test suite or by careful review. The
+project now has 3,000+ tests, all passing. Verification matters.</p>
+<hr>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p>Several threads are open:</p>
+<p><strong>R_cop(5).</strong> The exponential fit to three data points predicts a value between
+200 and 350. Computing it will require significantly more SAT-solving power, or
+a theoretical argument.</p>
+<p><strong>The primality conjecture (NPG-30).</strong> Four data points is suggestive but not
+overwhelming. R_cop(5) will be a real test. If it is also prime, the pattern
+becomes hard to dismiss.</p>
+<p><strong>OEIS submissions.</strong> The S(Z/nZ, 2) sequence (1, 2, 3, 4, 4, 4, 6, 6, 8, 8,
+9, 8, 9, 12, 12, 12, 12, 12, 16) and the Sidon-squares sequence appear to be
+new.</p>
+<p><strong>Lean formalization of R_cop(3) = 11.</strong> This is a novel, exact, and finite
+result &ndash; the ideal candidate for formal verification. Two Lean proofs (NPG-2
+density Schur and NPG-15 Boolean group Schur forcing) are already complete with
+zero <code>sorry</code> statements.</p>
+<p><strong>Connections to coding theory.</strong> The &ldquo;avoiding coloring channel&rdquo; (how many bits
+per edge can you encode while avoiding monochromatic cliques) has capacity that
+goes to zero at R_cop(k), analogous to a noisy channel hitting its Shannon
+limit. This connection is unexplored.</p>
+<hr>
+<h2 id="how-this-was-made">How This Was Made</h2>
+<p>I should be transparent about methodology. This project was conducted with
+extensive AI assistance (Anthropic&rsquo;s Claude), used for code generation, analysis,
+and writing. All mathematical results were independently verified: SAT solver
+outputs checked, test suites run, Lean proofs compiled, and results cross-
+validated between independent implementations.</p>
+<p>The code, data, and papers are available:</p>
+<ul>
+<li><strong>Code</strong>: <a href="https://doi.org/10.5281/zenodo.18638635">DOI 10.5281/zenodo.18638635</a></li>
+<li><strong>Paper</strong>: <a href="https://doi.org/10.5281/zenodo.18638638">DOI 10.5281/zenodo.18638638</a></li>
+<li><strong>Provenance</strong>: Full prior-art checks and verification status in
+<code>docs/provenance_and_verification.md</code></li>
+</ul>
+<p>The Erdos problem database is maintained by Terence Tao and collaborators at
+<a href="https://www.erdosproblems.com/">erdosproblems.com</a> and
+<a href="https://github.com/teorth/erdosproblems">github.com/teorth/erdosproblems</a>.</p>
+<hr>
+<h2 id="the-takeaway">The Takeaway</h2>
+<p>I started this project to understand the landscape of Erdos problems. I ended up
+finding something new inside it. The coprime Ramsey numbers are, I think,
+genuinely interesting: they live at the intersection of number theory (the
+arithmetic of coprimality) and combinatorics (the coloring structure of Ramsey
+theory), and their apparent primality is a mystery with a plausible but unproven
+mechanism.</p>
+<p>More broadly, the project convinced me of something I had suspected but never
+tested: computational exploration, done carefully, can surface conjectures and
+structures that pure theory misses. Not because computation is smarter than
+theory &ndash; it is not &ndash; but because it can check a million cases while a
+mathematician is still setting up notation.</p>
+<p>The important caveat: computation surfaces conjectures, not proofs. R_cop(4) = 59
+is supported by strong evidence, not a theorem. The primality pattern rests on
+four data points. The Schur-Sidon bridge is an empirical observation, not a
+theorem. These are starting points, not endpoints.</p>
+<p>Erdos, who famously said &ldquo;a mathematician is a machine for turning coffee into
+theorems,&rdquo; might have appreciated the irony: we now have actual machines turning
+electricity into conjectures. The theorems, as always, still require human
+insight.</p>
+<p>Or maybe not for much longer.</p>
+<hr>
+<p><em>Alex Towell is a PhD student in Computer Science at Southern Illinois
+University Edwardsville, with MS degrees in both Mathematics and Computer
+Science. This project is exploratory research, not peer-reviewed publication.
+All code and data are open source (MIT/CC-BY-4.0). Corrections welcome at
+<a href="mailto:atowell@siue.edu">atowell@siue.edu</a>.</em></p>
+]]></content:encoded><category>erdos</category><category>ramsey-theory</category><category>number-theory</category><category>sat-solving</category><category>survival-analysis</category><category>computational-mathematics</category></item></channel></rss>
