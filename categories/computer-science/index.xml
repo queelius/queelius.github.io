@@ -1,4 +1,198 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Computer Science on metafunctor</title><link>https://metafunctor.com/categories/computer-science/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 20 Mar 2026 16:04:09 -0500</lastBuildDate><atom:link href="https://metafunctor.com/categories/computer-science/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Terminal 101: Learn Linux in Your Browser</title><link>https://metafunctor.com/post/2026-03-18-terminal-101/</link><pubDate>Wed, 18 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-18-terminal-101/</guid><description>Type real commands into a virtual filesystem. Five lessons from 'where am I?' to piping tools together.</description><content:encoded><![CDATA[<p>You&rsquo;ve seen developers type cryptic commands into black screens. It looks like magic &ndash; or maybe like an artifact from the 1970s that refuses to die. But the terminal is neither. It&rsquo;s a conversation with your computer, and it takes about 10 minutes to learn the basics.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Computer Science on metafunctor</title><link>https://metafunctor.com/categories/computer-science/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sun, 05 Apr 2026 06:39:19 -0500</lastBuildDate><atom:link href="https://metafunctor.com/categories/computer-science/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>I Spent $0.48 to Find Out When MCTS Actually Works for LLM Reasoning</title><link>https://metafunctor.com/post/2026-04-01-i-spent-048-to-find-out-when-mcts-actually-works-for-llm-reasoning/</link><pubDate>Wed, 01 Apr 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-04-01-i-spent-048-to-find-out-when-mcts-actually-works-for-llm-reasoning/</guid><description>Controlled experiments on constraint satisfaction problems. MCTS beats best-of-N only when blind sampling hits a ceiling and the verifier provides a gradient.</description><content:encoded><![CDATA[<p>Does tree search help LLM reasoning? The literature can&rsquo;t decide.</p>
+<p>ReST-MCTS* says yes. AB-MCTS got a NeurIPS spotlight. &ldquo;Limits of
+PRM-Guided Tree Search&rdquo; says no: MCTS with a process reward model used
+11x more tokens than best-of-N for zero accuracy gain. Snell et al.
+found beam search <em>degrades</em> performance on easy problems.</p>
+<p>I built <a href="https://github.com/queelius/mcts-reasoning">mcts-reasoning</a>
+and ran controlled experiments to find where the boundary is.
+Total API cost: $0.48.</p>
+<h2 id="setup">Setup</h2>
+<p>Four methods, same budget. Eight solution attempts per problem:</p>
+<ul>
+<li><strong>Pass@1</strong>: One shot.</li>
+<li><strong>Best-of-N</strong>: 8 independent solutions, verifier scores each, pick the best.</li>
+<li><strong>Self-consistency</strong>: 8 solutions, majority vote.</li>
+<li><strong>MCTS</strong>: 5 initial solutions scored by verifier, then 3 more guided by UCB1, informed by what worked and what failed.</li>
+</ul>
+<p>Model: Claude Haiku 4.5. Problems: constraint satisfaction. Find integer
+values for variables satisfying simultaneous constraints. Example:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">Find</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">F</span> <span class="n">satisfying</span> <span class="n">ALL</span> <span class="n">constraints</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">1.</span> <span class="n">A</span> <span class="o">*</span> <span class="n">D</span> <span class="o">=</span> <span class="mi">21</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">2.</span> <span class="n">C</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="n">F</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">3.</span> <span class="n">B</span> <span class="o">*</span> <span class="n">F</span> <span class="o">=</span> <span class="mi">20</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">4.</span> <span class="n">E</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">5.</span> <span class="n">D</span> <span class="o">+</span> <span class="n">B</span> <span class="o">=</span> <span class="n">A</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">6.</span> <span class="n">E</span> <span class="o">-</span> <span class="n">F</span> <span class="o">=</span> <span class="n">B</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">7.</span> <span class="n">A</span> <span class="n">mod</span> <span class="mi">7</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">8.</span> <span class="n">C</span> <span class="n">mod</span> <span class="mi">4</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">9.</span> <span class="n">B</span> <span class="o">*</span> <span class="n">D</span> <span class="o">=</span> <span class="mi">12</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">10.</span> <span class="n">C</span> <span class="o">&gt;</span> <span class="n">E</span> <span class="o">&gt;</span> <span class="n">A</span> <span class="o">&gt;</span> <span class="n">F</span> <span class="o">&gt;</span> <span class="n">B</span> <span class="o">&gt;</span> <span class="n">D</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">11.</span> <span class="n">A</span> <span class="o">+</span> <span class="n">B</span> <span class="o">+</span> <span class="n">C</span> <span class="o">+</span> <span class="n">D</span> <span class="o">+</span> <span class="n">E</span> <span class="o">+</span> <span class="n">F</span> <span class="o">=</span> <span class="mi">40</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">12.</span> <span class="n">E</span> <span class="o">*</span> <span class="n">D</span> <span class="o">=</span> <span class="mi">27</span>
+</span></span></code></pre></div><p>The verifier is a Python function. Checks each constraint, returns the
+fraction satisfied. No LLM in the loop. Deterministic.</p>
+<h2 id="calibration">Calibration</h2>
+<p>Easy problems first (3-5 variables, 5-9 constraints). Haiku solved them
+in one pass. All methods tied at 100%.</p>
+<p>5-variable problems with 9 constraints: Pass@1 dropped to 65%.
+Self-consistency failed one problem. But BestOfN still tied MCTS,
+because with 8 independent samples at least one is usually correct.
+BestOfN just picks it.</p>
+<p>I needed problems where blind sampling hits a ceiling.</p>
+<h2 id="results">Results</h2>
+<p>Ten harder problems: 6-8 variables, 12-15 constraints. Products,
+modular arithmetic, ordering chains, cascading dependencies. Pass@1
+dropped to 29%.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Solve Rate</th>
+          <th>Avg Score</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Pass@1</td>
+          <td>29%</td>
+          <td>0.29</td>
+      </tr>
+      <tr>
+          <td>Pass@8 oracle</td>
+          <td>90%</td>
+          <td>0.90</td>
+      </tr>
+      <tr>
+          <td>SC@8</td>
+          <td>90%</td>
+          <td>0.90</td>
+      </tr>
+      <tr>
+          <td>BestOfN@8</td>
+          <td>90%</td>
+          <td>0.90</td>
+      </tr>
+      <tr>
+          <td><strong>MCTS(5+3)</strong></td>
+          <td><strong>100%</strong></td>
+          <td><strong>1.00</strong></td>
+      </tr>
+  </tbody>
+</table>
+<p>MCTS solved all 10. Every other method failed on one problem (v6_3).</p>
+<p>v6_3 is a 6-variable, 12-constraint problem where none of 8 independent
+samples found the correct solution. Pass@8 oracle: 0/8.
+Self-consistency picks the most popular wrong answer. BestOfN picks the
+best wrong answer. Both fail.</p>
+<p>MCTS sees that initial attempts satisfied 10/12 constraints but violated
+specific ones. UCB1 selects the most promising partial solution. The
+next attempt, informed by the failure pattern, satisfies all 12.</p>
+<p>Total: $0.48. 180 API calls, about 190K tokens.</p>
+<h2 id="when-mcts-helps">When MCTS Helps</h2>
+<p>The pattern across three rounds of experiments:</p>
+<ol>
+<li>
+<p><strong>Easy problems (Pass@1 &gt; 80%)</strong>: No advantage. The model solves them.</p>
+</li>
+<li>
+<p><strong>Medium (Pass@1 40-70%)</strong>: MCTS ties BestOfN. Blind sampling usually
+contains a correct solution. The verifier selects it.</p>
+</li>
+<li>
+<p><strong>Hard (Pass@1 &lt; 30%)</strong>: MCTS pulls ahead. When Pass@8 oracle is
+low, blind sampling can&rsquo;t find the answer. MCTS&rsquo;s informed exploration
+does.</p>
+</li>
+</ol>
+<p>The condition: <strong>MCTS adds value when independent sampling hits a ceiling
+and the verifier provides a gradient.</strong></p>
+<p>The gradient part matters. A binary pass/fail verifier says &ldquo;wrong&rdquo; but
+not how wrong. Partial credit (constraints satisfied / total) gives MCTS
+something to work with. The exploration phase sees what&rsquo;s close and
+adjusts.</p>
+<h2 id="why-self-consistency-cant-help">Why Self-Consistency Can&rsquo;t Help</h2>
+<p>Self-consistency and UCB1 have a structural conflict.</p>
+<p>Self-consistency rewards consensus. UCB1 rewards diversity: it explores
+undervisited branches precisely because they&rsquo;re undervisited. Using
+self-consistency as a reward signal inside MCTS tells the tree to explore
+and converge at the same time. The exploration term pushes toward novel
+solutions. The consistency reward penalizes them.</p>
+<p>On v6_3, all 8 samples failed. SC selected the most common failure
+mode. A per-path verifier doesn&rsquo;t have this problem. Each solution is
+scored against the constraints independently. Good solutions propagate
+through the tree regardless of what other branches found.</p>
+<p>I haven&rsquo;t seen this conflict discussed in the literature. Most prior
+MCTS-for-LLM work uses per-path evaluation without explaining why
+self-consistency is absent.</p>
+<h2 id="what-the-literature-says">What the Literature Says</h2>
+<p>These results fit a pattern.</p>
+<p><strong>Snell et al. (2024)</strong>: compute-optimal test-time scaling needs
+difficulty-adaptive allocation. Easy problems need no search. Hard
+problems need search plus good verifiers.</p>
+<p><strong>&ldquo;Limits of PRM-Guided Tree Search&rdquo; (2025)</strong>: PRM-guided MCTS fails to
+beat best-of-N because PRM quality degrades with depth. Noisy reward,
+no benefit from search.</p>
+<p><strong>&ldquo;Don&rsquo;t Get Lost in the Trees&rdquo; (ACL 2025)</strong>: verifier variance causes
+search pathologies. Deterministic verifiers avoid this.</p>
+<p><strong>Chen et al. (2024)</strong>: 90% discriminator accuracy threshold for tree
+search to beat reranking. Deterministic constraint checkers hit 100%.</p>
+<p>MCTS was built for games with perfect information. Chess and Go have
+deterministic reward signals. When the reward is noisy, the search can&rsquo;t
+exploit it.</p>
+<h2 id="the-verification-asymmetry">The Verification Asymmetry</h2>
+<p>The problems where MCTS helps share a structure: easy to verify, hard to
+solve.</p>
+<p>A constraint satisfaction problem with 8 variables and 15 constraints is
+hard to solve. The LLM has to coordinate assignments across all
+variables simultaneously. Checking a proposed solution is trivial:
+evaluate each constraint, count violations.</p>
+<p>This is the asymmetry that makes NP problems interesting. Checking a
+certificate is polynomial. Finding one is (presumably) not. It&rsquo;s why
+search works for code generation (run the tests) and proof checking
+(verify the steps) but not for open-ended essay writing (no verifier).</p>
+<p>The same asymmetry shows up at other levels.
+<a href="/post/rpsdg/">Reverse-Process Synthetic Data Generation</a> exploits it
+for training data: run the easy direction (differentiation) to get
+solved examples of the hard direction (integration).
+<a href="/post/2025-01-05-science-as-verifiable-search/">Science as Verifiable Search</a>
+is the same observation about scientific method: science is search
+through hypothesis space, and the bottleneck is the cost of testing.
+Cheap verification enables fast iteration.</p>
+<p>At training time, verifiable rewards let you RL a model into producing
+better reasoning (DeepSeek-R1, GRPO). At inference time, verifiable
+rewards let you search over candidate solutions (MCTS, best-of-N). At
+the level of scientific discovery, verifiable predictions let you prune
+hypothesis space. Sutton&rsquo;s &ldquo;Reward is Enough&rdquo; is the abstract version
+of this.</p>
+<p>The practical question for LLM reasoning: can you write a verifier? If
+yes, search is worth trying. If not, best-of-N with an LLM judge is
+probably the ceiling.</p>
+<h2 id="code">Code</h2>
+<p>Open source: <a href="https://github.com/queelius/mcts-reasoning">mcts-reasoning</a>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install -e <span class="s2">&#34;.[anthropic]&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>your-key
+</span></span><span class="line"><span class="cl">python experiments/run_csp.py --hard --budget 1.00
+</span></span></code></pre></div><p>The provider tracks token usage and enforces budget caps.</p>
+<h2 id="limitations">Limitations</h2>
+<p>The problems are hand-crafted. A generator calibrated by Pass@1 rate
+would be more convincing. Ten problems shows the pattern but isn&rsquo;t
+enough for statistical significance.</p>
+<p>I tested one model. A weaker model might show MCTS advantage on simpler
+problems. A stronger one would need harder problems.</p>
+<p>The MCTS exploration context shows which solutions scored well and
+poorly, but not which specific constraints were violated. Adding
+evaluator feedback to the exploration prompt is an obvious improvement
+I haven&rsquo;t tried yet.</p>
+<h2 id="summary">Summary</h2>
+<p>Three conditions for MCTS to help LLM reasoning:</p>
+<ol>
+<li>A <strong>deterministic verifier</strong>. Not a learned reward model, not an LLM judge.</li>
+<li><strong>Partial credit</strong> from the verifier. A gradient, not just pass/fail.</li>
+<li>A problem <strong>hard enough</strong> that blind sampling can&rsquo;t reliably solve it.</li>
+</ol>
+<p>When all three hold, MCTS outperforms best-of-N, self-consistency, and
+single-pass. When any one fails, it doesn&rsquo;t.</p>
+]]></content:encoded><category>mcts</category><category>llm</category><category>reasoning</category><category>test-time-compute</category><category>constraint-satisfaction</category></item><item><title>Terminal 101: Learn Linux in Your Browser</title><link>https://metafunctor.com/post/2026-03-18-terminal-101/</link><pubDate>Wed, 18 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-18-terminal-101/</guid><description>Type real commands into a virtual filesystem. Five lessons from 'where am I?' to piping tools together.</description><content:encoded><![CDATA[<p>You&rsquo;ve seen developers type cryptic commands into black screens. It looks like magic &ndash; or maybe like an artifact from the 1970s that refuses to die. But the terminal is neither. It&rsquo;s a conversation with your computer, and it takes about 10 minutes to learn the basics.</p>
 <p>Below is a real terminal. It runs a virtual filesystem in your browser &ndash; no installation, nothing to break. Type the commands it suggests, and by the end you&rsquo;ll understand what all those black screens are about.</p>
 <div id="terminal-101"></div>
 <style>
@@ -9159,190 +9353,99 @@ $$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges
 <li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoGraph">github.com/queelius/AlgoGraph</a></li>
 <li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoGraph/">queelius.github.io/AlgoGraph/</a></li>
 </ul>
-]]></content:encoded><category>Python</category><category>graphs</category><category>algorithms</category><category>functional-programming</category><category>data-structures</category><category>immutability</category></item><item><title>CBT: Computational Basis Transforms</title><link>https://metafunctor.com/post/2025-11-30-cbt/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-cbt/</guid><description>A C++17 header-only library that formalizes a pattern behind FFT, logarithmic arithmetic, and Bayesian inference: transform to a domain where your target operation is cheap.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/cbt">CBT</a></strong> (Computational Basis Transforms) is a C++17 header-only library that formalizes something I kept noticing across different computational techniques: <strong>transforming problems into different representational domains where certain operations become more efficient</strong>.</p>
-<h2 id="the-core-insight">The Core Insight</h2>
-<p>Consider these seemingly unrelated techniques:</p>
-<ul>
-<li><strong>FFT</strong> transforms convolution (O(n^2)) into pointwise multiplication (O(n))</li>
-<li><strong>Logarithms</strong> transform multiplication into addition</li>
-<li><strong>Odds ratios</strong> transform Bayesian updates into simple multiplication</li>
-</ul>
-<p>They share the same pattern: <strong>transform to a domain where your target operation is cheap</strong>.</p>
-<p>CBT formalizes this as a quadruple <strong>(D, D&rsquo;, phi, Omega)</strong> where:</p>
-<ul>
-<li><strong>D, D&rsquo;</strong> are computational domains</li>
-<li><strong>phi: D -&gt; D&rsquo;</strong> is the transform</li>
-<li><strong>Omega</strong> captures the trade-offs</li>
-</ul>
-<p>There is no universal &ldquo;best&rdquo; representation, only fitness for purpose. Every transform involves fundamental trade-offs.</p>
-<h2 id="quick-start">Quick Start</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="k">namespace</span> <span class="n">cbt</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Avoid underflow in products of small probabilities
-</span></span></span><span class="line"><span class="cl">    <span class="n">lgd</span> <span class="n">product</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">product</span> <span class="o">=</span> <span class="n">product</span> <span class="o">*</span> <span class="n">lgd</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>  <span class="c1">// No underflow!
-</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Bayesian inference without normalization
-</span></span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Simple multiplication!
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><h2 id="available-transforms">Available Transforms</h2>
-<h3 id="logarithmic-transform-cbtlgt">Logarithmic Transform (<code>cbt::lg&lt;T&gt;</code>)</h3>
-<p>Transform multiplication into addition, handle extreme ranges:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">a</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Internally: log(1000) + log(2000)
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">huge</span> <span class="o">=</span> <span class="n">lgd</span><span class="o">::</span><span class="n">from_log</span><span class="p">(</span><span class="mi">800</span><span class="p">);</span>  <span class="c1">// Represents e^800 without overflow
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains efficient multiplication and extended range; loses direct addition.</p>
-<p><strong>Use cases</strong>: Products of many terms, wide dynamic ranges, ML log-likelihoods.</p>
-<h3 id="odds-ratio-transform-cbtodds_ratiot">Odds-Ratio Transform (<code>cbt::odds_ratio&lt;T&gt;</code>)</h3>
-<p>Transform Bayesian updates into multiplication:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Bayesian update!
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">prob</span> <span class="o">=</span> <span class="n">posterior</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
-</span></span></code></pre></div><p><strong>Trade-off</strong>: Gains simple sequential updates without normalization; loses direct probability addition.</p>
-<p><strong>Use cases</strong>: Medical diagnosis, spam filtering, any sequential Bayesian inference.</p>
-<h3 id="stern-brocot-transform-cbtstern_brocott">Stern-Brocot Transform (<code>cbt::stern_brocot&lt;T&gt;</code>)</h3>
-<p>Exact rational arithmetic without floating-point errors:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Exact: 10/21, no rounding errors!
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">pi</span> <span class="o">=</span> <span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">approximate</span><span class="p">(</span><span class="mf">3.14159</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>  <span class="c1">// Best rational approx
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains exact arithmetic; loses finite representation for irrationals.</p>
-<p><strong>Use cases</strong>: Computer algebra, music theory (pure intervals), continued fractions.</p>
-<h3 id="residue-number-system-cbtresidue_number_systemtn">Residue Number System (<code>cbt::residue_number_system&lt;T,N&gt;</code>)</h3>
-<p>Fully parallel arithmetic:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_a</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">12345</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_b</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">67890</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">rns_a</span> <span class="o">*</span> <span class="n">rns_b</span><span class="p">;</span>  <span class="c1">// No carry propagation, fully parallel!
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains parallelism; loses efficient comparison and division.</p>
-<p><strong>Use cases</strong>: Cryptography, DSP, fault-tolerant computing.</p>
-<h3 id="multiscale-transform-cbtmultiscalet">Multiscale Transform (<code>cbt::multiscale&lt;T&gt;</code>)</h3>
-<p>Handle 200+ orders of magnitude:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">planck_length</span><span class="p">(</span><span class="mf">1.616e-35</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">universe_diameter</span><span class="p">(</span><span class="mf">8.8e26</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">ratio</span> <span class="o">=</span> <span class="n">universe_diameter</span> <span class="o">/</span> <span class="n">planck_length</span><span class="p">;</span>  <span class="c1">// 61 orders of magnitude!
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains extreme range; loses precision at scale boundaries.</p>
-<p><strong>Use cases</strong>: Astrophysics, quantum mechanics, multi-scale simulations.</p>
-<h3 id="additional-transforms">Additional Transforms</h3>
+]]></content:encoded><category>Python</category><category>graphs</category><category>algorithms</category><category>functional-programming</category><category>data-structures</category><category>immutability</category></item><item><title>Choosing the Algebra</title><link>https://metafunctor.com/post/2025-11-30-cbt/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-cbt/</guid><description>The Stepanov series showed that algorithms arise from algebraic structure. This post is about the flip side: sometimes you choose a different structure to make the algorithm trivial.</description><content:encoded><![CDATA[<p><em>The rest of this series asks: given a structure, what algorithms does it support? This post inverts the question.</em></p>
+<h2 id="the-flip-side">The Flip Side</h2>
+<p>The <a href="/post/2019-03-peasant-stepanov/">peasant post</a> showed that <code>power()</code> works on any monoid. The <a href="/post/2026-03-semiring-stepanov/">semirings post</a> showed that matrix multiplication over different semirings solves six graph problems. The thread running through the whole series is: <strong>algorithms arise from algebraic structure</strong>.</p>
+<p>But there&rsquo;s a flip side that we haven&rsquo;t addressed directly.</p>
+<p>Sometimes you&rsquo;re stuck with an expensive algorithm not because the problem is hard, but because you&rsquo;re working in the wrong algebra. Change the algebra, and the algorithm becomes trivial. The cost shows up somewhere else, always. But if the cheap operation is the one you actually need, you win.</p>
+<p>This is a very old idea. Napier invented logarithms in 1614 to turn multiplication into addition. What&rsquo;s worth noticing is that logarithms, odds ratios, tropical semirings, and quaternions are all doing the same thing.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<p>A computational basis transform takes values from one domain and represents them in another, where different operations are cheap:</p>
 <table>
   <thead>
       <tr>
-          <th>Transform</th>
-          <th>Class</th>
-          <th>Purpose</th>
+          <th>Domain</th>
+          <th>Cheap</th>
+          <th>Expensive</th>
       </tr>
   </thead>
   <tbody>
       <tr>
-          <td><strong>Dual</strong></td>
-          <td><code>dual&lt;T&gt;</code></td>
-          <td>Automatic differentiation</td>
+          <td>Log space</td>
+          <td>Multiplication (becomes addition)</td>
+          <td>Addition</td>
       </tr>
       <tr>
-          <td><strong>Interval</strong></td>
-          <td><code>interval&lt;T&gt;</code></td>
-          <td>Rigorous error bounds</td>
+          <td>Odds ratios</td>
+          <td>Bayesian updates (become multiplication)</td>
+          <td>Probability sums</td>
       </tr>
       <tr>
-          <td><strong>Tropical</strong></td>
-          <td><code>tropical&lt;T&gt;</code></td>
-          <td>Min-plus algebra (shortest paths)</td>
+          <td>Tropical \((\min, +)\)</td>
+          <td>Shortest paths (become matrix mult)</td>
+          <td>Subtraction</td>
       </tr>
       <tr>
-          <td><strong>Modular</strong></td>
-          <td><code>modular&lt;T,M&gt;</code></td>
-          <td>Cyclic arithmetic</td>
+          <td>Quaternions</td>
+          <td>Rotation composition</td>
+          <td>Euler angle extraction</td>
       </tr>
       <tr>
-          <td><strong>Quaternion</strong></td>
-          <td><code>quaternion&lt;T&gt;</code></td>
-          <td>Gimbal-lock-free 3D rotations</td>
+          <td>Modular integers</td>
+          <td>Exponentiation</td>
+          <td>Ordering</td>
+      </tr>
+      <tr>
+          <td>Rationals</td>
+          <td>Exact arithmetic</td>
+          <td>Irrational representation</td>
       </tr>
   </tbody>
 </table>
-<h2 id="transform-composition">Transform Composition</h2>
-<p>CBTs compose for multiplicative benefits:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Extreme scale multiplication efficiency
-</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">extreme_mult</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+<p>Each row follows the same structure. A transform \(\varphi: D \to D&rsquo;\) makes some operations cheaper and others more expensive. There is no free lunch.</p>
+<p>This is not a deep theorem. It&rsquo;s almost tautological: if you could make everything cheaper by relabeling, the labels would already be the standard ones. But making the pattern explicit helps you recognize when you&rsquo;re paying for an operation you don&rsquo;t need.</p>
+<h2 id="three-examples">Three Examples</h2>
+<h3 id="log-space">Log Space</h3>
+<p>The most familiar example. You have a million small probabilities and need their product.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Standard: underflows to 0 after ~30 terms
+</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">product</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="n">product</span> <span class="o">*=</span> <span class="n">p</span><span class="p">;</span>  <span class="c1">// 0.0
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Log domain: addition instead of multiplication
+</span></span></span><span class="line"><span class="cl"><span class="n">mutatio</span><span class="o">::</span><span class="n">lgd</span> <span class="n">product</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="n">product</span> <span class="o">=</span> <span class="n">product</span> <span class="o">*</span> <span class="n">mutatio</span><span class="o">::</span><span class="n">lgd</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// product.log() is finite. product.value() would overflow,
+</span></span></span><span class="line"><span class="cl"><span class="c1">// but you stay in log space.
+</span></span></span></code></pre></div><p>The algebra changed from \((\mathbb{R}^+, \times)\) to \((\mathbb{R}, +)\). Multiplication became addition. The isomorphism is \(\log\).</p>
+<h3 id="tropical-semirings">Tropical Semirings</h3>
+<p>The semirings post showed this already. Replace \((+, \times)\) with \((\min, +)\) and matrix multiplication becomes shortest-path computation. That&rsquo;s the same move: you changed the semiring to make the algorithm you wanted (all-pairs shortest paths) fall out of a generic operation (matrix power) that you already had.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">mutatio</span><span class="o">::</span><span class="n">tropical_min</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">(</span><span class="mf">3.0</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mf">5.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>   <span class="c1">// min(3, 5) = 3
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prod</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// 3 + 5 = 8
+</span></span></span></code></pre></div><p>The <a href="/post/2026-03-semiring-stepanov/">semirings post</a> covers why this works in more detail than I&rsquo;ll repeat here.</p>
+<h3 id="odds-ratios">Odds Ratios</h3>
+<p>Bayesian inference in probability space requires normalization after every update. In odds space, it&rsquo;s just multiplication:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Prior: 1% disease prevalence
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">mutatio</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Stable Bayesian inference
-</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">log_odds</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Positive test with likelihood ratio 18
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">mutatio</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="mf">18.0</span><span class="p">);</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Exact rational intervals
-</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">rational_interval</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">interval</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span></span></code></pre></div><p>This is where it gets interesting. Each individual transform has known trade-offs. When you compose two of them, you get the composition of those trade-offs, which sometimes cancels weaknesses. Log-odds, for instance, gives you both the numerical stability of log-domain arithmetic and the normalization-free updates of odds ratios.</p>
-<h2 id="real-world-examples">Real-World Examples</h2>
-<h3 id="avoiding-numerical-underflow">Avoiding Numerical Underflow</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Problem: Product of many small probabilities underflows
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="nf">compute_likelihood_naive</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">*=</span> <span class="n">p</span><span class="p">;</span>  <span class="c1">// Underflows to 0!
-</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Solution: Logarithmic transform
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="nf">compute_likelihood_stable</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">result</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>  <span class="c1">// No underflow!
-</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p>Anyone who has implemented a naive Bayes classifier has hit this. You multiply a thousand small probabilities together and get zero. The log transform is the standard fix, but CBT makes the pattern explicit and composable.</p>
-<h3 id="medical-diagnosis-system">Medical Diagnosis System</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">MedicalDiagnosis</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">disease_odds</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
-</span></span><span class="line"><span class="cl">    <span class="n">MedicalDiagnosis</span><span class="p">(</span><span class="kt">double</span> <span class="n">prevalence</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="o">:</span> <span class="n">disease_odds</span><span class="p">(</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="n">prevalence</span><span class="p">))</span> <span class="p">{}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">update_with_test</span><span class="p">(</span><span class="kt">double</span> <span class="n">sensitivity</span><span class="p">,</span> <span class="kt">double</span> <span class="n">specificity</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="kt">double</span> <span class="n">lr</span> <span class="o">=</span> <span class="n">sensitivity</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">specificity</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">        <span class="n">disease_odds</span> <span class="o">=</span> <span class="n">disease_odds</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">lr</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="nf">get_probability</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">disease_odds</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">};</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Usage
-</span></span></span><span class="line"><span class="cl"><span class="n">MedicalDiagnosis</span> <span class="nf">covid_test</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>  <span class="c1">// 1% prevalence
-</span></span></span><span class="line"><span class="cl"><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// First test
-</span></span></span><span class="line"><span class="cl"><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// Second test
-</span></span></span><span class="line"><span class="cl"><span class="c1">// Probability updates correctly without manual normalization
-</span></span></span></code></pre></div><h2 id="installation">Installation</h2>
-<p>CBT is header-only. Just include and use:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">  </span><span class="c1">// All transforms
-</span></span></span><span class="line"><span class="cl"><span class="c1">// Or specific transforms:
-</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/logarithmic.hpp&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/odds_ratio.hpp&gt;</span><span class="cp">
-</span></span></span></code></pre></div><p>CMake integration:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">path/to/cbt</span><span class="p">)</span><span class="err">
-</span></span></span><span class="line"><span class="cl"><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">cbt::cbt</span><span class="p">)</span><span class="err">
-</span></span></span></code></pre></div><h2 id="why-this-matters">Why This Matters</h2>
-<p>The point of the CBT framework is not that any individual transform is new. Log-domain arithmetic, odds ratios, RNS, these are all well-known. The point is that they are all instances of the same pattern, and once you see the pattern, you stop memorizing techniques and start deriving them.</p>
-<ol>
-<li><strong>Unifying Principle</strong>: Understand diverse techniques as instances of one pattern</li>
-<li><strong>Design Guidance</strong>: The meta-pattern helps you discover new transforms for your specific domain</li>
-<li><strong>Composition Rules</strong>: Transforms can be systematically combined</li>
-<li><strong>Trade-off Analysis</strong>: Makes implicit costs explicit</li>
-</ol>
-<h2 id="resources">Resources</h2>
-<ul>
-<li><strong>GitHub</strong>: <a href="https://github.com/queelius/cbt">github.com/queelius/cbt</a></li>
-<li><strong>Paper</strong>: See <code>paper/cbt_theory.tex</code> for the formal treatment</li>
-</ul>
-]]></content:encoded><category>C++</category><category>numerical-computing</category><category>algorithms</category><category>mathematics</category><category>header-only</category><category>scientific-computing</category></item><item><title>fuzzy-logic-search: Query Documents with Fuzzy Logic</title><link>https://metafunctor.com/post/2025-11-30-fuzzy-logic-search/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-fuzzy-logic-search/</guid><description>A framework for querying structured JSON documents using fuzzy logic, producing degree-of-membership scores instead of binary relevance.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/fuzzy-logic-search">fuzzy-logic-search</a></strong> (<code>fls</code>) brings fuzzy logic to document querying. Unlike traditional Boolean search that returns binary relevant/not-relevant results, fls produces a <strong>degree-of-membership</strong> score in [0, 1], indicating how well each document matches your query.</p>
+</span></span><span class="line"><span class="cl"><span class="n">posterior</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>  <span class="c1">// ~15.4%
+</span></span></span></code></pre></div><p>The transform \(p \mapsto p/(1-p)\) is a homomorphism from Bayesian updates to multiplication. Sequential updates compose by multiplying likelihood ratios. No normalization needed until you want a probability back.</p>
+<h2 id="connection-to-the-series">Connection to the Series</h2>
+<p>The Stepanov perspective says: find the structure, then the algorithm follows. The flip side: if the algorithm you need is expensive in the current structure, maybe you&rsquo;re in the wrong one.</p>
+<p>The <a href="/post/2019-06-modular-stepanov/">modular arithmetic post</a> already showed this implicitly. Working in \(\mathbb{Z}/p\mathbb{Z}\) instead of \(\mathbb{Z}\) gives you multiplicative inverses (when \(p\) is prime) and bounded arithmetic. The <a href="/post/2020-02-rational-stepanov/">rational arithmetic post</a> showed how working in \(\mathbb{Q}\) instead of floating point eliminates rounding error at the cost of GCD computation.</p>
+<p>Those were choosing algebras too. This post just names the pattern.</p>
+<h2 id="the-library">The Library</h2>
+<p>The six transforms live in <a href="https://github.com/queelius/stepanov/tree/master/lib/mutatio"><code>lib/mutatio</code></a> in the stepanov repo. Header-only, like everything else in the series.</p>
+<p>Logarithmic, odds ratio, Stern-Brocot rationals, tropical, modular, and quaternion. Each one follows the same interface pattern: construct from the base domain, operate cheaply in the transformed domain, convert back when needed.</p>
+<p>This is not a production numerical library. Eigen does quaternions better. GMP does rationals better. The point is making the pattern visible, not replacing specialized tools.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;mutatio.hpp&gt;</span><span class="cp">  </span><span class="c1">// All six transforms
+</span></span></span></code></pre></div><h2 id="what-i-left-out">What I Left Out</h2>
+<p>I originally tried to write an academic paper about this, complete with a &ldquo;No Free Lunch theorem&rdquo; and category-theoretic formalization. The theorem was trivially true and the formalism didn&rsquo;t add anything the pattern didn&rsquo;t already say. So I deleted it.</p>
+<p>Some things are better as observations than as theorems. &ldquo;Choose the algebra that makes your dominant operation cheap&rdquo; is one of them.</p>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>algebraic-structures</category><category>numerical-computing</category></item><item><title>fuzzy-logic-search: Query Documents with Fuzzy Logic</title><link>https://metafunctor.com/post/2025-11-30-fuzzy-logic-search/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-fuzzy-logic-search/</guid><description>A framework for querying structured JSON documents using fuzzy logic, producing degree-of-membership scores instead of binary relevance.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/fuzzy-logic-search">fuzzy-logic-search</a></strong> (<code>fls</code>) brings fuzzy logic to document querying. Unlike traditional Boolean search that returns binary relevant/not-relevant results, fls produces a <strong>degree-of-membership</strong> score in [0, 1], indicating how well each document matches your query.</p>
 <h2 id="the-problem-with-boolean-search">The Problem with Boolean Search</h2>
 <p>Boolean search is rigid: a document either matches or it does not. If you search for &ldquo;python AND machine-learning,&rdquo; you get a binary split. A document about Python ML that never uses the exact term &ldquo;machine-learning&rdquo; gets zero, same as a document about medieval pottery.</p>
 <p>Fuzzy logic captures the gradation that Boolean search throws away.</p>
@@ -9886,117 +9989,4 @@ $$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges
 <li><a href="/papers/the_policy/">The Policy</a> (novel on s-risk and AI alignment)</li>
 </ul>
 <p><strong>Note</strong>: This analysis was produced by asking Claude to treat my research corpus as a dataset and identify patterns. The contradiction, documenting secrecy systems transparently, is the point.</p>
-]]></content:encoded><category>meta</category><category>research</category><category>philosophy</category><category>oblivious computing</category><category>self-analysis</category><category>information theory</category><category>s-risk</category><category>AI alignment</category><category>privacy</category><category>existential risk</category></item><item><title>DagShell: A Content-Addressable Virtual Filesystem</title><link>https://metafunctor.com/post/2024-08-15-dagshell/</link><pubDate>Sun, 12 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-08-15-dagshell/</guid><description>A virtual POSIX-compliant filesystem using content-addressable DAG storage with SHA256 deduplication.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/dagshell">DagShell</a> is a virtual filesystem that organizes data by content instead of location. Identical files automatically share storage through SHA256 hashing. The structure is a directed acyclic graph rather than a tree, so the same content block can be referenced from multiple paths without duplication.</p>
-<p>I built it because sometimes you need filesystem semantics without touching actual disk. Testing, sandboxing, versioning, portability. The implementation has 583 tests with 77% coverage.</p>
-<h2 id="the-dag-structure">The DAG structure</h2>
-<p>Traditional filesystems are trees: each file has exactly one parent. DagShell uses a DAG where content is stored once and referenced by hash:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">/project/
-</span></span><span class="line"><span class="cl">├── src/
-</span></span><span class="line"><span class="cl">│   └── main.py  ──────┐
-</span></span><span class="line"><span class="cl">├── backup/            │
-</span></span><span class="line"><span class="cl">│   └── main.py  ──────┼──&gt; [SHA256: abc123...] -&gt; &#34;print(&#39;hello&#39;)&#34;
-</span></span><span class="line"><span class="cl">└── archive/           │
-</span></span><span class="line"><span class="cl">    └── main.py  ──────┘
-</span></span></code></pre></div><p>Three paths, one storage block.</p>
-<h2 id="fluent-python-api">Fluent Python API</h2>
-<p>DagShell provides a chainable API that mirrors shell commands:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dagshell.dagshell_fluent</span> <span class="kn">import</span> <span class="n">DagShell</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">shell</span> <span class="o">=</span> <span class="n">DagShell</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Create project structure</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="n">shell</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/project/src&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/project/docs&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="s2">&#34;/project/src&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;def main(): pass&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;main.py&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;# My Project&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;../docs/README.md&#34;</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Navigate with directory stack</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">pushd</span><span class="p">(</span><span class="s2">&#34;/tmp&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">touch</span><span class="p">(</span><span class="s2">&#34;scratch.txt&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">popd</span><span class="p">()</span>  <span class="c1"># Back to /project/src</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Save entire filesystem to JSON</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&#34;project_snapshot.json&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="terminal-emulator">Terminal emulator</h2>
-<p>For interactive exploration:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">python -m dagshell.terminal
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">dagshell:/$ mkdir /home/user
-</span></span><span class="line"><span class="cl">dagshell:/$ <span class="nb">cd</span> /home/user
-</span></span><span class="line"><span class="cl">dagshell:/home/user$ <span class="nb">echo</span> <span class="s2">&#34;Hello&#34;</span> &gt; greeting.txt
-</span></span><span class="line"><span class="cl">dagshell:/home/user$ cat greeting.txt
-</span></span><span class="line"><span class="cl">Hello
-</span></span><span class="line"><span class="cl">dagshell:/home/user$ ls -la
-</span></span><span class="line"><span class="cl">total <span class="m">1</span>
-</span></span><span class="line"><span class="cl">drwxr-xr-x  <span class="m">2</span> user user  <span class="m">4096</span> Aug <span class="m">15</span> 10:00 .
-</span></span><span class="line"><span class="cl">drwxr-xr-x  <span class="m">3</span> user user  <span class="m">4096</span> Aug <span class="m">15</span> 10:00 ..
-</span></span><span class="line"><span class="cl">-rw-r--r--  <span class="m">1</span> user user     <span class="m">6</span> Aug <span class="m">15</span> 10:00 greeting.txt
-</span></span></code></pre></div><h2 id="virtual-devices">Virtual devices</h2>
-<p>Standard Unix special files work:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;garbage&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;/dev/null&#34;</span><span class="p">)</span>  <span class="c1"># Discarded</span>
-</span></span><span class="line"><span class="cl"><span class="n">random_bytes</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/dev/random&#34;</span><span class="p">)</span>  <span class="c1"># Random data</span>
-</span></span><span class="line"><span class="cl"><span class="n">zeros</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="s2">&#34;/dev/zero&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>     <span class="c1"># 100 zero bytes</span>
-</span></span></code></pre></div><h2 id="importexport">Import/export</h2>
-<p>Move files between real and virtual filesystems:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Import from real filesystem</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">import_file</span><span class="p">(</span><span class="s2">&#34;/real/path/data.csv&#34;</span><span class="p">,</span> <span class="s2">&#34;/virtual/data.csv&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Export to real filesystem</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">export_file</span><span class="p">(</span><span class="s2">&#34;/virtual/results.json&#34;</span><span class="p">,</span> <span class="s2">&#34;/real/path/results.json&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Import entire directory</span>
-</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">import_dir</span><span class="p">(</span><span class="s2">&#34;/real/project&#34;</span><span class="p">,</span> <span class="s2">&#34;/virtual/project&#34;</span><span class="p">)</span>
-</span></span></code></pre></div><h2 id="persistence">Persistence</h2>
-<p>The entire filesystem state serializes to JSON:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&#34;filesystem.json&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">restored</span> <span class="o">=</span> <span class="n">DagShell</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&#34;filesystem.json&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1"># Or get JSON directly</span>
-</span></span><span class="line"><span class="cl"><span class="n">state</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
-</span></span></code></pre></div><p>The JSON format is human-readable:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;root&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;directory&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;children&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">      <span class="nt">&#34;project&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;directory&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="nt">&#34;children&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">          <span class="nt">&#34;README.md&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">            <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;file&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">            <span class="nt">&#34;content_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;abc123...&#34;</span>
-</span></span><span class="line"><span class="cl">          <span class="p">}</span>
-</span></span><span class="line"><span class="cl">        <span class="p">}</span>
-</span></span><span class="line"><span class="cl">      <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">  <span class="p">},</span>
-</span></span><span class="line"><span class="cl">  <span class="nt">&#34;content_store&#34;</span><span class="p">:</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nt">&#34;abc123...&#34;</span><span class="p">:</span> <span class="s2">&#34;# My Project\n...&#34;</span>
-</span></span><span class="line"><span class="cl">  <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p>Content hashes in the directory tree, actual content in a flat store. Deduplication falls out naturally.</p>
-<h2 id="scheme-dsl">Scheme DSL</h2>
-<p>For Lisp people, there&rsquo;s a Scheme interface:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-scheme" data-lang="scheme"><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">cd</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">echo</span> <span class="s">&#34;Hello&#34;</span> <span class="s">&#34;greeting.txt&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">define </span><span class="nv">files</span> <span class="p">(</span><span class="nf">ls</span><span class="p">))</span>
-</span></span></code></pre></div><p>I included this partly because I like Scheme and partly because a filesystem is a natural fit for s-expressions.</p>
-<h2 id="use-cases">Use cases</h2>
-<ul>
-<li><strong>Build systems</strong>: track input/output files without disk I/O</li>
-<li><strong>Testing frameworks</strong>: create fixture filesystems programmatically</li>
-<li><strong>Backup tools</strong>: represent filesystem snapshots efficiently</li>
-<li><strong>Educational</strong>: teach filesystem concepts without system access</li>
-</ul>
-<h2 id="installation">Installation</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install dagshell
-</span></span><span class="line"><span class="cl"><span class="c1"># Or from source</span>
-</span></span><span class="line"><span class="cl">pip install -e .
-</span></span></code></pre></div><h2 id="resources">Resources</h2>
-<ul>
-<li><a href="https://github.com/queelius/dagshell">github.com/queelius/dagshell</a></li>
-<li><a href="/papers/dagshell/">DagShell Technical Report</a></li>
-</ul>
-]]></content:encoded><category>Python</category><category>filesystem</category><category>content-addressable</category><category>DAG</category><category>virtual-filesystem</category><category>POSIX</category></item></channel></rss>
+]]></content:encoded><category>meta</category><category>research</category><category>philosophy</category><category>oblivious computing</category><category>self-analysis</category><category>information theory</category><category>s-risk</category><category>AI alignment</category><category>privacy</category><category>existential risk</category></item></channel></rss>

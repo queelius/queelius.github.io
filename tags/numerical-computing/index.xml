@@ -1,187 +1,96 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Numerical-Computing on metafunctor</title><link>https://metafunctor.com/tags/numerical-computing/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 20 Mar 2026 16:04:10 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/numerical-computing/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>CBT: Computational Basis Transforms</title><link>https://metafunctor.com/post/2025-11-30-cbt/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-cbt/</guid><description>A C++17 header-only library that formalizes a pattern behind FFT, logarithmic arithmetic, and Bayesian inference: transform to a domain where your target operation is cheap.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/cbt">CBT</a></strong> (Computational Basis Transforms) is a C++17 header-only library that formalizes something I kept noticing across different computational techniques: <strong>transforming problems into different representational domains where certain operations become more efficient</strong>.</p>
-<h2 id="the-core-insight">The Core Insight</h2>
-<p>Consider these seemingly unrelated techniques:</p>
-<ul>
-<li><strong>FFT</strong> transforms convolution (O(n^2)) into pointwise multiplication (O(n))</li>
-<li><strong>Logarithms</strong> transform multiplication into addition</li>
-<li><strong>Odds ratios</strong> transform Bayesian updates into simple multiplication</li>
-</ul>
-<p>They share the same pattern: <strong>transform to a domain where your target operation is cheap</strong>.</p>
-<p>CBT formalizes this as a quadruple <strong>(D, D&rsquo;, phi, Omega)</strong> where:</p>
-<ul>
-<li><strong>D, D&rsquo;</strong> are computational domains</li>
-<li><strong>phi: D -&gt; D&rsquo;</strong> is the transform</li>
-<li><strong>Omega</strong> captures the trade-offs</li>
-</ul>
-<p>There is no universal &ldquo;best&rdquo; representation, only fitness for purpose. Every transform involves fundamental trade-offs.</p>
-<h2 id="quick-start">Quick Start</h2>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="k">namespace</span> <span class="n">cbt</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Avoid underflow in products of small probabilities
-</span></span></span><span class="line"><span class="cl">    <span class="n">lgd</span> <span class="n">product</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">1000000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">product</span> <span class="o">=</span> <span class="n">product</span> <span class="o">*</span> <span class="n">lgd</span><span class="p">(</span><span class="mf">1e-100</span><span class="p">);</span>  <span class="c1">// No underflow!
-</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c1">// Bayesian inference without normalization
-</span></span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Simple multiplication!
-</span></span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><h2 id="available-transforms">Available Transforms</h2>
-<h3 id="logarithmic-transform-cbtlgt">Logarithmic Transform (<code>cbt::lg&lt;T&gt;</code>)</h3>
-<p>Transform multiplication into addition, handle extreme ranges:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">a</span><span class="p">(</span><span class="mi">1000</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Internally: log(1000) + log(2000)
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">huge</span> <span class="o">=</span> <span class="n">lgd</span><span class="o">::</span><span class="n">from_log</span><span class="p">(</span><span class="mi">800</span><span class="p">);</span>  <span class="c1">// Represents e^800 without overflow
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains efficient multiplication and extended range; loses direct addition.</p>
-<p><strong>Use cases</strong>: Products of many terms, wide dynamic ranges, ML log-likelihoods.</p>
-<h3 id="odds-ratio-transform-cbtodds_ratiot">Odds-Ratio Transform (<code>cbt::odds_ratio&lt;T&gt;</code>)</h3>
-<p>Transform Bayesian updates into multiplication:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">likelihood_ratio</span><span class="p">;</span>  <span class="c1">// Bayesian update!
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">prob</span> <span class="o">=</span> <span class="n">posterior</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
-</span></span></code></pre></div><p><strong>Trade-off</strong>: Gains simple sequential updates without normalization; loses direct probability addition.</p>
-<p><strong>Use cases</strong>: Medical diagnosis, spam filtering, any sequential Bayesian inference.</p>
-<h3 id="stern-brocot-transform-cbtstern_brocott">Stern-Brocot Transform (<code>cbt::stern_brocot&lt;T&gt;</code>)</h3>
-<p>Exact rational arithmetic without floating-point errors:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// Exact: 10/21, no rounding errors!
-</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">pi</span> <span class="o">=</span> <span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">approximate</span><span class="p">(</span><span class="mf">3.14159</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>  <span class="c1">// Best rational approx
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains exact arithmetic; loses finite representation for irrationals.</p>
-<p><strong>Use cases</strong>: Computer algebra, music theory (pure intervals), continued fractions.</p>
-<h3 id="residue-number-system-cbtresidue_number_systemtn">Residue Number System (<code>cbt::residue_number_system&lt;T,N&gt;</code>)</h3>
-<p>Fully parallel arithmetic:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_a</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">12345</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">rns_b</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">rns3</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;::</span><span class="n">from_integer</span><span class="p">(</span><span class="mi">67890</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">product</span> <span class="o">=</span> <span class="n">rns_a</span> <span class="o">*</span> <span class="n">rns_b</span><span class="p">;</span>  <span class="c1">// No carry propagation, fully parallel!
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains parallelism; loses efficient comparison and division.</p>
-<p><strong>Use cases</strong>: Cryptography, DSP, fault-tolerant computing.</p>
-<h3 id="multiscale-transform-cbtmultiscalet">Multiscale Transform (<code>cbt::multiscale&lt;T&gt;</code>)</h3>
-<p>Handle 200+ orders of magnitude:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">planck_length</span><span class="p">(</span><span class="mf">1.616e-35</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">universe_diameter</span><span class="p">(</span><span class="mf">8.8e26</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">ratio</span> <span class="o">=</span> <span class="n">universe_diameter</span> <span class="o">/</span> <span class="n">planck_length</span><span class="p">;</span>  <span class="c1">// 61 orders of magnitude!
-</span></span></span></code></pre></div><p><strong>Trade-off</strong>: Gains extreme range; loses precision at scale boundaries.</p>
-<p><strong>Use cases</strong>: Astrophysics, quantum mechanics, multi-scale simulations.</p>
-<h3 id="additional-transforms">Additional Transforms</h3>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Numerical-Computing on metafunctor</title><link>https://metafunctor.com/tags/numerical-computing/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sun, 05 Apr 2026 06:39:20 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/numerical-computing/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Choosing the Algebra</title><link>https://metafunctor.com/post/2025-11-30-cbt/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-cbt/</guid><description>The Stepanov series showed that algorithms arise from algebraic structure. This post is about the flip side: sometimes you choose a different structure to make the algorithm trivial.</description><content:encoded><![CDATA[<p><em>The rest of this series asks: given a structure, what algorithms does it support? This post inverts the question.</em></p>
+<h2 id="the-flip-side">The Flip Side</h2>
+<p>The <a href="/post/2019-03-peasant-stepanov/">peasant post</a> showed that <code>power()</code> works on any monoid. The <a href="/post/2026-03-semiring-stepanov/">semirings post</a> showed that matrix multiplication over different semirings solves six graph problems. The thread running through the whole series is: <strong>algorithms arise from algebraic structure</strong>.</p>
+<p>But there&rsquo;s a flip side that we haven&rsquo;t addressed directly.</p>
+<p>Sometimes you&rsquo;re stuck with an expensive algorithm not because the problem is hard, but because you&rsquo;re working in the wrong algebra. Change the algebra, and the algorithm becomes trivial. The cost shows up somewhere else, always. But if the cheap operation is the one you actually need, you win.</p>
+<p>This is a very old idea. Napier invented logarithms in 1614 to turn multiplication into addition. What&rsquo;s worth noticing is that logarithms, odds ratios, tropical semirings, and quaternions are all doing the same thing.</p>
+<h2 id="the-pattern">The Pattern</h2>
+<p>A computational basis transform takes values from one domain and represents them in another, where different operations are cheap:</p>
 <table>
   <thead>
       <tr>
-          <th>Transform</th>
-          <th>Class</th>
-          <th>Purpose</th>
+          <th>Domain</th>
+          <th>Cheap</th>
+          <th>Expensive</th>
       </tr>
   </thead>
   <tbody>
       <tr>
-          <td><strong>Dual</strong></td>
-          <td><code>dual&lt;T&gt;</code></td>
-          <td>Automatic differentiation</td>
+          <td>Log space</td>
+          <td>Multiplication (becomes addition)</td>
+          <td>Addition</td>
       </tr>
       <tr>
-          <td><strong>Interval</strong></td>
-          <td><code>interval&lt;T&gt;</code></td>
-          <td>Rigorous error bounds</td>
+          <td>Odds ratios</td>
+          <td>Bayesian updates (become multiplication)</td>
+          <td>Probability sums</td>
       </tr>
       <tr>
-          <td><strong>Tropical</strong></td>
-          <td><code>tropical&lt;T&gt;</code></td>
-          <td>Min-plus algebra (shortest paths)</td>
+          <td>Tropical \((\min, +)\)</td>
+          <td>Shortest paths (become matrix mult)</td>
+          <td>Subtraction</td>
       </tr>
       <tr>
-          <td><strong>Modular</strong></td>
-          <td><code>modular&lt;T,M&gt;</code></td>
-          <td>Cyclic arithmetic</td>
+          <td>Quaternions</td>
+          <td>Rotation composition</td>
+          <td>Euler angle extraction</td>
       </tr>
       <tr>
-          <td><strong>Quaternion</strong></td>
-          <td><code>quaternion&lt;T&gt;</code></td>
-          <td>Gimbal-lock-free 3D rotations</td>
+          <td>Modular integers</td>
+          <td>Exponentiation</td>
+          <td>Ordering</td>
+      </tr>
+      <tr>
+          <td>Rationals</td>
+          <td>Exact arithmetic</td>
+          <td>Irrational representation</td>
       </tr>
   </tbody>
 </table>
-<h2 id="transform-composition">Transform Composition</h2>
-<p>CBTs compose for multiplicative benefits:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Extreme scale multiplication efficiency
-</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">extreme_mult</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">multiscale</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+<p>Each row follows the same structure. A transform \(\varphi: D \to D&rsquo;\) makes some operations cheaper and others more expensive. There is no free lunch.</p>
+<p>This is not a deep theorem. It&rsquo;s almost tautological: if you could make everything cheaper by relabeling, the labels would already be the standard ones. But making the pattern explicit helps you recognize when you&rsquo;re paying for an operation you don&rsquo;t need.</p>
+<h2 id="three-examples">Three Examples</h2>
+<h3 id="log-space">Log Space</h3>
+<p>The most familiar example. You have a million small probabilities and need their product.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Standard: underflows to 0 after ~30 terms
+</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">product</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="n">product</span> <span class="o">*=</span> <span class="n">p</span><span class="p">;</span>  <span class="c1">// 0.0
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Log domain: addition instead of multiplication
+</span></span></span><span class="line"><span class="cl"><span class="n">mutatio</span><span class="o">::</span><span class="n">lgd</span> <span class="n">product</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="n">product</span> <span class="o">=</span> <span class="n">product</span> <span class="o">*</span> <span class="n">mutatio</span><span class="o">::</span><span class="n">lgd</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// product.log() is finite. product.value() would overflow,
+</span></span></span><span class="line"><span class="cl"><span class="c1">// but you stay in log space.
+</span></span></span></code></pre></div><p>The algebra changed from \((\mathbb{R}^+, \times)\) to \((\mathbb{R}, +)\). Multiplication became addition. The isomorphism is \(\log\).</p>
+<h3 id="tropical-semirings">Tropical Semirings</h3>
+<p>The semirings post showed this already. Replace \((+, \times)\) with \((\min, +)\) and matrix multiplication becomes shortest-path computation. That&rsquo;s the same move: you changed the semiring to make the algorithm you wanted (all-pairs shortest paths) fall out of a generic operation (matrix power) that you already had.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">mutatio</span><span class="o">::</span><span class="n">tropical_min</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">a</span><span class="p">(</span><span class="mf">3.0</span><span class="p">),</span> <span class="n">b</span><span class="p">(</span><span class="mf">5.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">sum</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">;</span>   <span class="c1">// min(3, 5) = 3
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prod</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">;</span>  <span class="c1">// 3 + 5 = 8
+</span></span></span></code></pre></div><p>The <a href="/post/2026-03-semiring-stepanov/">semirings post</a> covers why this works in more detail than I&rsquo;ll repeat here.</p>
+<h3 id="odds-ratios">Odds Ratios</h3>
+<p>Bayesian inference in probability space requires normalization after every update. In odds space, it&rsquo;s just multiplication:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Prior: 1% disease prevalence
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">mutatio</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Stable Bayesian inference
-</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">log_odds</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lg</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Positive test with likelihood ratio 18
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">mutatio</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="mf">18.0</span><span class="p">);</span>
 </span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Exact rational intervals
-</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">rational_interval</span> <span class="o">=</span> <span class="n">cbt</span><span class="o">::</span><span class="n">interval</span><span class="o">&lt;</span><span class="n">cbt</span><span class="o">::</span><span class="n">stern_brocot</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span></span></code></pre></div><p>This is where it gets interesting. Each individual transform has known trade-offs. When you compose two of them, you get the composition of those trade-offs, which sometimes cancels weaknesses. Log-odds, for instance, gives you both the numerical stability of log-domain arithmetic and the normalization-free updates of odds ratios.</p>
-<h2 id="real-world-examples">Real-World Examples</h2>
-<h3 id="avoiding-numerical-underflow">Avoiding Numerical Underflow</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Problem: Product of many small probabilities underflows
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="nf">compute_likelihood_naive</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">*=</span> <span class="n">p</span><span class="p">;</span>  <span class="c1">// Underflows to 0!
-</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Solution: Logarithmic transform
-</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="nf">compute_likelihood_stable</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span> <span class="n">result</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">double</span> <span class="nl">p</span> <span class="p">:</span> <span class="n">probs</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">lgd</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>  <span class="c1">// No underflow!
-</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></div><p>Anyone who has implemented a naive Bayes classifier has hit this. You multiply a thousand small probabilities together and get zero. The log transform is the standard fix, but CBT makes the pattern explicit and composable.</p>
-<h3 id="medical-diagnosis-system">Medical Diagnosis System</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">MedicalDiagnosis</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">disease_odds</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
-</span></span><span class="line"><span class="cl">    <span class="n">MedicalDiagnosis</span><span class="p">(</span><span class="kt">double</span> <span class="n">prevalence</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="o">:</span> <span class="n">disease_odds</span><span class="p">(</span><span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">from_probability</span><span class="p">(</span><span class="n">prevalence</span><span class="p">))</span> <span class="p">{}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">update_with_test</span><span class="p">(</span><span class="kt">double</span> <span class="n">sensitivity</span><span class="p">,</span> <span class="kt">double</span> <span class="n">specificity</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="kt">double</span> <span class="n">lr</span> <span class="o">=</span> <span class="n">sensitivity</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">specificity</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">        <span class="n">disease_odds</span> <span class="o">=</span> <span class="n">disease_odds</span> <span class="o">*</span> <span class="n">cbt</span><span class="o">::</span><span class="n">odds_ratio</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="n">lr</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="nf">get_probability</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">disease_odds</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl"><span class="p">};</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// Usage
-</span></span></span><span class="line"><span class="cl"><span class="n">MedicalDiagnosis</span> <span class="nf">covid_test</span><span class="p">(</span><span class="mf">0.01</span><span class="p">);</span>  <span class="c1">// 1% prevalence
-</span></span></span><span class="line"><span class="cl"><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// First test
-</span></span></span><span class="line"><span class="cl"><span class="n">covid_test</span><span class="p">.</span><span class="n">update_with_test</span><span class="p">(</span><span class="mf">0.98</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">);</span>  <span class="c1">// Second test
-</span></span></span><span class="line"><span class="cl"><span class="c1">// Probability updates correctly without manual normalization
-</span></span></span></code></pre></div><h2 id="installation">Installation</h2>
-<p>CBT is header-only. Just include and use:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/cbt.hpp&gt;</span><span class="cp">  </span><span class="c1">// All transforms
-</span></span></span><span class="line"><span class="cl"><span class="c1">// Or specific transforms:
-</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/logarithmic.hpp&gt;</span><span class="cp">
-</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;cbt/odds_ratio.hpp&gt;</span><span class="cp">
-</span></span></span></code></pre></div><p>CMake integration:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cmake" data-lang="cmake"><span class="line"><span class="cl"><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">path/to/cbt</span><span class="p">)</span><span class="err">
-</span></span></span><span class="line"><span class="cl"><span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">your_target</span> <span class="s">PRIVATE</span> <span class="s">cbt::cbt</span><span class="p">)</span><span class="err">
-</span></span></span></code></pre></div><h2 id="why-this-matters">Why This Matters</h2>
-<p>The point of the CBT framework is not that any individual transform is new. Log-domain arithmetic, odds ratios, RNS, these are all well-known. The point is that they are all instances of the same pattern, and once you see the pattern, you stop memorizing techniques and start deriving them.</p>
-<ol>
-<li><strong>Unifying Principle</strong>: Understand diverse techniques as instances of one pattern</li>
-<li><strong>Design Guidance</strong>: The meta-pattern helps you discover new transforms for your specific domain</li>
-<li><strong>Composition Rules</strong>: Transforms can be systematically combined</li>
-<li><strong>Trade-off Analysis</strong>: Makes implicit costs explicit</li>
-</ol>
-<h2 id="resources">Resources</h2>
-<ul>
-<li><strong>GitHub</strong>: <a href="https://github.com/queelius/cbt">github.com/queelius/cbt</a></li>
-<li><strong>Paper</strong>: See <code>paper/cbt_theory.tex</code> for the formal treatment</li>
-</ul>
-]]></content:encoded><category>C++</category><category>numerical-computing</category><category>algorithms</category><category>mathematics</category><category>header-only</category><category>scientific-computing</category></item><item><title>Accumux: Compositional Online Statistical Reductions in C++</title><link>https://metafunctor.com/post/2024-03-01-accumux/</link><pubDate>Fri, 01 Mar 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-03-01-accumux/</guid><description>A C++20 library for composing online statistical accumulators with numerically stable algorithms and algebraic composition.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/accumux">Accumux</a> is a framework for combining statistical accumulators using algebraic composition. The idea is simple: accumulators form a monoid under composition, so you can combine them with <code>+</code>, process data in a single pass, and extract all results.</p>
+</span></span><span class="line"><span class="cl"><span class="n">posterior</span><span class="p">.</span><span class="n">to_probability</span><span class="p">();</span>  <span class="c1">// ~15.4%
+</span></span></span></code></pre></div><p>The transform \(p \mapsto p/(1-p)\) is a homomorphism from Bayesian updates to multiplication. Sequential updates compose by multiplying likelihood ratios. No normalization needed until you want a probability back.</p>
+<h2 id="connection-to-the-series">Connection to the Series</h2>
+<p>The Stepanov perspective says: find the structure, then the algorithm follows. The flip side: if the algorithm you need is expensive in the current structure, maybe you&rsquo;re in the wrong one.</p>
+<p>The <a href="/post/2019-06-modular-stepanov/">modular arithmetic post</a> already showed this implicitly. Working in \(\mathbb{Z}/p\mathbb{Z}\) instead of \(\mathbb{Z}\) gives you multiplicative inverses (when \(p\) is prime) and bounded arithmetic. The <a href="/post/2020-02-rational-stepanov/">rational arithmetic post</a> showed how working in \(\mathbb{Q}\) instead of floating point eliminates rounding error at the cost of GCD computation.</p>
+<p>Those were choosing algebras too. This post just names the pattern.</p>
+<h2 id="the-library">The Library</h2>
+<p>The six transforms live in <a href="https://github.com/queelius/stepanov/tree/master/lib/mutatio"><code>lib/mutatio</code></a> in the stepanov repo. Header-only, like everything else in the series.</p>
+<p>Logarithmic, odds ratio, Stern-Brocot rationals, tropical, modular, and quaternion. Each one follows the same interface pattern: construct from the base domain, operate cheaply in the transformed domain, convert back when needed.</p>
+<p>This is not a production numerical library. Eigen does quaternions better. GMP does rationals better. The point is making the pattern visible, not replacing specialized tools.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;mutatio.hpp&gt;</span><span class="cp">  </span><span class="c1">// All six transforms
+</span></span></span></code></pre></div><h2 id="what-i-left-out">What I Left Out</h2>
+<p>I originally tried to write an academic paper about this, complete with a &ldquo;No Free Lunch theorem&rdquo; and category-theoretic formalization. The theorem was trivially true and the formalism didn&rsquo;t add anything the pattern didn&rsquo;t already say. So I deleted it.</p>
+<p>Some things are better as observations than as theorems. &ldquo;Choose the algebra that makes your dominant operation cheap&rdquo; is one of them.</p>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>algebraic-structures</category><category>numerical-computing</category></item><item><title>Accumux: Compositional Online Statistical Reductions in C++</title><link>https://metafunctor.com/post/2024-03-01-accumux/</link><pubDate>Fri, 01 Mar 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-03-01-accumux/</guid><description>A C++20 library for composing online statistical accumulators with numerically stable algorithms and algebraic composition.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/accumux">Accumux</a> is a framework for combining statistical accumulators using algebraic composition. The idea is simple: accumulators form a monoid under composition, so you can combine them with <code>+</code>, process data in a single pass, and extract all results.</p>
 <h2 id="the-problem">The Problem</h2>
 <p>Computing multiple statistics over large datasets usually means multiple passes over the data, hand-rolled code combining different algorithms, or numerical instability from naive implementations. Accumux solves this with compositional accumulators.</p>
 <h2 id="quick-example">Quick Example</h2>

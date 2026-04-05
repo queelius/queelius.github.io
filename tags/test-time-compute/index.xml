@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Test-Time-Compute on metafunctor</title><link>https://metafunctor.com/tags/test-time-compute/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Sun, 05 Apr 2026 06:39:20 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/test-time-compute/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>I Spent $0.48 to Find Out When MCTS Actually Works for LLM Reasoning</title><link>https://metafunctor.com/post/2026-04-01-i-spent-048-to-find-out-when-mcts-actually-works-for-llm-reasoning/</link><pubDate>Wed, 01 Apr 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-04-01-i-spent-048-to-find-out-when-mcts-actually-works-for-llm-reasoning/</guid><description>Controlled experiments on constraint satisfaction problems. MCTS beats best-of-N only when blind sampling hits a ceiling and the verifier provides a gradient.</description><content:encoded><![CDATA[<p>Does tree search help LLM reasoning? The literature can&rsquo;t decide.</p>
+<p>ReST-MCTS* says yes. AB-MCTS got a NeurIPS spotlight. &ldquo;Limits of
+PRM-Guided Tree Search&rdquo; says no: MCTS with a process reward model used
+11x more tokens than best-of-N for zero accuracy gain. Snell et al.
+found beam search <em>degrades</em> performance on easy problems.</p>
+<p>I built <a href="https://github.com/queelius/mcts-reasoning">mcts-reasoning</a>
+and ran controlled experiments to find where the boundary is.
+Total API cost: $0.48.</p>
+<h2 id="setup">Setup</h2>
+<p>Four methods, same budget. Eight solution attempts per problem:</p>
+<ul>
+<li><strong>Pass@1</strong>: One shot.</li>
+<li><strong>Best-of-N</strong>: 8 independent solutions, verifier scores each, pick the best.</li>
+<li><strong>Self-consistency</strong>: 8 solutions, majority vote.</li>
+<li><strong>MCTS</strong>: 5 initial solutions scored by verifier, then 3 more guided by UCB1, informed by what worked and what failed.</li>
+</ul>
+<p>Model: Claude Haiku 4.5. Problems: constraint satisfaction. Find integer
+values for variables satisfying simultaneous constraints. Example:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="n">Find</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">D</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">F</span> <span class="n">satisfying</span> <span class="n">ALL</span> <span class="n">constraints</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">1.</span> <span class="n">A</span> <span class="o">*</span> <span class="n">D</span> <span class="o">=</span> <span class="mi">21</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">2.</span> <span class="n">C</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="n">F</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">3.</span> <span class="n">B</span> <span class="o">*</span> <span class="n">F</span> <span class="o">=</span> <span class="mi">20</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">4.</span> <span class="n">E</span> <span class="o">=</span> <span class="n">A</span> <span class="o">+</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">5.</span> <span class="n">D</span> <span class="o">+</span> <span class="n">B</span> <span class="o">=</span> <span class="n">A</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">6.</span> <span class="n">E</span> <span class="o">-</span> <span class="n">F</span> <span class="o">=</span> <span class="n">B</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">7.</span> <span class="n">A</span> <span class="n">mod</span> <span class="mi">7</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">8.</span> <span class="n">C</span> <span class="n">mod</span> <span class="mi">4</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">9.</span> <span class="n">B</span> <span class="o">*</span> <span class="n">D</span> <span class="o">=</span> <span class="mi">12</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">10.</span> <span class="n">C</span> <span class="o">&gt;</span> <span class="n">E</span> <span class="o">&gt;</span> <span class="n">A</span> <span class="o">&gt;</span> <span class="n">F</span> <span class="o">&gt;</span> <span class="n">B</span> <span class="o">&gt;</span> <span class="n">D</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">11.</span> <span class="n">A</span> <span class="o">+</span> <span class="n">B</span> <span class="o">+</span> <span class="n">C</span> <span class="o">+</span> <span class="n">D</span> <span class="o">+</span> <span class="n">E</span> <span class="o">+</span> <span class="n">F</span> <span class="o">=</span> <span class="mi">40</span>
+</span></span><span class="line"><span class="cl">  <span class="mf">12.</span> <span class="n">E</span> <span class="o">*</span> <span class="n">D</span> <span class="o">=</span> <span class="mi">27</span>
+</span></span></code></pre></div><p>The verifier is a Python function. Checks each constraint, returns the
+fraction satisfied. No LLM in the loop. Deterministic.</p>
+<h2 id="calibration">Calibration</h2>
+<p>Easy problems first (3-5 variables, 5-9 constraints). Haiku solved them
+in one pass. All methods tied at 100%.</p>
+<p>5-variable problems with 9 constraints: Pass@1 dropped to 65%.
+Self-consistency failed one problem. But BestOfN still tied MCTS,
+because with 8 independent samples at least one is usually correct.
+BestOfN just picks it.</p>
+<p>I needed problems where blind sampling hits a ceiling.</p>
+<h2 id="results">Results</h2>
+<p>Ten harder problems: 6-8 variables, 12-15 constraints. Products,
+modular arithmetic, ordering chains, cascading dependencies. Pass@1
+dropped to 29%.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Method</th>
+          <th>Solve Rate</th>
+          <th>Avg Score</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Pass@1</td>
+          <td>29%</td>
+          <td>0.29</td>
+      </tr>
+      <tr>
+          <td>Pass@8 oracle</td>
+          <td>90%</td>
+          <td>0.90</td>
+      </tr>
+      <tr>
+          <td>SC@8</td>
+          <td>90%</td>
+          <td>0.90</td>
+      </tr>
+      <tr>
+          <td>BestOfN@8</td>
+          <td>90%</td>
+          <td>0.90</td>
+      </tr>
+      <tr>
+          <td><strong>MCTS(5+3)</strong></td>
+          <td><strong>100%</strong></td>
+          <td><strong>1.00</strong></td>
+      </tr>
+  </tbody>
+</table>
+<p>MCTS solved all 10. Every other method failed on one problem (v6_3).</p>
+<p>v6_3 is a 6-variable, 12-constraint problem where none of 8 independent
+samples found the correct solution. Pass@8 oracle: 0/8.
+Self-consistency picks the most popular wrong answer. BestOfN picks the
+best wrong answer. Both fail.</p>
+<p>MCTS sees that initial attempts satisfied 10/12 constraints but violated
+specific ones. UCB1 selects the most promising partial solution. The
+next attempt, informed by the failure pattern, satisfies all 12.</p>
+<p>Total: $0.48. 180 API calls, about 190K tokens.</p>
+<h2 id="when-mcts-helps">When MCTS Helps</h2>
+<p>The pattern across three rounds of experiments:</p>
+<ol>
+<li>
+<p><strong>Easy problems (Pass@1 &gt; 80%)</strong>: No advantage. The model solves them.</p>
+</li>
+<li>
+<p><strong>Medium (Pass@1 40-70%)</strong>: MCTS ties BestOfN. Blind sampling usually
+contains a correct solution. The verifier selects it.</p>
+</li>
+<li>
+<p><strong>Hard (Pass@1 &lt; 30%)</strong>: MCTS pulls ahead. When Pass@8 oracle is
+low, blind sampling can&rsquo;t find the answer. MCTS&rsquo;s informed exploration
+does.</p>
+</li>
+</ol>
+<p>The condition: <strong>MCTS adds value when independent sampling hits a ceiling
+and the verifier provides a gradient.</strong></p>
+<p>The gradient part matters. A binary pass/fail verifier says &ldquo;wrong&rdquo; but
+not how wrong. Partial credit (constraints satisfied / total) gives MCTS
+something to work with. The exploration phase sees what&rsquo;s close and
+adjusts.</p>
+<h2 id="why-self-consistency-cant-help">Why Self-Consistency Can&rsquo;t Help</h2>
+<p>Self-consistency and UCB1 have a structural conflict.</p>
+<p>Self-consistency rewards consensus. UCB1 rewards diversity: it explores
+undervisited branches precisely because they&rsquo;re undervisited. Using
+self-consistency as a reward signal inside MCTS tells the tree to explore
+and converge at the same time. The exploration term pushes toward novel
+solutions. The consistency reward penalizes them.</p>
+<p>On v6_3, all 8 samples failed. SC selected the most common failure
+mode. A per-path verifier doesn&rsquo;t have this problem. Each solution is
+scored against the constraints independently. Good solutions propagate
+through the tree regardless of what other branches found.</p>
+<p>I haven&rsquo;t seen this conflict discussed in the literature. Most prior
+MCTS-for-LLM work uses per-path evaluation without explaining why
+self-consistency is absent.</p>
+<h2 id="what-the-literature-says">What the Literature Says</h2>
+<p>These results fit a pattern.</p>
+<p><strong>Snell et al. (2024)</strong>: compute-optimal test-time scaling needs
+difficulty-adaptive allocation. Easy problems need no search. Hard
+problems need search plus good verifiers.</p>
+<p><strong>&ldquo;Limits of PRM-Guided Tree Search&rdquo; (2025)</strong>: PRM-guided MCTS fails to
+beat best-of-N because PRM quality degrades with depth. Noisy reward,
+no benefit from search.</p>
+<p><strong>&ldquo;Don&rsquo;t Get Lost in the Trees&rdquo; (ACL 2025)</strong>: verifier variance causes
+search pathologies. Deterministic verifiers avoid this.</p>
+<p><strong>Chen et al. (2024)</strong>: 90% discriminator accuracy threshold for tree
+search to beat reranking. Deterministic constraint checkers hit 100%.</p>
+<p>MCTS was built for games with perfect information. Chess and Go have
+deterministic reward signals. When the reward is noisy, the search can&rsquo;t
+exploit it.</p>
+<h2 id="the-verification-asymmetry">The Verification Asymmetry</h2>
+<p>The problems where MCTS helps share a structure: easy to verify, hard to
+solve.</p>
+<p>A constraint satisfaction problem with 8 variables and 15 constraints is
+hard to solve. The LLM has to coordinate assignments across all
+variables simultaneously. Checking a proposed solution is trivial:
+evaluate each constraint, count violations.</p>
+<p>This is the asymmetry that makes NP problems interesting. Checking a
+certificate is polynomial. Finding one is (presumably) not. It&rsquo;s why
+search works for code generation (run the tests) and proof checking
+(verify the steps) but not for open-ended essay writing (no verifier).</p>
+<p>The same asymmetry shows up at other levels.
+<a href="/post/rpsdg/">Reverse-Process Synthetic Data Generation</a> exploits it
+for training data: run the easy direction (differentiation) to get
+solved examples of the hard direction (integration).
+<a href="/post/2025-01-05-science-as-verifiable-search/">Science as Verifiable Search</a>
+is the same observation about scientific method: science is search
+through hypothesis space, and the bottleneck is the cost of testing.
+Cheap verification enables fast iteration.</p>
+<p>At training time, verifiable rewards let you RL a model into producing
+better reasoning (DeepSeek-R1, GRPO). At inference time, verifiable
+rewards let you search over candidate solutions (MCTS, best-of-N). At
+the level of scientific discovery, verifiable predictions let you prune
+hypothesis space. Sutton&rsquo;s &ldquo;Reward is Enough&rdquo; is the abstract version
+of this.</p>
+<p>The practical question for LLM reasoning: can you write a verifier? If
+yes, search is worth trying. If not, best-of-N with an LLM judge is
+probably the ceiling.</p>
+<h2 id="code">Code</h2>
+<p>Open source: <a href="https://github.com/queelius/mcts-reasoning">mcts-reasoning</a>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install -e <span class="s2">&#34;.[anthropic]&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>your-key
+</span></span><span class="line"><span class="cl">python experiments/run_csp.py --hard --budget 1.00
+</span></span></code></pre></div><p>The provider tracks token usage and enforces budget caps.</p>
+<h2 id="limitations">Limitations</h2>
+<p>The problems are hand-crafted. A generator calibrated by Pass@1 rate
+would be more convincing. Ten problems shows the pattern but isn&rsquo;t
+enough for statistical significance.</p>
+<p>I tested one model. A weaker model might show MCTS advantage on simpler
+problems. A stronger one would need harder problems.</p>
+<p>The MCTS exploration context shows which solutions scored well and
+poorly, but not which specific constraints were violated. Adding
+evaluator feedback to the exploration prompt is an obvious improvement
+I haven&rsquo;t tried yet.</p>
+<h2 id="summary">Summary</h2>
+<p>Three conditions for MCTS to help LLM reasoning:</p>
+<ol>
+<li>A <strong>deterministic verifier</strong>. Not a learned reward model, not an LLM judge.</li>
+<li><strong>Partial credit</strong> from the verifier. A gradient, not just pass/fail.</li>
+<li>A problem <strong>hard enough</strong> that blind sampling can&rsquo;t reliably solve it.</li>
+</ol>
+<p>When all three hold, MCTS outperforms best-of-N, self-consistency, and
+single-pass. When any one fails, it doesn&rsquo;t.</p>
+]]></content:encoded><category>mcts</category><category>llm</category><category>reasoning</category><category>test-time-compute</category><category>constraint-satisfaction</category></item></channel></rss>
