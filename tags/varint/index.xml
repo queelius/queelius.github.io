@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Varint on metafunctor</title>
+    <link>https://metafunctor.com/tags/varint/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/varint/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>VByte / Varint</title>
+      <link>https://metafunctor.com/post/2024-02-vbyte-wire-formats/</link>
+      <pubDate>Sun, 25 Feb 2024 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2024-02-vbyte-wire-formats/</guid>
+      <description>VByte trades bit-level precision for byte-alignment, and that trade wins in practice. Most production columnar databases and network protocols use VByte for integer encoding.</description>
+      <content:encoded><![CDATA[<p><em>Every code in this series so far operates at bit granularity. VByte does not. It gives up bit-level precision for byte-alignment, and in production systems, that trade wins most of the time.</em></p>
+<h2 id="the-practical-question">The Practical Question</h2>
+<p>Every code in this series so far operates at bit granularity. Elias gamma encodes 1 in a single bit. Fibonacci coding uses exactly as many bits as the Zeckendorf representation requires. Bit packing is theoretically attractive because it minimizes the number of bits written, which minimizes the encoded size.</p>
+<p>But bit packing is computationally expensive. Reading or writing a single bit requires a shift, a mask, and often a branch to handle byte boundaries. Encoding a sequence of integers this way burns CPU cycles that scale with the number of integers, independent of their values. For high-throughput applications, the overhead of bit manipulation can easily exceed the savings from compact encoding.</p>
+<p>VByte (also called Varint in Google&rsquo;s ecosystem, and LEB128 in the DWARF debug format) trades a small amount of length efficiency for byte-alignment. The idea is simple: encode each integer as a sequence of 7-bit groups, one per byte, with a continuation flag in the high bit of each byte. The result is self-delimiting, compact for small values, and requires no bit-level manipulation to decode.</p>
+<p>VByte is the encoding used by Protocol Buffers for all integer fields. It appears in Apache Arrow, Parquet, Snappy&rsquo;s block format, LevelDB&rsquo;s metadata, and most production columnar file formats. These are high-throughput systems. Byte-alignment is why VByte is their choice over the more compact universal codes from posts 4 through 7.</p>
+<hr>
+<h2 id="the-encoding">The Encoding</h2>
+<p>VByte splits an integer into 7-bit groups, starting from the least significant bits. Each group occupies one byte where bits 0 through 6 carry 7 data bits and bit 7 is a continuation flag: <code>1</code> means more bytes follow, <code>0</code> means this is the last byte.</p>
+<p>A value in $[0, 127]$ fits in a single byte (continuation flag clear). A value in $[128, 16383]$ requires two bytes (first byte has flag set, second has flag clear). The pattern continues: each additional byte adds 7 bits of capacity.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">VByte</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">128</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span> <span class="n">byte</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="p">((</span><span class="n">n</span> <span class="o">&amp;</span> <span class="mh">0x7F</span><span class="p">)</span> <span class="o">|</span> <span class="mh">0x80</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">8</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">byte</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">n</span> <span class="o">&gt;&gt;=</span> <span class="mi">7</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span> <span class="n">byte</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">n</span> <span class="o">&amp;</span> <span class="mh">0x7F</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">8</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">byte</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">shift</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span> <span class="n">byte</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">8</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="n">byte</span> <span class="o">|=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span> <span class="o">|=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">(</span><span class="n">byte</span> <span class="o">&amp;</span> <span class="mh">0x7F</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="n">shift</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">((</span><span class="n">byte</span> <span class="o">&amp;</span> <span class="mh">0x80</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">shift</span> <span class="o">+=</span> <span class="mi">7</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p><strong>Aside:</strong> This implementation routes each byte LSB-first through a bit-level sink, for consistency with the rest of the series. Real VByte implementations do not use a bit sink at all: they write bytes directly to a buffer. A production VByte encoder is a tight loop over <code>byte = (n &amp; 0x7F) | 0x80; *ptr++ = byte; n &gt;&gt;= 7;</code>, terminating with <code>*ptr++ = n</code>. No bit shuffling, no branching on byte boundaries. The bit-level wrapper here exists only to keep the pedagogical interface uniform.</p>
+<hr>
+<h2 id="the-implied-prior">The Implied Prior</h2>
+<p>VByte&rsquo;s length function is:</p>
+$$L(n) = 8 \cdot \left\lceil \frac{\lfloor \log_2(n+1) \rfloor + 1}{7} \right\rceil \text{ bits}$$<p>with a minimum of 8 bits. Equivalently, the number of bytes is $\lceil \text{bit_width}(n) / 7 \rceil$.</p>
+<p>Within each byte-length tier, all values have the same encoded length:</p>
+<ul>
+<li>1 byte (8 bits): $n \in [0, 127]$, all 128 values.</li>
+<li>2 bytes (16 bits): $n \in [128, 16383]$, all 16256 values.</li>
+<li>3 bytes (24 bits): $n \in [16384, 2097151]$, and so on.</li>
+</ul>
+<p>This &ldquo;step-uniform&rdquo; distribution is VByte&rsquo;s implied prior: within each tier, it treats all values as equally likely. VByte is optimal for sources where the byte-length of each value is geometrically distributed, with most values falling in the first few tiers.</p>
+<p>Real-world integer distributions for database columns, network port numbers, document lengths, and similar data tend to be heavily skewed toward small values. For these sources, VByte is competitive: most values land in the 1-byte or 2-byte tier, so average encoded length stays close to the minimum.</p>
+<p>VByte does not adapt within a tier. If your values cluster heavily below 64 (half the 1-byte range), VByte wastes the unused bits in each byte. In that case, Elias gamma would be more efficient. The trade is explicit: VByte gives up intra-tier precision for byte-alignment.</p>
+<hr>
+<h2 id="length-comparison">Length Comparison</h2>
+<p>How does VByte compare to the universal codes from earlier posts? The table below shows codeword lengths in bits for selected values:</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>VByte</th>
+          <th>Elias Gamma</th>
+          <th>Elias Delta</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>8</td>
+          <td>1</td>
+          <td>1</td>
+      </tr>
+      <tr>
+          <td>100</td>
+          <td>8</td>
+          <td>13</td>
+          <td>11</td>
+      </tr>
+      <tr>
+          <td>1,000</td>
+          <td>16</td>
+          <td>19</td>
+          <td>16</td>
+      </tr>
+      <tr>
+          <td>$2^{20}$</td>
+          <td>24</td>
+          <td>41</td>
+          <td>29</td>
+      </tr>
+      <tr>
+          <td>$2^{32}$</td>
+          <td>40</td>
+          <td>65</td>
+          <td>43</td>
+      </tr>
+  </tbody>
+</table>
+<p>For small values (1 to 127), VByte is much worse than Gamma or Delta: 8 bits vs 1 bit for $n = 1$. Byte-alignment is expensive at the small end.</p>
+<p>For medium values (around 1000), VByte is competitive with Delta. For large values, VByte&rsquo;s growth rate is $8 \lceil \log_2(n) / 7 \rceil \approx 1.14 \log_2(n)$, while Gamma grows as $2 \log_2(n)$ and Delta grows as approximately $\log_2(n) + 2\log_2(\log_2(n))$. For large $n$, VByte is actually more compact than Gamma and not far behind Delta.</p>
+<p>The pattern: for very small values, use Gamma or a short fixed-width code. For skewed data with occasional large values, VByte often beats everything else once you factor in decoding speed.</p>
+<hr>
+<h2 id="why-it-wins-in-practice">Why It Wins in Practice</h2>
+<p>VByte&rsquo;s advantage is not in bits-per-symbol. It is in decoding throughput.</p>
+<p>A bit-level Elias gamma decoder must maintain a bit offset within a byte, mask bits across byte boundaries, and branch on every symbol. A VByte decoder reads whole bytes, uses a single <code>&amp; 0x7F</code> to extract 7 data bits, and checks a single flag bit. The inner loop is:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// Production VByte decoder (byte-level, not bit-level):
+</span></span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="n">byte</span> <span class="o">&amp;</span> <span class="mh">0x80</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">result</span> <span class="o">|=</span> <span class="p">(</span><span class="n">byte</span> <span class="o">&amp;</span> <span class="mh">0x7F</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="n">shift</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">shift</span> <span class="o">+=</span> <span class="mi">7</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">byte</span> <span class="o">=</span> <span class="o">*</span><span class="n">ptr</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">|=</span> <span class="n">byte</span> <span class="o">&lt;&lt;</span> <span class="n">shift</span><span class="p">;</span>
+</span></span></code></pre></div><p>Modern CPUs execute this at cache-fill bandwidth: around 1 to 3 bytes per clock cycle. For a stream of small values where most decode as a single byte, VByte decoding saturates L1 cache bandwidth.</p>
+<p>The SIMD VByte decoders (such as the ones in Daniel Lemire&rsquo;s library, implemented with AVX2) process 128 or 256 bits at a time by predicting lengths from the continuation bits, shuffling bytes, and accumulating results in vector registers. These decoders achieve several GB/s of throughput on modern hardware.</p>
+<p>Bit-level Gamma or Delta decoders, by contrast, typically top out around 100 to 200 MB/s because each symbol requires multiple shifts and masks that cannot easily be vectorized.</p>
+<hr>
+<h2 id="the-engineering-trade">The Engineering Trade</h2>
+<p>VByte is the engineer&rsquo;s compromise: theoretically suboptimal, practically dominant. This is not a tension to resolve; it is a fact to internalize.</p>
+<p>The information-theoretic case says Elias gamma is more efficient for small values, Elias delta is more efficient for a wide range of values, and Rice coding is more efficient when the distribution is geometric and you know the mean. All of these statements are true. In bits per symbol, VByte loses.</p>
+<p>The engineering analysis says the constant factor of bit-vs-byte operations swamps the small length savings for high-throughput workloads. A gamma decoder that saves 3 bits per integer but decodes at 150 MB/s is slower in wall-clock time than a VByte decoder that wastes 5 bits per integer but decodes at 3 GB/s. Byte-aligned and theoretically suboptimal beats bit-optimal and slow. This is not a coincidence; it is why byte-alignment exists.</p>
+<p>This pattern recurs throughout systems engineering. A theoretically optimal sort requires $O(n \log n)$ comparisons; radix sort uses $O(nk)$ operations and often wins in practice because $k$ is fixed and the constant factor is small. VByte is the radix sort of integer compression.</p>
+<p>The lesson is not that theory is wrong. It is that the relevant model for engineering decisions includes hardware constants, cache effects, and parallelism, not just asymptotic bit counts.</p>
+<hr>
+<h2 id="cross-references-and-footnotes">Cross-references and Footnotes</h2>
+<p><strong>Next in series:</strong> Post 9 covers Huffman coding (forthcoming). Huffman shifts from universal codes to entropy-optimal codes: given a known source distribution, Huffman constructs the optimal prefix-free code. Unlike Rice/Golomb (which assume a specific parametric family) or VByte (which ignores the distribution), Huffman uses the actual probabilities.</p>
+<p><strong>Earlier in series:</strong></p>
+<ul>
+<li><a href="/post/2022-06-elias-gamma-wire-formats/">Unary and Elias Gamma</a> (post 4): Gamma is the bit-level alternative to VByte for sources with heavy skew toward small values.</li>
+<li><a href="/post/2022-11-elias-delta-omega-wire-formats/">Elias Delta and Omega</a> (post 5): Delta is more bit-efficient than VByte for large values, at the cost of decoding complexity.</li>
+<li><a href="/post/2023-04-fibonacci-wire-formats/">Fibonacci Coding</a> (post 6): Fibonacci codes also encode one integer per read without byte alignment, using a very different structural property.</li>
+<li><a href="/post/2023-09-rice-golomb-wire-formats/">Rice / Golomb</a> (post 7): for geometrically distributed data with known mean, Rice outperforms VByte in bits-per-symbol, but VByte wins in decoding speed.</li>
+</ul>
+<p><strong>Cross-series:</strong> Byte-alignment is orthogonal to the type-algebra story in the Stepanov bridge posts. VByte&rsquo;s byte structure does not compose with the <code>Either</code>/<code>Product</code> algebraic codec combinators in any natural way; it is a flat encoding designed for performance, not algebraic regularity.</p>
+<p><strong>Production code:</strong> The <code>VByte</code> struct in this post matches the algorithmic structure of the production implementation in <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC</a>: see <code>include/pfc/codecs.hpp</code>. The PFC version integrates with <code>BitReader</code>/<code>BitWriter</code> infrastructure from <code>core.hpp</code> in the same bit-level style used here. For the SIMD-optimized byte-level version used in production databases, see Google&rsquo;s protobuf-cpp or Daniel Lemire&rsquo;s <code>FastPFOR</code> and <code>streamvbyte</code> libraries.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>coding-theory</category>
+      
+      <category>prefix-free</category>
+      
+      <category>universal-codes</category>
+      
+      <category>vbyte</category>
+      
+      <category>varint</category>
+      
+      <category>byte-aligned</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

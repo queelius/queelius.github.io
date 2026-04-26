@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Compressed-Bitmaps on metafunctor</title>
+    <link>http://localhost:1313/tags/compressed-bitmaps/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 15:10:20 -0500</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/compressed-bitmaps/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>http://localhost:1313/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>http://localhost:1313/</link>
+    </image>
+    
+    <item>
+      <title>RoaringBitmap</title>
+      <link>http://localhost:1313/post/2025-12-roaring-bitmap-wire-formats/</link>
+      <pubDate>Sun, 07 Dec 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/post/2025-12-roaring-bitmap-wire-formats/</guid>
+      <description>A hybrid compressed bitmap that picks the optimal sub-representation (array, bitmap, or run-length) per 64K-integer chunk based on density. No single prior dominates: Roaring commits to none and adapts per chunk.</description>
+      <content:encoded><![CDATA[<p><em>No single representation is optimal across all density regimes. RoaringBitmap does not try to pick one. It measures, then decides, per chunk.</em></p>
+<h2 id="hybrid-representation-as-polyalgorithm">Hybrid Representation as Polyalgorithm</h2>
+<p>Representing a compressed integer set forces a decision you cannot avoid: the best encoding depends on how dense the data is. Four density regimes each have a natural winner:</p>
+<ul>
+<li><strong>Very sparse</strong> (fewer than ~4096 elements in a 64K range): a sorted array of 16-bit values. Each element costs 2 bytes; 4096 elements cost 8 KB.</li>
+<li><strong>Moderate to dense</strong> (more than ~4096 elements): a dense bit vector, 8 KB for the full 64K range. Contains-check is O(1) via bit indexing.</li>
+<li><strong>Very dense</strong> (almost full): a sorted array of the absent elements, using the same 2 bytes per gap.</li>
+<li><strong>Clustered runs</strong> (many consecutive values): run-length encoding. A run of $k$ consecutive integers costs one 4-byte record regardless of $k$.</li>
+</ul>
+<p>No single prior dominates across all four regimes. RoaringBitmap (Lemire et al., 2014) is the hybrid answer: partition the 32-bit integer space into 64K-element chunks (indexed by the high 16 bits of each value), then assign each chunk the optimal container based on its actual density. The structure adapts per chunk, not globally.</p>
+<h2 id="the-three-container-types">The Three Container Types</h2>
+<p>Every 32-bit integer $v$ maps to chunk-id $v \gg 16$ and low bits $v \mathbin{&amp;} 0\text{xFFFF}$. Each chunk stores its low bits in one of three containers:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">ArrayContainer</span>  <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="o">&gt;</span> <span class="n">elems_</span><span class="p">;</span>   <span class="cm">/* sorted, unique */</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BitmapContainer</span> <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">words_</span><span class="p">;</span>   <span class="cm">/* 1024 words = 8 KB */</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">RunContainer</span>    <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="p">,</span><span class="kt">uint16_t</span><span class="o">&gt;&gt;</span> <span class="n">runs_</span><span class="p">;</span> <span class="cm">/* (start, len-1) */</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">ContainerVariant</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="n">ArrayContainer</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="p">,</span> <span class="n">RunContainer</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">RoaringBitmap</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="p">,</span> <span class="n">ContainerVariant</span><span class="o">&gt;</span> <span class="n">chunks_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="n">add</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="nf">contains</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">v</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">cardinality</span><span class="p">()</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">optimize</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="nf">union_with</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="nf">intersection_with</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="nf">difference</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p><code>ArrayContainer</code> uses a sorted <code>std::vector&lt;uint16_t&gt;</code>. Contains-check is binary search, O(log n). Add is sorted insertion, O(n) worst case but O(1) amortized for sequential loads. Space: 2 bytes per element.</p>
+<p><code>BitmapContainer</code> stores 1024 <code>uint64_t</code> words covering all 65536 possible values. Contains-check is O(1): <code>(words_[v/64] &gt;&gt; (v%64)) &amp; 1</code>. Add is O(1). Cardinality requires scanning all 1024 words with popcount, which is fast in practice. Space: fixed 8 KB regardless of occupancy.</p>
+<p><code>RunContainer</code> stores runs as (start, length-1) pairs sorted by start. A run <code>(s, l)</code> covers values $s$ through $s+l$ inclusive, using 4 bytes. Space grows with the number of runs, not the number of values. One million consecutive integers fit in one 4-byte record.</p>
+<p>The threshold between array and bitmap is 4096 elements: at that point both cost 8 KB, making array-to-bitmap conversion space-neutral. Above 4096, bitmap wins on both space and access time.</p>
+<h2 id="the-conversion-logic">The Conversion Logic</h2>
+<p>When a chunk crosses the array-to-bitmap threshold, it converts automatically on the next <code>add</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">add</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">cid</span> <span class="o">=</span> <span class="n">v</span> <span class="o">&gt;&gt;</span> <span class="mi">16</span><span class="p">,</span> <span class="n">low</span> <span class="o">=</span> <span class="n">v</span> <span class="o">&amp;</span> <span class="mh">0xFFFF</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">cid</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">it</span> <span class="o">==</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">emplace</span><span class="p">(</span><span class="n">cid</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="p">{});</span> <span class="n">it</span> <span class="o">=</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">cid</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">visit</span><span class="p">([</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">using</span> <span class="n">T</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">decay_t</span><span class="o">&lt;</span><span class="k">decltype</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">c</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">low</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">c</span><span class="p">.</span><span class="n">cardinality</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">ARRAY_MAX</span><span class="p">)</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span> <span class="o">=</span> <span class="n">array_to_bitmap</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>  <span class="c1">// convert
+</span></span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">c</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">low</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="cm">/* RunContainer: rebuild via bitmap */</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The conversion functions are straightforward:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">BitmapContainer</span> <span class="nf">array_to_bitmap</span><span class="p">(</span><span class="k">const</span> <span class="n">ArrayContainer</span><span class="o">&amp;</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">BitmapContainer</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">uint16_t</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">a</span><span class="p">.</span><span class="n">elements</span><span class="p">())</span> <span class="n">b</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ArrayContainer</span> <span class="nf">bitmap_to_array</span><span class="p">(</span><span class="k">const</span> <span class="n">BitmapContainer</span><span class="o">&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ArrayContainer</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">w</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">w</span> <span class="o">&lt;</span> <span class="n">b</span><span class="p">.</span><span class="n">raw_words</span><span class="p">().</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">w</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">word</span> <span class="o">=</span> <span class="n">b</span><span class="p">.</span><span class="n">raw_words</span><span class="p">()[</span><span class="n">w</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="p">{</span> <span class="n">a</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">w</span><span class="o">*</span><span class="mi">64</span> <span class="o">+</span> <span class="n">__builtin_ctzll</span><span class="p">(</span><span class="n">word</span><span class="p">));</span> <span class="n">word</span> <span class="o">&amp;=</span> <span class="n">word</span><span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Run conversion is explicit, called via <code>optimize()</code> after bulk-loading:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">optimize</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="p">[</span><span class="n">cid</span><span class="p">,</span> <span class="n">var</span><span class="p">]</span> <span class="o">:</span> <span class="n">chunks_</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">visit</span><span class="p">([</span><span class="o">&amp;</span><span class="n">var</span><span class="p">](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">using</span> <span class="n">T</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">decay_t</span><span class="o">&lt;</span><span class="k">decltype</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="o">&gt;</span><span class="p">)</span>  <span class="n">var</span> <span class="o">=</span> <span class="n">array_to_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">else</span> <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="n">var</span> <span class="o">=</span> <span class="n">bitmap_to_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">},</span> <span class="n">var</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The automatic conversion on <code>add</code> handles sparse-to-dense transitions. Run detection is deferred to <code>optimize()</code> because detecting runs incrementally during insertion is not worth the overhead. Bulk-load first, then call <code>optimize()</code>.</p>
+<h2 id="the-operations">The Operations</h2>
+<p>Set operations work chunk-by-chunk. Each chunk dispatches on its container type via <code>std::visit</code>. Union iterates over the other bitmap&rsquo;s chunks and adds each element into the result. Intersection only considers chunks present in both bitmaps. Difference keeps elements from the first bitmap not present in the second.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">RoaringBitmap</span> <span class="nf">union_with</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="n">result</span> <span class="o">=</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="p">[</span><span class="n">cid</span><span class="p">,</span> <span class="n">var</span><span class="p">]</span> <span class="o">:</span> <span class="n">other</span><span class="p">.</span><span class="n">chunks_</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">visit</span><span class="p">([</span><span class="o">&amp;</span><span class="p">](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">using</span> <span class="n">T</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">decay_t</span><span class="o">&lt;</span><span class="k">decltype</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="k">for</span> <span class="p">(</span><span class="kt">uint16_t</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">c</span><span class="p">.</span><span class="n">elements</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">result</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">(</span><span class="n">cid</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">16</span> <span class="o">|</span> <span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// iterate set bits via __builtin_ctzll, add each
+</span></span></span><span class="line"><span class="cl">            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// iterate runs, add each value in range
+</span></span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">},</span> <span class="n">var</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Each chunk&rsquo;s operation is <code>std::visit</code> dispatching to the algorithm that matches the container type. No single code path handles all cases; the type system ensures each case is explicit. This is compile-time polymorphism without virtual dispatch.</p>
+<h2 id="why-it-wins">Why It Wins</h2>
+<p>RoaringBitmap has been measured to compress 50 to 90 percent versus uncompressed bit arrays in typical workloads, and 2 to 5 times better than EWAH (Enhanced Word-Aligned Hybrid) and CONCISE, which are earlier competing bitmap compression formats.</p>
+<p>The reasons are structural, not incidental:</p>
+<ul>
+<li><strong>Adaptive</strong>: each chunk independently picks the right encoding. A bitmap with one dense chunk and many sparse chunks does not pay the 8 KB overhead for every chunk.</li>
+<li><strong>Fast operations</strong>: union and intersection iterate only over present chunks. A chunk absent in either operand contributes nothing to the result.</li>
+<li><strong>Composable</strong>: the outer API (add, contains, cardinality, union, intersection, difference) is independent of the per-chunk representation. Callers need not know which container type is active.</li>
+<li><strong>Predictable</strong>: the threshold (ARRAY_MAX = 4096) is fixed and documented. Performance is predictable from the input density.</li>
+</ul>
+<p>Real-world adoption: Apache Lucene uses RoaringBitmap for posting lists. Apache Druid and ClickHouse use it for filter bitmaps. The reference Java implementation (RoaringBitmap library by Lemire, Kaser, et al.) has tens of millions of downloads.</p>
+<h2 id="the-polyalgorithm-pattern">The Polyalgorithm Pattern</h2>
+<p>What RoaringBitmap does has a name: polyalgorithm. A single interface dispatches to the algorithm optimal for the current input characteristics. The decision is made at runtime based on measured data properties (chunk density), not by the caller.</p>
+<p>This is not unusual. <code>std::sort</code> dispatches to insertion sort for small ranges and introsort for larger ones. Hash table resize policies switch behavior based on load factor. Compiler optimization pipelines route functions through different pass sequences based on size and structure. The pattern is common because the underlying problem is common: no single algorithm is uniformly best, and the right answer depends on properties you only know at runtime.</p>
+<p>The connection to this series: each container type in RoaringBitmap is the right choice for a specific prior over chunk density. The array container assumes density is low; the bitmap assumes moderate to high; the run container assumes clustering. Post 3 of this series framed a coding choice as an implicit prior over the data distribution. RoaringBitmap makes that explicit, maintaining three priors simultaneously and selecting the matching one per chunk. It does not commit to a prior globally because no global prior fits all chunks.</p>
+<p>The synthesis of this idea comes in post 13, which closes the arc: codecs as structure, structure as the wire format itself.</p>
+<h2 id="cross-references">Cross-References</h2>
+<ul>
+<li><a href="/post/2025-06-succinct-wire-formats/">Post 11</a> covered succinct bit vectors with O(1) rank and O(log n) select. The <code>BitmapContainer</code> in this post is the dense bit vector from post 11, without the auxiliary index (since we do not need rank/select on individual containers here).</li>
+<li><a href="/post/2022-01-priors-wire-formats/">Post 3</a> framed each codec as an implicit prior over the data distribution. RoaringBitmap is the polyalgorithm result of refusing to pick one prior globally.</li>
+<li>Post 13 (Synthesis: Codecs as Structure) will close the arc.</li>
+</ul>
+<hr>
+<p><em>Footnote: PFC&rsquo;s <code>include/pfc/succinct.hpp</code> includes the full <code>RoaringBitmap</code> implementation with all three container types, conversion functions, and set operations. The pedagogical version in this post covers the same design but omits production details like SIMD-accelerated popcount and memory-pool allocation.</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>data-structures</category>
+      
+      <category>compressed-bitmaps</category>
+      
+      <category>roaring</category>
+      
+      <category>polyalgorithm</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

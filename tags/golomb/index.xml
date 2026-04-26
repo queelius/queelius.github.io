@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Golomb on metafunctor</title>
+    <link>https://metafunctor.com/tags/golomb/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/golomb/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Rice / Golomb</title>
+      <link>https://metafunctor.com/post/2023-09-rice-golomb-wire-formats/</link>
+      <pubDate>Sun, 17 Sep 2023 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2023-09-rice-golomb-wire-formats/</guid>
+      <description>Rice and Golomb codes are parametric: a single parameter k (or m) tunes the code to a specific geometric distribution. Choosing k is choosing your prior precisely.</description>
+      <content:encoded><![CDATA[<p><em>Every code in this series so far has been fixed. Rice and Golomb are different: they take a parameter, and the parameter is your model of the data.</em></p>
+<h2 id="the-first-parametric-code">The First Parametric Code</h2>
+<p>Every code examined so far in this series has been monolithic. Unary coding is just unary coding. Elias gamma is just Elias gamma. Each one encodes all non-negative integers with a single fixed strategy. You do not get to choose anything about the code beyond whether to use it.</p>
+<p>Rice and Golomb codes break this pattern. They are parametric: a single integer parameter, $k$ for Rice or $m$ for Golomb, tunes the code to a specific source distribution. Rice$(k)$ is not one code but a family of codes, one per value of $k$. Each member of the family is optimal for a specific geometric distribution. Choosing $k$ is choosing your prior precisely.</p>
+<p>This matters because data sources are rarely uniform. Run-length encodings, inter-frame video differences, and the gap sequences in inverted indexes are all approximately geometrically distributed. If you know the mean of your source, you can pick $k$ so that Rice$(k)$ performs near-optimally, without the overhead of a Huffman table or arithmetic coding.</p>
+<p>The key insight: for a geometric source with mean approximately $2^k$, Rice$(k)$ is within a small constant of entropy. No other universal code in this series achieves this. Elias gamma and delta perform well asymptotically but can be far from optimal for a specific geometric distribution with a known mean. Rice exploits that knowledge directly.</p>
+<hr>
+<h2 id="rice-coding">Rice Coding</h2>
+<p>Rice coding splits a non-negative integer $n$ into two parts: a quotient $q = \lfloor n / 2^k \rfloor = n \gg k$ and a remainder $r = n \bmod 2^k = n \mathbin{&amp;} (2^k - 1)$.</p>
+<p>The quotient is encoded in unary: $q$ zero bits followed by a stop bit of <code>1</code>. The remainder is encoded in exactly $k$ bits, MSB first. The total codeword is the concatenation of these two parts.</p>
+<p>Codeword examples for $k = 2$ (remainder is always 2 bits):</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>$q$</th>
+          <th>$r$</th>
+          <th>Codeword</th>
+          <th>Bits</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>0</td>
+          <td>0</td>
+          <td><code>1 00</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>0</td>
+          <td>1</td>
+          <td><code>1 01</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>0</td>
+          <td>2</td>
+          <td><code>1 10</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>0</td>
+          <td>3</td>
+          <td><code>1 11</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>1</td>
+          <td>0</td>
+          <td><code>0 1 00</code></td>
+          <td>4</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>1</td>
+          <td>1</td>
+          <td><code>0 1 01</code></td>
+          <td>4</td>
+      </tr>
+  </tbody>
+</table>
+<p>Codeword length: $(n \gg k) + 1 + k$ bits. The Kraft sum saturates to 1, so Rice is a complete prefix-free code.</p>
+<p>The implied prior is geometric: $P(n) \propto (2^k / (2^k + 1))^{n/2^k}$. For a geometric source with mean $\mu$, the optimal $k$ satisfies $k \approx \log_2(\mu)$.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">K</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Rice</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static_assert</span><span class="p">(</span><span class="n">K</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">K</span> <span class="o">&lt;</span> <span class="mi">64</span><span class="p">,</span> <span class="s">&#34;K must be in [1, 63]&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">q</span> <span class="o">=</span> <span class="n">n</span> <span class="o">&gt;&gt;</span> <span class="n">K</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">r</span> <span class="o">=</span> <span class="n">n</span> <span class="o">&amp;</span> <span class="p">((</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">&lt;&lt;</span> <span class="n">K</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">q</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">K</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">r</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">K</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">))</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="o">++</span><span class="n">q</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">K</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">r</span> <span class="o">=</span> <span class="p">(</span><span class="n">r</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">:</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">{</span><span class="mi">0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">(</span><span class="n">q</span> <span class="o">&lt;&lt;</span> <span class="n">K</span><span class="p">)</span> <span class="o">|</span> <span class="n">r</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The decode mirrors the encode exactly: count zeros for $q$, read $k$ bits for $r$, reconstruct $n = (q \ll k) \mid r$. No tables, no branches beyond the unary scan.</p>
+<hr>
+<h2 id="golomb-coding">Golomb Coding</h2>
+<p>Rice coding requires $m = 2^k$, a power-of-two divisor. For sources where the optimal mean is not a power of two, this forces a choice: round $k$ down and underfit, or round $k$ up and overfit. Golomb coding removes the restriction by allowing any positive integer $m$.</p>
+<p>The quotient part is the same: $q = \lfloor n / m \rfloor$ zero bits, then a stop <code>1</code>. The remainder $r = n \bmod m$ is encoded in <em>truncated binary</em> rather than a fixed-width field.</p>
+<p>Truncated binary encodes values in $[0, m)$ using the minimal-length prefix-free code. Let $b = \lceil \log_2 m \rceil$ and $c = 2^b - m$ (the &ldquo;cutoff&rdquo;). Values $r &lt; c$ are encoded in $b - 1$ bits; values $r \geq c$ are encoded in $b$ bits as $r + c$.</p>
+<p>For $m = 5$: $b = 3$, $c = 3$. Values 0, 1, 2 use 2 bits; values 3, 4 use 3 bits. The codewords:</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>$q$</th>
+          <th>$r$</th>
+          <th>Codeword</th>
+          <th>Bits</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>0</td>
+          <td>0</td>
+          <td><code>1 00</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>0</td>
+          <td>1</td>
+          <td><code>1 01</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>0</td>
+          <td>2</td>
+          <td><code>1 10</code></td>
+          <td>3</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>0</td>
+          <td>3</td>
+          <td><code>1 110</code></td>
+          <td>4</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>0</td>
+          <td>4</td>
+          <td><code>1 111</code></td>
+          <td>4</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>1</td>
+          <td>0</td>
+          <td><code>01 00</code></td>
+          <td>4</td>
+      </tr>
+  </tbody>
+</table>
+<p>When $m$ is a power of two, $c = 0$ and truncated binary reduces to fixed-width $k$-bit encoding, making Golomb$(m)$ identical to Rice$(k)$ where $k = \log_2 m$.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Golomb</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static_assert</span><span class="p">(</span><span class="n">M</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#34;M must be at least 1&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">q</span> <span class="o">=</span> <span class="n">n</span> <span class="o">/</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">M</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">r</span> <span class="o">=</span> <span class="n">n</span> <span class="o">%</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">M</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">q</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">detail</span><span class="o">::</span><span class="n">truncated_binary_encode</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="o">++</span><span class="n">q</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">r</span> <span class="o">=</span> <span class="n">detail</span><span class="o">::</span><span class="n">truncated_binary_decode</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">source</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">q</span> <span class="o">*</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">M</span><span class="p">)</span> <span class="o">+</span> <span class="n">r</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Rice is the fast path, Golomb is the general case. I use Rice when the data distribution is known well enough that a power-of-two mean is a reasonable approximation, and Golomb when I need the extra precision.</p>
+<hr>
+<h2 id="the-parameter-selection">The Parameter Selection</h2>
+<p>Knowing the code is not enough: you need to pick $k$ or $m$. Gallager and van Voorhis (1975) derived the optimal Golomb parameter for a geometric source.</p>
+<p>For a geometric distribution over non-negative integers with mean $\mu$ (so $P(n) = (1-p)^n p$ with $p = 1/\mu$), the optimal Golomb parameter is:</p>
+$$m^* = \left\lceil \frac{-1}{\log_2\!\left(\frac{\mu - 1}{\mu}\right)} \right\rceil$$<p>For Rice, which requires $m = 2^k$, the optimal $k$ is simply $k \approx \log_2(\mu)$:</p>
+$$k^* = \text{round}(\log_2 \mu), \quad k \in [1, 62]$$<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kr">inline</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">optimal_golomb_m</span><span class="p">(</span><span class="kt">double</span> <span class="n">mean</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">p</span> <span class="o">=</span> <span class="p">(</span><span class="n">mean</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="n">mean</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">m_star</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">std</span><span class="o">::</span><span class="n">log2</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">m</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">round</span><span class="p">(</span><span class="n">m_star</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">max</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="p">{</span><span class="mi">1</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kr">inline</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">optimal_rice_k</span><span class="p">(</span><span class="kt">double</span> <span class="n">mean</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">mean</span> <span class="o">&lt;=</span> <span class="mf">2.0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">k_real</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">log2</span><span class="p">(</span><span class="n">mean</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">k</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">max</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">round</span><span class="p">(</span><span class="n">k_real</span><span class="p">)));</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">min</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="p">{</span><span class="mi">62</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The optimality property is verifiable: on a geometric source with mean $\approx 2^3 = 8$, Rice$\langle 3 \rangle$ has much lower redundancy than Rice$\langle 1 \rangle$. The redundancy test in the companion test suite (using the priors library from <a href="/post/2022-01-priors-wire-formats/">post 3</a>) confirms this: <code>r3 &lt; r1</code> by a wide margin, around 2 bits vs 10 bits of expected excess.</p>
+<p>Knowing the mean gives you near-optimal compression for free. The selection formula is a one-liner. The engineering work is estimating the mean, and for most practical sources that estimate is available from the data itself.</p>
+<hr>
+<h2 id="use-cases">Use Cases</h2>
+<p>Rice coding is standard in lossless audio compression. FLAC encodes the residuals of a linear prediction filter using Rice codes. Audio residuals, after prediction, are approximately geometrically distributed with a mean that can be estimated from recent samples. FLAC selects $k$ adaptively per frame, achieving near-optimal compression with simple, fast decode.</p>
+<p>Golomb coding appears in image compression. JPEG-LS uses Golomb codes for its residuals. The non-power-of-2 divisors let JPEG-LS adapt more precisely to local image statistics, squeezing out the small efficiency loss from rounding $m$ to a power of two.</p>
+<p>Bitmap formats and run-length encodings also use Golomb codes. A run of identical pixels has a geometrically distributed length under standard assumptions, and Golomb codes match that distribution directly.</p>
+<p>The pattern: when your data is genuinely geometrically distributed and you can estimate the mean, Rice or Golomb beats every other universal code in this series. Estimating the mean is the engineering work. Once you have it, the code selection is trivial.</p>
+<hr>
+<h2 id="the-connection-to-huffman">The Connection to Huffman</h2>
+<p>Rice and Golomb are parametric codes: given $k$ or $m$, the codewords are determined by a formula. Huffman coding, which we examine in post 9, is a <em>constructed</em> code: given the source probabilities, Huffman builds an optimal prefix-free code by a greedy tree construction.</p>
+<p>For a geometric source with the optimal $k$, Rice coding is asymptotically as efficient as Huffman coding on that source. Rice has a small constant overhead (at most 1 bit above entropy per symbol) because it cannot achieve the exact codeword lengths that Huffman can. But Rice does not require building a tree at run time, transmitting the tree to the decoder, or storing the probability model. Rice decode is a single shift, mask, and unary scan. Huffman decode is a tree traversal.</p>
+<p>The trade is real: Huffman is slightly more efficient on average, Rice is simpler and faster. For sources that are approximately geometric, Rice is the better engineering choice. For sources with arbitrary distributions, you need Huffman or arithmetic coding, which we examine later in the series.</p>
+<p>Forthcoming: post 9 covers Huffman coding.</p>
+<hr>
+<h2 id="cross-references">Cross-references</h2>
+<p><strong>Next in series:</strong> <a href="/post/2024-02-vbyte-wire-formats/">VByte / Varint</a> (post 8), which trades bit-level precision for byte-alignment. VByte is the workhorse of production columnar databases, not because it is theoretically optimal but because byte operations are fast.</p>
+<p><strong>Earlier in series:</strong></p>
+<ul>
+<li><a href="/post/2022-01-priors-wire-formats/">Universal Codes as Priors</a> (post 3): the framework for measuring how well a code matches a source, including the redundancy metric used in the optimality tests here.</li>
+<li><a href="/post/2022-06-elias-gamma-wire-formats/">Unary and Elias Gamma</a> (post 4): the unary coding underlying the quotient part of Rice/Golomb.</li>
+<li><a href="/post/2022-11-elias-delta-omega-wire-formats/">Elias Delta and Omega</a> (post 5): bit-length-based universal codes.</li>
+<li><a href="/post/2023-04-fibonacci-wire-formats/">Fibonacci Coding</a> (post 6): the Zeckendorf representation approach to self-delimiting codes.</li>
+</ul>
+<p><strong>Cross-series links:</strong> The Stepanov bridge posts (<a href="/post/2026-05-codecs-functors-stepanov/">Codecs as Functors</a> and <a href="/post/2026-05-prefix-free-stepanov/">Prefix-Free Codes and Generic Programming</a>) connect this parametric design to the algebraic type-codec story. The parameter $k$ in Rice is conceptually the &ldquo;tag-bit-width&rdquo; choice in the <code>Either</code> sum-type combinator: just as <code>Either&lt;L, R&gt;</code> allocates a fixed number of tag bits to distinguish the two cases, Rice allocates $k$ bits to the fixed-width remainder field. The quotient field is the &ldquo;which slot&rdquo; selector, the remainder is the &ldquo;value within the slot.&rdquo;</p>
+<p><strong>Production code:</strong> The <code>Rice&lt;K&gt;</code> and <code>Golomb&lt;M&gt;</code> structs in this post correspond directly to the production implementations in <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC</a>: see <code>include/pfc/codecs.hpp</code>. The production version adds fixed-size queries, concept constraints, and integration with the <code>BitReader</code>/<code>BitWriter</code> infrastructure from <code>core.hpp</code>. The pedagogical versions here are self-contained and use the same algorithmic logic.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>coding-theory</category>
+      
+      <category>prefix-free</category>
+      
+      <category>universal-codes</category>
+      
+      <category>rice</category>
+      
+      <category>golomb</category>
+      
+      <category>geometric-distribution</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

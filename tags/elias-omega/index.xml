@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Elias-Omega on metafunctor</title>
+    <link>https://metafunctor.com/tags/elias-omega/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/elias-omega/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Elias Delta and Omega</title>
+      <link>https://metafunctor.com/post/2022-11-elias-delta-omega-wire-formats/</link>
+      <pubDate>Sun, 13 Nov 2022 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2022-11-elias-delta-omega-wire-formats/</guid>
+      <description>Elias delta and omega extend Elias gamma by recursively encoding the length prefix. Each step yields shorter codewords for large integers at a small constant cost for small ones.</description>
+      <content:encoded><![CDATA[<p><em>Elias gamma spends too many bits saying how many bits it will use. Delta fixes that. Omega takes the fix one step further. This post is about what happens when you apply recursion to the length prefix.</em></p>
+<h2 id="where-gamma-stops-being-good">Where Gamma Stops Being Good</h2>
+<p>Elias gamma, from <a href="/post/2022-06-elias-gamma-wire-formats/">the previous post</a>, encodes a positive integer $n$ in $2\lfloor \log_2 n \rfloor + 1$ bits: a unary count of $\lfloor \log_2 n \rfloor$ zeros, then a stop bit, then the $\lfloor \log_2 n \rfloor$ trailing binary bits of $n$. For small $n$ this is fine. For large $n$, nearly half the bits are spent on the unary prefix alone.</p>
+<p>The unary prefix is the bottleneck. It encodes the length $L = \lfloor \log_2 n \rfloor + 1$ in the most wasteful possible way: one bit per unit. For $n = 256$, that is 8 zero bits just to say &ldquo;the payload is 8 bits long.&rdquo; The payload itself is also 8 bits, so you are paying a 100% overhead on the length announcement. That is bad, and it gets worse as $n$ grows.</p>
+<p>The fix is obvious once you see it: encode $L$ itself in some shorter code instead of unary. Elias delta does exactly this, replacing the unary length prefix with a gamma-coded length. Elias omega takes the idea one step further and applies the recursion to itself, all the way down.</p>
+<p>Both codes are universal: they assign finite codewords to every positive integer, and the expected codeword length is within a constant factor of optimal for any source whose probabilities decrease with $n$. The improvement over gamma is real and measurable once $n$ grows past a few dozen.</p>
+<p>This post shows both implementations, their implied priors, and the crossover points where each code wins. As in the rest of this series, the code is pedagogical: each header stands alone and the struct-with-encode/decode pattern maps directly onto the <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC library</a>&rsquo;s <code>EliasDelta</code> and <code>EliasOmega</code> in <code>codecs.hpp</code>.</p>
+<hr>
+<h2 id="elias-delta">Elias Delta</h2>
+<p><strong>Algorithm.</strong> Let $L = \lfloor \log_2 n \rfloor + 1$ (the bit-width of $n$, equivalently <code>std::bit_width(n)</code>).</p>
+<ol>
+<li>Encode $L$ in Elias gamma.</li>
+<li>Write the $L - 1$ trailing bits of $n$ after its implicit leading 1, MSB first.</li>
+</ol>
+<p>Gamma encodes $L$ (a small integer) in $O(\log \log n)$ bits instead of $O(\log n)$ bits for the unary prefix. The payload is identical to gamma&rsquo;s: the trailing bits of $n$. The total length is $O(\log n + \log \log n)$.</p>
+<p><strong>Examples.</strong> Let us trace $n \in {1, 2, 3, 4}$:</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>$L = \text{bit_width}(n)$</th>
+          <th>$\gamma(L)$</th>
+          <th>Trailing bits</th>
+          <th>Delta codeword</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+          <td><code>1</code></td>
+          <td>(none)</td>
+          <td><code>1</code></td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>2</td>
+          <td><code>010</code></td>
+          <td><code>0</code></td>
+          <td><code>0100</code></td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>2</td>
+          <td><code>010</code></td>
+          <td><code>1</code></td>
+          <td><code>0101</code></td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>3</td>
+          <td><code>011</code></td>
+          <td><code>00</code></td>
+          <td><code>01100</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>For $n = 1$, the two codes agree: both emit a single <code>1</code> bit. For $n = 4$, gamma would emit <code>00100</code> (5 bits); delta emits <code>01100</code> (5 bits as well, but it will pull ahead soon). The crossover is not immediate, but it is real.</p>
+<p><strong>Implementation.</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Delta</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bits</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">bit_width</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>  <span class="c1">// L = floor(log2(n)) + 1
+</span></span></span><span class="line"><span class="cl">        <span class="n">Gamma</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bits</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// Write the (bits - 1) trailing bits of n, MSB first, skipping the
+</span></span></span><span class="line"><span class="cl">        <span class="c1">// implicit leading 1.
+</span></span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="n">bits</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">n</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&amp;</span> <span class="mi">1u</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0u</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bits</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Gamma</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bits</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">:</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Decoding inverts exactly: read $L$ from a gamma-coded prefix, then read $L - 1$ payload bits, prepending the implicit leading 1. The structure mirrors the encoder step for step. There is nothing subtle here; the recursion is one level deep and terminates immediately.</p>
+<p><strong>Implied prior.</strong> The delta length for $n$ is approximately $\log_2 n + 2 \log_2 \log_2 n + C$ bits. The implied probability is roughly $1 / (n \log^2 n)$, a heavier tail than gamma&rsquo;s $\sim 1/n^2$. Delta is better matched to sources where large values are somewhat more likely than a squared power law would predict.</p>
+<hr>
+<h2 id="elias-omega">Elias Omega</h2>
+<p><strong>Algorithm.</strong> Omega applies the recursion all the way down:</p>
+<ol>
+<li>While $n &gt; 1$:
+a. Record $(n, \text{bit_width}(n))$ on a stack.
+b. Replace $n$ with $\text{bit_width}(n) - 1$.</li>
+<li>Write the stacked values from outermost to innermost, each in its full binary representation.</li>
+<li>Append a terminating 0 bit.</li>
+</ol>
+<p>Decoding reads forward: start with <code>current = 1</code>. At each step, read the next bit. If it is 0, stop and return <code>current</code>. If it is 1, it is the MSB of a <code>(current + 1)</code>-bit value; read the remaining <code>current</code> bits, form the value, set <code>current</code> to it, and repeat.</p>
+<p><strong>Implementation.</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Omega</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">value_type</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;&gt;</span> <span class="n">stack</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">w</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">bit_width</span><span class="p">(</span><span class="n">n</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">            <span class="n">stack</span><span class="p">.</span><span class="n">emplace_back</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">w</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">n</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">stack</span><span class="p">.</span><span class="n">rbegin</span><span class="p">();</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">stack</span><span class="p">.</span><span class="n">rend</span><span class="p">();</span> <span class="o">++</span><span class="n">it</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">auto</span> <span class="p">[</span><span class="n">val</span><span class="p">,</span> <span class="n">width</span><span class="p">]</span> <span class="o">=</span> <span class="o">*</span><span class="n">it</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="n">width</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">val</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&amp;</span> <span class="mi">1u</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0u</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>  <span class="c1">// terminating 0 bit
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">current</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">bool</span> <span class="n">b</span> <span class="o">=</span> <span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">b</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">value_type</span> <span class="n">next</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="n">value_type</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">current</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">next</span> <span class="o">=</span> <span class="p">(</span><span class="n">next</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">:</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="n">current</span> <span class="o">=</span> <span class="n">next</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">current</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The stack-based encoding and forward-reading decode are mirror images of each other. The terminating 0 bit is the base case of the recursion: it tells the decoder there is nothing more to unfold.</p>
+<p><strong>Implied prior.</strong> Omega&rsquo;s length grows as $O(\log^* n)$, the iterated logarithm. This is the theoretical limit for self-delimiting integer codes. The implied probability is slightly heavier-tailed than delta&rsquo;s $1/(n \log^2 n)$.</p>
+<hr>
+<h2 id="the-crossover-points">The Crossover Points</h2>
+<p>Where does each code win?</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>Unary</th>
+          <th>Gamma</th>
+          <th>Delta</th>
+          <th>Omega</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+          <td>1</td>
+          <td>1</td>
+          <td>1</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>4</td>
+          <td>5</td>
+          <td>5</td>
+          <td>6</td>
+      </tr>
+      <tr>
+          <td>16</td>
+          <td>16</td>
+          <td>9</td>
+          <td>9</td>
+          <td>11</td>
+      </tr>
+      <tr>
+          <td>256</td>
+          <td>256</td>
+          <td>17</td>
+          <td>15</td>
+          <td>16</td>
+      </tr>
+      <tr>
+          <td>$2^{16}$</td>
+          <td>65536</td>
+          <td>33</td>
+          <td>25</td>
+          <td>28</td>
+      </tr>
+      <tr>
+          <td>$2^{32}$</td>
+          <td>~4B</td>
+          <td>65</td>
+          <td>43</td>
+          <td>45</td>
+      </tr>
+  </tbody>
+</table>
+<p>For small $n$ (say, $n \leq 8$), gamma beats delta. Both codes use 1 bit for $n=1$; delta is not shorter until $n$ grows to the point where the gamma-coded length prefix pays for itself. That crossover occurs around $n = 16$ for delta versus gamma (they tie there; delta pulls ahead from $n = 32$ onward).</p>
+<p>Omega has more overhead at small $n$ because its recursive structure always adds at least one extra bit beyond delta. Omega beats delta only for very large $n$: roughly $n &gt; 1000$. For any $n$ that fits in 64 bits (up to about $1.8 \times 10^{19}$), the iterated logarithm reaches at most 4 or 5 levels, so the practical advantage of omega over delta is small.</p>
+<p>The takeaway: delta is the default choice for most practical work. Omega is interesting as a theoretical endpoint.</p>
+<hr>
+<h2 id="the-implied-prior-ladder">The Implied Prior Ladder</h2>
+<p>Each step in the encoding hierarchy shifts the implied prior toward a heavier tail:</p>
+<ul>
+<li><strong>Unary</strong>: implied prior $\sim 1/2^n$ (geometric, extremely light tail).</li>
+<li><strong>Gamma</strong>: implied prior $\sim 1/n^2$ (power law with exponent 2).</li>
+<li><strong>Delta</strong>: implied prior $\sim 1/(n \log^2 n)$ (power law with a logarithmic correction).</li>
+<li><strong>Omega</strong>: implied prior slightly heavier than delta&rsquo;s.</li>
+</ul>
+<p>A heavier tail means the code assigns shorter codewords to large $n$ relative to what a pure power law would give. This reduces average code length when the source occasionally produces large outliers. The cost is a small constant overhead for the small values that make up the bulk of typical data.</p>
+<p>If your source is well-modeled by $1/n^2$, gamma is the best match. If large values appear more often than $1/n^2$ predicts (heavier tail), delta is better. Omega is useful primarily as a theoretical reference: the code that matches the heaviest practically encodable tail.</p>
+<p>Choosing a code is choosing a prior. You should at least know what prior you are choosing.</p>
+<p>The <a href="/post/2022-01-priors-wire-formats/">Universal Codes as Priors</a> post gives the machinery for computing redundancy given a source distribution and a code length sequence. The integration tests in <code>test_elias_delta_omega.cpp</code> use that library to verify that delta&rsquo;s redundancy on a $1/n^2$ source stays bounded, and that gamma beats delta on exactly that source.</p>
+<hr>
+<h2 id="the-limit">The Limit</h2>
+<p>Omega achieves $O(\log^* n)$ codeword length, where $\log^<em>$ is the iterated logarithm: the number of times you must apply $\log_2$ before the result drops to 1 or below. For all 64-bit integers, $\log^</em> n \leq 5$.</p>
+<p>This is the theoretical lower bound for self-delimiting codes on positive integers with no distributional assumptions. No prefix-free code can do asymptotically better than $O(\log^* n)$.</p>
+<p>In practice, the constant in that $O$ matters. Omega&rsquo;s codewords for $n \leq 1000$ are frequently longer than delta&rsquo;s. The overhead of adding one more recursion level costs bits even when the recursion only saves bits asymptotically. For any practical $n$ in the range a 64-bit system can produce, delta already achieves most of omega&rsquo;s compression advantage at lower constant overhead.</p>
+<p>So omega is the theoretical ceiling, delta is the practical ceiling, and gamma is the workhorse for distributions where large values are rare. Each code is the right choice for a different source model. That is not a deficiency of any of them; it is the point.</p>
+<hr>
+<h2 id="cross-references-and-notes">Cross-References and Notes</h2>
+<p><strong>Forward:</strong> <a href="/post/2023-04-fibonacci-wire-formats/">Fibonacci Coding</a> (post 6) takes a completely different approach: it uses Zeckendorf&rsquo;s theorem rather than recursive length encoding, and produces self-synchronizing codewords with an interesting error-locality property.</p>
+<p><strong>Back:</strong> <a href="/post/2022-06-elias-gamma-wire-formats/">Unary and Elias Gamma</a> (post 4) covers the base case of this recursion: the gamma code that delta and omega build on. <a href="/post/2022-01-priors-wire-formats/">Universal Codes as Priors</a> (post 3) gives the prior-redundancy framework used in the integration tests.</p>
+<p><strong>Cross-series:</strong> The Stepanov bridge posts (<a href="/post/2026-05-codecs-functors-stepanov/">Bits Follow Types</a> and <a href="/post/2026-05-prefix-free-stepanov/">When Lists Become Bits</a>) show how these codecs become functors over algebraic types, connecting the universal-code theory to the type-algebra layer.</p>
+<p><strong>Production code:</strong> <code>include/pfc/codecs.hpp</code> in the <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC library</a> contains <code>EliasDelta</code> and <code>EliasOmega</code>, production implementations with the same encode/decode interface but zero-copy byte-buffer I/O.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>coding-theory</category>
+      
+      <category>prefix-free</category>
+      
+      <category>universal-codes</category>
+      
+      <category>elias-delta</category>
+      
+      <category>elias-omega</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

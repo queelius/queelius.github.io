@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Entropy-Optimal on metafunctor</title>
+    <link>https://metafunctor.com/tags/entropy-optimal/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/entropy-optimal/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Huffman Coding</title>
+      <link>https://metafunctor.com/post/2024-08-huffman-wire-formats/</link>
+      <pubDate>Sun, 04 Aug 2024 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2024-08-huffman-wire-formats/</guid>
+      <description>Given a finite distribution, Huffman&#39;s algorithm builds the prefix-free code with minimum expected length. It is the first entropy-optimal code in this series.</description>
+      <content:encoded><![CDATA[<p><em>Huffman coding is two things: the optimal length vector for a known distribution, and McMillan&rsquo;s construction applied to that vector. This post develops both.</em></p>
+<h2 id="from-universal-to-optimal">From Universal to Optimal</h2>
+<p>Every code in this series so far has been universal: no prior knowledge of the source distribution required. Elias gamma assigns shorter codewords to smaller integers regardless of which integers actually appear. Fibonacci does the same. VByte packs smaller values into fewer bytes without knowing whether your data clusters at the low end or the high end. Universal codes are defensive: they perform acceptably across a broad class of inputs by committing to none.</p>
+<p>Huffman flips that stance. You bring a finite probability distribution. Huffman finds the prefix-free code with minimum expected codeword length for that distribution. The code is tuned to what you provide and will perform poorly on anything else. Call this the move from defensive to distribution-specific coding.</p>
+<p>The payoff is real. Shannon&rsquo;s source coding theorem says no prefix-free code can achieve expected length below $H(p) = -\sum_i p_i \log_2 p_i$. Huffman gets within 1 bit of that bound. For any prefix-free code, expected length satisfies</p>
+$$H(p) \le L(\text{code}) \le H(p) + 1.$$<p>The upper bound comes from the integer-length constraint: each codeword is a whole number of bits, and $\lceil -\log_2 p_i \rceil \le -\log_2 p_i + 1$. Huffman is optimal subject to this constraint. No prefix-free code does better without abandoning whole-bit codewords.</p>
+<p>That last clause points to the limit of this post and the subject of the next. Arithmetic coding breaks the integer-length constraint by assigning fractional bits in effect, reaching entropy exactly in the limit.</p>
+<h2 id="the-algorithm">The Algorithm</h2>
+<p>The four steps of Huffman&rsquo;s construction:</p>
+<ol>
+<li>Create one leaf node per symbol, weighted by its probability.</li>
+<li>Push all leaves into a min-priority queue (lowest weight first).</li>
+<li>While the queue contains more than one node: extract the two lowest-weight nodes, merge them into a new internal node whose weight is their sum, push the internal node back.</li>
+<li>The remaining node is the root. The path from root to each leaf encodes that leaf&rsquo;s codeword (&ldquo;0&rdquo; for left, &ldquo;1&rdquo; for right).</li>
+</ol>
+<p>Here is the complete implementation from <code>huffman.hpp</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Node</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">freq</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">symbol</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>  <span class="c1">// -1 for internal nodes
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;</span> <span class="n">left</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;</span> <span class="n">right</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kr">inline</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;</span> <span class="n">build_huffman_tree</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&amp;</span> <span class="n">freqs</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">freqs</span><span class="p">.</span><span class="n">empty</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">cmp</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;&amp;</span> <span class="n">a</span><span class="p">,</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">a</span><span class="o">-&gt;</span><span class="n">freq</span> <span class="o">&gt;</span> <span class="n">b</span><span class="o">-&gt;</span><span class="n">freq</span><span class="p">;</span>  <span class="c1">// min-heap
+</span></span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">priority_queue</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;&gt;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="k">decltype</span><span class="p">(</span><span class="n">cmp</span><span class="p">)</span><span class="o">&gt;</span> <span class="n">pq</span><span class="p">(</span><span class="n">cmp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">freqs</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">node</span>    <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">node</span><span class="o">-&gt;</span><span class="n">freq</span>   <span class="o">=</span> <span class="n">freqs</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="n">node</span><span class="o">-&gt;</span><span class="n">symbol</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">pq</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">node</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">pq</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">a</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="k">const_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;&amp;&gt;</span><span class="p">(</span><span class="n">pq</span><span class="p">.</span><span class="n">top</span><span class="p">()));</span> <span class="n">pq</span><span class="p">.</span><span class="n">pop</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">b</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="k">const_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;&amp;&gt;</span><span class="p">(</span><span class="n">pq</span><span class="p">.</span><span class="n">top</span><span class="p">()));</span> <span class="n">pq</span><span class="p">.</span><span class="n">pop</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">parent</span>      <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">make_unique</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">parent</span><span class="o">-&gt;</span><span class="n">freq</span>     <span class="o">=</span> <span class="n">a</span><span class="o">-&gt;</span><span class="n">freq</span> <span class="o">+</span> <span class="n">b</span><span class="o">-&gt;</span><span class="n">freq</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">parent</span><span class="o">-&gt;</span><span class="n">left</span>     <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">parent</span><span class="o">-&gt;</span><span class="n">right</span>    <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">pq</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">parent</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="k">const_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Node</span><span class="o">&gt;&amp;&gt;</span><span class="p">(</span><span class="n">pq</span><span class="p">.</span><span class="n">top</span><span class="p">()));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The <code>const_cast</code> lines deserve an explanation. <code>std::priority_queue::top()</code> returns <code>const&amp;</code> to protect the heap invariant: a caller mutating the top element through the reference would break the heap property. Here, <code>pq.pop()</code> is called immediately after the move, restoring the invariant before any other operation can observe the moved-from state. The <code>const_cast</code> is safe precisely because of that pairing. It is the standard workaround for moving out of a priority queue. Do not replace the <code>std::move</code> with a copy: <code>Node</code> owns <code>std::unique_ptr</code> children and is not copyable.</p>
+<p>The codebook is extracted by a recursive depth-first walk:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kr">inline</span> <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">tree_to_codebook</span><span class="p">(</span><span class="k">const</span> <span class="n">Node</span><span class="o">*</span> <span class="n">root</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                                    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">prefix</span> <span class="o">=</span> <span class="s">&#34;&#34;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">symbol</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">left</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">right</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{{</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">symbol</span><span class="p">,</span> <span class="n">prefix</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span> <span class="o">?</span> <span class="s">&#34;0&#34;</span> <span class="o">:</span> <span class="n">prefix</span><span class="p">}};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">left</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">L</span> <span class="o">=</span> <span class="n">tree_to_codebook</span><span class="p">(</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">left</span><span class="p">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s">&#34;0&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="n">L</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">L</span><span class="p">.</span><span class="n">end</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">right</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">R</span> <span class="o">=</span> <span class="n">tree_to_codebook</span><span class="p">(</span><span class="n">root</span><span class="o">-&gt;</span><span class="n">right</span><span class="p">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s">&#34;1&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="n">R</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">R</span><span class="p">.</span><span class="n">end</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Encoding looks up the symbol&rsquo;s codeword string and writes each character into a <code>BitSink</code>. Decoding walks the tree from the root, branching on each incoming bit, until a leaf is reached:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="kr">inline</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="kt">int</span> <span class="n">symbol</span><span class="p">,</span> <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;&amp;</span> <span class="n">codebook</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">char</span> <span class="nl">c</span> <span class="p">:</span> <span class="n">codebook</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="n">symbol</span><span class="p">))</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">c</span> <span class="o">==</span> <span class="sc">&#39;1&#39;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="kr">inline</span> <span class="kt">int</span> <span class="n">decode</span><span class="p">(</span><span class="k">const</span> <span class="n">Node</span><span class="o">*</span> <span class="n">root</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">const</span> <span class="n">Node</span><span class="o">*</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">root</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">cur</span><span class="o">-&gt;</span><span class="n">symbol</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">bool</span> <span class="n">bit</span> <span class="o">=</span> <span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cur</span> <span class="o">=</span> <span class="n">bit</span> <span class="o">?</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">right</span><span class="p">.</span><span class="n">get</span><span class="p">()</span> <span class="o">:</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">left</span><span class="p">.</span><span class="n">get</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">symbol</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Because the code is prefix-free, the decoder knows exactly when one codeword ends and the next begins with no delimiter required. This is the defining property of the prefix-free constraint from <a href="/post/2020-03-kraft-wire-formats/">Kraft&rsquo;s Inequality</a> and <a href="/post/2020-09-mcmillan-wire-formats/">McMillan&rsquo;s Converse</a>.</p>
+<h2 id="optimality">Optimality</h2>
+<p>The proof that Huffman is optimal among prefix-free codes rests on three lemmas. Together they support an induction on alphabet size.</p>
+<p>I&rsquo;ll sketch the argument rather than reproduce the full proof. The sketch is honest: these are the structural moves the proof makes, not a complete formal development.</p>
+<p><strong>Lemma 1: the two least-frequent symbols get the longest codewords (or are tied for longest).</strong> Suppose for contradiction that some symbol $x$ with frequency $p_x$ has a strictly longer codeword than the two least-frequent symbols $a$ and $b$ (with $p_a \le p_b \le p_x$). Swapping the codewords of $a$ and $x$ would shorten the average length by $(p_a - p_x)(|cw_a| - |cw_x|) &lt; 0$ (since $p_a &lt; p_x$ and $|cw_a| &gt; |cw_x|$). That contradicts optimality.</p>
+<p><strong>Lemma 2: the two least-frequent symbols can always be assigned sibling codewords (codewords that differ only in the last bit).</strong> Any prefix-free code has a binary tree representation. If the two longest-codeword nodes are not siblings, you can restructure the tree to make them siblings without increasing average length. This restructuring is always possible because the deepest level of a prefix-free code tree always contains pairs of sibling leaves.</p>
+<p><strong>Lemma 3 (the merger step): combining the two least-frequent symbols into a single merged symbol yields a strictly smaller problem whose optimal solution lifts back to the original.</strong> If $C^<em>$ is an optimal code for the merged alphabet (with merged symbol having probability $p_a + p_b$), then the code for the original alphabet formed by adding one bit to the merged codeword (assigning $cw_a = cw^</em> + 0$ and $cw_b = cw^* + 1$) is optimal for the original alphabet. The expected length increases by exactly $p_a + p_b$ (one extra bit for the pair), which is unavoidable.</p>
+<p>Induction closes the argument: a one-symbol alphabet has trivially optimal coding; the merger step reduces $n$ symbols to $n-1$; by induction hypothesis, the merged problem is solved optimally; by Lemma 3, the solution lifts back optimally to the $n$-symbol problem.</p>
+<p>The consequence: Huffman&rsquo;s expected length $L$ satisfies $H(p) \le L \le H(p) + 1$. The lower bound is Shannon&rsquo;s theorem. The upper bound follows from the fact that assigning codeword length $\lceil -\log_2 p_i \rceil$ to each symbol satisfies the Kraft inequality and yields $L \le H(p) + 1$, so the Huffman code (which is at most as long as this code by optimality) also satisfies the upper bound.</p>
+<p>For dyadic distributions (where each $p_i$ is a negative power of 2), $-\log_2 p_i$ is already an integer, so Huffman achieves entropy exactly. For all other distributions, there is a gap of up to 1 bit.</p>
+<p>Arithmetic coding removes the gap by encoding sequences of symbols jointly, amortizing the integer-rounding slack over arbitrarily long blocks. Per-symbol redundancy approaches zero as block length grows.</p>
+<h2 id="mcmillans-construction-returns">McMillan&rsquo;s Construction Returns</h2>
+<p>Post 2 showed that any Kraft-satisfying length vector $(\ell_1, \ldots, \ell_n)$ can be turned into a prefix-free code by <a href="/post/2020-09-mcmillan-wire-formats/">McMillan&rsquo;s construction</a>. Huffman solves the complementary problem: given a distribution $(p_1, \ldots, p_n)$, find the Kraft-satisfying length vector that minimizes $\sum_i p_i \ell_i$.</p>
+<p>Viewed this way, Huffman is a two-stage machine. Stage one identifies the optimal lengths. Stage two applies McMillan&rsquo;s construction to produce the code. The Huffman tree algorithm compresses both stages into one pass, building the tree and the code simultaneously, but the logical separation is worth keeping in mind.</p>
+<p>The chain of ideas in this series now reads:</p>
+<ul>
+<li>Post 1, Kraft: which length vectors are valid (they satisfy the Kraft sum)?</li>
+<li>Post 2, McMillan: given a valid length vector, how do you build the code?</li>
+<li>Post 3, Priors: what distribution does a code implicitly assume (the one that makes the code optimal)?</li>
+<li>Post 9, Huffman: given an explicit distribution, find the optimal length vector.</li>
+</ul>
+<p>The first three posts ran from codes to distributions. This post runs the other direction.</p>
+<h2 id="tests-and-demonstrations">Tests and Demonstrations</h2>
+<p>The test suite in <code>test_huffman.cpp</code> covers the theoretical claims directly.</p>
+<p><strong>Uniform alphabets:</strong> For a uniform distribution over $2^k$ symbols, entropy is exactly $k$ bits and Huffman produces a fixed-width $k$-bit code (all codewords the same length). The suite checks $k = 2$ (4 symbols) and $k = 3$ (8 symbols).</p>
+<p><strong>Dyadic distributions:</strong> For $p = (0.5, 0.25, 0.125, 0.125)$, each $p_i$ is a power of 2, so entropy is $1.75$ bits and Huffman achieves it exactly. The test verifies <code>EXPECT_NEAR(L, H, 1e-9)</code>.</p>
+<p><strong>Highly skewed binary:</strong> For $(0.99, 0.01)$, entropy is about 0.081 bits, but Huffman cannot use fewer than 1 bit per symbol (both symbols need at least one bit). The test confirms $L = 1.0$ and $L \le H + 1$.</p>
+<p><strong>Comparison with gamma:</strong> On a power-law-2 distribution over 16 symbols, Huffman&rsquo;s expected length is no greater than Elias gamma&rsquo;s expected length. Gamma is universal but pays for that universality.</p>
+<p>The <code>codebook_lengths</code> helper bridges the Huffman codebook to the <code>priors</code> library from post 3:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">static</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span> <span class="n">codebook_lengths</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;&amp;</span> <span class="n">cb</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span> <span class="n">lens</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="p">[</span><span class="n">sym</span><span class="p">,</span> <span class="n">cw</span><span class="p">]</span> <span class="o">:</span> <span class="n">cb</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">lens</span><span class="p">[</span><span class="n">sym</span><span class="p">]</span> <span class="o">=</span> <span class="n">cw</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">lens</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>With <code>lens</code> in hand, <code>priors::entropy(freqs)</code> and <code>priors::expected_length(freqs, lens)</code> compute the quantities needed to verify the $H \le L \le H + 1$ bound directly.</p>
+<h2 id="limitations">Limitations</h2>
+<p>Huffman has three practical limitations worth naming before moving on.</p>
+<p><strong>First, it requires the distribution as input.</strong> For data whose statistics are unknown, you must either estimate the distribution first (a two-pass approach: count frequencies on training data, then encode the actual data) or use an adaptive variant that updates the code as it runs. Two-pass schemes transmit the codebook alongside the compressed data, adding overhead. Adaptive schemes avoid the codebook overhead but carry computational cost per symbol.</p>
+<p><strong>Second, the integer-length constraint binds for non-dyadic distributions.</strong> A symbol with probability 0.37 ideally gets a codeword of length $-\log_2 0.37 \approx 1.43$ bits. Huffman must assign 1 or 2 bits. For some distributions, notably a binary source with $p$ far from 0.5, the gap between entropy and Huffman length approaches 1 bit per symbol.</p>
+<p><strong>Third, block Huffman only partially helps.</strong> Encoding $k$-symbol tuples reduces per-symbol redundancy from at most 1 bit to at most $1/k$ bits, because per-block redundancy is still bounded by 1 bit. But the alphabet size grows as $n^k$, making the codebook exponentially large. For $n = 256$ bytes and $k = 3$, the alphabet has $16{,}777{,}216$ entries. In practice, block Huffman is limited to very small $k$ or very small alphabets.</p>
+<p>Arithmetic coding, the subject of the next post, resolves all three limitations without a block-size explosion. It works on a per-symbol basis like Huffman but achieves arbitrary precision by representing the encoder state as a shrinking real interval. The integer-rounding slack disappears because no individual symbol is assigned a codeword at all; the compressed output emerges from the interval arithmetic directly.</p>
+<h2 id="cross-references">Cross-References</h2>
+<p><strong>Forthcoming:</strong> Arithmetic Coding (post 10) extends the ideas here by removing the integer-length constraint and approaching entropy exactly.</p>
+<p><strong>Back-references (live):</strong></p>
+<ul>
+<li><a href="/post/2020-09-mcmillan-wire-formats/">McMillan&rsquo;s Converse</a> (post 2): the construction that turns any Kraft-satisfying length vector into a prefix-free code. Huffman finds the optimal length vector; McMillan builds the code.</li>
+<li><a href="/post/2022-01-priors-wire-formats/">Universal Codes as Priors</a> (post 3): the <code>priors::entropy</code> and <code>priors::expected_length</code> functions used in the optimality tests come from this post&rsquo;s <code>priors.hpp</code>.</li>
+</ul>
+<p><strong>Cross-series:</strong> <a href="/post/2026-05-codecs-functors-stepanov/">Bits Follow Types</a> (Stepanov series): when a <code>PackedEither</code> combinator chooses among $N$ type variants, it pays $\lceil \log_2 N \rceil$ tag bits per value. Huffman provides the entropy-optimal alternative when the variant frequencies are known, replacing the fixed $\log_2 N$ cost with a code tuned to the actual distribution of variants.</p>
+<p><strong>Production implementation:</strong> The pedagogical <code>huffman.hpp</code> here is a self-contained teaching tool. The production version lives at <code>include/pfc/huffman.hpp</code> in the <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC library</a>.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>coding-theory</category>
+      
+      <category>prefix-free</category>
+      
+      <category>huffman</category>
+      
+      <category>entropy-optimal</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

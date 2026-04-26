@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Zeckendorf on metafunctor</title>
+    <link>https://metafunctor.com/tags/zeckendorf/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/zeckendorf/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Fibonacci Coding</title>
+      <link>https://metafunctor.com/post/2023-04-fibonacci-wire-formats/</link>
+      <pubDate>Sun, 23 Apr 2023 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2023-04-fibonacci-wire-formats/</guid>
+      <description>Fibonacci coding uses Zeckendorf&#39;s representation to produce self-synchronizing codewords. Every codeword ends in two consecutive ones; a single bit flip corrupts at most two codewords.</description>
+      <content:encoded><![CDATA[<p><em>Every code in this series so far has optimized expected length under some implied prior. Fibonacci coding does something different: it gives the decoder a way to recover from errors without help from a lower layer.</em></p>
+<h2 id="a-different-design-goal">A Different Design Goal</h2>
+<p>All the codes in this series have aimed at the same target: assign short codewords to frequent symbols, with length growing roughly as $\log n$ for the $n$-th symbol under some implied prior. Elias gamma minimizes expected length for power-law distributions; delta and omega extend the recursion for heavier tails.</p>
+<p>Fibonacci coding has a different goal. It does not optimize for average codeword length under a specific distribution. It optimizes for error resilience. In a stream of gamma-coded integers, a single bit flip in a codeword&rsquo;s length prefix causes the decoder to misread that codeword&rsquo;s length, then misread every subsequent codeword. The error propagates without limit until the decoder somehow reacquires sync. On a reliable channel this is a nonissue. On a noisy one, or in stored data that may have silently rotted, it is a serious problem.</p>
+<p>Fibonacci coding avoids this. Every Fibonacci codeword ends in two consecutive 1 bits (&ldquo;11&rdquo;). This double-one marker appears nowhere else in the codeword. A single bit flip corrupts the codeword it hits, possibly spills into the next codeword, and then the decoder finds the next &ldquo;11&rdquo; and resynchronizes. At most two codewords are corrupted per error. The rest of the stream is intact.</p>
+<p>The price is length overhead: Fibonacci codewords are approximately $1.44 \times \log_2 n$ bits long, compared to $\log_2 n$ bits for the entropy lower bound. On a reliable channel, that overhead is not worth paying. On a noisy channel, or in a long-running stream where rare bit errors must not lose the entire tail, the self-synchronization property is worth it.</p>
+<hr>
+<h2 id="zeckendorfs-theorem">Zeckendorf&rsquo;s Theorem</h2>
+<p>Fibonacci numbers starting from $F_2 = 1$: $1, 2, 3, 5, 8, 13, 21, 34, \ldots$</p>
+<p>Zeckendorf&rsquo;s theorem: every positive integer $n$ has a unique representation as a sum of non-consecutive Fibonacci numbers. The greedy algorithm produces it by repeatedly subtracting the largest Fibonacci number that does not exceed $n$.</p>
+<p>Examples:</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>Zeckendorf representation</th>
+          <th>Bit vector (index 0 = $F_2$)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td>$F_2 = 1$</td>
+          <td><code>{1}</code></td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>$F_4 + F_2 = 3 + 1$</td>
+          <td><code>{1, 0, 1}</code></td>
+      </tr>
+      <tr>
+          <td>10</td>
+          <td>$F_6 + F_3 = 8 + 2$</td>
+          <td><code>{0, 1, 0, 0, 1}</code></td>
+      </tr>
+      <tr>
+          <td>11</td>
+          <td>$F_6 + F_4 = 8 + 3$</td>
+          <td><code>{0, 0, 1, 0, 1}</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>The non-adjacency condition is the key. No two consecutive Fibonacci numbers appear in the sum. That means no two consecutive Zeckendorf bits are both 1. So appending a 1 after the last Zeckendorf bit creates the only &ldquo;11&rdquo; in the entire codeword. The terminator is safe precisely because of the structural property of Zeckendorf representations.</p>
+<p><strong>Implementation.</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kr">inline</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span> <span class="n">to_zeckendorf</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="s">&#34;Zeckendorf is undefined for n = 0&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Build the Fibonacci sequence up to n. Start with F_2=1, F_3=2.
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">fibs</span><span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">fibs</span><span class="p">.</span><span class="n">back</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">fibs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">fibs</span><span class="p">[</span><span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">fibs</span><span class="p">[</span><span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// The last entry is &gt; n; remove it so all entries are &lt;= n.
+</span></span></span><span class="line"><span class="cl">    <span class="n">fibs</span><span class="p">.</span><span class="n">pop_back</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Greedy decomposition: subtract the largest Fibonacci number &lt;= remaining n.
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span> <span class="n">bits</span><span class="p">(</span><span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="n">i</span><span class="o">--</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="n">fibs</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">bits</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">n</span> <span class="o">-=</span> <span class="n">fibs</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">bits</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="the-fibonacci-codeword">The Fibonacci Codeword</h2>
+<p>To encode $n$:</p>
+<ol>
+<li>Compute the Zeckendorf bits of $n$: <code>bits = to_zeckendorf(n)</code>.</li>
+<li>Write each bit from index 0 (corresponding to $F_2$) through the last set index.</li>
+<li>Append a terminating 1 bit.</li>
+</ol>
+<p>The codeword ends with the last Zeckendorf bit (which is always 1, since the highest Fibonacci number in the sum is always included) followed by the terminating 1. That final &ldquo;11&rdquo; is the synchronization marker. Nothing in the payload can look like it.</p>
+<p>Codeword examples:</p>
+<table>
+  <thead>
+      <tr>
+          <th>$n$</th>
+          <th>Zeckendorf bits</th>
+          <th>Codeword</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>1</td>
+          <td><code>{1}</code></td>
+          <td><code>1 1</code></td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td><code>{0, 1}</code></td>
+          <td><code>0 1 1</code></td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td><code>{0, 0, 1}</code></td>
+          <td><code>0 0 1 1</code></td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td><code>{1, 0, 1}</code></td>
+          <td><code>1 0 1 1</code></td>
+      </tr>
+      <tr>
+          <td>8</td>
+          <td><code>{0, 0, 0, 0, 1}</code></td>
+          <td><code>0 0 0 0 1 1</code></td>
+      </tr>
+  </tbody>
+</table>
+<p>Decoding reads bits until it sees two consecutive 1s. The second 1 is the terminator. All preceding bits, including the first 1 of that terminal pair, are Zeckendorf bits. Reconstruct $n$ from the Fibonacci sum. The decoder needs no length field, no lookahead, and no external framing.</p>
+<p><strong>Implementation.</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Fibonacci</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="s">&#34;Fibonacci is undefined for n = 0&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">bits</span> <span class="o">=</span> <span class="n">to_zeckendorf</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">bool</span> <span class="nl">b</span> <span class="p">:</span> <span class="n">bits</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>  <span class="c1">// terminating &#39;1&#39; bit
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span> <span class="n">bits</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">bool</span> <span class="n">prev</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">bool</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">cur</span> <span class="o">&amp;&amp;</span> <span class="n">prev</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>  <span class="c1">// two consecutive 1s: stop
+</span></span></span><span class="line"><span class="cl">            <span class="n">bits</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">cur</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">prev</span> <span class="o">=</span> <span class="n">cur</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// Reconstruct n from the Fibonacci sum.
+</span></span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">fibs</span><span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">bits</span><span class="p">.</span><span class="n">size</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">            <span class="n">fibs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">fibs</span><span class="p">[</span><span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">fibs</span><span class="p">[</span><span class="n">fibs</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="o">-</span><span class="mi">2</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bits</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">bits</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="n">n</span> <span class="o">+=</span> <span class="n">fibs</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">n</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The decoder has no length information in the stream. It reads until it finds &ldquo;11&rdquo; and stops. That is the entire decoder. The self-delimiting structure comes from the codeword itself, not from any external framing.</p>
+<hr>
+<h2 id="the-implied-prior">The Implied Prior</h2>
+<p>The Fibonacci number $F_k$ grows roughly as $\phi^k / \sqrt{5}$ where $\phi = (1 + \sqrt{5})/2 \approx 1.618$ is the golden ratio. Because the Zeckendorf representation of $n$ uses roughly $\log_\phi n$ Fibonacci numbers, the codeword length is approximately:</p>
+$$\ell(n) \approx \log_\phi n + 1 = \frac{\log_2 n}{\log_2 \phi} + 1 \approx 1.44 \log_2 n + 1 \text{ bits.}$$<p>This is about 44% longer than the Shannon entropy lower bound of $\log_2 n$ bits. The implied prior is geometric with golden-ratio base: $p_n \sim \phi^{-n}$. It sits between the geometric prior of unary coding ($p_n \sim 2^{-n}$, very light tail) and the power-law priors of the Elias codes.</p>
+<p>Compared to Elias gamma ($\sim 2 \log_2 n$ bits), Fibonacci is shorter for large $n$; for small $n$ (below about 16), gamma can be shorter. Neither code is optimal for the other&rsquo;s implied prior. That is not the point. Fibonacci&rsquo;s value is not in its compression ratio. It is in the structural guarantee that comes from the &ldquo;11&rdquo; terminator.</p>
+<hr>
+<h2 id="self-synchronization">Self-Synchronization</h2>
+<p>Consider a long stream of Fibonacci-coded integers and a single bit flip somewhere in the stream. Two cases.</p>
+<p><strong>Case 1: the flip is within the Zeckendorf payload of codeword $c$.</strong> The payload changes, so $c$ decodes to a wrong value. But the &ldquo;11&rdquo; terminator was not touched; the decoder finds it and resynchronizes correctly before codeword $c+1$. One codeword corrupted.</p>
+<p><strong>Case 2: the flip hits a 1 bit that was part of &ldquo;11&rdquo;.</strong> The terminator &ldquo;11&rdquo; is damaged. The decoder either misses it (turning &ldquo;11&rdquo; into &ldquo;10&rdquo; or &ldquo;01&rdquo;) or creates a spurious &ldquo;11&rdquo; inside the payload. If it misses the terminator, the decoder merges codeword $c$ with $c+1$, reads both as one wrong value, then finds the terminator of $c+1$ and resynchronizes. Two codewords corrupted at most.</p>
+<p>In both cases, the stream recovers. Compare this to Elias gamma: a flip in a gamma codeword&rsquo;s unary prefix tells the decoder the wrong length, and every subsequent codeword shifts by the wrong amount. Error propagation is unbounded.</p>
+<p>The test in <code>test_fibonacci.cpp</code> demonstrates the bounded-damage property concretely: encode <code>{3, 5, 7, 9, 11, 13}</code>, flip bit 0 (within the codeword for 3), and verify that at least 4 of the 6 values are recovered intact:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">TEST</span><span class="p">(</span><span class="n">FibonacciTest</span><span class="p">,</span> <span class="n">BitFlipStaysLocal</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">original</span> <span class="o">=</span> <span class="p">{</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">encoded</span> <span class="o">=</span> <span class="n">encode_sequence</span><span class="p">(</span><span class="n">original</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">corrupted</span> <span class="o">=</span> <span class="n">flip_bit</span><span class="p">(</span><span class="n">encoded</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>  <span class="c1">// flip within codeword for 3
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// Decode with EOF guard to avoid infinite loops on corrupted streams.
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// Verify at least 4 of 6 values are recovered.
+</span></span></span><span class="line"><span class="cl">    <span class="n">EXPECT_GE</span><span class="p">(</span><span class="n">matches</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="when-to-use-fibonacci">When to Use Fibonacci</h2>
+<p>Fibonacci is a niche code. Its 44% overhead relative to entropy is real: for most applications, the Elias codes or Huffman coding achieve much better compression on reliable channels. Fibonacci makes sense when:</p>
+<ul>
+<li>The channel has occasional bit errors, and losing an entire stream after the first error is unacceptable.</li>
+<li>The data is long-lived or stored in environments where isolated bit rot can occur.</li>
+<li>The decoder has no error-correcting layer and must resynchronize from the content itself.</li>
+</ul>
+<p>In practice, most systems handle errors at a lower layer (CRC, FEC codes, RAID parity) rather than at the codec level. Where those exist, Fibonacci&rsquo;s self-sync property is irrelevant and the Elias codes or Huffman are better choices.</p>
+<p>The <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC library</a> includes <code>Fibonacci</code> in <code>codecs.hpp</code> alongside the Elias codes. It is there because the use cases are real, even if they are uncommon.</p>
+<hr>
+<h2 id="cross-references-and-notes">Cross-References and Notes</h2>
+<p><strong>Forward:</strong> Post 7 (&ldquo;Rice / Golomb&rdquo;) covers the first parametric code family in this series, where a parameter $k$ tunes the code for geometrically distributed sources. No link yet (forthcoming).</p>
+<p><strong>Back:</strong> <a href="/post/2022-01-priors-wire-formats/">Universal Codes as Priors</a> (post 3) gives the redundancy framework used in the integration tests. <a href="/post/2022-06-elias-gamma-wire-formats/">Unary and Elias Gamma</a> (post 4) covers the codes that Fibonacci is the error-resilient alternative to.</p>
+<p><strong>Cross-series:</strong> Fibonacci&rsquo;s self-synchronizing &ldquo;11&rdquo; marker is a structural property of the codeword, not of the algebraic type system. The Stepanov bridge posts cover how codecs compose over types. Fibonacci&rsquo;s error properties are orthogonal to that story and are not discussed there.</p>
+<p><strong>Production code:</strong> <code>include/pfc/codecs.hpp</code> in the <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC library</a> has <code>Fibonacci</code>, with the same encode/decode interface but zero-copy byte-buffer I/O.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>coding-theory</category>
+      
+      <category>prefix-free</category>
+      
+      <category>universal-codes</category>
+      
+      <category>fibonacci</category>
+      
+      <category>zeckendorf</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

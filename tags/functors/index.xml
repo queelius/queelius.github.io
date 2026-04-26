@@ -1,19 +1,447 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Functors on metafunctor</title><link>https://metafunctor.com/tags/functors/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 09 Apr 2026 05:32:43 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/functors/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Algebraic Cipher Types: A Functorial Framework for Secure Computation</title><link>https://metafunctor.com/papers/algebraic-cipher-types/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/papers/algebraic-cipher-types/</guid><description> Open full page Download PDF</description><content:encoded><![CDATA[<style>
-.iframe-wrap {
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Functors on metafunctor</title>
+    <link>https://metafunctor.com/tags/functors/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/functors/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>Bits Follow Types</title>
+      <link>https://metafunctor.com/post/2026-05-codecs-functors-stepanov/</link>
+      <pubDate>Thu, 23 Apr 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-05-codecs-functors-stepanov/</guid>
+      <description>Codecs are not ad-hoc bit formats. They are constructions on the algebraic structure of types.</description>
+      <content:encoded><![CDATA[<p><em>Every type decomposes structurally. So does its codec.</em></p>
+<h2 id="codecs-as-functors">Codecs as Functors</h2>
+<p>You have an <code>optional&lt;vector&lt;pair&lt;int, string&gt;&gt;&gt;</code>. The type decomposes structurally: it is an optional of a free monoid of products of an integer and a string. That decomposition is not an observation about memory layout. It is a statement about the algebraic structure of the type.</p>
+<p>Now ask: does the codec decompose the same way?</p>
+<p>If the answer is yes, you stop writing one-off encoders. You build a codec for <code>optional&lt;T&gt;</code> from a codec for <code>T</code>. You build a codec for <code>vector&lt;T&gt;</code> from a codec for <code>T</code>. The codec for <code>optional&lt;vector&lt;pair&lt;int, string&gt;&gt;&gt;</code> assembles from its parts with no manual layout decisions, no hand-placed length headers, no ad-hoc format negotiation.</p>
+<p>This post argues that the answer is always yes, and shows what the machinery looks like. The thesis: codecs are not ad-hoc bit formats. They are constructions on the algebraic structure of types. The algebraic structure of a type determines its codec, the same way it determines its algorithms.</p>
+<p>This extends Stepanov&rsquo;s claim. The <a href="/post/2019-03-peasant-stepanov/">peasant algorithm post</a> showed that algorithms arise from algebraic structure. The <a href="/post/2026-03-homomorphism-stepanov/">homomorphism post</a> showed that structure-preserving maps are the natural morphisms. Here, we show the codec itself is a structure-preserving map, and that it lifts from leaf types to compound types by the same algebraic logic.</p>
+<h2 id="bit-io-the-foundation">Bit I/O: The Foundation</h2>
+<p>Before combinators, we need concrete bit I/O. The approach taken here follows Stepanov&rsquo;s move in the algorithm posts: state the concept first, then provide a model.</p>
+<p>Two concepts govern bit-level I/O:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">BitSink</span> <span class="o">=</span> <span class="k">requires</span><span class="p">(</span><span class="n">T</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">bit</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">s</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">bit</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="kt">void</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">BitSource</span> <span class="o">=</span> <span class="k">requires</span><span class="p">(</span><span class="n">T</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">s</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">s</span><span class="p">.</span><span class="n">peek</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>A <code>BitSink</code> accepts bits. A <code>BitSource</code> supplies them. A codec is an algorithm parameterized over <code>BitSink</code> and <code>BitSource</code>, not a class hierarchy. This is Stepanov&rsquo;s move at the bit level: require only what the algorithm needs, let anything that satisfies the concept participate.</p>
+<p>The standard models are <code>BitWriter</code> and <code>BitReader</code>, which pack bits into byte buffers in LSB-first order:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BitWriter</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">buf_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">byte_idx_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span> <span class="n">byte_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span> <span class="n">bit_pos_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">explicit</span> <span class="n">BitWriter</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">buf</span><span class="p">)</span> <span class="k">noexcept</span> <span class="o">:</span> <span class="n">buf_</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">write</span><span class="p">(</span><span class="kt">bool</span> <span class="n">bit</span><span class="p">)</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">byte_</span> <span class="o">|=</span> <span class="p">(</span><span class="n">bit</span> <span class="o">?</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">:</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="p">{</span><span class="mi">0</span><span class="p">})</span> <span class="o">&lt;&lt;</span> <span class="n">bit_pos_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">bit_pos_</span> <span class="o">==</span> <span class="mi">8</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">buf_</span><span class="p">[</span><span class="n">byte_idx_</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">byte_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">byte_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">bit_pos_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">align</span><span class="p">()</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">bit_pos_</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">buf_</span><span class="p">[</span><span class="n">byte_idx_</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">byte_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">byte_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">bit_pos_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bytes_written</span><span class="p">()</span> <span class="k">const</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">byte_idx_</span> <span class="o">+</span> <span class="p">(</span><span class="n">bit_pos_</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BitReader</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">buf_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">byte_idx_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span> <span class="n">bit_pos_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">explicit</span> <span class="n">BitReader</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="n">buf</span><span class="p">)</span> <span class="k">noexcept</span> <span class="o">:</span> <span class="n">buf_</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="nf">read</span><span class="p">()</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">bool</span> <span class="n">bit</span> <span class="o">=</span> <span class="p">((</span><span class="n">buf_</span><span class="p">[</span><span class="n">byte_idx_</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="n">bit_pos_</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="n">bit_pos_</span> <span class="o">==</span> <span class="mi">8</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="o">++</span><span class="n">byte_idx_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">bit_pos_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">bit</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="kt">bool</span> <span class="n">peek</span><span class="p">()</span> <span class="k">const</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">byte_idx_</span> <span class="o">&lt;</span> <span class="n">buf_</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>A codec concept rounds out the three-concept core:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Codec</span> <span class="o">=</span> <span class="k">requires</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">typename</span> <span class="n">C</span><span class="o">::</span><span class="n">value_type</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The minimal form checks that <code>C</code> names a <code>value_type</code>. The full behavioral requirement, that <code>C</code> provides <code>encode</code> and <code>decode</code> templates matching <code>BitSink</code> and <code>BitSource</code> respectively, is enforced by the template constraints on each codec&rsquo;s methods rather than by the concept itself. This keeps the concept definition lean while the actual requirements are checked at each call site.</p>
+<p>All code in this post lives in <code>codecs_functors.hpp</code>. The full suite of round-trip tests is in <code>test_codecs_functors.cpp</code>.</p>
+<h2 id="a-leaf-codec-elias-gamma">A Leaf Codec: Elias Gamma</h2>
+<p>Before combinators, establish what a leaf codec looks like. Elias gamma encodes positive integers \(n \geq 1\).</p>
+<p>The codeword for \(n\) is: \(\lfloor\log_2 n\rfloor\) zero bits, then a one bit, then the bits of \(n\) below its leading 1, written MSB-first. The total length is \(2\lfloor\log_2 n\rfloor + 1\) bits.</p>
+<p>Examples: 1 encodes as <code>1</code>, 2 as <code>010</code>, 3 as <code>011</code>, 4 as <code>00100</code>, 7 as <code>00111</code>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Gamma</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="s">&#34;Gamma is undefined for n = 0&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bits</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">bit_width</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bits</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="n">bits</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">n</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bits</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="o">++</span><span class="n">bits</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bits</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">:</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Gamma is asymptotically optimal under a prior proportional to \(1/n^2\). The full story, including the Kraft inequality, optimal code lengths, and the connection to universal codes, belongs to a forthcoming Information Theory by Construction series. For now: gamma is the code you use when you know values are small integers but not their distribution.</p>
+<h2 id="combinator-opt">Combinator: Opt</h2>
+<p><code>Opt&lt;C&gt;</code> encodes <code>std::optional&lt;T&gt;</code> given a codec <code>C</code> for <code>T</code>. The wire format is one tag bit (1 = present, 0 = absent) followed by <code>C</code>&rsquo;s encoding if present.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Opt</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">optional</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">C</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="o">*</span><span class="n">v</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">C</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">nullopt</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The type-algebra reading: <code>optional&lt;T&gt;</code> is the coproduct of <code>T</code> with the unit type (a single absent value). In type algebra, this is written \(1 + T\). The tag bit selects the branch; the payload is present only in the right branch.</p>
+<p>This is the first sign of functoriality. <code>Opt</code> takes a codec and returns a codec. It acts on codecs the same way <code>optional</code> acts on types. The structure of the operation is preserved: the algebraic decomposition of the type is mirrored exactly in the bit encoding.</p>
+<h2 id="combinator-either">Combinator: Either</h2>
+<p><code>Either&lt;A, B&gt;</code> encodes <code>std::variant&lt;TA, TB&gt;</code> given codecs <code>A</code> for <code>TA</code> and <code>B</code> for <code>TB</code>. One tag bit selects the branch; the payload follows.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="p">,</span> <span class="k">typename</span> <span class="n">B</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Either</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span><span class="p">,</span> <span class="k">typename</span> <span class="n">B</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">index</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">A</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">B</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">value_type</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">B</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)};</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">value_type</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">A</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)};</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Type algebra: \(A + B\), the binary coproduct. For the worked example in this post, we need a ternary variant, so the implementation also provides <code>Either3</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="p">,</span> <span class="k">typename</span> <span class="n">B</span><span class="p">,</span> <span class="k">typename</span> <span class="n">C</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Either3</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                    <span class="k">typename</span> <span class="n">B</span><span class="o">::</span><span class="n">value_type</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                    <span class="k">typename</span> <span class="n">C</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">idx</span> <span class="o">=</span> <span class="n">v</span><span class="p">.</span><span class="n">index</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">((</span><span class="n">idx</span> <span class="o">&amp;</span> <span class="mh">0x1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">((</span><span class="n">idx</span> <span class="o">&amp;</span> <span class="mh">0x2</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">A</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span> <span class="nf">if</span> <span class="p">(</span><span class="n">idx</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="n">B</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span> <span class="n">C</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">get</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="mi">1u</span> <span class="o">:</span> <span class="mi">0u</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">idx</span> <span class="o">|=</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="mi">2u</span> <span class="o">:</span> <span class="mi">0u</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="n">value_type</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">A</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)};</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">idx</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="n">value_type</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">B</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)};</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">value_type</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">C</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)};</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The tag for <code>Either3</code> uses two bits, encoding the branch index as a 2-bit integer (LSB first). This costs \(\lceil\log_2 N\rceil\) bits for N branches regardless of how often each branch occurs. When branch probabilities differ significantly, this is wasteful: Huffman-coded tags or arithmetic coding over the branch distribution would do better. That improvement belongs in the forthcoming Information Theory by Construction series. The flat tag scheme is correct and simple; optimality can be layered on separately.</p>
+<h2 id="combinator-pair">Combinator: Pair</h2>
+<p><code>Pair&lt;A, B&gt;</code> encodes <code>std::pair&lt;TA, TB&gt;</code>: <code>A</code>&rsquo;s encoding followed immediately by <code>B</code>&rsquo;s encoding, with no delimiter.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="p">,</span> <span class="k">typename</span> <span class="n">B</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Pair</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">A</span><span class="o">::</span><span class="n">value_type</span><span class="p">,</span> <span class="k">typename</span> <span class="n">B</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">A</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">first</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">B</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">second</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">a</span> <span class="o">=</span> <span class="n">A</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">b</span> <span class="o">=</span> <span class="n">B</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">value_type</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">b</span><span class="p">)};</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Type algebra: \(A \times B\), the binary product. Two bit streams concatenated, recovered in sequence. No length header, no delimiter bit.</p>
+<p>The reason this works is prefix-freeness: because <code>A</code>&rsquo;s codec is prefix-free, the decoder always knows exactly when <code>A</code>&rsquo;s payload ends and <code>B</code>&rsquo;s payload begins. The boundary is implicit in the structure of the code. If the codecs were not prefix-free, concatenation would be ambiguous.</p>
+<p>See <a href="/post/2026-05-prefix-free-stepanov/">When Lists Become Bits</a> for why prefix-freeness makes concatenation reversible.</p>
+<h2 id="combinator-vec">Combinator: Vec</h2>
+<p><code>Vec&lt;C&gt;</code> encodes <code>std::vector&lt;T&gt;</code> given a codec <code>C</code> for <code>T</code>. The wire format is a gamma-coded length followed by <code>C</code>&rsquo;s encoding of each element.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Vec</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Gamma</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">x</span> <span class="p">:</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">C</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">n</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Gamma</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">C</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The <code>+1</code> bias in <code>encode</code> handles the mismatch between Gamma (which requires inputs \(\geq 1\)) and vector sizes (which can be 0). The decoded length subtracts 1 to recover the original size.</p>
+<p>Type algebra: <code>vector&lt;T&gt;</code> is <code>List(T)</code>, the free monoid on <code>T</code>. The <a href="/post/2026-03-free-algebra-stepanov/">free-algebra post</a> showed that <code>fold</code> is the unique monoid homomorphism from lists to any monoid: that uniqueness is the universal property of the free monoid. <code>Vec&lt;C&gt;</code> is the lift of that universal property to bit space: it extends a per-element encoding <code>C</code> to the entire list by applying <code>C</code> to each element in sequence.</p>
+<p>That lift always exists (it is just fold). The deeper question is whether it is invertible: can the decoder recover the list from the bit string? The answer depends on prefix-freeness, and the analysis belongs in <a href="/post/2026-05-prefix-free-stepanov/">When Lists Become Bits</a>. The short version: <code>Vec&lt;C&gt;</code> works when <code>C</code> is prefix-free, and Gamma is prefix-free.</p>
+<h2 id="the-functorial-framing">The Functorial Framing</h2>
+<p>Each combinator corresponds to an operation in the algebra of types:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Combinator</th>
+          <th>Type algebra</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>Opt&lt;C&gt;</code></td>
+          <td>\(1 + T\) (coproduct with unit)</td>
+      </tr>
+      <tr>
+          <td><code>Either&lt;A, B&gt;</code></td>
+          <td>\(A + B\) (binary coproduct)</td>
+      </tr>
+      <tr>
+          <td><code>Pair&lt;A, B&gt;</code></td>
+          <td>\(A \times B\) (binary product)</td>
+      </tr>
+      <tr>
+          <td><code>Vec&lt;C&gt;</code></td>
+          <td>\(\text{List}(T)\) (free monoid on T)</td>
+      </tr>
+  </tbody>
+</table>
+<p>This table is not a coincidence. Each combinator takes codecs as inputs and returns a codec as output, mirroring the way the corresponding type constructor takes types and returns a type. The mapping from types to codecs respects the type algebra: if you know how to encode <code>A</code> and <code>B</code>, the combinators give you, for free, how to encode <code>A + B</code>, <code>A \times B</code>, <code>1 + A</code>, and <code>\text{List}(A)</code>.</p>
+<p>This is the bridge thesis: <strong>the algebraic structure of a type determines its codec, the same way it determines its algorithms.</strong> Stepanov&rsquo;s original claim covered algorithms. These two posts extend it to encodings.</p>
+<p>Each combinator is functorial in a precise sense. <code>Vec</code>, for instance, maps a morphism between codec targets (a function <code>f: TA -&gt; TB</code> liftable to <code>f*: vector&lt;TA&gt; -&gt; vector&lt;TB&gt;</code>) to a corresponding transformation between codecs. The formal categorical statement is deferred. For the purposes of this post, the table is the claim: structure-in, structure-out.</p>
+<p>Contrast this with the alternative: one-off serialization code written directly for each compound type. That code is not wrong, but it is redundant. The structure of the type already tells you how to encode it. If your serialization code reflects that structure, it is derivable and correct by construction. If it does not, you have extra maintenance burden, a second place to update when the type changes.</p>
+<p>The homomorphism post showed that structure-preserving maps are the natural morphisms between algebraic structures. Codecs, under this framing, are structure-preserving maps from the type algebra to the bit-string algebra. The combinators are the proof that these maps exist and compose.</p>
+<h2 id="the-composed-example">The Composed Example</h2>
+<p>To make this concrete, three auxiliary codecs appear in the worked example. Each is short enough to state plainly.</p>
+<p><code>Bool</code> encodes a boolean as a single bit:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Bool</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="kt">bool</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">v</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">();</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p><code>Signed&lt;C&gt;</code> wraps an unsigned codec using zigzag encoding, mapping signed integers to non-negative values and then applying a bias so Gamma (which requires \(\geq 1\)) can handle zero:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Signed</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">z</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">v</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">v</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="mi">1u</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">z</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">C</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">z</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span> <span class="n">z</span> <span class="o">=</span> <span class="n">C</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">z</span> <span class="o">&amp;</span> <span class="mi">1u</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="o">-</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p><code>String</code> is gamma-coded length followed by 8 bits per character. It is, conceptually, <code>Vec&lt;Byte&gt;</code> where <code>Byte</code> is an 8-bit leaf codec. The combinator pattern applies recursively: a string is a list of bytes, and its codec is the list combinator applied to a byte codec.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">String</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Gamma</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">char</span> <span class="nl">c</span> <span class="p">:</span> <span class="n">s</span><span class="p">)</span> <span class="n">Byte</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">n</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Gamma</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">s</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">s</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="n">s</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">char</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Byte</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)));</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">s</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Now the worked example. A configuration record: each entry has a string key and an optional value, where the value can be an integer, a string, or a boolean.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Value</span>  <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span> <span class="kt">bool</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Entry</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">key</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">optional</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;</span> <span class="n">value</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="k">const</span> <span class="n">Entry</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Config</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Entry</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">ValueCodec</span>  <span class="o">=</span> <span class="n">Either3</span><span class="o">&lt;</span><span class="n">Signed</span><span class="o">&lt;</span><span class="n">Gamma</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Bool</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">EntryCodec</span>  <span class="o">=</span> <span class="n">Pair</span><span class="o">&lt;</span><span class="n">String</span><span class="p">,</span> <span class="n">Opt</span><span class="o">&lt;</span><span class="n">ValueCodec</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">ConfigCodec</span> <span class="o">=</span> <span class="n">Vec</span><span class="o">&lt;</span><span class="n">EntryCodec</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span></code></pre></div><p>The round-trip test from <code>test_codecs_functors.cpp</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">Config</span> <span class="n">c</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Entry</span><span class="p">{</span><span class="s">&#34;port&#34;</span><span class="p">,</span>    <span class="n">Value</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="p">{</span><span class="mi">8080</span><span class="p">}}},</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Entry</span><span class="p">{</span><span class="s">&#34;name&#34;</span><span class="p">,</span>    <span class="n">Value</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">{</span><span class="s">&#34;alpha&#34;</span><span class="p">}}},</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Entry</span><span class="p">{</span><span class="s">&#34;verbose&#34;</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">nullopt</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Entry</span><span class="p">{</span><span class="s">&#34;debug&#34;</span><span class="p">,</span>   <span class="n">Value</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">in_place_index</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">,</span> <span class="nb">true</span><span class="p">}},</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Convert to the form ConfigCodec expects (vector of pairs).
+</span></span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">optional</span><span class="o">&lt;</span><span class="n">Value</span><span class="o">&gt;&gt;&gt;</span> <span class="n">as_pairs</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">e</span> <span class="p">:</span> <span class="n">c</span><span class="p">)</span> <span class="n">as_pairs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">to_pair</span><span class="p">(</span><span class="n">e</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span><span class="p">,</span> <span class="mi">1024</span><span class="o">&gt;</span> <span class="n">buf</span><span class="p">{};</span>
+</span></span><span class="line"><span class="cl"><span class="n">BitWriter</span> <span class="nf">w</span><span class="p">(</span><span class="n">buf</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">ConfigCodec</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">as_pairs</span><span class="p">,</span> <span class="n">w</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">w</span><span class="p">.</span><span class="n">align</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">BitReader</span> <span class="nf">r</span><span class="p">({</span><span class="n">buf</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span> <span class="n">w</span><span class="p">.</span><span class="n">bytes_written</span><span class="p">()});</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">decoded_pairs</span> <span class="o">=</span> <span class="n">ConfigCodec</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ... reconstruct Entry objects and assert equality
+</span></span></span></code></pre></div><p>The codec types mirror the value types exactly. <code>Config</code> is <code>vector&lt;Entry&gt;</code>; <code>ConfigCodec</code> is <code>Vec&lt;EntryCodec&gt;</code>. <code>Entry</code> is <code>pair&lt;string, optional&lt;Value&gt;&gt;</code>; <code>EntryCodec</code> is <code>Pair&lt;String, Opt&lt;ValueCodec&gt;&gt;</code>. <code>Value</code> is <code>variant&lt;int64_t, string, bool&gt;</code>; <code>ValueCodec</code> is <code>Either3&lt;Signed&lt;Gamma&gt;, String, Bool&gt;</code>.</p>
+<p>No manual layout. No marshaling. No hand-placed length headers. The encoding emerges from the type structure, because the codecs are constructed from the same algebra as the types.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>The zero-copy invariant emerges from this construction. Because each codec&rsquo;s wire format is exactly what the structural recursion produces, the bit pattern in the buffer IS the value, recoverable by the same structural recursion in reverse. Encoding and decoding are not two separate processes that maintain a shared contract; they are a single algebraic object viewed from two directions.</p>
+<p>This dissolves marshaling rather than solving it. Traditional serialization has two representations of a value: the in-memory layout and the wire format. These representations must be kept in sync, and every time the type changes, the serialization code must change too. Under the combinator approach, there is one representation: the algebraic structure of the type. The codec derives from that structure. Change the type, and the codec follows automatically.</p>
+<p>This is what Stepanov meant when he insisted that algorithms should arise from algebraic structure. Here, it is not algorithms but encodings. The point is the same: when you see the structure clearly, the implementation becomes obvious. The hard work is seeing the structure.</p>
+<p>The <a href="/post/2026-01-19-duality-stepanov/">duality post</a> showed that encode and decode are duals. Under this combinator framing, that duality decomposes structurally: the encode-decode duality of a compound type is the product of the encode-decode dualities of its parts.</p>
+<h2 id="further-reading">Further Reading</h2>
+<p><strong>Next in series:</strong> <a href="/post/2026-05-prefix-free-stepanov/">When Lists Become Bits</a> develops the reason <code>Vec&lt;C&gt;</code> works: prefix-freeness is exactly the condition that makes the free-monoid lift to bit space injective.</p>
+<p><strong>Background in this series:</strong></p>
+<ul>
+<li><a href="/post/2026-03-free-algebra-stepanov/">Why Lists and Polynomials Are Universal</a>: the free-monoid construction that <code>Vec</code> lifts to bit space.</li>
+<li><a href="/post/2026-03-homomorphism-stepanov/">The Maps Between Structures</a>: homomorphisms as the natural morphisms between algebraic structures; the combinators are homomorphisms from the type algebra to the codec algebra.</li>
+<li><a href="/post/2026-01-19-duality-stepanov/">Structure, Duality, and the Shape of Computation</a>: encode and decode as dual maps; the duality decomposes structurally under the combinators.</li>
+</ul>
+<p><strong>The production library:</strong> PFC (<a href="https://github.com/queelius/pfc">github.com/queelius/pfc</a>) provides the production version of this design: a richer codec library, full STL integration, and 31k+ test assertions. See <code>include/pfc/algebraic.hpp</code> for the combinators and <code>include/pfc/codecs.hpp</code> for the universal-codes catalog.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>codecs</category>
+      
+      <category>information-theory</category>
+      
+      <category>category-theory</category>
+      
+      <category>functors</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Algebraic Cipher Types: A Functorial Framework for Secure Computation</title>
+      <link>https://metafunctor.com/papers/algebraic-cipher-types/</link>
+      <pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/papers/algebraic-cipher-types/</guid>
+      <description> Download PDF </description>
+      <content:encoded><![CDATA[<style>
+.pdf-container {
   width: 100%;
-  max-width: 100%;
   margin: 0;
-  padding: 0;
 }
-.iframe-wrap iframe {
-  display: block;
+.pdf-container embed {
   width: 100%;
-  border: 0;
-  min-height: 120vh;
+  min-height: 90vh;
+  border: 1px solid var(--color-border-default, #ddd);
+  border-radius: 0.5rem;
 }
 .action-bar {
   margin: 0 0 1rem 0;
-  padding: 0 1rem;
   display: flex;
   gap: .75rem;
   flex-wrap: wrap;
@@ -31,77 +459,35 @@
 }
 </style>
 <div class="action-bar">
-  <a href="/latex/algebraic-cipher-types/index.html" target="_blank" rel="noopener">Open full page</a>
-  <a href="/latex/algebraic-cipher-types/algebraic_cipher_types.pdf" target="_blank" rel="noopener">Download PDF</a>
+  <a href="/latex/algebraic-cipher-types/main.pdf" target="_blank" rel="noopener">Download PDF</a>
 </div>
-<div class="iframe-wrap">
-  <iframe id="ltx" src="/latex/algebraic-cipher-types/index.html" loading="lazy" scrolling="no"></iframe>
-</div>
-<script>
-(function () {
-  const iframe = document.getElementById('ltx');
-
-  if (location.hash) {
-    const u = new URL(iframe.src, location.origin);
-    u.hash = location.hash;
-    iframe.src = u.toString();
-  }
-
-  let lastScrollHeight = 0;
-
-  function setHeight(h) {
-    const newH = Math.ceil(h);
-    if (newH > lastScrollHeight + 5) {
-      iframe.style.height = newH + 'px';
-      lastScrollHeight = newH;
-    }
-  }
-
-  function measure(doc) {
-    const h = Math.max(
-      doc.body?.scrollHeight || 0,
-      doc.documentElement?.scrollHeight || 0
-    );
-    if (h > 0) setHeight(h);
-  }
-
-  iframe.addEventListener('load', () => {
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    if (!doc) return;
-
-    setTimeout(() => measure(doc), 100);
-    setTimeout(() => measure(doc), 500);
-
-    doc.fonts?.ready?.then(() => {
-      setTimeout(() => measure(doc), 50);
-    }).catch(() => {});
-
-    const images = Array.from(doc.images || []);
-    if (images.length > 0) {
-      let loadedCount = 0;
-      images.forEach(img => {
-        if (img.complete) {
-          loadedCount++;
-        } else {
-          img.addEventListener('load', () => {
-            loadedCount++;
-            if (loadedCount === images.length) {
-              setTimeout(() => measure(doc), 50);
-            }
-          }, { once: true });
-        }
-      });
-    }
-
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        lastScrollHeight = 0;
-        measure(doc);
-      }, 300);
-    });
-  });
-})();
-</script>
-]]></content:encoded><category>oblivious computing</category><category>algebraic cipher types</category><category>category theory</category><category>functors</category><category>cryptography</category><category>encrypted search</category><category>homomorphic operations</category><category>secure computation</category><category>oblivious data types</category><category>type theory</category></item></channel></rss>
+<div class="pdf-container">
+  <embed src="/latex/algebraic-cipher-types/main.pdf" type="application/pdf">
+</div>]]></content:encoded>
+      
+      
+      <category>oblivious computing</category>
+      
+      <category>algebraic cipher types</category>
+      
+      <category>category theory</category>
+      
+      <category>functors</category>
+      
+      <category>cryptography</category>
+      
+      <category>encrypted search</category>
+      
+      <category>homomorphic operations</category>
+      
+      <category>secure computation</category>
+      
+      <category>oblivious data types</category>
+      
+      <category>type theory</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>

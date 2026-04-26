@@ -1,4 +1,281 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Monoids on metafunctor</title><link>https://metafunctor.com/tags/monoids/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Thu, 09 Apr 2026 05:32:43 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/monoids/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Free Algebras: Why Lists and Polynomials Are Universal</title><link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid><description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description><content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Monoids on metafunctor</title>
+    <link>https://metafunctor.com/tags/monoids/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Sun, 26 Apr 2026 17:50:28 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/monoids/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>When Lists Become Bits</title>
+      <link>https://metafunctor.com/post/2026-05-prefix-free-stepanov/</link>
+      <pubDate>Thu, 23 Apr 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-05-prefix-free-stepanov/</guid>
+      <description>Prefix-freeness is the property that lifts the free-monoid construction into bit space.</description>
+      <content:encoded><![CDATA[<p><em>The free monoid on a type lifts to bit space. It lifts injectively only when the element codec is prefix-free.</em></p>
+<h2 id="prefix-free-codes-and-the-free-monoid">Prefix-Free Codes and the Free Monoid</h2>
+<p>You have a list of unsigned integers. Encode the list as a single bit string.</p>
+<p>Fixed-width encoding wastes space. If you allocate 64 bits per integer, small values like 1 or 7 cost as much as values near \(2^{64}\). Variable-width encoding recovers that space, but immediately raises a harder question: where does one encoded integer end and the next begin?</p>
+<p>Two escape routes. First, prefix each encoded item with its length. That works, but the length headers are overhead, and you now need a codec for the lengths as well. Second, choose a code where the structure of the codewords makes boundaries unambiguous without any headers. These are prefix-free codes, and this is the right answer, in a precise categorical sense.</p>
+<p>The &ldquo;precise categorical sense&rdquo; is what this post develops. Encoding a list as the concatenation of encoded elements is a monoid homomorphism from the free monoid on \(T\) to the monoid of bit strings under concatenation. The universal property of the free monoid guarantees this homomorphism always exists. The question of whether the decoder can invert it comes down to exactly one property of the element codec: whether it is prefix-free.</p>
+<h2 id="the-free-monoid-recalled">The Free Monoid, Recalled</h2>
+<p>A monoid is a set with an associative binary operation and an identity element. The free monoid on a set \(S\) is the set of all finite sequences of elements from \(S\), with concatenation as the operation and the empty sequence as the identity.</p>
+<p>&ldquo;Free&rdquo; means no equations hold except those forced by the monoid axioms. Nothing is identified with anything else. If you need commutativity or idempotency, you quotient the free monoid by additional equations. But the free monoid itself imposes nothing beyond associativity and identity.</p>
+<p>The universal property says: given any monoid \(M\) and any function \(f: S \to M\), there is exactly one monoid homomorphism \(\hat{f}: \text{Free}(S) \to M\) that extends \(f\). That unique extension is fold:</p>
+$$\hat{f}([x_1, x_2, \ldots, x_n]) = f(x_1) \cdot f(x_2) \cdot \cdots \cdot f(x_n)$$<p>where \(\cdot\) is the operation in \(M\). The <a href="/post/2026-03-free-algebra-stepanov/">free-algebra post</a> develops this in full. For this post, the one fact that matters is that fold is canonical: it is the unique way to extend a per-element map to a list-consuming function that respects the monoid structure.</p>
+<h2 id="the-lifting-question">The Lifting Question</h2>
+<p>Fix a type \(T\) and a codec \(C\) for \(T\): a function \(\text{encode}: T \to \text{BitString}\). The monoid we care about here is \((\text{BitString}, +\!\!+, \varepsilon)\), the set of all finite bit strings under concatenation with the empty string as identity.</p>
+<p>We want to extend \(\text{encode}\) to a function on lists of \(T\):</p>
+$$\text{encode\_list}([x_1, \ldots, x_n]) = \text{encode}(x_1) +\!\!+ \cdots +\!\!+ \text{encode}(x_n)$$<p>By the universal property, this lift always exists. It is fold applied to the encoding function over the free monoid of bit strings. You do not need to do anything clever. The homomorphism exists by construction.</p>
+<p>The real question is whether \(\text{encode\_list}\) is injective: given a bit string \(b\), can we recover the unique list \([x_1, \ldots, x_n]\) that encodes to \(b\)?</p>
+<p>This is not guaranteed. The lift always exists. It is not always invertible.</p>
+<h2 id="when-the-lift-fails-a-counter-example">When the Lift Fails: A Counter-Example</h2>
+<p>Consider a code that is not prefix-free. Assign codewords as follows:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">A -&gt; &#34;0&#34;
+</span></span><span class="line"><span class="cl">B -&gt; &#34;01&#34;
+</span></span><span class="line"><span class="cl">C -&gt; &#34;10&#34;
+</span></span><span class="line"><span class="cl">D -&gt; &#34;010&#34;
+</span></span></code></pre></div><p>The problem: <code>&quot;0&quot;</code> is a prefix of <code>&quot;01&quot;</code> and <code>&quot;010&quot;</code>. <code>&quot;01&quot;</code> is a prefix of <code>&quot;010&quot;</code>. So when we concatenate codewords to encode a list, the decoder cannot determine where one codeword ends and the next begins.</p>
+<p>The bit string <code>&quot;010&quot;</code> has three valid parses:</p>
+<ul>
+<li><code>[D]</code>, because <code>D</code> maps to <code>&quot;010&quot;</code> directly.</li>
+<li><code>[A, C]</code>, because <code>&quot;0&quot; ++ &quot;10&quot; = &quot;010&quot;</code>.</li>
+<li><code>[B, A]</code>, because <code>&quot;01&quot; ++ &quot;0&quot; = &quot;010&quot;</code>.</li>
+</ul>
+<p>This is verified concretely in the test suite:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">TEST</span><span class="p">(</span><span class="n">PrefixFreeTest</span><span class="p">,</span> <span class="n">NonPrefixFreeIsAmbiguous</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// A &#34;code&#34; that is NOT prefix-free.
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// &#34;0&#34;  is a prefix of &#34;01&#34; and &#34;010&#34;.
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// &#34;01&#34; is a prefix of &#34;010&#34;.
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">char</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">code</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span><span class="sc">&#39;A&#39;</span><span class="p">,</span> <span class="s">&#34;0&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span><span class="sc">&#39;B&#39;</span><span class="p">,</span> <span class="s">&#34;01&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span><span class="sc">&#39;C&#39;</span><span class="p">,</span> <span class="s">&#34;10&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span><span class="sc">&#39;D&#39;</span><span class="p">,</span> <span class="s">&#34;010&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// [D], [A, C], and [B, A] all encode to the same bit string &#34;010&#34;.
+</span></span></span><span class="line"><span class="cl">    <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">encode_string</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="s">&#34;D&#34;</span><span class="p">),</span>  <span class="s">&#34;010&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">encode_string</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="s">&#34;AC&#34;</span><span class="p">),</span> <span class="s">&#34;010&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">encode_string</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="s">&#34;BA&#34;</span><span class="p">),</span> <span class="s">&#34;010&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Greedy left-to-right decoding cannot pick a unique answer; the multi-parse
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// decoder finds all three valid parses.
+</span></span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">parses</span> <span class="o">=</span> <span class="n">enumerate_parses</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="s">&#34;010&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">parses</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="mi">3u</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The <code>enumerate_parses</code> function is in <code>prefix_free.hpp</code>. It does a recursive scan: at each position in the bit string, it tries every codeword that matches at that position, and recurses on the remainder. For a prefix-free code it would return exactly one parse for any valid encoding. For this code, it returns three.</p>
+<p>The decoder genuinely has no principled way to choose. The encoding function is not injective on lists; it maps distinct lists to the same bit string. The free-monoid lift exists but fails to be invertible.</p>
+<h2 id="prefix-free-codes">Prefix-Free Codes</h2>
+<p>A code is prefix-free if no codeword is a prefix of any other codeword. The definition rules out the failure mode above: if no codeword is a prefix of another, then when the decoder reads bits left-to-right and finds a complete codeword, it knows it has found one. There is no ambiguity about whether more bits belong to the current codeword or start a new one.</p>
+<p>The canonical visualization is a trie (a binary tree for binary codes). Each codeword corresponds to a root-to-leaf path: go left for 0, right for 1, and the path terminates when you reach a leaf. Prefix-freeness means no codeword ends at an internal node. Every codeword&rsquo;s path ends at a leaf, and leaves are not ancestors of other leaves.</p>
+<p>The two codecs in this post, Unary and Gamma, are both prefix-free.</p>
+<p>Unary encodes positive integers: the codeword for \(n\) is \((n-1)\) zero bits followed by a one bit.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Unary</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="s">&#34;Unary is undefined for n = 0&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">value_type</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="o">++</span><span class="n">n</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">n</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Prefix-freeness of Unary is immediate: every codeword ends with a <code>1</code>, and no other codeword is a prefix of that. The decoder reads zeros until it sees a one. There is no ambiguity.</p>
+<p>Gamma is restated here from post 1. The codeword for \(n \geq 1\) is \(\lfloor\log_2 n\rfloor\) zero bits, then a one bit, then the \(\lfloor\log_2 n\rfloor\) lower bits of \(n\) in MSB-first order.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Gamma</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="kt">uint64_t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="n">value_type</span> <span class="n">n</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">assert</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="s">&#34;Gamma is undefined for n = 0&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bits</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">bit_width</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bits</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="nb">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="n">bits</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">sink</span><span class="p">.</span><span class="n">write</span><span class="p">(((</span><span class="n">n</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">bits</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">())</span> <span class="o">++</span><span class="n">bits</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">bits</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">source</span><span class="p">.</span><span class="n">read</span><span class="p">()</span> <span class="o">?</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">:</span> <span class="n">value_type</span><span class="p">{</span><span class="mi">0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Gamma is prefix-free: the leading-zero count uniquely determines how many data bits follow. Once the decoder reads the <code>1</code> bit that terminates the unary prefix, it knows exactly how many more bits to consume. The boundary is unambiguous.</p>
+<h2 id="the-free-monoid-lift-works-for-prefix-free-codes">The Free-Monoid Lift Works for Prefix-Free Codes</h2>
+<p>Now we can state the main result cleanly.</p>
+<p>Fix a type \(T\) and a prefix-free codec \(C\) for \(T\). The encoding function specializes the universal property construction: \(S = T\), \(M = (\text{BitString}, +\!\!+, \varepsilon)\), and \(f = \text{encode}_C\). The lift \(\text{encode\_list}\) always exists as fold, as argued above. The new claim is that it is injective when \(C\) is prefix-free.</p>
+<p>The argument in the prefix-free direction: given a bit string \(b\) produced by \(\text{encode\_list}\), a greedy left-to-right decoder works as follows. Start at position 0. Find the unique codeword that matches the bits starting at position 0. This codeword is unique because: (a) some codeword must match (otherwise \(b\) was not a valid encoding), and (b) no two codewords share a prefix, so at most one codeword can match at any position. Advance past that codeword. Repeat. The decoder always terminates with a unique parse.</p>
+<p>The argument in the other direction: if \(C\) is not prefix-free, then there exist symbols \(a\) and \(b\) such that \(\text{encode}(a)\) is a prefix of \(\text{encode}(b)\). Write \(\text{encode}(b) = \text{encode}(a) +\!\!+ s\) for some non-empty string \(s\). If \(s\) is itself a prefix of some codeword sequence, then \([b]\) and \([a] +\!\!+ \text{decode}(s)\) produce the same bit string. This is exactly the failure mode in the counter-example above.</p>
+<p>The bigger claim is that, when \(C\) is prefix-free, the image of \(\text{encode\_list}\) forms a submonoid of \(\text{BitString}\) that is isomorphic to the free monoid on \(T\). The encoding is a monoid isomorphism. &ldquo;Lists of \(T\)&rdquo; and &ldquo;bit strings built from \(C\)&rsquo;s codewords&rdquo; are the same monoid, witnessed by \(\text{encode\_list}\) and its inverse \(\text{decode\_list}\).</p>
+<p><code>Vec&lt;C&gt;</code> from <a href="/post/2026-05-codecs-functors-stepanov/">Bits Follow Types</a> is this isomorphism made concrete in C++.</p>
+<h2 id="implementation-and-round-trip">Implementation and Round-Trip</h2>
+<p>Post 2 has its own minimal <code>Vec&lt;C&gt;</code> implementation, independent of post 1&rsquo;s <code>codecs_functors.hpp</code>. The decision is intentional: each post in this series is self-contained, following the convention that posts can be read in any order. The implementations are identical in spirit.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">Vec</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">value_type</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">C</span><span class="o">::</span><span class="n">value_type</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSink</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="kt">void</span> <span class="n">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">value_type</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="o">&amp;</span> <span class="n">sink</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Gamma</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="nl">x</span> <span class="p">:</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">C</span><span class="o">::</span><span class="n">encode</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sink</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">template</span><span class="o">&lt;</span><span class="n">BitSource</span> <span class="n">S</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="n">value_type</span> <span class="n">decode</span><span class="p">(</span><span class="n">S</span><span class="o">&amp;</span> <span class="n">source</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">n</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Gamma</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">value_type</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">C</span><span class="o">::</span><span class="n">decode</span><span class="p">(</span><span class="n">source</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The length is gamma-coded as <code>size + 1</code> because Gamma requires inputs \(\geq 1\) while vectors can be empty. The decoder subtracts 1 to recover the actual size.</p>
+<p>The round-trip test:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">TEST</span><span class="p">(</span><span class="n">PrefixFreeTest</span><span class="p">,</span> <span class="n">VecOfGammaRoundTrip</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">Codec</span> <span class="o">=</span> <span class="n">Vec</span><span class="o">&lt;</span><span class="n">Gamma</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Codec</span><span class="o">::</span><span class="n">value_type</span> <span class="n">v</span><span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">21</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">round_trip</span><span class="o">&lt;</span><span class="n">Codec</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">TEST</span><span class="p">(</span><span class="n">PrefixFreeTest</span><span class="p">,</span> <span class="n">VecEmptyRoundTrip</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">using</span> <span class="n">Codec</span> <span class="o">=</span> <span class="n">Vec</span><span class="o">&lt;</span><span class="n">Gamma</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Codec</span><span class="o">::</span><span class="n">value_type</span> <span class="n">v</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">round_trip</span><span class="o">&lt;</span><span class="n">Codec</span><span class="o">&gt;</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Both pass. The Fibonacci sequence encodes and decodes cleanly; the empty list handles the edge case. Gamma&rsquo;s prefix-freeness is what makes this possible: each element&rsquo;s boundary is determined by the code structure, not by a length header.</p>
+<h2 id="krafts-inequality-lightly">Kraft&rsquo;s Inequality, Lightly</h2>
+<p>There is a necessary condition on codeword lengths for a prefix-free code to exist. Kraft&rsquo;s inequality states: for a binary prefix-free code with codeword lengths \(l_1, l_2, \ldots\), we have</p>
+$$\sum_i 2^{-l_i} \leq 1$$<p>The sum counts how much of the &ldquo;leaf capacity&rdquo; of an infinite binary tree each codeword consumes. Prefix-freeness requires each codeword to occupy its own leaf without overlap; the total capacity of the tree is 1, so the sum cannot exceed it.</p>
+<p>Both Unary and Gamma satisfy Kraft&rsquo;s inequality, verified computationally:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">TEST</span><span class="p">(</span><span class="n">PrefixFreeTest</span><span class="p">,</span> <span class="n">KraftInequalityHoldsForUnary</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Unary code: codeword for n has length n bits.
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// Sum of 2^-l for n = 1..K is 1 - 2^-K, which is &lt; 1.
+</span></span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="kt">int</span> <span class="n">K</span> <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="n">K</span><span class="p">;</span> <span class="o">++</span><span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sum</span> <span class="o">+=</span> <span class="n">std</span><span class="o">::</span><span class="n">ldexp</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="n">n</span><span class="p">);</span>  <span class="c1">// 2^-n
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_LE</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Convergence check: sum approaches 1 as K grows.
+</span></span></span><span class="line"><span class="cl">    <span class="n">EXPECT_GT</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">std</span><span class="o">::</span><span class="n">ldexp</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="n">K</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">TEST</span><span class="p">(</span><span class="n">PrefixFreeTest</span><span class="p">,</span> <span class="n">KraftInequalityHoldsForGamma</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Gamma code: codeword for n has length 2 * floor(log2(n)) + 1.
+</span></span></span><span class="line"><span class="cl">    <span class="kt">double</span> <span class="n">sum</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">constexpr</span> <span class="kt">int</span> <span class="n">N</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">14</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="n">N</span><span class="p">;</span> <span class="o">++</span><span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">bit_width</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">unsigned</span><span class="o">&gt;</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">sum</span> <span class="o">+=</span> <span class="n">std</span><span class="o">::</span><span class="n">ldexp</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="n">len</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EXPECT_LE</span><span class="p">(</span><span class="n">sum</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">1e-9</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Unary sums to \(1 - 2^{-K}\) for the first \(K\) integers, converging to 1 from below. Gamma sums to exactly 1 in the limit: each &ldquo;block&rdquo; of integers sharing the same codeword length contributes \(2^{-(k+1)}\), and \(\sum_{k=0}^{\infty} 2^{-(k+1)} = 1\). Both satisfy \(\leq 1\).</p>
+<p>The converse of Kraft&rsquo;s inequality is also true: any sequence of lengths satisfying the inequality is realized by some prefix-free code. This characterizes exactly which length vectors are achievable. The forthcoming Information Theory by Construction series develops the proof and connects it to optimal code design.</p>
+<h2 id="the-bridge-claim">The Bridge Claim</h2>
+<p>Pull back to the structure.</p>
+<p>Prefix-freeness is the property that lifts the free-monoid construction into bit space injectively. Without it, the lift exists as a function but cannot be inverted. With it, the lift is an isomorphism of monoids.</p>
+<p>The same pattern applies to the other combinators from <a href="/post/2026-05-codecs-functors-stepanov/">Bits Follow Types</a>:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Combinator</th>
+          <th>Universal property being lifted</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>Opt&lt;C&gt;</code></td>
+          <td>Coproduct with unit \(1 + T\)</td>
+      </tr>
+      <tr>
+          <td><code>Either&lt;A, B&gt;</code></td>
+          <td>Binary coproduct \(A + B\)</td>
+      </tr>
+      <tr>
+          <td><code>Pair&lt;A, B&gt;</code></td>
+          <td>Binary product \(A \times B\) (given both factors prefix-free)</td>
+      </tr>
+      <tr>
+          <td><code>Vec&lt;C&gt;</code></td>
+          <td>Free monoid on \(T\) (given \(C\) prefix-free)</td>
+      </tr>
+  </tbody>
+</table>
+<p>Each combinator lifts a universal property from the type algebra to the bit-string algebra. The tag-bit in <code>Opt</code> and <code>Either</code> is what makes their coproduct construction injective: the tag selects the branch, and the branch codec handles the payload. The ordering in <code>Pair</code> is recoverable because the first codec is prefix-free, so the decoder knows where the first field ends. And <code>Vec</code> is recoverable because the element codec is prefix-free, as just argued.</p>
+<p>The unifying frame: codecs are structure-preserving embeddings from the type algebra into the algebra of bit strings. When the type algebra involves a free construction (the free monoid for lists, or the free algebra for more general term structures), the lift is canonical by the universal property. When the codec is also prefix-free, the lift is reversible: encode and decode form an isomorphism.</p>
+<p>This is the sense in which prefix-freeness is &ldquo;the categorically right answer&rdquo; to the boundary problem. It is not just convenient. It is exactly what is needed for the algebraic structure of the encoding to match the algebraic structure of the type.</p>
+<p>The <a href="/post/2026-01-19-duality-stepanov/">duality post</a> noted that encode and decode are duals. Under the combinator framing, that duality decomposes structurally: the encode-decode duality of a compound type is the product of the encode-decode dualities of its parts. Prefix-freeness is the condition that makes the decode half of that duality well-defined.</p>
+<h2 id="further-reading">Further Reading</h2>
+<p><strong>Background in this series:</strong></p>
+<ul>
+<li><a href="/post/2026-05-codecs-functors-stepanov/">Bits Follow Types</a>: <code>Vec&lt;C&gt;</code> and the other combinators. This post explains why they work.</li>
+<li><a href="/post/2026-03-free-algebra-stepanov/">Why Lists and Polynomials Are Universal</a>: the free-monoid construction being lifted to bit space here.</li>
+<li><a href="/post/2026-03-homomorphism-stepanov/">The Maps Between Structures</a>: the lift is a monoid homomorphism; this post covers what that means and why it matters.</li>
+<li><a href="/post/2026-01-19-duality-stepanov/">Structure, Duality, and the Shape of Computation</a>: prefix-freeness is what makes the decode half of the encode-decode duality well-defined.</li>
+</ul>
+<p><strong>Where this leads:</strong> The forthcoming Information Theory by Construction series develops Kraft&rsquo;s inequality proof, the converse (every Kraft-satisfying length vector is realizable by a prefix-free code), and the full universal-codes treatment connecting prefix-freeness to entropy, Huffman coding, and arithmetic coding.</p>
+<p><strong>The production library:</strong> PFC (<a href="https://github.com/queelius/pfc">github.com/queelius/pfc</a>) provides the production version with a richer codec library, full STL integration, and 31k+ test assertions. See <code>include/pfc/algebraic.hpp</code> for the combinators and <code>include/pfc/codecs.hpp</code> for the full catalog of universal codes.</p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>codecs</category>
+      
+      <category>information-theory</category>
+      
+      <category>category-theory</category>
+      
+      <category>monoids</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Free Algebras: Why Lists and Polynomials Are Universal</title>
+      <link>https://metafunctor.com/post/2026-03-free-algebra-stepanov/</link>
+      <pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-03-free-algebra-stepanov/</guid>
+      <description>The free monoid on a set is the type of lists over that set. The universal property says fold is the unique homomorphism from lists to any monoid. This explains why lists, multisets, and polynomials appear everywhere.</description>
+      <content:encoded><![CDATA[<p><em>Lists are everywhere in programming. Not because they are convenient. Because they are algebraically universal.</em></p>
 <h2 id="why-lists">Why Lists?</h2>
 <p>Arrays are more cache-friendly. Hash maps have better lookup. Yet lists (sequences, vectors, streams) remain the default container in nearly every language. The standard explanation is convention, or ease of construction. The real explanation is algebraic.</p>
 <p>A list is the <strong>free monoid</strong>. It is the most general monoid you can build from a set of generators. And the universal property of free monoids says that fold, the operation that processes a list element by element, is not a design pattern. It is a theorem.</p>
@@ -136,7 +413,30 @@ $$p(x) = c_0 + c_1 x + c_2 x^2 + \cdots \mapsto c_0 + c_1 a + c_2 a^2 + \cdots$$
 <li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
 <li>Awodey, <em>Category Theory</em>, ch. 2 (free/forgetful adjunction)</li>
 </ul>
-]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>category-theory</category></item><item><title>Homomorphisms: The Maps Between Structures</title><link>https://metafunctor.com/post/2026-03-homomorphism-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-homomorphism-stepanov/</guid><description>A homomorphism preserves structure. fold is the universal homomorphism from the free monoid. This is the algebraic reason that fold, evaluation, and parallelism work.</description><content:encoded><![CDATA[<p><em>A homomorphism is a function that preserves algebraic structure. This post shows that fold, sum, length, and even the logarithm are all the same idea.</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>algorithms</category>
+      
+      <category>monoids</category>
+      
+      <category>category-theory</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Homomorphisms: The Maps Between Structures</title>
+      <link>https://metafunctor.com/post/2026-03-homomorphism-stepanov/</link>
+      <pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-03-homomorphism-stepanov/</guid>
+      <description>A homomorphism preserves structure. fold is the universal homomorphism from the free monoid. This is the algebraic reason that fold, evaluation, and parallelism work.</description>
+      <content:encoded><![CDATA[<p><em>A homomorphism is a function that preserves algebraic structure. This post shows that fold, sum, length, and even the logarithm are all the same idea.</em></p>
 <h2 id="structures-and-maps">Structures and Maps</h2>
 <p>The series so far has built up algebraic structures: monoids in the <a href="https://metafunctor.com/post/2019-03-peasant-stepanov/">peasant post</a>, rings in the <a href="https://metafunctor.com/post/2019-06-modular-stepanov/">modular post</a>, Euclidean domains in the <a href="https://metafunctor.com/post/2020-07-polynomials-stepanov/">polynomial post</a>, product monoids in the <a href="https://metafunctor.com/post/2026-03-accumulator-stepanov/">accumulator post</a>. But structures alone are half the story. The other half is the maps between them.</p>
 <p>A <strong>homomorphism</strong> is a function \(f: A \to B\) between two structures of the same kind that preserves the operation:</p>
@@ -202,7 +502,30 @@ $$f(a \oplus b \oplus c) = f(a) \oplus f(b) \oplus f(c)$$<p>This is the algebrai
 <li>Bird &amp; de Moor, <em>Algebra of Programming</em> (homomorphisms and program derivation)</li>
 <li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
 </ul>
-]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>homomorphisms</category></item><item><title>Streaming Statistics, One Monoid at a Time</title><link>https://metafunctor.com/post/2026-03-accumulator-stepanov/</link><pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-03-accumulator-stepanov/</guid><description>Online accumulators are monoids. Default construction is the identity, combination via += is the binary operation, and parallel composition gives the product monoid, computing arbitrary statistics in a single pass.</description><content:encoded><![CDATA[<p><em>Accumulators are monoids. The same algebraic structure from the peasant post, in a different domain.</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>algorithms</category>
+      
+      <category>monoids</category>
+      
+      <category>homomorphisms</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Streaming Statistics, One Monoid at a Time</title>
+      <link>https://metafunctor.com/post/2026-03-accumulator-stepanov/</link>
+      <pubDate>Fri, 13 Mar 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-03-accumulator-stepanov/</guid>
+      <description>Online accumulators are monoids. Default construction is the identity, combination via &#43;= is the binary operation, and parallel composition gives the product monoid, computing arbitrary statistics in a single pass.</description>
+      <content:encoded><![CDATA[<p><em>Accumulators are monoids. The same algebraic structure from the peasant post, in a different domain.</em></p>
 <h2 id="accumulators-as-monoids">Accumulators as Monoids</h2>
 <p>An accumulator processes a stream of values, maintaining state that can be queried at any point. Write a class with <code>operator+=</code> for each statistic you need. Sum, mean, variance, min, max. Five statistics, five classes.</p>
 <p>The problem is combinations. Sum <em>and</em> min? Write a sixth class. Sum, min, <em>and</em> max? A seventh. Every new combination requires new code.</p>
@@ -377,7 +700,30 @@ $$\bar{x}\_{AB} = \frac{n_A \bar{x}_A + n_B \bar{x}_B}{n_A + n_B}$$$$M\_{2,AB} =
 <li>Chan, Golub &amp; LeVeque, &ldquo;Updating Formulae and a Pairwise Algorithm for Computing Sample Variances&rdquo;</li>
 <li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
 </ul>
-]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>statistics</category></item><item><title>Seeing Structure First</title><link>https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</link><pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</guid><description>A reflection on eleven explorations in generic programming, and how algorithms arise from algebraic structure.</description><content:encoded><![CDATA[<p><em>A reflection on eleven explorations in generic programming</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>algorithms</category>
+      
+      <category>monoids</category>
+      
+      <category>statistics</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Seeing Structure First</title>
+      <link>https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</link>
+      <pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</guid>
+      <description>A reflection on eleven explorations in generic programming, and how algorithms arise from algebraic structure.</description>
+      <content:encoded><![CDATA[<p><em>A reflection on eleven explorations in generic programming</em></p>
 <h2 id="the-question-behind-the-code">The Question Behind the Code</h2>
 <p>What do these computations have in common?</p>
 <ul>
@@ -838,7 +1184,32 @@ $$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges
 <li>Ireland &amp; Rosen, <em>A Classical Introduction to Modern Number Theory</em> &ndash; modular arithmetic</li>
 <li>Graham, Knuth, Patashnik, <em>Concrete Mathematics</em> &ndash; rational numbers, recurrences</li>
 </ul>
-]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>algebraic-structures</category><category>stepanov</category></item><item><title>One Algorithm, Infinite Powers</title><link>https://metafunctor.com/post/2019-03-peasant-stepanov/</link><pubDate>Fri, 15 Mar 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-03-peasant-stepanov/</guid><description>The Russian peasant algorithm computes products, powers, Fibonacci numbers, and more, once you see the underlying algebraic structure.</description><content:encoded><![CDATA[<p><em>How the Russian peasant algorithm reveals the universal structure of exponentiation</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>algorithms</category>
+      
+      <category>monoids</category>
+      
+      <category>algebraic-structures</category>
+      
+      <category>stepanov</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>One Algorithm, Infinite Powers</title>
+      <link>https://metafunctor.com/post/2019-03-peasant-stepanov/</link>
+      <pubDate>Fri, 15 Mar 2019 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2019-03-peasant-stepanov/</guid>
+      <description>The Russian peasant algorithm computes products, powers, Fibonacci numbers, and more, once you see the underlying algebraic structure.</description>
+      <content:encoded><![CDATA[<p><em>How the Russian peasant algorithm reveals the universal structure of exponentiation</em></p>
 <h2 id="the-algorithm">The Algorithm</h2>
 <p>Russian peasants had a clever method for multiplication that does not require memorizing times tables. To compute 23 x 17:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">23    17
@@ -1008,4 +1379,21 @@ $$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges
 <li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em></li>
 <li>Stepanov, <em>Elements of Programming</em></li>
 </ul>
-]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>number-theory</category></item></channel></rss>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>generic-programming</category>
+      
+      <category>algorithms</category>
+      
+      <category>monoids</category>
+      
+      <category>number-theory</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>
