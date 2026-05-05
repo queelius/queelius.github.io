@@ -1,68 +1,1444 @@
-<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>What You Assume vs. What You Compute | metafunctor</title><meta name=title content="What You Assume vs. What You Compute | metafunctor"><meta name=description content="Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption."><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/post/2026-03-15-rl-synthesis/><link rel=alternate hreflang=en href=https://metafunctor.com/post/2026-03-15-rl-synthesis/><link rel=alternate hreflang=x-default href=https://metafunctor.com/post/2026-03-15-rl-synthesis/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/post/2026-03-15-rl-synthesis/"><meta property="og:title" content="What You Assume vs. What You Compute"><meta property="og:description" content="Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption."><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:published_time" content="2026-03-15T00:03:00Z"><meta property="article:modified_time" content="2026-04-26T17:47:31-05:00"><meta property="article:section" content="technical"><meta property="article:tag" content="reinforcement-learning"><meta property="article:tag" content="representation"><meta property="article:tag" content="inductive-bias"><meta property="article:tag" content="machine-learning"><meta property="article:tag" content="aixi"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/post/2026-03-15-rl-synthesis/"><meta name=twitter:title content="What You Assume vs. What You Compute"><meta name=twitter:description content="Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption."><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/#primaryContent","headline":"What You Assume vs. What You Compute","description":"Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption.","url":"https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/","inLanguage":"en-US","datePublished":"2026-03-15T00:03:00Z","dateModified":"2026-04-26T17:47:31-05:00","wordCount":1509,"timeRequired":"PT8M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}},"keywords":["reinforcement-learning","representation","inductive-bias","machine-learning","aixi"]},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"News","item":"https:\/\/metafunctor.com\/post\/"},{"@type":"ListItem","position":3,"name":"What You Assume vs. What You Compute","item":"https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=../../css/refined-elegant.css><link rel=stylesheet href=../../css/micro-interactions.css><link rel=stylesheet href=../../css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=../../css/custom.css><link rel=stylesheet href=../../css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.161.1"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
-<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
-<span></span>
-<span></span>
-<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/post/ class=active aria-current=page>Posts</a></li><li><a href=https://metafunctor.com/series/>Series</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Academic <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li></ul></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Creative <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li><li role=menuitem><a href=https://metafunctor.com/media/>Media</a></li></ul></li><li><a href=https://metafunctor.com/projects/>Projects</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
-</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<a itemprop=item href=https://metafunctor.com/post/><span itemprop=name>News</span>
-</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<span itemprop=name aria-current=page>What You Assume vs. What You Compute</span>
-<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><div class=main-container><div class=single-post-layout><aside class=post-sidebar><aside class=toc-wrapper aria-label="Table of contents"><nav class=table-of-contents><h2 class=toc-title>Table of Contents</h2><div class=toc-content><nav id=TableOfContents><ul><li><a href=#model-based-vs-model-free-two-ways-to-be-wrong>Model-based vs. model-free: two ways to be wrong</a></li><li><a href=#what-each-algorithm-actually-bets-on>What each algorithm actually bets on</a></li><li><a href=#the-incomputable-ideal>The incomputable ideal</a></li><li><a href=#representation-is-prior-is-assumption>Representation is prior is assumption</a></li><li><a href=#looking-back>Looking back</a></li></ul></nav></div></nav></aside><style>.toc-wrapper{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;padding:var(--space-lg);background:var(--paper-dark);border:var(--border-width)solid var(--border-color);border-radius:var(--radius-lg);margin-bottom:var(--space-xl)}.toc-title{font-size:1rem;font-weight:600;color:var(--ink);margin:0 0 var(--space-md);text-transform:uppercase;letter-spacing:.05em;font-size:.875rem}.toc-content{font-size:.9rem}.toc-content ul{list-style:none;padding-left:0;margin:0}.toc-content>ul{border-left:2px solid var(--border-color);padding-left:var(--space-md)}.toc-content li{margin-bottom:var(--space-sm)}.toc-content a{color:var(--ink-light);text-decoration:none;transition:color var(--transition-fast);display:block;padding:var(--space-xs)0}.toc-content a:hover{color:var(--accent)}.toc-content ul ul{margin-top:var(--space-sm);padding-left:var(--space-md)}@media(max-width:1024px){.toc-wrapper{position:relative;top:0;max-height:none}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".toc-content a"),n=Array.from(e).map(e=>{const t=e.getAttribute("href").substring(1);return document.getElementById(t)}).filter(e=>e!==null);function t(){let t="";n.forEach(e=>{const n=e.offsetTop,s=window.scrollY+100;s>=n&&(t=e.getAttribute("id"))}),e.forEach(e=>{e.classList.remove("active"),e.getAttribute("href")==="#"+t?(e.classList.add("active"),e.style.color="var(--accent)",e.style.fontWeight="600"):(e.style.color="",e.style.fontWeight="")})}window.addEventListener("scroll",t),t()})</script></aside><article class=single-post itemscope itemtype=https://schema.org/Article><header class=post-header><h1 class=post-title itemprop=headline>What You Assume vs. What You Compute</h1><div class=post-meta><span class=post-date><i class="far fa-calendar" aria-hidden=true></i>
-<time datetime=2026-03-15T00:03:00Z itemprop=datePublished>March 15, 2026
-</time></span><span class=post-reading-time><i class="far fa-clock" aria-hidden=true></i>
-8 min read
-</span><span class=post-updated><i class="far fa-edit" aria-hidden=true></i>
-Updated: <time datetime=2026-04-26T17:47:31-05:00 itemprop=dateModified>April 26, 2026</time></span></div><div class=tags role=list><a href=https://metafunctor.com/tags/reinforcement-learning/ class=tag role=listitem>reinforcement-learning</a>
-<a href=https://metafunctor.com/tags/representation/ class=tag role=listitem>representation</a>
-<a href=https://metafunctor.com/tags/inductive-bias/ class=tag role=listitem>inductive-bias</a>
-<a href=https://metafunctor.com/tags/machine-learning/ class=tag role=listitem>machine-learning</a>
-<a href=https://metafunctor.com/tags/aixi/ class=tag role=listitem>aixi</a></div></header><nav class=series-navigation aria-label="Series navigation"><div class=series-header><span class=series-label>Part of series:</span>
-<a href=../../series/rl-assumptions/ class=series-name>Rl Assumptions</a>
-<span class=series-count>5 parts</span></div><ol class=series-list><li class=series-item><a href=../../reading/rl-assumptions/ class=series-link><span class=series-number>1</span>
-<span class=series-title>RL Assumptions: Recommended Reading</span></a></li><li class=series-item><a href=../../post/2026-03-15-rl-infinite-table/ class=series-link><span class=series-number>2</span>
-<span class=series-title>The Infinite Table</span></a></li><li class=series-item><a href=../../post/2026-03-15-rl-features/ class=series-link><span class=series-number>3</span>
-<span class=series-title>The Features You Choose Are the Assumptions You Make</span></a></li><li class=series-item><a href=../../post/2026-03-15-rl-architecture/ class=series-link><span class=series-number>4</span>
-<span class=series-title>The Architecture Is the Prior</span></a></li><li class="series-item current"><a href=../../post/2026-03-15-rl-synthesis/ class=series-link><span class=series-number>5</span>
-<span class=series-title>What You Assume vs. What You Compute</span></a></li></ol></nav><style>.series-navigation{margin:var(--space-6)0;padding:var(--space-4);background:linear-gradient(135deg,rgba(102,126,234,5%) 0%,rgba(118,75,162,5%) 100%);border:1px solid var(--color-border-subtle);border-radius:var(--radius-lg)}.series-header{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4);flex-wrap:wrap}.series-label{font-size:var(--font-size-sm);color:var(--color-text-tertiary)}.series-name{font-weight:600;color:var(--color-text-primary);text-decoration:none}.series-name:hover{color:var(--color-accent-primary);text-decoration:underline}.series-count{font-size:var(--font-size-sm);padding:2px 8px;background:var(--color-bg-tertiary);border-radius:var(--radius-full);color:var(--color-text-secondary)}.series-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:var(--space-2)}.series-item{padding:0}.series-link{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2)var(--space-3);background:var(--color-bg-elevated);border-radius:var(--radius-md);text-decoration:none;transition:all .2s ease;border:1px solid transparent}.series-link:hover{border-color:var(--color-accent-primary);transform:translateX(4px)}.series-item.current .series-link{background:var(--color-accent-primary);color:#fff}.series-item.current .series-number{background:rgba(255,255,255,.2)}.series-number{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--color-bg-tertiary);border-radius:var(--radius-full);font-size:var(--font-size-sm);font-weight:600;color:var(--color-text-secondary);flex-shrink:0}.series-title{color:var(--color-text-primary);font-weight:500}.series-item.current .series-title{color:#fff}@media(max-width:600px){.series-header{flex-direction:column;align-items:flex-start}}</style><div class=post-tts><button class=speak-button type=button data-voice=en_US-libritts_r-medium>
-<span class=speak-icon aria-hidden=true></span>
-<span class=speak-label>Read aloud</span>
-<span class=speak-status aria-live=polite></span></button></div><link rel=stylesheet href=../../speak/widget.css><script type=importmap>{"imports":{"onnxruntime-web":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.min.js"}}</script><script type=module src=../../speak/widget.js></script><div class=content itemprop=articleBody><p>Over the first three posts we looked at three ways to represent what an agent knows: a table with one row per state, a weighted sum of hand-crafted features, and a neural network that learns its own features. In each case, we saw that the representation wasn&rsquo;t just a technical choice &mdash; it was a claim about the world. The tabular agent claims that no two states share structure. The linear agent claims that value is a weighted combination of its chosen features. The neural agent encodes its claim in the architecture itself, in the shape of the convolutional or fully-connected layers it uses to process input.</p><p>But there&rsquo;s another axis we haven&rsquo;t talked about yet, one that cuts across all three representations. It&rsquo;s not about <em>how</em> you encode states &mdash; it&rsquo;s about <em>whether you assume you know how the world works</em>. This turns out to be at least as fundamental as the representation question, and it sets up the deepest question in this series: what would it even mean for an agent to make no assumptions at all?</p><h2 id=model-based-vs-model-free-two-ways-to-be-wrong>Model-based vs. model-free: two ways to be wrong</h2><p>Value iteration is the clearest example of a model-based method. You give it a transition function &mdash; a table saying &ldquo;if you take action A in state S, here&rsquo;s the probability distribution over next states&rdquo; &mdash; and it computes the optimal value function by iterating the Bellman equation until convergence. The result is provably optimal. No exploration needed. No sample noise. Just arithmetic until the values stop changing.</p><p>The catch is that &ldquo;give it a transition function&rdquo; is doing enormous work. In a board game, you can write down the rules and the transition function falls out. In most real problems &mdash; a robot learning to walk, a trading algorithm responding to markets, an agent navigating an environment it&rsquo;s never seen before &mdash; you don&rsquo;t have the transition function. You have experience. You have outcomes. You have the environment&rsquo;s revealed behavior, one step at a time.</p><p>That&rsquo;s the regime model-free methods were built for. Q-learning doesn&rsquo;t need to know what happens when it takes action A in state S &mdash; it finds out, records the outcome, and slowly builds up an implicit model through the Q-values themselves. The Q-function is a compressed version of the optimal policy, learned from samples without ever representing transitions explicitly. The cost is sample complexity: every state-action pair has to be visited enough times that the Q-values converge. Model-based methods front-load the assumption (you know the model); model-free methods front-load the data requirement (you learn by doing).</p><p>Both approaches make assumptions. Value iteration assumes you have a complete, correct model of the world. Q-learning assumes the world can be summarized by a Q-function of a particular form &mdash; tabular, linear, or neural, depending on your choice of representation. Neither assumption is free. The art is knowing which assumption your problem tolerates.</p><h2 id=what-each-algorithm-actually-bets-on>What each algorithm actually bets on</h2><p>Let&rsquo;s put the assumptions on the table explicitly. Every algorithm in this series commits to a specific combination of choices: how it represents states, what it assumes about world dynamics, how it learns, and what it sacrifices in exchange.</p><div style=overflow-x:auto><table class=assumptions-table><thead><tr><th>Algorithm</th><th>Representation</th><th>Model Assumption</th><th>How It Learns</th><th>What It Sacrifices</th></tr></thead><tbody><tr><td>Tabular Q</td><td>None — each state is unique</td><td><span class="tag tag-none">Model-free</span> No transition knowledge needed</td><td>Visits every state-action pair; updates that entry only</td><td>Generalization — every state is an island</td></tr><tr><td>Linear Q</td><td>Linear in hand-crafted features</td><td><span class="tag tag-none">Model-free</span> No transition knowledge needed</td><td>Updates shared feature weights from each experience</td><td>Non-linear patterns — the world must respect the feature decomposition</td></tr><tr><td>Neural Q</td><td>Learned features (architecture-defined)</td><td><span class="tag tag-none">Model-free</span> No transition knowledge needed</td><td>Backpropagates through the network from every sample</td><td>Interpretability and training stability — power comes at a cost</td></tr><tr><td>Value Iteration</td><td>Tabular (one value per state)</td><td><span class="tag tag-full">Full model</span> Transition probabilities must be known</td><td>Bellman backups — no sampling, pure computation</td><td>Scalability and model availability — exact when possible, impractical often</td></tr></tbody></table></div><p>The table makes visible what informal descriptions obscure: every column represents a real tradeoff. The model-free methods have a <code>None</code> in the representation column &mdash; but that&rsquo;s not the same as &ldquo;no assumptions.&rdquo; It means &ldquo;no assumptions about transitions.&rdquo; They still assume the Q-function has a particular form. The model-based method reverses the bet: it assumes a great deal about the world (a complete transition model) in exchange for being able to compute rather than sample its way to the answer.</p><h2 id=the-incomputable-ideal>The incomputable ideal</h2><p>Here&rsquo;s a question that might seem absurd: what would an agent look like if it made <em>no</em> assumptions? Not &ldquo;fewer assumptions&rdquo; &mdash; none. Consider every possible way the world could work: every possible set of transition probabilities, every possible reward structure. Weight each world model by its simplicity &mdash; the simpler the description, the higher the prior probability. Then pick the action that maximizes expected reward across all these world models simultaneously, where each model&rsquo;s contribution is weighted by how consistent it is with everything the agent has observed so far.</p><p>That&rsquo;s AIXI, Marcus Hutter&rsquo;s theoretical ideal agent. It doesn&rsquo;t commit to any world model in advance &mdash; it maintains a distribution over all computable world models and updates it as evidence comes in. Given infinite computation, AIXI is provably optimal in any computable environment. It will eventually learn to behave optimally in any world it inhabits, regardless of how that world works, because it never rules out the true model.</p><p>AIXI is incomputable. You cannot run it. The set of all computable programs is infinite and cannot be enumerated in finite time. But this isn&rsquo;t a bug in the definition &mdash; it&rsquo;s the point. AIXI defines what &ldquo;optimal&rdquo; means when you refuse to assume anything about the world. It gives us a target. Every practical algorithm is AIXI with the knobs turned down:</p><blockquote><p>&ldquo;I&rsquo;ll only consider this one world model&rdquo; &mdash; that&rsquo;s value iteration.
-&ldquo;I&rsquo;ll skip the model and learn values directly&rdquo; &mdash; that&rsquo;s Q-learning.
-&ldquo;I&rsquo;ll use this network architecture as my prior&rdquo; &mdash; that&rsquo;s neural Q-learning.</p></blockquote><p>The shortcuts are the assumptions. The distance between any practical algorithm and AIXI is precisely the set of assumptions that algorithm makes. A stronger assumption buys computational tractability. A weaker assumption costs more data or more compute to compensate. AIXI, making no assumptions, costs infinite compute. The rest of the landscape is a continuous tradeoff between the two.</p><h2 id=representation-is-prior-is-assumption>Representation is prior is assumption</h2><p>The deepest unifying idea in this series is that choosing a representation and choosing a prior are the same choice. When you use a tabular representation, you&rsquo;re saying: &ldquo;I assume no state shares structure with any other.&rdquo; When you use linear features, you&rsquo;re saying: &ldquo;I assume value is linear in these specific dimensions.&rdquo; When you use a convolutional network, you&rsquo;re saying: &ldquo;I assume spatial locality matters &mdash; nearby inputs should be processed together.&rdquo; These aren&rsquo;t just engineering decisions. They&rsquo;re claims about the structure of the problem you&rsquo;re solving.</p><p>There is no assumption-free algorithm. The No Free Lunch theorem &mdash; in formal terms &mdash; says that no learning algorithm outperforms random search when averaged over all possible problems. The corollary is that every algorithm that works well on some problems must work badly on others. The ones that look assumption-free aren&rsquo;t really &mdash; they&rsquo;re just making weaker or less explicit assumptions. AIXI &ldquo;assumes&rdquo; that the world is computable. That&rsquo;s a very weak assumption, but it&rsquo;s still one. The art of choosing an algorithm is the art of matching your assumptions to your problem&rsquo;s structure. If your problem has spatial structure, use an architecture that encodes spatial priors. If it has linear feature structure, use a linear approximator. If it has a small, fully known state space, use value iteration. The algorithm that ignores this structure wastes data and compute compensating for assumptions it could have made for free.</p><h2 id=looking-back>Looking back</h2><p>Go back to <a href=../../post/2026-03-15-rl-infinite-table/>Post 1</a> and watch the tabular agent struggle on a 16x16 grid. That&rsquo;s not a hyperparameter problem. The agent is paying for its refusal to assume anything about how states relate &mdash; it visits each one in isolation, learns nothing transferable, and plateaus long before it has seen enough of the space. Then jump to <a href=../../post/2026-03-15-rl-features/>Post 2</a> and watch how seven simple features solve the same problem in a fraction of the episodes. That&rsquo;s not magic &mdash; that&rsquo;s the right assumptions meeting the right structure. The features encode what the problem&rsquo;s geometry actually implies about value, and the algorithm exploits that encoding directly. Post 3 shows what happens when you let the network choose its own features &mdash; more power, less interpretability, more training instability. More assumptions implicit in the architecture, fewer explicit in your feature engineering.</p><p>Every time you choose an algorithm, you&rsquo;re making a bet about the world. You&rsquo;re betting that your representation captures the structure that matters, that your model assumptions are close enough to right, that the tradeoffs you&rsquo;re accepting in sample complexity or interpretability or scalability are worth the capabilities you&rsquo;re gaining. The algorithms don&rsquo;t tell you which bet to make. That part is still yours. But now you can see what bet you&rsquo;re making.</p></div><nav class=post-navigation><a href=../../post/2026-03-15-rl-architecture/ class=nav-prev><span class=nav-label>← Previous</span>
-<span class=nav-title>The Architecture Is the Prior</span>
-</a><a href=../../post/2026-03-16-computational-explorations/ class=nav-next><span class=nav-label>Next →</span>
-<span class=nav-title>What Happens When You Let an AI Loose on 1,000 Erdős Problems</span></a></nav><section class=related-posts><h2 class=related-posts-title>Related Posts</h2><div class=related-posts-grid><article class=related-post-card><a href=../../post/2026-03-15-rl-architecture/ class=related-post-link><h3 class=related-post-title>The Architecture Is the Prior</h3><p class=related-post-excerpt><p>The last post showed that hand-picked features can turn a hopeless tabular agent into one that generalizes across an …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Mar 15, 2026
-</span><span class=related-post-tags><span class=mini-tag>reinforcement-learning</span>
-<span class=mini-tag>neural-networks</span></span></div></a></article><article class=related-post-card><a href=../../post/2026-03-15-rl-infinite-table/ class=related-post-link><h3 class=related-post-title>The Infinite Table</h3><p class=related-post-excerpt><p>Every intelligent system &mdash; a chess engine, a self-driving car, a robot arm &mdash; has to answer the same question …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Mar 15, 2026
-</span><span class=related-post-tags><span class=mini-tag>reinforcement-learning</span>
-<span class=mini-tag>q-learning</span></span></div></a></article><article class=related-post-card><a href=../../post/2026-03-15-rl-features/ class=related-post-link><h3 class=related-post-title>The Features You Choose Are the Assumptions You Make</h3><p class=related-post-excerpt><p>In <a href=../../post/2026-03-15-rl-infinite-table/>the last post</a>, we watched a tabular Q-learning agent struggle with a modest 8x8 grid. The problem wasn&rsquo;t the …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Mar 15, 2026
-</span><span class=related-post-tags><span class=mini-tag>reinforcement-learning</span>
-<span class=mini-tag>function-approximation</span></span></div></a></article><article class=related-post-card><a href=../../post/2026-01-18-value-functions-reasoning-traces/ class=related-post-link><h3 class=related-post-title>Value Functions Over Reasoning Traces</h3><p class=related-post-excerpt><p>In <a href=../../post/2024-10-15-latent-reasoning-traces/>Latent Reasoning Traces</a>, I described a simple system: store successful reasoning traces, retrieve similar ones, use …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Jan 18, 2026
-</span><span class=related-post-tags><span class=mini-tag>machine-learning</span>
-<span class=mini-tag>LLM</span></span></div></a></article><article class=related-post-card><a href=../../post/2026-01-rational-agents-llms/ class=related-post-link><h3 class=related-post-title>From A* to GPT: Rational Agents and the Representation Problem</h3><p class=related-post-excerpt><p>The classical AI curriculum teaches rational agents as utility maximizers. The progression from search to planning to …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Jan 15, 2026
-</span><span class=related-post-tags><span class=mini-tag>machine-learning</span>
-<span class=mini-tag>reinforcement-learning</span></span></div></a></article></div></section><style>.related-posts{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.related-posts-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.related-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem}.related-post-card{background:var(--paper,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:1.5rem;transition:all .3s ease}.related-post-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);border-color:var(--accent,#667eea)}.related-post-link{text-decoration:none;color:inherit;display:block}.related-post-title{font-size:1.125rem;font-weight:600;margin-bottom:.75rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif;line-height:1.4}.related-post-card:hover .related-post-title{color:var(--accent,#667eea)}.related-post-excerpt{font-size:.9rem;color:var(--ink-light,#666);line-height:1.6;margin-bottom:1rem}.related-post-meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.8rem;color:var(--ink-light,#999)}.related-post-date i{margin-right:.25rem}.related-post-tags{display:flex;gap:.5rem}.related-post-tags .mini-tag{background:var(--paper-dark,#f5f5f5);padding:.25rem .5rem;border-radius:4px;font-size:.7rem;color:var(--ink,#1a1a1a)}[data-theme=dark] .related-posts{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .related-posts-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-card{background:var(--paper-dark,#222);border-color:rgba(255,255,255,.1)}[data-theme=dark] .related-post-card:hover{border-color:var(--accent,#667eea)}[data-theme=dark] .related-post-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-tags .mini-tag{background:rgba(255,255,255,5%);color:var(--ink,#e8e8e8)}</style><section class=comments-section><h2 class=comments-title>Discussion</h2><div class=giscus-container></div><script src=https://giscus.app/client.js data-repo=queelius/metafunctor data-repo-id=R_kgDONbcL1g data-category=General data-category-id=DIC_kwDONbcL1s4CwFJ7 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=preferred_color_scheme data-lang=en crossorigin=anonymous async></script></section></article></div><style>.comments-section{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.comments-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.giscus-container{margin-top:1rem}[data-theme=dark] .comments-section{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .comments-title{color:var(--ink,#e8e8e8)}</style><script>function updateGiscusTheme(){const t=document.documentElement.getAttribute("data-theme")||"light",n=t==="dark"?"dark":"light",e=document.querySelector("iframe.giscus-frame");e&&e.contentWindow.postMessage({giscus:{setConfig:{theme:n}}},"https://giscus.app")}const observer=new MutationObserver(updateGiscusTheme);observer.observe(document.documentElement,{attributes:!0,attributeFilter:["data-theme"]}),setTimeout(updateGiscusTheme,1e3)</script></div></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
-</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
-</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
-</a><a href=../../index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
-</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
-</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
-</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
-</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
-</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-content><h4 id=footer-content>Content</h4><div class=footer-links><a href=https://metafunctor.com/post/>Posts</a>
-<a href=https://metafunctor.com/papers/>Papers</a>
-<a href=https://metafunctor.com/series/>Series</a>
-<a href=https://metafunctor.com/publications/>Publications</a>
-<a href=https://metafunctor.com/writing/>Writing</a></div></nav><nav class=footer-section aria-labelledby=footer-code><h4 id=footer-code>Code</h4><div class=footer-links><a href=https://metafunctor.com/projects/>Projects</a>
-<a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
-<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
-<a href=mailto:lex@metafunctor.com>Contact</a>
-<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=../../js/performance-optimizations.js defer></script><script src=../../js/performance-enhancements.js defer></script><script src=../../js/mobile-menu.js defer></script><script src=../../js/modern-interactions.js defer></script><script src=../../js/search.js defer></script><script src=../../js/reading-progress.js defer></script><script src=../../js/copy-code.js defer></script><script src=../../js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
-<i class="fas fa-arrow-up"></i>
+<!DOCTYPE html>
+<html lang="en-us" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  
+  <title>What You Assume vs. What You Compute | metafunctor</title>
+  <meta name="title" content="What You Assume vs. What You Compute | metafunctor">
+  <meta name="description" content="Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption.">
+
+  
+  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
+  <meta name="author" content="Alex Towell">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://metafunctor.com/post/2026-03-15-rl-synthesis/">
+
+  
+  
+
+  
+  <link rel="alternate" hreflang="en" href="https://metafunctor.com/post/2026-03-15-rl-synthesis/">
+  <link rel="alternate" hreflang="x-default" href="https://metafunctor.com/post/2026-03-15-rl-synthesis/">
+
+  
+  
+<style>
+ 
+
+ 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+ 
+.elegant-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(254, 254, 254, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  text-decoration: none;
+}
+
+.nav-primary ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-primary a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a4a4a;
+  text-decoration: none;
+}
+
+ 
+.hero-elegant {
+  padding: 5rem 2rem;
+  text-align: center;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #4a4a4a;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+
+ 
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0050a0;
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+ 
+.preload * {
+  transition: none !important;
+}
+</style>
+
+
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://metafunctor.com/post/2026-03-15-rl-synthesis/">
+  <meta property="og:title" content="What You Assume vs. What You Compute">
+  <meta property="og:description" content="Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption.">
+  <meta property="og:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="metafunctor">
+  <meta property="og:locale" content="en_US">
+  
+  <meta property="article:author" content="Alex Towell">
+  <meta property="article:published_time" content="2026-03-15T00:03:00Z">
+  <meta property="article:modified_time" content="2026-04-26T17:47:31-05:00">
+  <meta property="article:section" content="technical">
+  <meta property="article:tag" content="reinforcement-learning"><meta property="article:tag" content="representation"><meta property="article:tag" content="inductive-bias"><meta property="article:tag" content="machine-learning"><meta property="article:tag" content="aixi">
+  
+
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://metafunctor.com/post/2026-03-15-rl-synthesis/">
+  <meta name="twitter:title" content="What You Assume vs. What You Compute">
+  <meta name="twitter:description" content="Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption.">
+  <meta name="twitter:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta name="twitter:site" content="@queelius">
+  <meta name="twitter:creator" content="@queelius">
+
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": "https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/#primaryContent",
+        
+        "headline": "What You Assume vs. What You Compute",
+        "description": "Part 4 of What Your RL Algorithm Actually Assumes — model-based vs. model-free, the assumptions table, AIXI as the incomputable ideal, and the unifying claim: representation is prior is assumption.",
+        "url": "https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/",
+        "inLanguage": "en-US",
+        "datePublished": "2026-03-15T00:03:00Z",
+        "dateModified": "2026-04-26T17:47:31-05:00",
+        "wordCount":  1509 ,
+        "timeRequired": "PT8M",
+        "author": {
+          "@type": "Person",
+          "@id": "https:\/\/metafunctor.com\/#author",
+          "name": "Alex Towell",
+          "url": "https:\/\/metafunctor.com\/about/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "@id": "https:\/\/metafunctor.com\/#organization",
+          "name": "metafunctor",
+          "url": "https:\/\/metafunctor.com\/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https:\/\/metafunctor.com\/images\/og-image.jpg"
+          }
+        },
+        "keywords": ["reinforcement-learning", "representation", "inductive-bias", "machine-learning", "aixi"]
+        
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https:\/\/metafunctor.com\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "News",
+            "item": "https:\/\/metafunctor.com\/post\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "What You Assume vs. What You Compute",
+            "item": "https:\/\/metafunctor.com\/post\/2026-03-15-rl-synthesis\/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+  
+  <link rel="stylesheet" href="../../css/refined-elegant.css">
+
+  
+  <link rel="stylesheet" href="../../css/micro-interactions.css">
+
+  
+  <link rel="stylesheet" href="../../css/elegant.css" media="print" onload="this.media='all'">
+
+  
+  <link rel="stylesheet" href="../../css/custom.css">
+
+  
+  <link rel="stylesheet" href="../../css/beautify.css">
+
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  
+  
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "\\[", right: "\\]", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false}
+        ]
+      });
+    });
+  </script>
+  
+
+  
+  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+
+  
+  
+
+
+
+
+
+  
+  
+
+  
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
+      <script>
+        var doNotTrack = false;
+        if ( true ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E08ZXTFTTY');
+        }
+      </script>
+  <meta name="generator" content="Hugo 0.161.1">
+</head>
+<body>
+  
+  <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+  <header class="elegant-header" role="banner">
+  <div class="header-inner">
+    <div class="site-identity">
+      <a href="https://metafunctor.com/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
+      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
+    </div>
+    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
+      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul role="list">
+        <li><a href="https://metafunctor.com/" >Home</a></li>
+        <li><a href="https://metafunctor.com/post/" class="active" aria-current="page">Posts</a></li>
+        <li><a href="https://metafunctor.com/series/" >Series</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Academic <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/papers/" >Papers</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/publications/" >Publications</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/research/" >Research</a></li>
+          </ul>
+        </li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Creative <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/writing/" >Writing</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/media/" >Media</a></li>
+          </ul>
+        </li>
+        <li><a href="https://metafunctor.com/projects/" >Projects</a></li>
+        <li><a href="https://metafunctor.com/about/" >About</a></li>
+        <li><a href="https://metafunctor.com/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+ 
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+  list-style: none;
+}
+
+.nav-dropdown.open .dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+}
+
+ 
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #fff;
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.nav-dropdown .dropdown-menu a {
+  display: block !important;
+  padding: 0.6rem 1.25rem !important;
+  color: #4a4a4a !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown .dropdown-menu a:hover {
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
+}
+
+.nav-dropdown .dropdown-menu a.active {
+  color: #4f46e5 !important;
+}
+
+ 
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.2s ease;
+  }
+
+  .dropdown-menu::before {
+    display: none;
+  }
+
+  .nav-dropdown.open .dropdown-menu {
+    max-height: 300px;
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-menu a {
+    padding: 0.5rem 1.5rem 0.5rem 2rem;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+  dropdowns.forEach(dropdown => {
+    const toggle = dropdown.querySelector('.dropdown-toggle');
+
+    
+    toggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasOpen = dropdown.classList.contains('open');
+
+      
+      dropdowns.forEach(d => d.classList.remove('open'));
+
+      
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+      }
+    });
+  });
+
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-dropdown')) {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+});
+</script>
+
+
+  
+  
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="https://metafunctor.com/">
+          <span itemprop="name">Home</span>
+        </a>
+        <meta itemprop="position" content="1" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <a itemprop="item" href="https://metafunctor.com/post/">
+          <span itemprop="name">News</span>
+        </a>
+        <meta itemprop="position" content="2" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <span itemprop="name" aria-current="page">What You Assume vs. What You Compute</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
+  
+
+  <main id="main-content" role="main" aria-label="Main content">
+    
+<div class="main-container">
+  <div class="single-post-layout">
+    
+    
+    <aside class="post-sidebar">
+      
+<aside class="toc-wrapper" aria-label="Table of contents">
+  <nav class="table-of-contents">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-content">
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#model-based-vs-model-free-two-ways-to-be-wrong">Model-based vs. model-free: two ways to be wrong</a></li>
+    <li><a href="#what-each-algorithm-actually-bets-on">What each algorithm actually bets on</a></li>
+    <li><a href="#the-incomputable-ideal">The incomputable ideal</a></li>
+    <li><a href="#representation-is-prior-is-assumption">Representation is prior is assumption</a></li>
+    <li><a href="#looking-back">Looking back</a></li>
+  </ul>
+</nav>
+    </div>
+  </nav>
+</aside>
+
+<style>
+.toc-wrapper {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.toc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.toc-content {
+  font-size: 0.9rem;
+}
+
+.toc-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-content > ul {
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--space-md);
+}
+
+.toc-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.toc-content a {
+  color: var(--ink-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+  padding: var(--space-xs) 0;
+}
+
+.toc-content a:hover {
+  color: var(--accent);
+}
+
+.toc-content ul ul {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+ 
+@media (max-width: 1024px) {
+  .toc-wrapper {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
+</style>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tocLinks = document.querySelectorAll('.toc-content a');
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').substring(1);
+    return document.getElementById(id);
+  }).filter(section => section !== null);
+
+  function highlightTOC() {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const scrollPosition = window.scrollY + 100;
+      if (scrollPosition >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    tocLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+        link.style.color = 'var(--accent)';
+        link.style.fontWeight = '600';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
+
+  window.addEventListener('scroll', highlightTOC);
+  highlightTOC();
+});
+</script>
+
+    </aside>
+    
+
+    
+    <article class="single-post" itemscope itemtype="https://schema.org/Article">
+      <header class="post-header">
+        <h1 class="post-title" itemprop="headline">What You Assume vs. What You Compute</h1>
+        <div class="post-meta">
+          
+          <span class="post-date">
+            <i class="far fa-calendar" aria-hidden="true"></i>
+            <time datetime="2026-03-15T00:03:00Z" itemprop="datePublished">
+              March 15, 2026
+            </time>
+          </span>
+          
+          
+          <span class="post-reading-time">
+            <i class="far fa-clock" aria-hidden="true"></i>
+            8 min read
+          </span>
+          
+          
+          <span class="post-updated">
+            <i class="far fa-edit" aria-hidden="true"></i>
+            Updated: <time datetime="2026-04-26T17:47:31-05:00" itemprop="dateModified">
+              April 26, 2026
+            </time>
+          </span>
+          
+          
+        </div>
+        
+        <div class="tags" role="list">
+          
+          <a href="https://metafunctor.com/tags/reinforcement-learning/" class="tag" role="listitem">reinforcement-learning</a>
+          
+          <a href="https://metafunctor.com/tags/representation/" class="tag" role="listitem">representation</a>
+          
+          <a href="https://metafunctor.com/tags/inductive-bias/" class="tag" role="listitem">inductive-bias</a>
+          
+          <a href="https://metafunctor.com/tags/machine-learning/" class="tag" role="listitem">machine-learning</a>
+          
+          <a href="https://metafunctor.com/tags/aixi/" class="tag" role="listitem">aixi</a>
+          
+        </div>
+        
+      </header>
+
+      
+
+
+
+
+
+
+
+
+<nav class="series-navigation" aria-label="Series navigation">
+  <div class="series-header">
+    <span class="series-label">Part of series:</span>
+    <a href="../../series/rl-assumptions/" class="series-name">Rl Assumptions</a>
+    <span class="series-count">5 parts</span>
+  </div>
+  <ol class="series-list">
+    
+    <li class="series-item ">
+      <a href="../../reading/rl-assumptions/" class="series-link">
+        <span class="series-number">1</span>
+        <span class="series-title">RL Assumptions: Recommended Reading</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2026-03-15-rl-infinite-table/" class="series-link">
+        <span class="series-number">2</span>
+        <span class="series-title">The Infinite Table</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2026-03-15-rl-features/" class="series-link">
+        <span class="series-number">3</span>
+        <span class="series-title">The Features You Choose Are the Assumptions You Make</span>
+      </a>
+    </li>
+    
+    <li class="series-item ">
+      <a href="../../post/2026-03-15-rl-architecture/" class="series-link">
+        <span class="series-number">4</span>
+        <span class="series-title">The Architecture Is the Prior</span>
+      </a>
+    </li>
+    
+    <li class="series-item current">
+      <a href="../../post/2026-03-15-rl-synthesis/" class="series-link">
+        <span class="series-number">5</span>
+        <span class="series-title">What You Assume vs. What You Compute</span>
+      </a>
+    </li>
+    
+  </ol>
+</nav>
+
+<style>
+.series-navigation {
+  margin: var(--space-6) 0;
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.series-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.series-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.series-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.series-name:hover {
+  color: var(--color-accent-primary);
+  text-decoration: underline;
+}
+
+.series-count {
+  font-size: var(--font-size-sm);
+  padding: 2px 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+}
+
+.series-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.series-item {
+  padding: 0;
+}
+
+.series-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.series-link:hover {
+  border-color: var(--color-accent-primary);
+  transform: translateX(4px);
+}
+
+.series-item.current .series-link {
+  background: var(--color-accent-primary);
+  color: white;
+}
+
+.series-item.current .series-number {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.series-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.series-title {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.series-item.current .series-title {
+  color: white;
+}
+
+@media (max-width: 600px) {
+  .series-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
+
+
+
+
+      <div class="post-tts">
+<button class="speak-button" type="button" data-voice="en_US-libritts_r-medium">
+<span class="speak-icon" aria-hidden="true"></span>
+<span class="speak-label">Read aloud</span>
+<span class="speak-status" aria-live="polite"></span>
 </button>
-<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
+</div><link rel="stylesheet" href="../../speak/widget.css">
+<script type="importmap">{"imports":{"onnxruntime-web":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.min.js"}}</script>
+<script type="module" src="../../speak/widget.js"></script>
+
+      <div class="content" itemprop="articleBody">
+        <p>Over the first three posts we looked at three ways to represent what an agent knows: a table with one row per state, a weighted sum of hand-crafted features, and a neural network that learns its own features. In each case, we saw that the representation wasn&rsquo;t just a technical choice &mdash; it was a claim about the world. The tabular agent claims that no two states share structure. The linear agent claims that value is a weighted combination of its chosen features. The neural agent encodes its claim in the architecture itself, in the shape of the convolutional or fully-connected layers it uses to process input.</p>
+<p>But there&rsquo;s another axis we haven&rsquo;t talked about yet, one that cuts across all three representations. It&rsquo;s not about <em>how</em> you encode states &mdash; it&rsquo;s about <em>whether you assume you know how the world works</em>. This turns out to be at least as fundamental as the representation question, and it sets up the deepest question in this series: what would it even mean for an agent to make no assumptions at all?</p>
+<h2 id="model-based-vs-model-free-two-ways-to-be-wrong">Model-based vs. model-free: two ways to be wrong</h2>
+<p>Value iteration is the clearest example of a model-based method. You give it a transition function &mdash; a table saying &ldquo;if you take action A in state S, here&rsquo;s the probability distribution over next states&rdquo; &mdash; and it computes the optimal value function by iterating the Bellman equation until convergence. The result is provably optimal. No exploration needed. No sample noise. Just arithmetic until the values stop changing.</p>
+<p>The catch is that &ldquo;give it a transition function&rdquo; is doing enormous work. In a board game, you can write down the rules and the transition function falls out. In most real problems &mdash; a robot learning to walk, a trading algorithm responding to markets, an agent navigating an environment it&rsquo;s never seen before &mdash; you don&rsquo;t have the transition function. You have experience. You have outcomes. You have the environment&rsquo;s revealed behavior, one step at a time.</p>
+<p>That&rsquo;s the regime model-free methods were built for. Q-learning doesn&rsquo;t need to know what happens when it takes action A in state S &mdash; it finds out, records the outcome, and slowly builds up an implicit model through the Q-values themselves. The Q-function is a compressed version of the optimal policy, learned from samples without ever representing transitions explicitly. The cost is sample complexity: every state-action pair has to be visited enough times that the Q-values converge. Model-based methods front-load the assumption (you know the model); model-free methods front-load the data requirement (you learn by doing).</p>
+<p>Both approaches make assumptions. Value iteration assumes you have a complete, correct model of the world. Q-learning assumes the world can be summarized by a Q-function of a particular form &mdash; tabular, linear, or neural, depending on your choice of representation. Neither assumption is free. The art is knowing which assumption your problem tolerates.</p>
+<h2 id="what-each-algorithm-actually-bets-on">What each algorithm actually bets on</h2>
+<p>Let&rsquo;s put the assumptions on the table explicitly. Every algorithm in this series commits to a specific combination of choices: how it represents states, what it assumes about world dynamics, how it learns, and what it sacrifices in exchange.</p>
+<div style="overflow-x: auto;">
+<table class="assumptions-table">
+    <thead>
+        <tr>
+            <th>Algorithm</th>
+            <th>Representation</th>
+            <th>Model Assumption</th>
+            <th>How It Learns</th>
+            <th>What It Sacrifices</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Tabular Q</td>
+            <td>None — each state is unique</td>
+            <td><span class="tag tag-none">Model-free</span> No transition knowledge needed</td>
+            <td>Visits every state-action pair; updates that entry only</td>
+            <td>Generalization — every state is an island</td>
+        </tr>
+        <tr>
+            <td>Linear Q</td>
+            <td>Linear in hand-crafted features</td>
+            <td><span class="tag tag-none">Model-free</span> No transition knowledge needed</td>
+            <td>Updates shared feature weights from each experience</td>
+            <td>Non-linear patterns — the world must respect the feature decomposition</td>
+        </tr>
+        <tr>
+            <td>Neural Q</td>
+            <td>Learned features (architecture-defined)</td>
+            <td><span class="tag tag-none">Model-free</span> No transition knowledge needed</td>
+            <td>Backpropagates through the network from every sample</td>
+            <td>Interpretability and training stability — power comes at a cost</td>
+        </tr>
+        <tr>
+            <td>Value Iteration</td>
+            <td>Tabular (one value per state)</td>
+            <td><span class="tag tag-full">Full model</span> Transition probabilities must be known</td>
+            <td>Bellman backups — no sampling, pure computation</td>
+            <td>Scalability and model availability — exact when possible, impractical often</td>
+        </tr>
+    </tbody>
+</table>
+</div>
+<p>The table makes visible what informal descriptions obscure: every column represents a real tradeoff. The model-free methods have a <code>None</code> in the representation column &mdash; but that&rsquo;s not the same as &ldquo;no assumptions.&rdquo; It means &ldquo;no assumptions about transitions.&rdquo; They still assume the Q-function has a particular form. The model-based method reverses the bet: it assumes a great deal about the world (a complete transition model) in exchange for being able to compute rather than sample its way to the answer.</p>
+<h2 id="the-incomputable-ideal">The incomputable ideal</h2>
+<p>Here&rsquo;s a question that might seem absurd: what would an agent look like if it made <em>no</em> assumptions? Not &ldquo;fewer assumptions&rdquo; &mdash; none. Consider every possible way the world could work: every possible set of transition probabilities, every possible reward structure. Weight each world model by its simplicity &mdash; the simpler the description, the higher the prior probability. Then pick the action that maximizes expected reward across all these world models simultaneously, where each model&rsquo;s contribution is weighted by how consistent it is with everything the agent has observed so far.</p>
+<p>That&rsquo;s AIXI, Marcus Hutter&rsquo;s theoretical ideal agent. It doesn&rsquo;t commit to any world model in advance &mdash; it maintains a distribution over all computable world models and updates it as evidence comes in. Given infinite computation, AIXI is provably optimal in any computable environment. It will eventually learn to behave optimally in any world it inhabits, regardless of how that world works, because it never rules out the true model.</p>
+<p>AIXI is incomputable. You cannot run it. The set of all computable programs is infinite and cannot be enumerated in finite time. But this isn&rsquo;t a bug in the definition &mdash; it&rsquo;s the point. AIXI defines what &ldquo;optimal&rdquo; means when you refuse to assume anything about the world. It gives us a target. Every practical algorithm is AIXI with the knobs turned down:</p>
+<blockquote>
+<p>&ldquo;I&rsquo;ll only consider this one world model&rdquo; &mdash; that&rsquo;s value iteration.
+&ldquo;I&rsquo;ll skip the model and learn values directly&rdquo; &mdash; that&rsquo;s Q-learning.
+&ldquo;I&rsquo;ll use this network architecture as my prior&rdquo; &mdash; that&rsquo;s neural Q-learning.</p>
+</blockquote>
+<p>The shortcuts are the assumptions. The distance between any practical algorithm and AIXI is precisely the set of assumptions that algorithm makes. A stronger assumption buys computational tractability. A weaker assumption costs more data or more compute to compensate. AIXI, making no assumptions, costs infinite compute. The rest of the landscape is a continuous tradeoff between the two.</p>
+<h2 id="representation-is-prior-is-assumption">Representation is prior is assumption</h2>
+<p>The deepest unifying idea in this series is that choosing a representation and choosing a prior are the same choice. When you use a tabular representation, you&rsquo;re saying: &ldquo;I assume no state shares structure with any other.&rdquo; When you use linear features, you&rsquo;re saying: &ldquo;I assume value is linear in these specific dimensions.&rdquo; When you use a convolutional network, you&rsquo;re saying: &ldquo;I assume spatial locality matters &mdash; nearby inputs should be processed together.&rdquo; These aren&rsquo;t just engineering decisions. They&rsquo;re claims about the structure of the problem you&rsquo;re solving.</p>
+<p>There is no assumption-free algorithm. The No Free Lunch theorem &mdash; in formal terms &mdash; says that no learning algorithm outperforms random search when averaged over all possible problems. The corollary is that every algorithm that works well on some problems must work badly on others. The ones that look assumption-free aren&rsquo;t really &mdash; they&rsquo;re just making weaker or less explicit assumptions. AIXI &ldquo;assumes&rdquo; that the world is computable. That&rsquo;s a very weak assumption, but it&rsquo;s still one. The art of choosing an algorithm is the art of matching your assumptions to your problem&rsquo;s structure. If your problem has spatial structure, use an architecture that encodes spatial priors. If it has linear feature structure, use a linear approximator. If it has a small, fully known state space, use value iteration. The algorithm that ignores this structure wastes data and compute compensating for assumptions it could have made for free.</p>
+<h2 id="looking-back">Looking back</h2>
+<p>Go back to <a href="../../post/2026-03-15-rl-infinite-table/">Post 1</a> and watch the tabular agent struggle on a 16x16 grid. That&rsquo;s not a hyperparameter problem. The agent is paying for its refusal to assume anything about how states relate &mdash; it visits each one in isolation, learns nothing transferable, and plateaus long before it has seen enough of the space. Then jump to <a href="../../post/2026-03-15-rl-features/">Post 2</a> and watch how seven simple features solve the same problem in a fraction of the episodes. That&rsquo;s not magic &mdash; that&rsquo;s the right assumptions meeting the right structure. The features encode what the problem&rsquo;s geometry actually implies about value, and the algorithm exploits that encoding directly. Post 3 shows what happens when you let the network choose its own features &mdash; more power, less interpretability, more training instability. More assumptions implicit in the architecture, fewer explicit in your feature engineering.</p>
+<p>Every time you choose an algorithm, you&rsquo;re making a bet about the world. You&rsquo;re betting that your representation captures the structure that matters, that your model assumptions are close enough to right, that the tradeoffs you&rsquo;re accepting in sample complexity or interpretability or scalability are worth the capabilities you&rsquo;re gaining. The algorithms don&rsquo;t tell you which bet to make. That part is still yours. But now you can see what bet you&rsquo;re making.</p>
+
+        
+
+
+      </div>
+
+    
+    <nav class="post-navigation">
+      
+      <a href="../../post/2026-03-15-rl-architecture/" class="nav-prev">
+        <span class="nav-label">← Previous</span>
+        <span class="nav-title">The Architecture Is the Prior</span>
+      </a>
+      
+      
+      <a href="../../post/2026-03-16-computational-explorations/" class="nav-next">
+        <span class="nav-label">Next →</span>
+        <span class="nav-title">What Happens When You Let an AI Loose on 1,000 Erdős Problems</span>
+      </a>
+      
+    </nav>
+    
+
+    
+    
+
+    
+    
+    
+    <section class="related-posts">
+      <h2 class="related-posts-title">Related Posts</h2>
+      <div class="related-posts-grid">
+        
+        <article class="related-post-card">
+          <a href="../../post/2026-03-15-rl-architecture/" class="related-post-link">
+            <h3 class="related-post-title">The Architecture Is the Prior</h3>
+            <p class="related-post-excerpt"><p>The last post showed that hand-picked features can turn a hopeless tabular agent into one that generalizes across an …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Mar 15, 2026
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">reinforcement-learning</span>
+                
+                  <span class="mini-tag">neural-networks</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2026-03-15-rl-infinite-table/" class="related-post-link">
+            <h3 class="related-post-title">The Infinite Table</h3>
+            <p class="related-post-excerpt"><p>Every intelligent system &mdash; a chess engine, a self-driving car, a robot arm &mdash; has to answer the same question …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Mar 15, 2026
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">reinforcement-learning</span>
+                
+                  <span class="mini-tag">q-learning</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2026-03-15-rl-features/" class="related-post-link">
+            <h3 class="related-post-title">The Features You Choose Are the Assumptions You Make</h3>
+            <p class="related-post-excerpt"><p>In <a href="../../post/2026-03-15-rl-infinite-table/">the last post</a>, we watched a tabular Q-learning agent struggle with a modest 8x8 grid. The problem wasn&rsquo;t the …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Mar 15, 2026
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">reinforcement-learning</span>
+                
+                  <span class="mini-tag">function-approximation</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2026-01-18-value-functions-reasoning-traces/" class="related-post-link">
+            <h3 class="related-post-title">Value Functions Over Reasoning Traces</h3>
+            <p class="related-post-excerpt"><p>In <a href="../../post/2024-10-15-latent-reasoning-traces/">Latent Reasoning Traces</a>, I described a simple system: store successful reasoning traces, retrieve similar ones, use …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Jan 18, 2026
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">machine-learning</span>
+                
+                  <span class="mini-tag">LLM</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2026-01-rational-agents-llms/" class="related-post-link">
+            <h3 class="related-post-title">From A* to GPT: Rational Agents and the Representation Problem</h3>
+            <p class="related-post-excerpt"><p>The classical AI curriculum teaches rational agents as utility maximizers. The progression from search to planning to …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Jan 15, 2026
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">machine-learning</span>
+                
+                  <span class="mini-tag">reinforcement-learning</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+      </div>
+    </section>
+
+    <style>
+    .related-posts {
+      margin-top: 4rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .related-posts-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+    }
+
+    .related-posts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .related-post-card {
+      background: var(--paper, #fff);
+      border: 1px solid var(--border-color, #e5e7eb);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .related-post-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      border-color: var(--accent, #667eea);
+    }
+
+    .related-post-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .related-post-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+      line-height: 1.4;
+    }
+
+    .related-post-card:hover .related-post-title {
+      color: var(--accent, #667eea);
+    }
+
+    .related-post-excerpt {
+      font-size: 0.9rem;
+      color: var(--ink-light, #666);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .related-post-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--ink-light, #999);
+    }
+
+    .related-post-date i {
+      margin-right: 0.25rem;
+    }
+
+    .related-post-tags {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .related-post-tags .mini-tag {
+      background: var(--paper-dark, #f5f5f5);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--ink, #1a1a1a);
+    }
+
+    [data-theme="dark"] .related-posts {
+      border-top-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-posts-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-card {
+      background: var(--paper-dark, #222);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-post-card:hover {
+      border-color: var(--accent, #667eea);
+    }
+
+    [data-theme="dark"] .related-post-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-tags .mini-tag {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--ink, #e8e8e8);
+    }
+    </style>
+    
+
+    
+    <section class="comments-section">
+      <h2 class="comments-title">Discussion</h2>
+      <div class="giscus-container"></div>
+      <script src="https://giscus.app/client.js"
+              data-repo="queelius/metafunctor"
+              data-repo-id="R_kgDONbcL1g"
+              data-category="General"
+              data-category-id="DIC_kwDONbcL1s4CwFJ7"
+              data-mapping="pathname"
+              data-strict="0"
+              data-reactions-enabled="1"
+              data-emit-metadata="0"
+              data-input-position="bottom"
+              data-theme="preferred_color_scheme"
+              data-lang="en"
+              crossorigin="anonymous"
+              async>
+      </script>
+    </section>
+  </article>
+</div>
+
+<style>
+.comments-section {
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.comments-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--ink, #1a1a1a);
+  font-family: 'Lora', Georgia, serif;
+}
+
+.giscus-container {
+  margin-top: 1rem;
+}
+
+ 
+[data-theme="dark"] .comments-section {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .comments-title {
+  color: var(--ink, #e8e8e8);
+}
+</style>
+
+<script>
+
+function updateGiscusTheme() {
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  const giscusTheme = theme === 'dark' ? 'dark' : 'light';
+
+  const iframe = document.querySelector('iframe.giscus-frame');
+  if (iframe) {
+    iframe.contentWindow.postMessage({
+      giscus: {
+        setConfig: {
+          theme: giscusTheme
+        }
+      }
+    }, 'https://giscus.app');
+  }
+}
+
+
+const observer = new MutationObserver(updateGiscusTheme);
+observer.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme']
+});
+
+
+setTimeout(updateGiscusTheme, 1000);
+</script>
+  </div>
+</div>
+
+  </main>
+  
+  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-content">
+      <div class="footer-about">
+        <h3>metafunctor</h3>
+        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
+        <nav aria-label="Social media links" class="social-links">
+          
+          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+            <i class="fab fa-twitter" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <i class="fab fa-github" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <i class="fab fa-linkedin" aria-hidden="true"></i>
+          </a>
+          
+          <a href="../../index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
+            <i class="fas fa-rss" aria-hidden="true"></i>
+          </a>
+          
+          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
+            <i class="fab fa-keybase" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
+            <i class="fab fa-orcid" aria-hidden="true"></i>
+          </a>
+          
+        </nav>
+      </div>
+
+      <nav class="footer-section" aria-labelledby="footer-content">
+        <h4 id="footer-content">Content</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/post/">Posts</a>
+          <a href="https://metafunctor.com/papers/">Papers</a>
+          <a href="https://metafunctor.com/series/">Series</a>
+          <a href="https://metafunctor.com/publications/">Publications</a>
+          <a href="https://metafunctor.com/writing/">Writing</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-code">
+        <h4 id="footer-code">Code</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/projects/">Projects</a>
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-connect">
+        <h4 id="footer-connect">Connect</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/about/">About</a>
+          <a href="mailto:lex@metafunctor.com">Contact</a>
+          <a href="https://metafunctor.com/index.xml" type="application/rss+xml">RSS Feed</a>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p class="copyright">
+        © 2026 Alex Towell. All rights reserved.
+      </p>
+      <p class="accessibility-note">
+        <a href="#main-content">Back to top</a>
+      </p>
+    </div>
+  </footer>
+
+  
+  <script src="../../js/performance-optimizations.js" defer></script>
+  <script src="../../js/performance-enhancements.js" defer></script>
+
+  
+  <script src="../../js/mobile-menu.js" defer></script>
+  <script src="../../js/modern-interactions.js" defer></script>
+  <script src="../../js/search.js" defer></script>
+
+  
+  <script src="../../js/reading-progress.js" defer></script>
+  <script src="../../js/copy-code.js" defer></script>
+  <script src="../../js/anchor-links.js" defer></script>
+
+  
+  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <script>
+    
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.style.display = 'block';
+      } else {
+        backToTop.style.display = 'none';
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+
+  
+  <script data-goatcounter="https://queelius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>

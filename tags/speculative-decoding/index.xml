@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Speculative-Decoding on metafunctor</title>
+    <link>https://metafunctor.com/tags/speculative-decoding/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Tue, 05 May 2026 08:26:31 -0500</lastBuildDate>
+    <atom:link href="https://metafunctor.com/tags/speculative-decoding/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>https://metafunctor.com/</link>
+    </image>
+    
+    <item>
+      <title>KL-Threshold Routing Between LLMs: What Speculative Decoding Already Solved</title>
+      <link>https://metafunctor.com/post/2026-05-03-kl-threshold-routing-and-speculative-decoding/</link>
+      <pubDate>Mon, 15 Sep 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">https://metafunctor.com/post/2026-05-03-kl-threshold-routing-and-speculative-decoding/</guid>
+      <description>In 2023 I drafted a paper on routing between a large and small LLM via KL-divergence thresholds. Speculative decoding had already solved the problem more rigorously. Here is the post-mortem.</description>
+      <content:encoded><![CDATA[<p>In late 2023 I started a paper called <em>Mixture-of-Experts: KL-Divergence Threshold</em>. The setup: run the small LLM by default, periodically check its next-token distribution against a larger reference model by computing KL divergence, fall back to the large model when the small one drifts too far. I never finished the experiments. Going back to the draft now, the kernel of the idea was right and the framing was wrong.</p>
+<p>Here is what I had. Initialize generation with the large model so the prefix is high quality. Switch to the small model for the bulk of generation. Every k tokens, also generate with the large model and compute</p>
+<pre><code>D_KL(P_large || Q_small) = sum_i P_large(i) * log(P_large(i) / Q_small(i))
+</code></pre>
+<p>over the shared vocabulary. If <code>D_KL</code> is below threshold, keep using the small model. If it crosses, fall back. The threshold is a hyperparameter you tune.</p>
+<p>Two problems, both fatal in retrospect.</p>
+<p>First, the formal version already existed. Leviathan, Kalman, and Matias published <em>Fast Inference from Transformers via Speculative Decoding</em> on arXiv in November 2022, with the ICML paper appearing in 2023. Speculative decoding does the same idea properly. A small &ldquo;draft&rdquo; model proposes k tokens, the large model verifies by computing its own probabilities, and a rejection-sampling step on the ratio <code>P_large(t) / Q_small(t)</code> guarantees that the output distribution <strong>exactly</strong> matches the large model&rsquo;s. No threshold. No periodic check. No quality drift to worry about. A cleaner statement of the same idea, with a guarantee instead of a hyperparameter.</p>
+<p>I should have known about it. It was already on arXiv when I wrote the draft. That is the first lesson, and the embarrassing one: search the literature before you write the methodology.</p>
+<p>Second, I did not think carefully about KV cache. Switching models mid-generation is not a switch, it is a re-prefill. The &ldquo;other&rdquo; model has no KV state for the prefix you just generated, so falling back means recomputing attention over the whole context. Once you put real numbers in, the cost equation changes completely. Speculative decoding sidesteps this by keeping both models&rsquo; KV caches alive throughout, which is part of why it is the right primitive and a periodic-recheck scheme is not.</p>
+<p>What is still alive in the draft, after stripping the speculative-decoding-shaped chunk:</p>
+<ol>
+<li>
+<p><strong>KL over a concept space, not the token vocabulary.</strong> Two LLMs that disagree on tokens may agree on concepts. If you map distributions over <code>{king, queen, ruler, monarch, ...}</code> to a coarser distribution over a latent concept like <em>ruler</em>, divergence at that level is a different signal. Routing on concept-level agreement is not a special case of speculative decoding because the guarantee is about the token distribution, not the meaning. Section 8.3 of the original draft, the only piece I would actually want to write up.</p>
+</li>
+<li>
+<p><strong>The shared-vocabulary requirement.</strong> KL is undefined when two LLMs tokenize differently, and the draft waved at this. The interesting question is what to do when they do not share a vocab: subword realignment, distillation to a common vocab, or computing divergence in embedding space directly with optimal transport. This is closer to a measurement problem than a routing problem, but it is the prerequisite for any cross-family ensemble, and it is real research.</p>
+</li>
+<li>
+<p><strong>Calibration-aware deferral for distilled small models.</strong> When does a fine-tuned 1B model actually agree with its 70B teacher, and how cheap is the agreement test? This is closer to selective prediction and learned-deferral literature than to speculative decoding, and there is room.</p>
+</li>
+</ol>
+<p>The general lesson, for me at least: when you have a routing-or-cascade-or-ensemble idea over LLMs, check what has been formalized already. The 2022 to 2024 window has a lot of &ldquo;I had an idea like that, but the rigorous version already exists&rdquo; land mines, and most of them are downstream of speculative decoding. Adding value now means going one layer up: routing over concepts, agreement under tokenizer mismatch, calibration-aware deferral. The token-level version is a solved problem.</p>
+<p>The original LaTeX has been pushed to <a href="https://github.com/queelius/kl-foundation-ref">github.com/queelius/kl-foundation-ref</a> for the record and archived. Moving on.</p>
+]]></content:encoded>
+      
+      
+      <category>llm</category>
+      
+      <category>inference</category>
+      
+      <category>speculative-decoding</category>
+      
+      <category>negative-result</category>
+      
+      <category>mixture-of-experts</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>
