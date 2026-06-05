@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Natural-Gradient on metafunctor</title><link>https://metafunctor.com/tags/natural-gradient/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Mon, 11 May 2026 17:03:06 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/natural-gradient/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Your Optimizer Is (Approximately) Propagating Fisher Information</title><link>https://metafunctor.com/post/2023-09-12-your-optimizer-is-approximately-doing-fisher-flow/</link><pubDate>Tue, 12 Sep 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2023-09-12-your-optimizer-is-approximately-doing-fisher-flow/</guid><description>Adam, K-FAC, EWC, and natural gradient are all approximating the same thing at different fidelity levels. The math and the caveats.</description><content:encoded><![CDATA[<p>Adam&rsquo;s second moment estimate is a diagonal approximation to the empirical Fisher Information Matrix. K-FAC uses a Kronecker-factored approximation. EWC uses the Fisher as a regularization penalty. Natural gradient uses the full thing. Same underlying structure, different computational budgets.</p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Natural-Gradient on metafunctor</title><link>https://metafunctor.com/tags/natural-gradient/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 05 Jun 2026 00:59:30 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/natural-gradient/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Your Optimizer Is (Approximately) Propagating Fisher Information</title><link>https://metafunctor.com/post/2023-09-12-your-optimizer-is-approximately-doing-fisher-flow/</link><pubDate>Tue, 12 Sep 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2023-09-12-your-optimizer-is-approximately-doing-fisher-flow/</guid><description>Adam, K-FAC, EWC, and natural gradient are all approximating the same thing at different fidelity levels. The math and the caveats.</description><content:encoded><![CDATA[<p>Adam&rsquo;s second moment estimate is a diagonal approximation to the empirical Fisher Information Matrix. K-FAC uses a Kronecker-factored approximation. EWC uses the Fisher as a regularization penalty. Natural gradient uses the full thing. Same underlying structure, different computational budgets.</p>
 <p>None of this is new. Amari formalized natural gradient in 1998. Martens (2020) wrote a thorough 76-page survey connecting it to second-order optimization. Khan and Rue (2023) unified these algorithms under a single Bayesian learning rule. Kunstner, Hennig, and Balles (2019) showed where the empirical Fisher approximation breaks. I spent a while working through the math, and the pattern is clean once you see it, so I want to write it down.</p>
 <h2 id="fisher-information">Fisher Information</h2>
 <p>Parametric model $p(x|\theta)$. Here $x$ is observed data and $\theta \in \mathbb{R}^d$ is the parameter vector. The <strong>score function</strong> is the gradient of the log-likelihood with respect to the parameters:</p>
@@ -14,40 +14,40 @@ $$\hat\theta_t = \hat\theta_{t-1} + \eta\, \mathcal{I}_t^{-1} s_t$$<p>where $\et
 <h2 id="the-approximation-hierarchy">The Approximation Hierarchy</h2>
 <p>Every common optimizer can be viewed as using some approximation to the Fisher as its preconditioner. The framing is most natural for natural gradient, less natural for SGD (where it&rsquo;s more of an interpretation than a design choice):</p>
 <table>
-  <thead>
-      <tr>
-          <th>Method</th>
-          <th>Preconditioner structure</th>
-          <th>Per-step cost</th>
-          <th>What&rsquo;s discarded</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>SGD</td>
-          <td>$\eta I_d$ (learning rate $\times$ identity)</td>
-          <td>$O(d)$</td>
-          <td>All curvature information</td>
-      </tr>
-      <tr>
-          <td>Adam</td>
-          <td>$\text{diag}(\hat{v}_t)^{-1/2}$, $\hat{v}_t \in \mathbb{R}^d$</td>
-          <td>$O(d)$</td>
-          <td>Off-diagonal structure, uses square root</td>
-      </tr>
-      <tr>
-          <td>K-FAC</td>
-          <td>$(A \otimes B)^{-1}$, $A \in \mathbb{R}^{n \times n}$, $B \in \mathbb{R}^{m \times m}$</td>
-          <td>$O(m^3 + n^3)$*</td>
-          <td>Cross-layer coupling</td>
-      </tr>
-      <tr>
-          <td>Natural gradient</td>
-          <td>$\mathcal{I}(\theta)^{-1} \in \mathbb{R}^{d \times d}$</td>
-          <td>$O(d^3)$</td>
-          <td>Nothing</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>Method</th>
+					<th>Preconditioner structure</th>
+					<th>Per-step cost</th>
+					<th>What&rsquo;s discarded</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>SGD</td>
+					<td>$\eta I_d$ (learning rate $\times$ identity)</td>
+					<td>$O(d)$</td>
+					<td>All curvature information</td>
+			</tr>
+			<tr>
+					<td>Adam</td>
+					<td>$\text{diag}(\hat{v}_t)^{-1/2}$, $\hat{v}_t \in \mathbb{R}^d$</td>
+					<td>$O(d)$</td>
+					<td>Off-diagonal structure, uses square root</td>
+			</tr>
+			<tr>
+					<td>K-FAC</td>
+					<td>$(A \otimes B)^{-1}$, $A \in \mathbb{R}^{n \times n}$, $B \in \mathbb{R}^{m \times m}$</td>
+					<td>$O(m^3 + n^3)$*</td>
+					<td>Cross-layer coupling</td>
+			</tr>
+			<tr>
+					<td>Natural gradient</td>
+					<td>$\mathcal{I}(\theta)^{-1} \in \mathbb{R}^{d \times d}$</td>
+					<td>$O(d^3)$</td>
+					<td>Nothing</td>
+			</tr>
+	</tbody>
 </table>
 <p>$d$ is the total parameter count. $I_d$ is the $d \times d$ identity. $\otimes$ is the Kronecker product. For K-FAC, $A = \mathbb{E}[a_{l-1} a_{l-1}^\top]$ is the input activation covariance and $B = \mathbb{E}[\delta_l \delta_l^\top]$ is the output gradient covariance for a layer with weight matrix $W_l \in \mathbb{R}^{m \times n}$, input activations $a_{l-1} \in \mathbb{R}^n$, and backpropagated gradients $\delta_l \in \mathbb{R}^m$ (Martens and Grosse, 2015).</p>
 <p>*K-FAC&rsquo;s $O(m^3 + n^3)$ cost is for the periodic inversion of the Kronecker factors. K-FAC does not invert every step; it amortizes the cost by inverting every $T_{\text{inv}}$ steps and using stale inverses in between. The per-step factor update (accumulating $a a^\top$ and $\delta \delta^\top$) costs $O(n^2 + m^2)$.</p>

@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Symmetry-Breaking on metafunctor</title><link>https://metafunctor.com/tags/symmetry-breaking/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 05 Jun 2026 00:59:30 -0500</lastBuildDate><atom:link href="https://metafunctor.com/tags/symmetry-breaking/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>The Expensive Half of a SAT Proof</title><link>https://metafunctor.com/post/2026-06-05-symmetry-breaking-unsat/</link><pubDate>Fri, 05 Jun 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-06-05-symmetry-breaking-unsat/</guid><description>A from-first-principles tour of double-lex symmetry breaking for SAT: why the UNSAT side is expensive, how canonical-representative constraints fix it, a worked Zarankiewicz example that settled three new OEIS values, and an honest map of where the technique stops scaling.</description><content:encoded><![CDATA[<h1 id="the-expensive-half-of-a-sat-proof">The Expensive Half of a SAT Proof</h1>
+<p>Here is a number that bothered me for a week. I wanted the exact value of a
+small combinatorial quantity called z(10,11;3,4). A SAT solver found a good
+configuration in about two seconds, which told me the answer was <em>at least</em>
+72. To finish, I needed the other direction: a proof that nothing does
+better, that the answer is <em>at most</em> 72. I started that second SAT job and
+walked away. It ran for more than <strong>seven days</strong> without an answer.</p>
+<p>Then I added one idea, an old and standard one, and the same proof finished
+in <strong>27 minutes</strong>.</p>
+<p>The idea is symmetry breaking. This post builds it up from scratch, watches
+it work on the problem above (the payoff was three new values in the
+<a href="/research/oeis-contributions/">On-Line Encyclopedia of Integer Sequences</a>),
+and then watches it fail on a different problem, because knowing when a tool
+stops working is most of the skill of using it.</p>
+<h2 id="a-problem-you-can-hold-in-your-hand">A problem you can hold in your hand</h2>
+<p>The quantity z(m,n;s,t) is the <strong>largest number of 1s you can put in an
+m-by-n grid of 0s and 1s without creating an all-ones s-by-t block</strong>. By &ldquo;block&rdquo;
+I mean: pick some s rows and some t columns; the s-by-t cells where they cross
+must not all be 1.</p>
+<p>Picture a 4-by-4 grid. If rows 1 and 3 and columns 2 and 4 all carry 1s at
+their four intersections, that is a forbidden 2-by-2 block. Avoid every such
+block, pack in as many 1s as you can, and the maximum is the Zarankiewicz
+number. These numbers grow in a ragged, formula-resistant way, which is
+exactly why people compute them one at a time.</p>
+<p>This is a natural fit for a SAT solver. Put one Boolean variable on each
+cell, true when the cell is 1. For every choice of s rows and t columns,
+add one clause saying &ldquo;at least one of these s times t cells is 0.&rdquo; Add a
+counting constraint, &ldquo;at least k cells are 1,&rdquo; and ask the solver:</p>
+<ul>
+<li>If it answers <strong>satisfiable</strong>, it hands back a grid with k ones and no
+forbidden block. So z is at least k.</li>
+<li>If it answers <strong>unsatisfiable</strong>, no such grid exists, so z is less than k.</li>
+</ul>
+<p>To pin the exact value you need both: a witness at k, and an impossibility
+proof at k+1. The witness side is usually easy. The impossibility side, the
+UNSAT side, is the expensive half.</p>
+<h2 id="why-proving-impossibility-is-hard">Why proving impossibility is hard</h2>
+<p>The asymmetry is intuitive once you say it out loud. To find a witness, the
+solver needs <strong>one</strong> lucky arrangement. To prove impossibility, it must rule
+out <strong>every</strong> arrangement. That is already a harder job. But there is a
+second, sneakier cost, and it is the one that matters here.</p>
+<p>The solver keeps rediscovering the same grid wearing different clothes.</p>
+<p>Take any valid grid. Swap two of its rows. You get a different assignment of
+the Boolean variables, but it is plainly the same object: same number of 1s,
+same blocks present or absent. Swap two columns: same story. The solver does
+not know this. To the solver, the original and the swapped version are two
+different points in the search space, each to be explored and refuted from
+scratch.</p>
+<h2 id="counting-the-copies">Counting the copies</h2>
+<p>Name the thing that is hurting us. The <strong>row permutations and the column
+permutations</strong> form a group that acts on every grid while preserving both
+what we are maximizing (the count of 1s) and what we are forbidding (the
+blocks). So the grids come in families, called orbits, and every grid in an
+orbit is the same object relabeled.</p>
+<p>How big is an orbit? For a 10-by-11 grid, you can reorder the rows in 10!
+ways and the columns in 11! ways:</p>
+<blockquote>
+<p>10! times 11! is about 1.4 times 10^14.</p>
+</blockquote>
+<p>That is roughly a hundred trillion relabelings of a single grid. When the
+solver is trying to prove that no good grid exists, it is wading through a
+hundred trillion copies of each candidate it has already dismissed. No
+wonder the job ran for a week.</p>
+<h2 id="the-fix-keep-one-copy-of-each">The fix: keep one copy of each</h2>
+<p>The cure is to refuse all but one member of each orbit. If we can tell the
+solver &ldquo;only consider the canonical version of each grid,&rdquo; the search shrinks
+by the size of the orbits.</p>
+<p>The standard canonical choice is the <strong>lexicographically smallest</strong> relabeling,
+and the standard way to enforce it cheaply is called <strong>double-lex</strong>:</p>
+<ul>
+<li>require the <strong>rows</strong> to be in non-decreasing lexicographic order, and</li>
+<li>require the <strong>columns</strong> to be in non-decreasing lexicographic order.</li>
+</ul>
+<p>Read each row left to right as a string of 0s and 1s; demand row 1 is no
+larger than row 2, which is no larger than row 3, and so on. Do the same down
+the columns.</p>
+<p>The reason this is allowed, and it is worth saying carefully, is a soundness
+fact: <strong>every orbit contains at least one grid that is both row-sorted and
+column-sorted.</strong> So when we throw away every non-doubly-lex grid, we never
+throw away an entire orbit. If a good grid existed before, a good doubly-lex
+grid still exists. Satisfiability is untouched, and so is unsatisfiability.
+We have deleted only redundant copies, never an actual solution. That is the
+whole game.</p>
+<h2 id="saying-this-row-is-not-bigger-in-clauses">Saying &ldquo;this row is not bigger&rdquo; in clauses</h2>
+<p>A SAT solver speaks in clauses, so we have to express &ldquo;this 0/1 vector is
+lexicographically less than or equal to that one&rdquo; as a pile of ORs. The
+construction is a small classic, and building it is the kind of thing this
+blog likes to do by hand.</p>
+<p>Compare two vectors a and b, position by position from the left. Carry one
+extra Boolean per position, an &ldquo;equal so far&rdquo; flag. The rule:</p>
+<ul>
+<li>while the prefixes are still equal, the current bits must satisfy a-bit
+implies b-bit (you are not allowed to be the one that is larger);</li>
+<li>update the &ldquo;equal so far&rdquo; flag to stay true only if the current bits match.</li>
+</ul>
+<p>In clause form, at each position, with <code>eq</code> meaning equal-so-far:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># if equal so far, then a &lt;= b at this position
+</span></span><span class="line"><span class="cl">(not eq) OR (not a) OR b
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"># eq_next is true exactly when eq held and the bits matched
+</span></span><span class="line"><span class="cl"># (a handful of clauses define eq_next = eq AND (a == b))
+</span></span></code></pre></div><p>It is linear in the length of the vector, and you can check it against a
+truth table to be sure (I did, for all vectors up to length four, before
+trusting it on anything larger). Apply it to each adjacent pair of rows and
+each adjacent pair of columns, and you have double-lex.</p>
+<p>One honest caveat. Double-lex is not a <em>complete</em> symmetry break. Some orbits
+still keep more than one doubly-lex member, and we only constrained adjacent
+pairs rather than all permutations directly. It is sound and cheap, not
+perfect. That is fine. Removing most of the symmetry is enough to turn
+intractable into tractable, and chasing a unique representative would cost
+more than it returns.</p>
+<h2 id="the-payoff-in-real-seconds">The payoff, in real seconds</h2>
+<p>First, sanity. A known value: z(9,9;3,4) is 56. The proof that it is <em>not</em> 57
+is a small UNSAT instance. With the plain encoding, the solver did not finish
+it inside a 90-second budget. With double-lex, it finished in about <strong>ten
+seconds</strong>. The symmetry break is the difference between &ldquo;no answer&rdquo; and &ldquo;ten
+seconds&rdquo; on a problem whose answer we already knew, which is exactly the kind
+of validation you want before trusting it on a problem whose answer you do
+not.</p>
+<p>Then the one that started this post:</p>
+<table>
+	<thead>
+			<tr>
+					<th>instance</th>
+					<th>plain encoding</th>
+					<th>double-lex</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>z(9,9;3,4): no grid with 57 ones</td>
+					<td>over 90 s, no result</td>
+					<td>about 10 s</td>
+			</tr>
+			<tr>
+					<td>z(10,11;3,4): no grid with 73 ones</td>
+					<td>over 7 days, no result</td>
+					<td>27 min</td>
+			</tr>
+	</tbody>
+</table>
+<p>That 27-minute proof, paired with the two-second witness, settled
+z(10,11;3,4) = 72 exactly. Two siblings fell the same way. All three went to
+the OEIS as new values of classic Zarankiewicz sequences
+(<a href="https://oeis.org/A006615">A006615</a>,
+<a href="https://oeis.org/A006622">A006622</a>,
+<a href="https://oeis.org/A006625">A006625</a>).</p>
+<h2 id="now-watch-it-fail">Now watch it fail</h2>
+<p>If the story stopped there, you might think symmetry-broken SAT is a frontier
+machine. It is not, and the failure is more instructive than the success.</p>
+<p>Try a different problem: the most edges you can put on n points without ever
+forming a 4-cycle (a square). This is also a 0/1 matrix question, an adjacency
+matrix this time, and it has the same flavor of symmetry, so the same tool
+should apply. I built it and validated it: it reproduces the known values
+(OEIS <a href="https://oeis.org/A006855">A006855</a>) exactly up to n = 15.</p>
+<p>Then it dies. The runtime grows by roughly a factor of five for every extra
+vertex. By n = 15 a single value already takes about a minute, and the known
+frontier sits at n = 41. Five to the twenty-sixth power times a minute is not
+a number of minutes anyone will wait. The tool that cracked Zarankiewicz in
+27 minutes cannot get near this frontier at all.</p>
+<p>Why the split? It comes down to the shape of the symmetry.</p>
+<ul>
+<li>In the Zarankiewicz grid, rows and columns are <strong>separate axes</strong>. You can
+sort them independently, and the dimensions are modest (10 by 11). Adjacent
+lexicographic order removes enough of the redundancy to win.</li>
+<li>In a graph, there is <strong>one</strong> symmetry, the relabeling of vertices, and it
+permutes the rows and the columns of the adjacency matrix <em>together</em>.
+Adjacent-pair lexicographic order barely dents that single large group, and
+the leftover symmetry still explodes the search.</li>
+</ul>
+<p>The people who actually reach the C4-free frontier do not use plain SAT at
+all. They use orderly generation, building graphs in a canonical form so that
+no two relabelings are ever produced (the lineage of nauty and its relatives).
+That is a different and heavier instrument.</p>
+<p>The lesson generalizes. <strong>Symmetry-broken SAT scales when the symmetry group
+is a product of modest factors you can sort independently, and it stalls when
+it is one big group.</strong> Before you reach for it, look at the symmetry you are
+facing and ask which of those two worlds you are in.</p>
+<h2 id="credit-where-it-is-due">Credit where it is due</h2>
+<p>None of the machinery here is mine, and that is worth stating plainly rather
+than burying. Double-lex symmetry breaking for matrix models is from Flener,
+Frisch, Hnich, Kiziltan, Miguel, Pearson, and Walsh, &ldquo;Breaking row and column
+symmetries in matrix models&rdquo; (CP 2002). Attacking Zarankiewicz numbers with
+symmetry-aware SAT was done by Jeremy Tan in &ldquo;An attack on Zarankiewicz&rsquo;s
+problem through SAT solving&rdquo; (2022). The lexicographic clause encoding is
+textbook (Knuth, TAOCP 7.2.2.2; and Codish and collaborators). The only new
+things in my version are the particular values that came out the other end.</p>
+<p>That is, in a way, the point of the post. This is a standard technique that
+lives mostly inside the constraint-programming community and is underused
+everywhere else. If you find yourself staring at a SAT job that will not prove
+the impossibility you are sure is true, count the symmetries first. There may
+be a hundred trillion copies of your problem hiding in plain sight, and a few
+lexicographic clauses to make them go away.</p>
+<h2 id="takeaways">Takeaways</h2>
+<ul>
+<li>The UNSAT side of an exact-value SAT proof is the expensive half, and
+symmetry is usually why.</li>
+<li>Canonical-representative constraints (double-lex) are cheap, sound, and
+often decisive: they keep one grid per orbit instead of all m! times n! of
+them.</li>
+<li>They are standard in constraint programming and underused elsewhere.</li>
+<li>They scale on product-of-modest-groups symmetry (the Zarankiewicz grid) and
+stall on one large group (graph vertex relabeling), where canonical
+generation is the right tool instead. Match the method to the symmetry.</li>
+</ul>
+<p><em>The code (a lexicographic-CNF builder, the Zarankiewicz attack, and the
+C4-free contrast case, all with tests) lives in my open-problems repository.</em></p>
+]]></content:encoded><category>sat-solving</category><category>symmetry-breaking</category><category>zarankiewicz</category><category>oeis</category><category>constraint-programming</category><category>extremal-graph-theory</category><category>unsat</category><category>lexicographic-ordering</category></item></channel></rss>
