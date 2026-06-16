@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Rank-Select on metafunctor</title>
+    <link>http://localhost:1313/tags/rank-select/</link>
+    <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
+    <language>en-us</language>
+    <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
+    <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
+    
+    <lastBuildDate>Mon, 15 Jun 2026 21:16:51 -0500</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/rank-select/" rel="self" type="application/rss+xml" />
+    <image>
+      <url>http://localhost:1313/images/og-image.jpg</url>
+      <title>metafunctor</title>
+      <link>http://localhost:1313/</link>
+    </image>
+    
+    <item>
+      <title>Succinct Bit Vectors and Rank/Select</title>
+      <link>http://localhost:1313/post/2025-06-succinct-wire-formats/</link>
+      <pubDate>Sun, 22 Jun 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/post/2025-06-succinct-wire-formats/</guid>
+      <description>A bit vector with O(1) rank and O(log n) select using only n &#43; o(n) bits of space. The auxiliary index is asymptotically negligible while enabling constant-time queries.</description>
+      <content:encoded><![CDATA[<p><em>The claim that drives this post: store $n$ bits and answer prefix-count queries in $O(1)$ time, using only $n + o(n)$ bits total. The auxiliary index is asymptotically negligible. That is not obvious, and it is worth understanding why it holds.</em></p>
+<h2 id="constant-time-queries-on-bit-vectors">Constant-Time Queries on Bit Vectors</h2>
+<p>Posts 1 through 10 of this series focused on encoding: universal codes, arithmetic coding, Huffman, LZ77. They all ask the same question in slightly different ways: how do we turn a sequence into a compact bit string? This post shifts direction. The question here is different: once we have a bit vector, how do we query it efficiently without expanding it?</p>
+<p>The two fundamental queries on a bit vector of $n$ bits are:</p>
+<ul>
+<li><strong>rank$_1(i)$</strong>: the number of 1-bits in positions $[0, i)$, i.e., strictly before position $i$.</li>
+<li><strong>select$_1(j)$</strong>: the position of the $j$-th 1-bit (0-indexed).</li>
+</ul>
+<p>These appear throughout data structures: inverted indexes, compressed graphs, FM-indexes, wavelet trees. Rank tells you how many elements precede a position. Select inverts it.</p>
+<p>Three design points exist along the space-time axis:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Approach</th>
+					<th>Space</th>
+					<th>rank time</th>
+					<th>select time</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Naive scan</td>
+					<td>$n$ bits</td>
+					<td>$O(n/64)$</td>
+					<td>$O(n/64)$</td>
+			</tr>
+			<tr>
+					<td>Full lookup table</td>
+					<td>$O(n \log n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(1)$</td>
+			</tr>
+			<tr>
+					<td>Succinct (this post)</td>
+					<td>$n + o(n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(\log n)$</td>
+			</tr>
+	</tbody>
+</table>
+<p>The succinct approach hits the right trade-off: an auxiliary index that is asymptotically negligible (sublinear, so $o(n)$) while buying constant-time rank. Select costs $O(\log n)$ with a binary search. Getting $O(1)$ select requires one more index structure; that is covered briefly at the end and implemented in PFC&rsquo;s production version.</p>
+<h2 id="the-structure">The Structure</h2>
+<p>The bit vector stores its $n$ bits packed into 64-bit words, LSB-first. Bit $i$ lives at position $i \bmod 64$ within word $\lfloor i / 64 \rfloor$. Unused bits in the final word are zeroed.</p>
+<p>The auxiliary index has two levels:</p>
+<ul>
+<li><strong>Superblock array</strong>: one <code>uint64_t</code> per 4096-bit chunk. Entry $s$ holds the absolute cumulative rank from bit 0 to the start of superblock $s$.</li>
+<li><strong>Block array</strong>: one <code>uint16_t</code> per 64-bit word. Entry $b$ holds the rank within the enclosing superblock, from the superblock&rsquo;s start to the start of block $b$.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SuccinctBitVector</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">explicit</span> <span class="n">SuccinctBitVector</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;&amp;</span> <span class="n">bits</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">size</span><span class="p">()</span>  <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="kt">bool</span>        <span class="n">bit</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">)</span>  <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">rank1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>   <span class="c1">// O(1)
+</span></span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">select1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span> <span class="c1">// O(log n)
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">protected</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">n_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">bits_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">superblock_ranks_</span><span class="p">;</span>  <span class="c1">// abs. rank at superblock boundaries
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="o">&gt;</span> <span class="n">block_ranks_</span><span class="p">;</span>       <span class="c1">// superblock-relative rank per block
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">SUPERBLOCK_BITS</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">BLOCK_BITS</span>      <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">BLOCKS_PER_SB</span>   <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The production version lives in <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC&rsquo;s <code>include/pfc/succinct.hpp</code></a>. The pedagogical version in this post strips the production features to the core structure.</p>
+<h2 id="why-constant-time">Why Constant Time</h2>
+<p>A rank query for position $i$ proceeds in three steps:</p>
+<ol>
+<li><strong>Superblock lookup</strong>: $s = \lfloor i / 4096 \rfloor$. Load <code>superblock_ranks_[s]</code>, giving the absolute count of 1-bits before superblock $s$.</li>
+<li><strong>Block lookup</strong>: $b = \lfloor i / 64 \rfloor$. Load <code>block_ranks_[b]</code>, giving the count within superblock $s$ before block $b$.</li>
+<li><strong>Word popcount</strong>: mask the word at position $b$ to keep only bits $0 \ldots (i \bmod 64) - 1$, then call <code>std::popcount</code>.</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">rank1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">sb</span>    <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="n">SUPERBLOCK_BITS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">blk</span>   <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="n">BLOCK_BITS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">w_off</span> <span class="o">=</span> <span class="n">i</span> <span class="o">%</span> <span class="n">BLOCK_BITS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">res</span>   <span class="o">=</span> <span class="n">superblock_ranks_</span><span class="p">[</span><span class="n">sb</span><span class="p">]</span> <span class="o">+</span> <span class="n">block_ranks_</span><span class="p">[</span><span class="n">blk</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">w_off</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">&lt;&lt;</span> <span class="n">w_off</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">res</span> <span class="o">+=</span> <span class="n">std</span><span class="o">::</span><span class="n">popcount</span><span class="p">(</span><span class="n">bits_</span><span class="p">[</span><span class="n">blk</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">mask</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">res</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>All three steps are $O(1)$: two array indexing operations and one hardware-accelerated popcount (POPCNT on x86-64, VCNT on ARM). The key insight is that partial sums are precomputed at two granularities. The superblock array handles the large-scale prefix sum; the block array handles the within-superblock refinement. The final popcount handles the within-word residual. Three lookups, total.</p>
+<h2 id="select-via-binary-search">Select via Binary Search</h2>
+<p>Select is harder than rank. Rank has a natural decomposition: superblock boundary, then block boundary, then word bits. Select does not. The $j$-th 1-bit could be anywhere, and without additional precomputed information, there is no shortcut.</p>
+<p>The approach here uses binary search over <code>superblock_ranks_</code> to find which superblock contains the $j$-th 1-bit (the largest $s$ such that <code>superblock_ranks_[s] &lt;= j</code>). Within that superblock, a linear scan over the block array pinpoints the right block. Within that block, iterating over set bits via repeated <code>__builtin_ctzll</code> (count trailing zeros) finds the exact position.</p>
+<p>Complexity: $O(\log(n / 4096))$ for the binary search over superblocks, then $O(1)$ per block within the superblock (at most 64 blocks), then $O(64)$ for the bit scan. Total: $O(\log n)$.</p>
+<p>The $O(1)$ select extension stores one additional array: a &ldquo;select samples&rdquo; array holding the position of every $(\log^2 n)$-th 1-bit. That compresses the binary-search range and allows $O(1)$ select at the cost of a few extra kilobytes for typical $n$. PFC&rsquo;s production version implements this. For the pedagogical version here, $O(\log n)$ select is sufficient.</p>
+<h2 id="where-succinct-bit-vectors-show-up">Where Succinct Bit Vectors Show Up</h2>
+<p>Inverted indexes in full-text search use bit vectors to represent posting lists (which documents contain a term). Rank and select over those bit vectors power gap compression: the posting list stores gaps between document IDs, and select recovers the original IDs.</p>
+<p>The FM-index, used in short-read DNA alignment tools like BWA, builds a rank-queryable bit vector over the Burrows-Wheeler Transform. Each rank query takes $O(1)$ and drives an $O(m)$ pattern-search algorithm for a pattern of length $m$.</p>
+<p>Compressed graphs (as in the WebGraph framework) store adjacency lists as bit vectors with succinct structures for traversal. Wavelet trees use a hierarchy of bit vectors to answer range-frequency queries in $O(\log \sigma)$ where $\sigma$ is the alphabet size.</p>
+<p>In all of these, the $n + o(n)$ space guarantee is not academic. The index must not dwarf the data it queries.</p>
+<h2 id="the-space-time-trade">The Space-Time Trade</h2>
+<p>The auxiliary index for a 10000-bit vector costs about 338 bytes: 24 bytes for the superblock array (3 entries at 8 bytes each) and 314 bytes for the block array (157 entries at 2 bytes each). The bit vector itself costs 1256 bytes (10000 / 8, rounded up to the nearest word). The index is roughly 27% of the bit vector, comfortably $o(n)$.</p>
+<p>Here is the comparison table across the four main approaches:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Representation</th>
+					<th>Space</th>
+					<th>rank</th>
+					<th>select</th>
+					<th>Best for</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Plain scan</td>
+					<td>$n$ bits</td>
+					<td>$O(n/64)$</td>
+					<td>$O(n/64)$</td>
+					<td>Very small $n$</td>
+			</tr>
+			<tr>
+					<td>Full table</td>
+					<td>$O(n \log n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(1)$</td>
+					<td>Tiny $n$, memory to burn</td>
+			</tr>
+			<tr>
+					<td>Succinct (this post)</td>
+					<td>$n + o(n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(\log n)$</td>
+					<td>Large dense bit vectors</td>
+			</tr>
+			<tr>
+					<td>Sparse / RLE</td>
+					<td>$O(k)$ bits for $k$ ones</td>
+					<td>$O(\log k)$</td>
+					<td>$O(\log k)$</td>
+					<td>Very sparse sets</td>
+			</tr>
+	</tbody>
+</table>
+<p>The sparse / RLE row bridges to the next post. When a bit vector is extremely sparse, storing only the positions of the 1-bits beats the $n + o(n)$ dense approach. RoaringBitmap, covered in <a href="/post/2025-12-roaring-bitmap-wire-formats/">post 12</a>, chooses dynamically between an array, a dense bit vector, and a run-length encoding based on the local density of each 64K-integer chunk.</p>
+<h2 id="cross-references">Cross-References</h2>
+<p>This post builds on two earlier posts:</p>
+<ul>
+<li><a href="/post/2021-06-kraft-wire-formats/">Post 1</a> established the Kraft lower bound: any lossless code must use at least $H$ bits per symbol. The succinct structure respects this by using $n + o(n)$ bits for an $n$-bit vector, asymptotically optimal.</li>
+<li><a href="/post/2022-01-priors-wire-formats/">Post 3</a> showed that a coding choice is implicitly a prior over the data. The choice of a dense bit vector (as opposed to an array or run-length encoding) reflects a prior that 1-bits are distributed roughly uniformly. When that prior is wrong, a different structure wins.</li>
+</ul>
+<p>The next post shows how RoaringBitmap resolves this by refusing to commit to a single prior.</p>
+<hr>
+<p><em>Footnote: PFC&rsquo;s <code>include/pfc/succinct.hpp</code> implements the full <code>SuccinctBitVector</code> with O(1) select via a select-samples index, and also includes <code>RoaringBitmap</code> with three container types. The pedagogical code in this post covers the core rank structure and O(log n) select.</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>data-structures</category>
+      
+      <category>succinct</category>
+      
+      <category>rank-select</category>
+      
+      
+    </item>
+    
+  </channel>
+</rss>
