@@ -1,182 +1,1702 @@
-<!doctype html><html lang=en-us prefix="og: https://ogp.me/ns#"><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no"><meta http-equiv=X-UA-Compatible content="IE=edge"><title>How to Teach a Computer Calculus with Pattern Matching | metafunctor</title><meta name=title content="How to Teach a Computer Calculus with Pattern Matching | metafunctor"><meta name=description content="Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate."><meta name=keywords content="machine learning,statistical computing,open source,research,computer science,artificial intelligence"><meta name=author content="Alex Towell"><meta name=robots content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel=canonical href=https://metafunctor.com/post/2022-10-term-rewriting/><link rel=alternate hreflang=en href=https://metafunctor.com/post/2022-10-term-rewriting/><link rel=alternate hreflang=x-default href=https://metafunctor.com/post/2022-10-term-rewriting/><style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,segoe ui,roboto,sans-serif;font-size:17px;line-height:1.7;color:#2c2c2c;background:#fff}.elegant-header{position:sticky;top:0;z-index:1000;background:rgba(254,254,254,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,8%)}.header-inner{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}.site-logo{font-size:1.5rem;font-weight:700;color:#2c2c2c;text-decoration:none}.nav-primary ul{display:flex;gap:2rem;list-style:none}.nav-primary a{font-size:.9rem;font-weight:500;color:#4a4a4a;text-decoration:none}.hero-elegant{padding:5rem 2rem;text-align:center;background:linear-gradient(180deg,#fafafa 0%,#ffffff 100%)}.hero-title{font-size:3.5rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(135deg,#2c2c2c 0%,#003d7a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.hero-subtitle{font-size:1.25rem;color:#4a4a4a;max-width:600px;margin:0 auto 3rem}.skip-to-main{position:absolute;top:-100px;left:0;background:#0050a0;color:#fff;padding:.5rem 1rem;text-decoration:none;font-weight:600;z-index:10000}.skip-to-main:focus{top:0}.preload *{transition:none!important}</style><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=preconnect href=https://cdnjs.cloudflare.com crossorigin><link rel=dns-prefetch href=https://www.google-analytics.com><link rel=dns-prefetch href=https://cdn.jsdelivr.net><meta property="og:type" content="article"><meta property="og:url" content="https://metafunctor.com/post/2022-10-term-rewriting/"><meta property="og:title" content="How to Teach a Computer Calculus with Pattern Matching"><meta property="og:description" content="Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate."><meta property="og:image" content="https://metafunctor.com/images/og-image.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:site_name" content="metafunctor"><meta property="og:locale" content="en_US"><meta property="article:author" content="Alex Towell"><meta property="article:published_time" content="2022-10-15T00:00:00Z"><meta property="article:modified_time" content="2026-04-26T17:47:31-05:00"><meta property="article:section" content="Computer Science"><meta property="article:tag" content="term-rewriting"><meta property="article:tag" content="pattern-matching"><meta property="article:tag" content="symbolic-computation"><meta property="article:tag" content="python"><meta property="article:tag" content="interactive"><meta property="article:tag" content="calculus"><meta name=twitter:card content="summary_large_image"><meta name=twitter:url content="https://metafunctor.com/post/2022-10-term-rewriting/"><meta name=twitter:title content="How to Teach a Computer Calculus with Pattern Matching"><meta name=twitter:description content="Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate."><meta name=twitter:image content="https://metafunctor.com/images/og-image.jpg"><meta name=twitter:site content="@queelius"><meta name=twitter:creator content="@queelius"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/#primaryContent","headline":"How to Teach a Computer Calculus with Pattern Matching","description":"Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate.","url":"https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/","inLanguage":"en-US","datePublished":"2022-10-15T00:00:00Z","dateModified":"2026-04-26T17:47:31-05:00","wordCount":953,"timeRequired":"PT5M","author":{"@type":"Person","@id":"https:\/\/metafunctor.com\/#author","name":"Alex Towell","url":"https:\/\/metafunctor.com\/about/"},"publisher":{"@type":"Organization","@id":"https:\/\/metafunctor.com\/#organization","name":"metafunctor","url":"https:\/\/metafunctor.com\/","logo":{"@type":"ImageObject","url":"https:\/\/metafunctor.com\/images\/og-image.jpg"}},"keywords":["term-rewriting","pattern-matching","symbolic-computation","python","interactive","calculus"]},{"@type":"BreadcrumbList","@id":"https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https:\/\/metafunctor.com\/"},{"@type":"ListItem","position":2,"name":"News","item":"https:\/\/metafunctor.com\/post\/"},{"@type":"ListItem","position":3,"name":"How to Teach a Computer Calculus with Pattern Matching","item":"https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/"}]}]}</script><link rel=preload href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as=style><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet media=print onload='this.media="all"'><noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet></noscript><link rel=stylesheet href=../../css/refined-elegant.css><link rel=stylesheet href=../../css/micro-interactions.css><link rel=stylesheet href=../../css/elegant.css media=print onload='this.media="all"'><link rel=stylesheet href=../../css/custom.css><link rel=stylesheet href=../../css/beautify.css><link rel=stylesheet href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"\\[",right:"\\]",display:!0},{left:"$",right:"$",display:!1},{left:"\\(",right:"\\)",display:!1}]})})</script><script defer src=https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script><script>var doNotTrack=!1,dnt=navigator.doNotTrack||window.doNotTrack||navigator.msDoNotTrack,doNotTrack=dnt=="1"||dnt=="yes";if(!doNotTrack){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-E08ZXTFTTY")}</script><meta name=generator content="Hugo 0.163.3"></head><body><a href=#main-content class=skip-to-main>Skip to main content</a><header class=elegant-header role=banner><div class=header-inner><div class=site-identity><a href=https://metafunctor.com/ class=site-logo aria-label="metafunctor home">metafunctor</a>
-<span class=site-tagline aria-label="Site tagline">Research · Coding</span></div><nav class=nav-primary role=navigation aria-label="Main navigation"><button class=mobile-menu-toggle aria-label="Toggle mobile menu" aria-expanded=false>
-<span></span>
-<span></span>
-<span></span></button><ul role=list><li><a href=https://metafunctor.com/>Home</a></li><li><a href=https://metafunctor.com/post/ class=active aria-current=page>Posts</a></li><li><a href=https://metafunctor.com/series/>Series</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Academic <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/papers/>Papers</a></li><li role=menuitem><a href=https://metafunctor.com/publications/>Publications</a></li><li role=menuitem><a href=https://metafunctor.com/research/>Research</a></li></ul></li><li><a href=https://metafunctor.com/ethos/>Ethos</a></li><li class=nav-dropdown><a href=# class=dropdown-toggle aria-haspopup=true aria-expanded=false>Creative <i class="fas fa-chevron-down dropdown-icon"></i></a><ul class=dropdown-menu role=menu><li role=menuitem><a href=https://metafunctor.com/writing/>Writing</a></li><li role=menuitem><a href=https://metafunctor.com/media/>Media</a></li></ul></li><li><a href=https://metafunctor.com/projects/>Projects</a></li><li><a href=https://metafunctor.com/about/>About</a></li><li><a href=https://metafunctor.com/search/><i class="fas fa-search" aria-hidden=true></i><span class=sr-only>Search</span></a></li></ul></nav></div></header><style>.nav-dropdown{position:relative}.dropdown-toggle{display:flex;align-items:center;gap:.35rem;cursor:pointer}.dropdown-icon{font-size:.6rem;transition:transform .2s ease}.nav-dropdown.open .dropdown-icon{transform:rotate(180deg)}.dropdown-menu{position:absolute;top:calc(100% + .5rem);left:50%;transform:translateX(-50%);min-width:160px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:.5rem 0;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:9999;list-style:none}.nav-dropdown.open .dropdown-menu{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(-50%)translateY(0)scale(1)!important}.dropdown-menu::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #fff;filter:drop-shadow(0 -1px 1px rgba(0,0,0,.1))}.dropdown-menu li{margin:0}.nav-dropdown .dropdown-menu a{display:block!important;padding:.6rem 1.25rem!important;color:#4a4a4a!important;font-size:.875rem!important;font-weight:500!important;text-decoration:none!important;transition:all .15s ease!important;white-space:nowrap!important;cursor:pointer!important;pointer-events:auto!important}.nav-dropdown .dropdown-menu a:hover{background:#f3f4f6!important;color:#4f46e5!important}.nav-dropdown .dropdown-menu a.active{color:#4f46e5!important}@media(max-width:768px){.dropdown-menu{position:static;transform:none;box-shadow:none;border:none;background:rgba(0,0,0,3%);border-radius:0;padding:0;max-height:0;overflow:hidden;opacity:1;visibility:visible;transition:max-height .2s ease}.dropdown-menu::before{display:none}.nav-dropdown.open .dropdown-menu{max-height:300px;padding:.5rem 0}.dropdown-menu a{padding:.5rem 1.5rem .5rem 2rem;font-size:.85rem}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".nav-dropdown");e.forEach(t=>{const n=t.querySelector(".dropdown-toggle");n.addEventListener("click",function(n){n.preventDefault(),n.stopPropagation();const s=t.classList.contains("open");e.forEach(e=>e.classList.remove("open")),s||t.classList.add("open")})}),document.addEventListener("click",function(t){t.target.closest(".nav-dropdown")||e.forEach(e=>e.classList.remove("open"))}),document.addEventListener("keydown",function(t){t.key==="Escape"&&e.forEach(e=>e.classList.remove("open"))})})</script><nav aria-label=Breadcrumb class=breadcrumb-nav><ol class=breadcrumb itemscope itemtype=https://schema.org/BreadcrumbList><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><a itemprop=item href=https://metafunctor.com/><span itemprop=name>Home</span>
-</a><meta itemprop=position content="1"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<a itemprop=item href=https://metafunctor.com/post/><span itemprop=name>News</span>
-</a><meta itemprop=position content="2"></li><li itemprop=itemListElement itemscope itemtype=https://schema.org/ListItem><span class=breadcrumb-separator>/</span>
-<span itemprop=name aria-current=page>How to Teach a Computer Calculus with Pattern Matching</span>
-<meta itemprop=position content="3"></li></ol></nav><main id=main-content role=main aria-label="Main content"><div class=main-container><div class=single-post-layout><aside class=post-sidebar><aside class=toc-wrapper aria-label="Table of contents"><nav class=table-of-contents><h2 class=toc-title>Table of Contents</h2><div class=toc-content><nav id=TableOfContents><ul><li><a href=#bottom-up-traversal>Bottom-up traversal</a></li><li><a href=#arithmetic-simplification>Arithmetic simplification</a></li><li><a href=#symbolic-differentiation>Symbolic differentiation</a></li></ul></nav></div></nav></aside><style>.toc-wrapper{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;padding:var(--space-lg);background:var(--paper-dark);border:var(--border-width)solid var(--border-color);border-radius:var(--radius-lg);margin-bottom:var(--space-xl)}.toc-title{font-size:1rem;font-weight:600;color:var(--ink);margin:0 0 var(--space-md);text-transform:uppercase;letter-spacing:.05em;font-size:.875rem}.toc-content{font-size:.9rem}.toc-content ul{list-style:none;padding-left:0;margin:0}.toc-content>ul{border-left:2px solid var(--border-color);padding-left:var(--space-md)}.toc-content li{margin-bottom:var(--space-sm)}.toc-content a{color:var(--ink-light);text-decoration:none;transition:color var(--transition-fast);display:block;padding:var(--space-xs)0}.toc-content a:hover{color:var(--accent)}.toc-content ul ul{margin-top:var(--space-sm);padding-left:var(--space-md)}@media(max-width:1024px){.toc-wrapper{position:relative;top:0;max-height:none}}</style><script>document.addEventListener("DOMContentLoaded",function(){const e=document.querySelectorAll(".toc-content a"),n=Array.from(e).map(e=>{const t=e.getAttribute("href").substring(1);return document.getElementById(t)}).filter(e=>e!==null);function t(){let t="";n.forEach(e=>{const n=e.offsetTop,s=window.scrollY+100;s>=n&&(t=e.getAttribute("id"))}),e.forEach(e=>{e.classList.remove("active"),e.getAttribute("href")==="#"+t?(e.classList.add("active"),e.style.color="var(--accent)",e.style.fontWeight="600"):(e.style.color="",e.style.fontWeight="")})}window.addEventListener("scroll",t),t()})</script></aside><article class=single-post itemscope itemtype=https://schema.org/Article><header class=post-header><h1 class=post-title itemprop=headline>How to Teach a Computer Calculus with Pattern Matching</h1><div class=post-meta><span class=post-date><i class="far fa-calendar" aria-hidden=true></i>
-<time datetime=2022-10-15T00:00:00Z itemprop=datePublished>October 15, 2022
-</time></span><span class=post-reading-time><i class="far fa-clock" aria-hidden=true></i>
-5 min read
-</span><span class=post-updated><i class="far fa-edit" aria-hidden=true></i>
-Updated: <time datetime=2026-04-26T17:47:31-05:00 itemprop=dateModified>April 26, 2026</time></span></div><div class=tags role=list><a href=https://metafunctor.com/tags/term-rewriting/ class=tag role=listitem>term-rewriting</a>
-<a href=https://metafunctor.com/tags/pattern-matching/ class=tag role=listitem>pattern-matching</a>
-<a href=https://metafunctor.com/tags/symbolic-computation/ class=tag role=listitem>symbolic-computation</a>
-<a href=https://metafunctor.com/tags/python/ class=tag role=listitem>python</a>
-<a href=https://metafunctor.com/tags/interactive/ class=tag role=listitem>interactive</a>
-<a href=https://metafunctor.com/tags/calculus/ class=tag role=listitem>calculus</a></div></header><nav class=series-navigation aria-label="Series navigation"><div class=series-header><span class=series-label>Part of series:</span>
-<a href=../../series/explorables/ class=series-name>Explorables</a>
-<span class=series-count>2 parts</span></div><ol class=series-list><li class=series-item><a href=../../post/2026-03-16-mcts-reasoning/ class=series-link><span class=series-number>1</span>
-<span class=series-title>Watch an LLM Think</span></a></li><li class="series-item current"><a href=../../post/2022-10-term-rewriting/ class=series-link><span class=series-number>2</span>
-<span class=series-title>How to Teach a Computer Calculus with Pattern Matching</span></a></li></ol></nav><style>.series-navigation{margin:var(--space-6)0;padding:var(--space-4);background:linear-gradient(135deg,rgba(102,126,234,5%) 0%,rgba(118,75,162,5%) 100%);border:1px solid var(--color-border-subtle);border-radius:var(--radius-lg)}.series-header{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4);flex-wrap:wrap}.series-label{font-size:var(--font-size-sm);color:var(--color-text-tertiary)}.series-name{font-weight:600;color:var(--color-text-primary);text-decoration:none}.series-name:hover{color:var(--color-accent-primary);text-decoration:underline}.series-count{font-size:var(--font-size-sm);padding:2px 8px;background:var(--color-bg-tertiary);border-radius:var(--radius-full);color:var(--color-text-secondary)}.series-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:var(--space-2)}.series-item{padding:0}.series-link{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2)var(--space-3);background:var(--color-bg-elevated);border-radius:var(--radius-md);text-decoration:none;transition:all .2s ease;border:1px solid transparent}.series-link:hover{border-color:var(--color-accent-primary);transform:translateX(4px)}.series-item.current .series-link{background:var(--color-accent-primary);color:#fff}.series-item.current .series-number{background:rgba(255,255,255,.2)}.series-number{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--color-bg-tertiary);border-radius:var(--radius-full);font-size:var(--font-size-sm);font-weight:600;color:var(--color-text-secondary);flex-shrink:0}.series-title{color:var(--color-text-primary);font-weight:500}.series-item.current .series-title{color:#fff}@media(max-width:600px){.series-header{flex-direction:column;align-items:flex-start}}</style><div class=post-tts><button class=speak-button type=button data-voice=en_US-libritts_r-medium>
-<span class=speak-icon aria-hidden=true></span>
-<span class=speak-label>Read aloud</span>
-<span class=speak-status aria-live=polite></span></button></div><link rel=stylesheet href=../../speak/widget.css><script type=importmap>{"imports":{"onnxruntime-web":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.min.js"}}</script><script type=module src=../../speak/widget.js></script><div class=content itemprop=articleBody><p>Every expression is a tree. <code>(2 + 3) * x</code> looks like this:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>    *            In Python: (&#39;*&#39;, (&#39;+&#39;, 2, 3), &#39;x&#39;)
-</span></span><span class=line><span class=cl>   / \
-</span></span><span class=line><span class=cl>  +   x          First element = operator.
-</span></span><span class=line><span class=cl> / \             Rest = children.
-</span></span><span class=line><span class=cl>2   3            Tuples all the way down.
-</span></span></code></pre></div><p>A <strong>rewrite rule</strong> says: <em>when you see this pattern, replace it with that.</em> A handful of them, applied until nothing changes, can simplify or differentiate arbitrary expressions.</p><p>Here&rsquo;s the whole thing. 90 lines of Python. A complete symbolic differentiator:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=k>class</span> <span class=nc>_W</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__repr__</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span> <span class=k>return</span> <span class=s1>&#39;_&#39;</span>
-</span></span><span class=line><span class=cl><span class=n>_</span> <span class=o>=</span> <span class=n>_W</span><span class=p>()</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>rewrite</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=o>*</span><span class=n>rules</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=kc>True</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=n>r</span> <span class=ow>in</span> <span class=n>rules</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>            <span class=n>n</span> <span class=o>=</span> <span class=n>r</span><span class=p>(</span><span class=n>t</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=n>n</span> <span class=o>!=</span> <span class=n>t</span><span class=p>:</span> <span class=n>t</span> <span class=o>=</span> <span class=n>n</span><span class=p>;</span> <span class=k>break</span>
-</span></span><span class=line><span class=cl>        <span class=k>else</span><span class=p>:</span> <span class=k>return</span> <span class=n>t</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>bottom_up</span><span class=p>(</span><span class=n>rule</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>go</span><span class=p>(</span><span class=n>t</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>)</span> <span class=ow>and</span> <span class=n>t</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>            <span class=n>t</span> <span class=o>=</span> <span class=p>(</span><span class=n>t</span><span class=p>[</span><span class=mi>0</span><span class=p>],)</span> <span class=o>+</span> <span class=nb>tuple</span><span class=p>(</span><span class=n>go</span><span class=p>(</span><span class=n>c</span><span class=p>)</span> <span class=k>for</span> <span class=n>c</span> <span class=ow>in</span> <span class=n>t</span><span class=p>[</span><span class=mi>1</span><span class=p>:])</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>rule</span><span class=p>(</span><span class=n>t</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>go</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>when</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=o>*</span><span class=n>pat</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>pat</span><span class=p>,</span> <span class=bp>self</span><span class=o>.</span><span class=n>fn</span> <span class=o>=</span> <span class=n>pat</span><span class=p>,</span> <span class=kc>None</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>then</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>f</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>fn</span> <span class=o>=</span> <span class=n>f</span> <span class=k>if</span> <span class=n>callable</span><span class=p>(</span><span class=n>f</span><span class=p>)</span> <span class=k>else</span> <span class=p>(</span><span class=k>lambda</span> <span class=o>*</span><span class=n>_</span><span class=p>,</span> <span class=n>v</span><span class=o>=</span><span class=n>f</span><span class=p>:</span> <span class=n>v</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=bp>self</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__call__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>t</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>        <span class=n>b</span> <span class=o>=</span> <span class=bp>self</span><span class=o>.</span><span class=n>_m</span><span class=p>(</span><span class=bp>self</span><span class=o>.</span><span class=n>pat</span><span class=p>,</span> <span class=n>t</span><span class=p>)</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>b</span> <span class=ow>is</span> <span class=ow>not</span> <span class=kc>None</span> <span class=ow>and</span> <span class=bp>self</span><span class=o>.</span><span class=n>fn</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=bp>self</span><span class=o>.</span><span class=n>fn</span><span class=p>(</span><span class=o>*</span><span class=n>b</span><span class=o>.</span><span class=n>values</span><span class=p>())</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>t</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>_m</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>p</span><span class=p>,</span> <span class=n>t</span><span class=p>,</span> <span class=n>b</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>b</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span> <span class=n>b</span> <span class=o>=</span> <span class=p>{}</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>callable</span><span class=p>(</span><span class=n>p</span><span class=p>)</span> <span class=ow>and</span> <span class=ow>not</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>p</span><span class=p>,</span> <span class=nb>type</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=ow>not</span> <span class=n>p</span><span class=p>(</span><span class=n>t</span><span class=p>):</span> <span class=k>return</span> <span class=kc>None</span>
-</span></span><span class=line><span class=cl>            <span class=n>b</span><span class=p>[</span><span class=sa>f</span><span class=s1>&#39;_</span><span class=si>{</span><span class=nb>len</span><span class=p>(</span><span class=n>b</span><span class=p>)</span><span class=si>}</span><span class=s1>&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=n>t</span><span class=p>;</span> <span class=k>return</span> <span class=n>b</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>p</span> <span class=ow>is</span> <span class=n>_</span><span class=p>:</span>
-</span></span><span class=line><span class=cl>            <span class=n>b</span><span class=p>[</span><span class=sa>f</span><span class=s1>&#39;_</span><span class=si>{</span><span class=nb>len</span><span class=p>(</span><span class=n>b</span><span class=p>)</span><span class=si>}</span><span class=s1>&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=n>t</span><span class=p>;</span> <span class=k>return</span> <span class=n>b</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>p</span><span class=p>,</span> <span class=nb>str</span><span class=p>)</span> <span class=ow>and</span> <span class=n>p</span><span class=o>.</span><span class=n>startswith</span><span class=p>(</span><span class=s1>&#39;$&#39;</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=n>p</span> <span class=ow>in</span> <span class=n>b</span><span class=p>:</span> <span class=k>return</span> <span class=n>b</span> <span class=k>if</span> <span class=n>b</span><span class=p>[</span><span class=n>p</span><span class=p>]</span> <span class=o>==</span> <span class=n>t</span> <span class=k>else</span> <span class=kc>None</span>
-</span></span><span class=line><span class=cl>            <span class=n>b</span><span class=p>[</span><span class=n>p</span><span class=p>]</span> <span class=o>=</span> <span class=n>t</span><span class=p>;</span> <span class=k>return</span> <span class=n>b</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>p</span> <span class=o>==</span> <span class=n>t</span><span class=p>:</span> <span class=k>return</span> <span class=n>b</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>p</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>)</span> <span class=ow>and</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>t</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>)</span> <span class=ow>and</span> <span class=nb>len</span><span class=p>(</span><span class=n>p</span><span class=p>)</span> <span class=o>==</span> <span class=nb>len</span><span class=p>(</span><span class=n>t</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>            <span class=k>for</span> <span class=n>pe</span><span class=p>,</span> <span class=n>te</span> <span class=ow>in</span> <span class=nb>zip</span><span class=p>(</span><span class=n>p</span><span class=p>,</span> <span class=n>t</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=bp>self</span><span class=o>.</span><span class=n>_m</span><span class=p>(</span><span class=n>pe</span><span class=p>,</span> <span class=n>te</span><span class=p>,</span> <span class=n>b</span><span class=p>)</span> <span class=ow>is</span> <span class=kc>None</span><span class=p>:</span> <span class=k>return</span> <span class=kc>None</span>
-</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>b</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>None</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>is_lit</span> <span class=o>=</span> <span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>x</span><span class=p>,</span> <span class=p>(</span><span class=nb>int</span><span class=p>,</span> <span class=nb>float</span><span class=p>))</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>const_wrt</span><span class=p>(</span><span class=n>var</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=nf>check</span><span class=p>(</span><span class=n>e</span><span class=p>):</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=n>e</span> <span class=o>==</span> <span class=n>var</span><span class=p>:</span> <span class=k>return</span> <span class=kc>False</span>
-</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nb>isinstance</span><span class=p>(</span><span class=n>e</span><span class=p>,</span> <span class=nb>tuple</span><span class=p>):</span> <span class=k>return</span> <span class=nb>all</span><span class=p>(</span><span class=n>check</span><span class=p>(</span><span class=n>s</span><span class=p>)</span> <span class=k>for</span> <span class=n>s</span> <span class=ow>in</span> <span class=n>e</span><span class=p>[</span><span class=mi>1</span><span class=p>:])</span>
-</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>True</span>
-</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>check</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>simplify</span> <span class=o>=</span> <span class=p>[</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>_</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=n>x</span><span class=p>),</span>          <span class=c1># 0 + x = x</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=n>x</span><span class=p>),</span>          <span class=c1># x + 0 = x</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>_</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span>                    <span class=c1># 0 * x = 0</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span>                    <span class=c1># x * 0 = 0</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=n>_</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=n>x</span><span class=p>),</span>          <span class=c1># 1 * x = x</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=mi>1</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=n>x</span><span class=p>),</span>          <span class=c1># x * 1 = x</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=mi>1</span><span class=p>),</span>                    <span class=c1># x^0   = 1</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=mi>1</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>x</span><span class=p>:</span> <span class=n>x</span><span class=p>),</span>          <span class=c1># x^1   = x</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>),</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>-</span> <span class=n>b</span><span class=p>),</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>a</span><span class=p>,</span> <span class=n>b</span><span class=p>:</span> <span class=n>a</span> <span class=o>*</span> <span class=n>b</span><span class=p>),</span>
-</span></span><span class=line><span class=cl><span class=p>]</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>diff</span> <span class=o>=</span> <span class=p>[</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>const_wrt</span><span class=p>(</span><span class=s1>&#39;x&#39;</span><span class=p>),</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=mi>0</span><span class=p>),</span>                                                       <span class=c1># constant</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=mi>1</span><span class=p>),</span>                                                                   <span class=c1># variable</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>),</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span>            <span class=c1># sum</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>),</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span>            <span class=c1># difference</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span>                                                              <span class=c1># product</span>
-</span></span><span class=line><span class=cl>        <span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;+&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>)),</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>)))),</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>),</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>n</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>n</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>,</span> <span class=n>n</span> <span class=o>-</span> <span class=mi>1</span><span class=p>))),</span>              <span class=c1># power</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>is_lit</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span>                                                         <span class=c1># chain+power</span>
-</span></span><span class=line><span class=cl>        <span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>n</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>n</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>n</span> <span class=o>-</span> <span class=mi>1</span><span class=p>)),</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;sin&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>),</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>((</span><span class=s1>&#39;cos&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>)),</span>                                              <span class=c1># sin</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;sin&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;cos&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>),</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span>                 <span class=c1># chain+sin</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;cos&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>),</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>((</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;sin&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>))),</span>                                    <span class=c1># cos</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;cos&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;sin&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>)),</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span>       <span class=c1># chain+cos</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;exp&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>),</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>((</span><span class=s1>&#39;exp&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>)),</span>                                              <span class=c1># exp</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;exp&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span><span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;exp&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>),</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span>                 <span class=c1># chain+exp</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;ln&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>),</span> <span class=s1>&#39;x&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>((</span><span class=s1>&#39;/&#39;</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>)),</span>                                              <span class=c1># ln</span>
-</span></span><span class=line><span class=cl>    <span class=n>when</span><span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>,</span> <span class=n>_</span><span class=p>,</span> <span class=n>_</span><span class=p>),</span> <span class=s1>&#39;$v&#39;</span><span class=p>)</span><span class=o>.</span><span class=n>then</span><span class=p>(</span>                                                              <span class=c1># quotient</span>
-</span></span><span class=line><span class=cl>        <span class=k>lambda</span> <span class=n>u</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>:</span> <span class=p>(</span><span class=s1>&#39;/&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=n>v</span><span class=p>)),</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=n>u</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=n>v</span><span class=p>))),</span> <span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=n>w</span><span class=p>,</span> <span class=mi>2</span><span class=p>))),</span>
-</span></span><span class=line><span class=cl><span class=p>]</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>rules</span> <span class=o>=</span> <span class=p>[</span><span class=n>bottom_up</span><span class=p>(</span><span class=n>r</span><span class=p>)</span> <span class=k>for</span> <span class=n>r</span> <span class=ow>in</span> <span class=n>diff</span> <span class=o>+</span> <span class=n>simplify</span><span class=p>]</span>
-</span></span><span class=line><span class=cl>
-</span></span><span class=line><span class=cl><span class=n>result</span> <span class=o>=</span> <span class=n>rewrite</span><span class=p>((</span><span class=s1>&#39;d&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;*&#39;</span><span class=p>,</span> <span class=p>(</span><span class=s1>&#39;^&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>,</span> <span class=mi>2</span><span class=p>),</span> <span class=p>(</span><span class=s1>&#39;sin&#39;</span><span class=p>,</span> <span class=s1>&#39;x&#39;</span><span class=p>)),</span> <span class=s1>&#39;x&#39;</span><span class=p>),</span> <span class=o>*</span><span class=n>rules</span><span class=p>)</span>
-</span></span><span class=line><span class=cl><span class=c1># =&gt; (&#39;+&#39;, (&#39;*&#39;, (&#39;^&#39;, &#39;x&#39;, 2), (&#39;cos&#39;, &#39;x&#39;)), (&#39;*&#39;, (&#39;sin&#39;, &#39;x&#39;), (&#39;*&#39;, 2, &#39;x&#39;)))</span>
-</span></span></code></pre></div><p>That&rsquo;s it. <code>rewrite</code> applies rules until nothing changes. <code>bottom_up</code> walks the tree leaves-first. <code>when</code> does pattern matching: <code>_</code> matches anything, <code>$x</code> captures a named variable, callables act as predicates. The rest is just calculus rules written as patterns.</p><p>The chain rule is not coded explicitly. When a rule like <code>d/dx sin(u)</code> produces <code>cos(u) * d/dx u</code>, that new <code>d</code> node gets rewritten by the same rules on the next pass. The recursion emerges from the fixed-point loop.</p><p>The widgets below run a JS reimplementation of the same logic. Step through each one to watch the engine think.</p><h2 id=bottom-up-traversal>Bottom-up traversal</h2><p>The key mechanism. Rules only match at the root of whatever they&rsquo;re given, so <code>bottom_up</code> recurses into children first, then tries the rule at the rebuilt node. Leaves light up first, then the engine works upward.</p><div class=tr-demo id=bu-demo><h3>Bottom-Up Traversal</h3><div class=tr-bar><select id=bu-example><option value=add-zero>(+ 0 (+ 0 x)) with 0+x => x</option><option value=const-fold>(+ (* 2 3) (* 4 5)) with constant folding</option><option value=nested>(* (+ x 0) (- 5 5)) with arithmetic rules</option></select>
-<button id=bu-reset>Reset</button>
-<button id=bu-step>Step</button>
-<button id=bu-play>Play</button></div><div class=tr-canvas><svg id="bu-svg" width="100%" height="260"/></div><div class=tr-info id=bu-info>Press Step or Play.</div><div class=tr-legend><span><span class="tr-legend-dot c-visit"></span>visiting</span>
-<span><span class="tr-legend-dot c-match"></span>rule fired</span>
-<span><span class="tr-legend-dot c-rewrite"></span>rewritten</span>
-<span><span class="tr-legend-dot c-done"></span>fixed point</span></div></div><h2 id=arithmetic-simplification>Arithmetic simplification</h2><p>More rules, same engine. Identity elements, absorbing elements, constant folding, cancellation:</p><div class=tr-demo id=ar-demo><h3>Arithmetic Simplifier</h3><div class=tr-pills><span class=tr-pill>0+x &rarr; x</span>
-<span class=tr-pill>x*0 &rarr; 0</span>
-<span class=tr-pill>x*1 &rarr; x</span>
-<span class=tr-pill>x-x &rarr; 0</span>
-<span class=tr-pill>n+m &rarr; compute</span></div><div class=tr-bar><select id=ar-example><option value=ex1>(+ (* 2 3) (* 4 5))</option><option value=ex2>(* (+ x 0) (- 5 5))</option><option value=ex3>(+ (+ 0 x) (- y y))</option><option value=ex4>(/ (* 3 (+ 2 4)) (- 9 3))</option></select>
-<button id=ar-reset>Reset</button>
-<button id=ar-step>Step</button>
-<button id=ar-play>Play</button></div><div class=tr-canvas><svg id="ar-svg" width="100%" height="280"/></div><div class=tr-info id=ar-info>Press Step or Play.</div></div><h2 id=symbolic-differentiation>Symbolic differentiation</h2><p>The same engine with the <code>diff</code> rules from above. Watch the product rule split $x^2 \cdot \sin(x)$ into two branches, then the power and chain rules reduce each piece, then simplification cleans up:</p><div class=tr-demo id=df-demo><h3>Symbolic Differentiation</h3><div class=tr-bar><select id=df-example><option value=power>d/dx x^3</option><option value=product>d/dx (x^2 * sin(x))</option><option value=chain>d/dx sin(x^2)</option><option value=exp-chain>d/dx e^(x^2)</option><option value=quotient>d/dx (sin(x) / x)</option></select>
-<button id=df-reset>Reset</button>
-<button id=df-step>Step</button>
-<button id=df-play>Play</button></div><div class=tr-canvas><svg id="df-svg" width="100%" height="380"/></div><div class=tr-info id=df-info>Press Step or Play.</div><div class=tr-iter id=df-iter></div></div><style>.tr-demo{max-width:680px;margin:2.5em auto;font-family:-apple-system,BlinkMacSystemFont,segoe ui,Roboto,sans-serif}.tr-demo h3{font-size:.85em;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 10px}.tr-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}.tr-bar select{font-family:sf mono,fira code,consolas,monospace;font-size:13px;padding:5px 8px;border:1px solid #d0d0d0;border-radius:4px;background:#fafafa;flex:1;min-width:160px}.tr-bar button{font-size:13px;padding:5px 14px;border:1px solid #d0d0d0;border-radius:4px;background:#fff;cursor:pointer;transition:background .12s;white-space:nowrap}.tr-bar button:hover:not(:disabled){background:#f0f0f0}.tr-bar button:disabled{opacity:.35;cursor:default}.tr-canvas{border:1px solid #e4e4e4;border-radius:6px;background:#fdfdfd;overflow:hidden;min-height:200px}.tr-canvas svg{display:block;width:100%}.tr-info{font-size:13px;font-family:sf mono,fira code,consolas,monospace;padding:6px 10px;margin-top:6px;background:#f7f7f7;border-radius:4px;min-height:1.8em;color:#444}.tr-iter{font-size:11px;color:#999;margin-top:4px;font-family:sf mono,monospace}.tr-pills{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}.tr-pill{font-family:sf mono,fira code,consolas,monospace;font-size:11px;padding:2px 8px;background:#f0f0f0;border-radius:3px;color:#666}.tr-edge{stroke:#bbb;stroke-width:1.5;fill:none;transition:stroke .25s}.tr-node circle{fill:#fff;stroke:#555;stroke-width:2;transition:fill .25s,stroke .25s}.tr-node text{font-family:sf mono,fira code,consolas,monospace;font-size:13px;fill:#333;text-anchor:middle;dominant-baseline:central;pointer-events:none}.tr-node.visiting circle{fill:#dbeafe;stroke:#3b82f6;stroke-width:2.5}.tr-node.matched circle{fill:#fef3c7;stroke:#f59e0b;stroke-width:2.5}.tr-node.rewritten circle{fill:#d1fae5;stroke:#10b981;stroke-width:2.5}.tr-node.done circle{fill:#ede9fe;stroke:#8b5cf6;stroke-width:2}.tr-legend{display:flex;gap:14px;font-size:11px;color:#888;margin-top:8px}.tr-legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}.tr-legend-dot.c-visit{background:#dbeafe;border:1.5px solid #3b82f6}.tr-legend-dot.c-match{background:#fef3c7;border:1.5px solid #f59e0b}.tr-legend-dot.c-rewrite{background:#d1fae5;border:1.5px solid #10b981}.tr-legend-dot.c-done{background:#ede9fe;border:1.5px solid #8b5cf6}</style><script>"use strict";(()=>{function o(e){return!Array.isArray(e)}function S(e){return Array.isArray(e)?e[0]:e}function l(e,t){return o(e)&&o(t)?e===t:!(o(e)||o(t)||e.length!==t.length)&&e.every((e,n)=>l(e,t[n]))}function a(e){return o(e)?e:e.map(a)}function u(e){return o(e)?String(e):"("+e.map(u).join(" ")+")"}function n(e){return typeof e=="number"}function j(e,t){if(e===t)return!1;if(o(e))return!0;for(let n=1;n<e.length;n++)if(!j(e[n],t))return!1;return!0}function y(e,t){let n=[],i=0;function s(e){let r=i++;if(o(e))return n.push({nodeIdx:r,type:"visit",label:String(e)}),e;let a=[e[0]];for(let t=1;t<e.length;t++)a.push(s(e[t]));n.push({nodeIdx:r,type:"visit",label:String(a[0])});for(let e of t)if(e.match(a))return n.push({nodeIdx:r,type:"match",label:e.name,rule:e.name}),e.apply(a);return a}return{result:s(e),events:n}}function A(e,t,n=50){let s=[];for(let i=0;i<n;i++){let{result:o,events:r}=y(e,t);if(s.push({before:a(e),after:a(o),events:r}),l(o,e))break;e=a(o)}return s}function p(e,t){let s=[],i=[],l=0;function a(e){let n=l++;if(o(e))return{width:1,tree:e,id:n,label:String(e),children:[]};let t=[];for(let n=1;n<e.length;n++)t.push(a(e[n]));let s=t.reduce((e,t)=>e+t.width,0);return{width:Math.max(s,1),tree:e,id:n,label:String(S(e)),children:t}}function r(e,t,n,o){let c=t+n/2,a={id:e.id,x:c,y:o,label:e.label};if(s.push(a),e.children.length>0){let c=e.children.reduce((e,t)=>e+t.width,0),s=t;for(let t of e.children){let l=t.width/c*n,d=r(t,s,l,o+60);i.push({from:a,to:d}),s+=l}}return a}let d=a(e),c=40;return r(d,c,t-c*2,36),{nodes:s,edges:i}}r="http://www.w3.org/2000/svg";function k(e){for(;e.firstChild;)e.removeChild(e.firstChild)}function v(e,t){k(e);for(let s of t.edges){let n=document.createElementNS(r,"line");n.setAttribute("x1",String(s.from.x)),n.setAttribute("y1",String(s.from.y)),n.setAttribute("x2",String(s.to.x)),n.setAttribute("y2",String(s.to.y)),n.setAttribute("class","tr-edge"),e.appendChild(n)}for(let s of t.nodes){let n=document.createElementNS(r,"g");n.setAttribute("class","tr-node"),n.setAttribute("transform",`translate(${s.x},${s.y})`),n.dataset.nid=String(s.id);let a=Math.max(16,s.label.length*5+8),o=document.createElementNS(r,"circle");o.setAttribute("r",String(a)),n.appendChild(o);let i=document.createElementNS(r,"text");i.textContent=s.label,n.appendChild(i),e.appendChild(n)}let n=t.nodes.reduce((e,t)=>Math.max(e,t.y),0);e.setAttribute("height",String(n+56))}function f(e,t,n){let s=e.querySelector(`g[data-nid="${t}"]`);s&&s.setAttribute("class","tr-node"+(n?" "+n:""))}function _(e){e.querySelectorAll("g.tr-node").forEach(e=>e.setAttribute("class","tr-node"))}function e(e,t,n){return{name:e,match:t,apply:n}}function t(e,t){return Array.isArray(e)&&e[0]===t&&e.length===3}c=[e("0 + x → x",e=>t(e,"+")&&e[1]===0,e=>e[2]),e("x + 0 → x",e=>t(e,"+")&&e[2]===0,e=>e[1]),e("0 \xD7 x → 0",e=>t(e,"*")&&e[1]===0,()=>0),e("x \xD7 0 → 0",e=>t(e,"*")&&e[2]===0,()=>0),e("1 \xD7 x → x",e=>t(e,"*")&&e[1]===1,e=>e[2]),e("x \xD7 1 → x",e=>t(e,"*")&&e[2]===1,e=>e[1]),e("x − x → 0",e=>t(e,"-")&&l(e[1],e[2]),()=>0),e("n + m",e=>t(e,"+")&&n(e[1])&&n(e[2]),e=>e[1]+e[2]),e("n \xD7 m",e=>t(e,"*")&&n(e[1])&&n(e[2]),e=>e[1]*e[2]),e("n − m",e=>t(e,"-")&&n(e[1])&&n(e[2]),e=>e[1]-e[2]),e("n / m",e=>t(e,"/")&&n(e[1])&&n(e[2])&&e[2]!==0,e=>{let t=e[1]/e[2];return Number.isInteger(t)?t:Math.round(t*1e3)/1e3})],b=[...c,e("x^0 → 1",e=>t(e,"^")&&e[2]===0,()=>1),e("x^1 → x",e=>t(e,"^")&&e[2]===1,e=>e[1]),e("x/1 → x",e=>t(e,"/")&&e[2]===1,e=>e[1]),e("0 − n → −n",e=>t(e,"-")&&e[1]===0&&n(e[2]),e=>-e[2])];function m(e){return Array.isArray(e)&&e[0]==="d"&&e.length===3}function s(e,t){return m(e)&&Array.isArray(e[1])&&e[1][0]===t}function d(e,t){return s(e,t)&&e[1][1]==="x"&&e[2]==="x"}var r,c,b,w=[e("d/dx(const) = 0",e=>m(e)&&e[2]==="x"&&j(e[1],"x"),()=>0),e("d/dx(x) = 1",e=>m(e)&&e[1]==="x"&&e[2]==="x",()=>1),e("sum rule",e=>s(e,"+"),e=>{let[,[,n,s],t]=e;return["+",["d",n,t],["d",s,t]]}),e("difference rule",e=>s(e,"-")&&e[1].length===3,e=>{let[,[,n,s],t]=e;return["-",["d",n,t],["d",s,t]]}),e("product rule",e=>s(e,"*"),e=>{let[,[,t,n],s]=e;return["+",["*",t,["d",n,s]],["*",n,["d",t,s]]]}),e("power rule",e=>s(e,"^")&&e[1][1]==="x"&&n(e[1][2])&&e[2]==="x",e=>{let t=e[1][2];return["*",t,["^","x",t-1]]}),e("chain (power)",e=>s(e,"^")&&n(e[1][2]),e=>{let[,[,t,n],s]=e;return["*",["*",n,["^",t,n-1]],["d",t,s]]}),e("d/dx sin(x) = cos(x)",e=>d(e,"sin"),()=>["cos","x"]),e("chain (sin)",e=>s(e,"sin"),e=>{let[,[,t],n]=e;return["*",["cos",t],["d",t,n]]}),e("d/dx cos(x) = −sin(x)",e=>d(e,"cos"),()=>["-",0,["sin","x"]]),e("chain (cos)",e=>s(e,"cos"),e=>{let[,[,t],n]=e;return["*",["-",0,["sin",t]],["d",t,n]]}),e("d/dx e^x = e^x",e=>d(e,"exp"),()=>["exp","x"]),e("chain (exp)",e=>s(e,"exp"),e=>{let[,[,t],n]=e;return["*",["exp",t],["d",t,n]]}),e("d/dx ln(x) = 1/x",e=>d(e,"ln"),()=>["/",1,"x"]),e("quotient rule",e=>s(e,"/"),e=>{let[,[,n,t],s]=e;return["/",["-",["*",t,["d",n,s]],["*",n,["d",t,s]]],["^",t,2]]})],O=[...w,...b],x={"add-zero":{tree:["+",0,["+",0,"x"]],rules:[c[0]]},"const-fold":{tree:["+",["*",2,3],["*",4,5]]},nested:{tree:["*",["+","x",0],["-",5,5]]}},C={ex1:{tree:["+",["*",2,3],["*",4,5]]},ex2:{tree:["*",["+","x",0],["-",5,5]]},ex3:{tree:["+",["+",0,"x"],["-","y","y"]]},ex4:{tree:["/",["*",3,["+",2,4]],["-",9,3]]}},E={power:{tree:["d",["^","x",3],"x"]},product:{tree:["d",["*",["^","x",2],["sin","x"]],"x"]},chain:{tree:["d",["sin",["^","x",2]],"x"]},"exp-chain":{tree:["d",["exp",["^","x",2]],"x"]},quotient:{tree:["d",["/",["sin","x"],"x"],"x"]}};function i(e){return document.getElementById(e)}function h(e,t,n){let o=i(e+"-svg"),h=i(e+"-info"),g=i(e+"-example"),j=i(e+"-reset"),m=i(e+"-step"),c=i(e+"-play"),d=i(e+"-iter");if(!o||!g||!h||!j||!m||!c)return;let s=null,r=null;function b(){r&&(clearInterval(r),r=null);let i=t[g.value],u=i.rules??n,e=a(i.tree),f=A(e,u),b=o.parentElement?.clientWidth??600,j=parseInt(o.getAttribute("height")??"300"),l=p(e,b,j);s={iterations:f,iterIdx:0,evtIdx:0,tree:a(e),layout:l},v(o,l),h.textContent="Press Step or Play.",d&&(d.textContent=""),m.removeAttribute("disabled"),c.removeAttribute("disabled"),c.textContent="Play"}function y(){if(!s)return;let e=s.iterations[s.iterIdx];if(!e){w();return}let t=e.events;if(s.evtIdx<t.length){let e=t[s.evtIdx];_(o),e.nodeIdx<s.layout.nodes.length&&f(o,e.nodeIdx,e.type==="match"?"matched":"visiting"),h.textContent=e.type==="visit"?`Visiting ${e.label}`:`→ ${e.rule}`,s.evtIdx++}else if(l(e.before,e.after))w();else{s.tree=a(e.after),s.iterIdx++,s.evtIdx=0;let t=o.parentElement?.clientWidth??600,n=parseInt(o.getAttribute("height")??"300");s.layout=p(s.tree,t,n),v(o,s.layout);for(let e of s.layout.nodes)f(o,e.id,"rewritten");h.textContent=u(s.tree),d&&(d.textContent=`Iteration ${s.iterIdx}`)}}function w(){if(s){for(let e of s.layout.nodes)f(o,e.id,"done");h.textContent="Done: "+u(s.tree),d&&(d.textContent=`${s.iterIdx} iteration(s)`),m.setAttribute("disabled",""),c.setAttribute("disabled",""),r&&(clearInterval(r),r=null)}}g.addEventListener("change",b),j.addEventListener("click",b),m.addEventListener("click",y),c.addEventListener("click",()=>{r?(clearInterval(r),r=null,c.textContent="Play"):(r=setInterval(y,450),c.textContent="Pause")}),b()}function g(){h("bu",x,c),h("ar",C,c),h("df",E,O)}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",g):g()})()</script></div><nav class=post-navigation><a href=../../post/2022-09-12-regex-machines/ class=nav-prev><span class=nav-label>← Previous</span>
-<span class=nav-title>Regex Under the Hood</span>
-</a><a href=../../post/2024-06-01-algebraic_hashing/ class=nav-next><span class=nav-label>Next →</span>
-<span class=nav-title>Algebraic Hashing: Composable Hash Functions Through XOR</span></a></nav><section class=related-posts><h2 class=related-posts-title>Related Posts</h2><div class=related-posts-grid><article class=related-post-card><a href=../../post/2025-11-30-xtk/ class=related-post-link><h3 class=related-post-title>XTK: A Symbolic Expression Toolkit for Term Rewriting</h3><p class=related-post-excerpt><p><strong><a href=https://pypi.org/project/xpression-tk/>XTK</a></strong> (Expression Toolkit) is a Python library for symbolic computation through rule-based term rewriting. You define …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Nov 30, 2025
-</span><span class=related-post-tags><span class=mini-tag>Python</span>
-<span class=mini-tag>symbolic-computation</span></span></div></a></article><article class=related-post-card><a href=../../post/2025-12-16-rerum/ class=related-post-link><h3 class=related-post-title>Rerum: Pattern Matching and Term Rewriting in Python</h3><p class=related-post-excerpt><p><strong>Rerum</strong> (Rewriting Expressions via Rules Using Morphisms) is a Python library for pattern matching and term rewriting. It …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Dec 16, 2025
-</span><span class=related-post-tags><span class=mini-tag>symbolic-computation</span>
-<span class=mini-tag>term-rewriting</span></span></div></a></article><article class=related-post-card><a href=../../post/2022-04-finite-diff-stepanov/ class=related-post-link><h3 class=related-post-title>Numerical Differentiation</h3><p class=related-post-excerpt><p><em>Numerical differentiation via finite differences for C++20.</em></p><h2 id=overview>Overview</h2><p>The derivative is defined as a limit:</p>$$f'(x) = …</p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Apr 12, 2022
-</span><span class=related-post-tags><span class=mini-tag>C++</span>
-<span class=mini-tag>numerical-methods</span></span></div></a></article><article class=related-post-card><a href=../../post/2025-01-differentiation-stepanov/ class=related-post-link><h3 class=related-post-title>Differentiation: Three Ways</h3><p class=related-post-excerpt><p><em>A synthesis of three earlier posts, comparing forward-mode AD, reverse-mode AD, and numerical differentiation.</em></p><p>Computing …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Jan 15, 2025
-</span><span class=related-post-tags><span class=mini-tag>C++</span>
-<span class=mini-tag>automatic-differentiation</span></span></div></a></article><article class=related-post-card><a href=../../post/2021-09-dual-stepanov/ class=related-post-link><h3 class=related-post-title>Forward-Mode Automatic Differentiation</h3><p class=related-post-excerpt><p><em>Forward-mode automatic differentiation via dual numbers for C++20.</em></p><h2 id=overview>Overview</h2><p>Dual numbers are a simple yet powerful …</p></p><div class=related-post-meta><span class=related-post-date><i class="far fa-calendar" aria-hidden=true></i>
-Sep 20, 2021
-</span><span class=related-post-tags><span class=mini-tag>C++</span>
-<span class=mini-tag>automatic-differentiation</span></span></div></a></article></div></section><style>.related-posts{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.related-posts-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.related-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem}.related-post-card{background:var(--paper,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:1.5rem;transition:all .3s ease}.related-post-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);border-color:var(--accent,#667eea)}.related-post-link{text-decoration:none;color:inherit;display:block}.related-post-title{font-size:1.125rem;font-weight:600;margin-bottom:.75rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif;line-height:1.4}.related-post-card:hover .related-post-title{color:var(--accent,#667eea)}.related-post-excerpt{font-size:.9rem;color:var(--ink-light,#666);line-height:1.6;margin-bottom:1rem}.related-post-meta{display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.8rem;color:var(--ink-light,#999)}.related-post-date i{margin-right:.25rem}.related-post-tags{display:flex;gap:.5rem}.related-post-tags .mini-tag{background:var(--paper-dark,#f5f5f5);padding:.25rem .5rem;border-radius:4px;font-size:.7rem;color:var(--ink,#1a1a1a)}[data-theme=dark] .related-posts{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .related-posts-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-card{background:var(--paper-dark,#222);border-color:rgba(255,255,255,.1)}[data-theme=dark] .related-post-card:hover{border-color:var(--accent,#667eea)}[data-theme=dark] .related-post-title{color:var(--ink,#e8e8e8)}[data-theme=dark] .related-post-tags .mini-tag{background:rgba(255,255,255,5%);color:var(--ink,#e8e8e8)}</style><section class=comments-section><h2 class=comments-title>Discussion</h2><div class=giscus-container></div><script src=https://giscus.app/client.js data-repo=queelius/metafunctor data-repo-id=R_kgDONbcL1g data-category=General data-category-id=DIC_kwDONbcL1s4CwFJ7 data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=bottom data-theme=preferred_color_scheme data-lang=en crossorigin=anonymous async></script></section></article></div><style>.comments-section{margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border-color,#e5e7eb)}.comments-title{font-size:1.5rem;font-weight:600;margin-bottom:1.5rem;color:var(--ink,#1a1a1a);font-family:lora,Georgia,serif}.giscus-container{margin-top:1rem}[data-theme=dark] .comments-section{border-top-color:rgba(255,255,255,.1)}[data-theme=dark] .comments-title{color:var(--ink,#e8e8e8)}</style><script>function updateGiscusTheme(){const t=document.documentElement.getAttribute("data-theme")||"light",n=t==="dark"?"dark":"light",e=document.querySelector("iframe.giscus-frame");e&&e.contentWindow.postMessage({giscus:{setConfig:{theme:n}}},"https://giscus.app")}const observer=new MutationObserver(updateGiscusTheme);observer.observe(document.documentElement,{attributes:!0,attributeFilter:["data-theme"]}),setTimeout(updateGiscusTheme,1e3)</script></div></div></main><footer class=elegant-footer role=contentinfo aria-label="Site footer"><div class=footer-content><div class=footer-about><h3>metafunctor</h3><p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p><nav aria-label="Social media links" class=social-links><a href=https://twitter.com/queelius target=_blank rel="noopener noreferrer" aria-label=Twitter><i class="fab fa-twitter" aria-hidden=true></i>
-</a><a href=https://github.com/queelius target=_blank rel="noopener noreferrer" aria-label=GitHub><i class="fab fa-github" aria-hidden=true></i>
-</a><a href=https://www.linkedin.com/in/alexander-towell-487015151/ target=_blank rel="noopener noreferrer" aria-label=LinkedIn><i class="fab fa-linkedin" aria-hidden=true></i>
-</a><a href=../../index.xml target=_blank rel="noopener noreferrer" aria-label=RSS><i class="fas fa-rss" aria-hidden=true></i>
-</a><a href=mailto:lex@metafunctor.com target=_blank rel="noopener noreferrer" aria-label=Email><i class="fas fa-envelope" aria-hidden=true></i>
-</a><a href=https://keybase.io/queelius target=_blank rel="noopener noreferrer" aria-label=Keybase><i class="fab fa-keybase" aria-hidden=true></i>
-</a><a href=https://www.youtube.com/@queelius target=_blank rel="noopener noreferrer" aria-label=YouTube><i class="fab fa-youtube" aria-hidden=true></i>
-</a><a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target=_blank rel="noopener noreferrer" aria-label="Google Scholar"><i class="fas fa-graduation-cap" aria-hidden=true></i>
-</a><a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target=_blank rel="noopener noreferrer" aria-label=ORCID><i class="fab fa-orcid" aria-hidden=true></i></a></nav></div><nav class=footer-section aria-labelledby=footer-content><h4 id=footer-content>Content</h4><div class=footer-links><a href=https://metafunctor.com/post/>Posts</a>
-<a href=https://metafunctor.com/papers/>Papers</a>
-<a href=https://metafunctor.com/series/>Series</a>
-<a href=https://metafunctor.com/publications/>Publications</a>
-<a href=https://metafunctor.com/writing/>Writing</a></div></nav><nav class=footer-section aria-labelledby=footer-code><h4 id=footer-code>Code</h4><div class=footer-links><a href=https://metafunctor.com/projects/>Projects</a>
-<a href=https://github.com/queelius target=_blank rel="noopener noreferrer">GitHub</a>
-<a href=https://pypi.org/user/queelius/ target=_blank rel="noopener noreferrer">PyPI</a></div></nav><nav class=footer-section aria-labelledby=footer-connect><h4 id=footer-connect>Connect</h4><div class=footer-links><a href=https://metafunctor.com/about/>About</a>
-<a href=mailto:lex@metafunctor.com>Contact</a>
-<a href=https://metafunctor.com/index.xml type=application/rss+xml>RSS Feed</a></div></nav></div><div class=footer-bottom><p class=copyright>© 2026 Alex Towell. All rights reserved.</p><p class=accessibility-note><a href=#main-content>Back to top</a></p></div></footer><script src=../../js/performance-optimizations.js defer></script><script src=../../js/performance-enhancements.js defer></script><script src=../../js/mobile-menu.js defer></script><script src=../../js/modern-interactions.js defer></script><script src=../../js/search.js defer></script><script src=../../js/reading-progress.js defer></script><script src=../../js/copy-code.js defer></script><script src=../../js/anchor-links.js defer></script><button id=back-to-top aria-label="Back to top" style="display:none;position:fixed;bottom:30px;right:30px;z-index:1000;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border:none;border-radius:50%;width:50px;height:50px;cursor:pointer;box-shadow:0 4px 15px rgba(102,126,234,.4);transition:all .3s ease">
-<i class="fas fa-arrow-up"></i>
+<!DOCTYPE html>
+<html lang="en-us" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  
+  <title>How to Teach a Computer Calculus with Pattern Matching | metafunctor</title>
+  <meta name="title" content="How to Teach a Computer Calculus with Pattern Matching | metafunctor">
+  <meta name="description" content="Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate.">
+
+  
+  <meta name="keywords" content="machine learning, statistical computing, open source, research, computer science, artificial intelligence">
+  <meta name="author" content="Alex Towell">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://metafunctor.com/post/2022-10-term-rewriting/">
+
+  
+  
+
+  
+  <link rel="alternate" hreflang="en" href="https://metafunctor.com/post/2022-10-term-rewriting/">
+  <link rel="alternate" hreflang="x-default" href="https://metafunctor.com/post/2022-10-term-rewriting/">
+
+  
+  
+<style>
+ 
+
+ 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c2c2c;
+  background: #ffffff;
+}
+
+ 
+.elegant-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(254, 254, 254, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.site-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  text-decoration: none;
+}
+
+.nav-primary ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-primary a {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a4a4a;
+  text-decoration: none;
+}
+
+ 
+.hero-elegant {
+  padding: 5rem 2rem;
+  text-align: center;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #2c2c2c 0%, #003d7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #4a4a4a;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+
+ 
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0050a0;
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+}
+
+.skip-to-main:focus {
+  top: 0;
+}
+
+ 
+.preload * {
+  transition: none !important;
+}
+</style>
+
+
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+  
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://metafunctor.com/post/2022-10-term-rewriting/">
+  <meta property="og:title" content="How to Teach a Computer Calculus with Pattern Matching">
+  <meta property="og:description" content="Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate.">
+  <meta property="og:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="metafunctor">
+  <meta property="og:locale" content="en_US">
+  
+  <meta property="article:author" content="Alex Towell">
+  <meta property="article:published_time" content="2022-10-15T00:00:00Z">
+  <meta property="article:modified_time" content="2026-04-26T17:47:31-05:00">
+  <meta property="article:section" content="Computer Science">
+  <meta property="article:tag" content="term-rewriting"><meta property="article:tag" content="pattern-matching"><meta property="article:tag" content="symbolic-computation"><meta property="article:tag" content="python"><meta property="article:tag" content="interactive"><meta property="article:tag" content="calculus">
+  
+
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://metafunctor.com/post/2022-10-term-rewriting/">
+  <meta name="twitter:title" content="How to Teach a Computer Calculus with Pattern Matching">
+  <meta name="twitter:description" content="Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate.">
+  <meta name="twitter:image" content="https://metafunctor.com/images/og-image.jpg">
+  <meta name="twitter:site" content="@queelius">
+  <meta name="twitter:creator" content="@queelius">
+
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "@id": "https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/#primaryContent",
+        
+        "headline": "How to Teach a Computer Calculus with Pattern Matching",
+        "description": "Define patterns, define replacements, repeat until done. Watch a 90-line rewrite engine learn to differentiate.",
+        "url": "https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/",
+        "inLanguage": "en-US",
+        "datePublished": "2022-10-15T00:00:00Z",
+        "dateModified": "2026-04-26T17:47:31-05:00",
+        "wordCount":  953 ,
+        "timeRequired": "PT5M",
+        "author": {
+          "@type": "Person",
+          "@id": "https:\/\/metafunctor.com\/#author",
+          "name": "Alex Towell",
+          "url": "https:\/\/metafunctor.com\/about/"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "@id": "https:\/\/metafunctor.com\/#organization",
+          "name": "metafunctor",
+          "url": "https:\/\/metafunctor.com\/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https:\/\/metafunctor.com\/images\/og-image.jpg"
+          }
+        },
+        "keywords": ["term-rewriting", "pattern-matching", "symbolic-computation", "python", "interactive", "calculus"]
+        
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/#breadcrumb",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https:\/\/metafunctor.com\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "News",
+            "item": "https:\/\/metafunctor.com\/post\/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "How to Teach a Computer Calculus with Pattern Matching",
+            "item": "https:\/\/metafunctor.com\/post\/2022-10-term-rewriting\/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" as="style">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+
+  
+  <link rel="stylesheet" href="../../css/refined-elegant.css">
+
+  
+  <link rel="stylesheet" href="../../css/micro-interactions.css">
+
+  
+  <link rel="stylesheet" href="../../css/elegant.css" media="print" onload="this.media='all'">
+
+  
+  <link rel="stylesheet" href="../../css/custom.css">
+
+  
+  <link rel="stylesheet" href="../../css/beautify.css">
+
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+  
+  
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: "$$", right: "$$", display: true},
+          {left: "\\[", right: "\\]", display: true},
+          {left: "$", right: "$", display: false},
+          {left: "\\(", right: "\\)", display: false}
+        ]
+      });
+    });
+  </script>
+  
+
+  
+  <script defer src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+
+  
+  
+
+
+
+
+
+  
+  
+
+  
+      <script async src="https://www.googletagmanager.com/gtag/js?id=G-E08ZXTFTTY"></script>
+      <script>
+        var doNotTrack = false;
+        if ( true ) {
+          var dnt = (navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack);
+          var doNotTrack = (dnt == "1" || dnt == "yes");
+        }
+        if (!doNotTrack) {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-E08ZXTFTTY');
+        }
+      </script>
+  <meta name="generator" content="Hugo 0.163.3">
+</head>
+<body>
+  
+  <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
+  <header class="elegant-header" role="banner">
+  <div class="header-inner">
+    <div class="site-identity">
+      <a href="https://metafunctor.com/" class="site-logo" aria-label="metafunctor home">metafunctor</a>
+      <span class="site-tagline" aria-label="Site tagline">Research · Coding</span>
+    </div>
+    <nav class="nav-primary" role="navigation" aria-label="Main navigation">
+      <button class="mobile-menu-toggle" aria-label="Toggle mobile menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul role="list">
+        <li><a href="https://metafunctor.com/" >Home</a></li>
+        <li><a href="https://metafunctor.com/post/" class="active" aria-current="page">Posts</a></li>
+        <li><a href="https://metafunctor.com/series/" >Series</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Academic <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/papers/" >Papers</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/publications/" >Publications</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/research/" >Research</a></li>
+          </ul>
+        </li>
+        <li><a href="https://metafunctor.com/ethos/" >Ethos</a></li>
+        <li class="nav-dropdown">
+          <a href="#" class="dropdown-toggle " aria-haspopup="true" aria-expanded="false">
+            Creative <i class="fas fa-chevron-down dropdown-icon"></i>
+          </a>
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="https://metafunctor.com/writing/" >Writing</a></li>
+            <li role="menuitem"><a href="https://metafunctor.com/media/" >Media</a></li>
+          </ul>
+        </li>
+        <li><a href="https://metafunctor.com/projects/" >Projects</a></li>
+        <li><a href="https://metafunctor.com/about/" >About</a></li>
+        <li><a href="https://metafunctor.com/search/" ><i class="fas fa-search" aria-hidden="true"></i><span class="sr-only">Search</span></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<style>
+ 
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.dropdown-icon {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown.open .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 9999;
+  list-style: none;
+}
+
+.nav-dropdown.open .dropdown-menu {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+}
+
+ 
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid #fff;
+  filter: drop-shadow(0 -1px 1px rgba(0,0,0,0.1));
+}
+
+.dropdown-menu li {
+  margin: 0;
+}
+
+.nav-dropdown .dropdown-menu a {
+  display: block !important;
+  padding: 0.6rem 1.25rem !important;
+  color: #4a4a4a !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.nav-dropdown .dropdown-menu a:hover {
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
+}
+
+.nav-dropdown .dropdown-menu a.active {
+  color: #4f46e5 !important;
+}
+
+ 
+@media (max-width: 768px) {
+  .dropdown-menu {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height 0.2s ease;
+  }
+
+  .dropdown-menu::before {
+    display: none;
+  }
+
+  .nav-dropdown.open .dropdown-menu {
+    max-height: 300px;
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-menu a {
+    padding: 0.5rem 1.5rem 0.5rem 2rem;
+    font-size: 0.85rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropdowns = document.querySelectorAll('.nav-dropdown');
+
+  dropdowns.forEach(dropdown => {
+    const toggle = dropdown.querySelector('.dropdown-toggle');
+
+    
+    toggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasOpen = dropdown.classList.contains('open');
+
+      
+      dropdowns.forEach(d => d.classList.remove('open'));
+
+      
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+      }
+    });
+  });
+
+  
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-dropdown')) {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      dropdowns.forEach(d => d.classList.remove('open'));
+    }
+  });
+});
+</script>
+
+
+  
+  
+  <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="https://metafunctor.com/">
+          <span itemprop="name">Home</span>
+        </a>
+        <meta itemprop="position" content="1" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <a itemprop="item" href="https://metafunctor.com/post/">
+          <span itemprop="name">News</span>
+        </a>
+        <meta itemprop="position" content="2" />
+      </li>
+      
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="breadcrumb-separator">/</span>
+        <span itemprop="name" aria-current="page">How to Teach a Computer Calculus with Pattern Matching</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
+  
+
+  <main id="main-content" role="main" aria-label="Main content">
+    
+<div class="main-container">
+  <div class="single-post-layout">
+    
+    
+    <aside class="post-sidebar">
+      
+<aside class="toc-wrapper" aria-label="Table of contents">
+  <nav class="table-of-contents">
+    <h2 class="toc-title">Table of Contents</h2>
+    <div class="toc-content">
+      <nav id="TableOfContents">
+  <ul>
+    <li><a href="#bottom-up-traversal">Bottom-up traversal</a></li>
+    <li><a href="#arithmetic-simplification">Arithmetic simplification</a></li>
+    <li><a href="#symbolic-differentiation">Symbolic differentiation</a></li>
+  </ul>
+</nav>
+    </div>
+  </nav>
+</aside>
+
+<style>
+.toc-wrapper {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.toc-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 var(--space-md) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.toc-content {
+  font-size: 0.9rem;
+}
+
+.toc-content ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-content > ul {
+  border-left: 2px solid var(--border-color);
+  padding-left: var(--space-md);
+}
+
+.toc-content li {
+  margin-bottom: var(--space-sm);
+}
+
+.toc-content a {
+  color: var(--ink-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  display: block;
+  padding: var(--space-xs) 0;
+}
+
+.toc-content a:hover {
+  color: var(--accent);
+}
+
+.toc-content ul ul {
+  margin-top: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+ 
+@media (max-width: 1024px) {
+  .toc-wrapper {
+    position: relative;
+    top: 0;
+    max-height: none;
+  }
+}
+</style>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+  const tocLinks = document.querySelectorAll('.toc-content a');
+  const sections = Array.from(tocLinks).map(link => {
+    const id = link.getAttribute('href').substring(1);
+    return document.getElementById(id);
+  }).filter(section => section !== null);
+
+  function highlightTOC() {
+    let current = '';
+    sections.forEach(section => {
+      const sectionTop = section.offsetTop;
+      const scrollPosition = window.scrollY + 100;
+      if (scrollPosition >= sectionTop) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    tocLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+        link.style.color = 'var(--accent)';
+        link.style.fontWeight = '600';
+      } else {
+        link.style.color = '';
+        link.style.fontWeight = '';
+      }
+    });
+  }
+
+  window.addEventListener('scroll', highlightTOC);
+  highlightTOC();
+});
+</script>
+
+    </aside>
+    
+
+    
+    <article class="single-post" itemscope itemtype="https://schema.org/Article">
+      <header class="post-header">
+        <h1 class="post-title" itemprop="headline">How to Teach a Computer Calculus with Pattern Matching</h1>
+        <div class="post-meta">
+          
+          <span class="post-date">
+            <i class="far fa-calendar" aria-hidden="true"></i>
+            <time datetime="2022-10-15T00:00:00Z" itemprop="datePublished">
+              October 15, 2022
+            </time>
+          </span>
+          
+          
+          <span class="post-reading-time">
+            <i class="far fa-clock" aria-hidden="true"></i>
+            5 min read
+          </span>
+          
+          
+          <span class="post-updated">
+            <i class="far fa-edit" aria-hidden="true"></i>
+            Updated: <time datetime="2026-04-26T17:47:31-05:00" itemprop="dateModified">
+              April 26, 2026
+            </time>
+          </span>
+          
+          
+        </div>
+        
+        <div class="tags" role="list">
+          
+          <a href="https://metafunctor.com/tags/term-rewriting/" class="tag" role="listitem">term-rewriting</a>
+          
+          <a href="https://metafunctor.com/tags/pattern-matching/" class="tag" role="listitem">pattern-matching</a>
+          
+          <a href="https://metafunctor.com/tags/symbolic-computation/" class="tag" role="listitem">symbolic-computation</a>
+          
+          <a href="https://metafunctor.com/tags/python/" class="tag" role="listitem">python</a>
+          
+          <a href="https://metafunctor.com/tags/interactive/" class="tag" role="listitem">interactive</a>
+          
+          <a href="https://metafunctor.com/tags/calculus/" class="tag" role="listitem">calculus</a>
+          
+        </div>
+        
+      </header>
+
+      
+
+
+
+
+
+
+
+
+<nav class="series-navigation" aria-label="Series navigation">
+  <div class="series-header">
+    <span class="series-label">Part of series:</span>
+    <a href="../../series/explorables/" class="series-name">Explorables</a>
+    <span class="series-count">2 parts</span>
+  </div>
+  <ol class="series-list">
+    
+    <li class="series-item ">
+      <a href="../../post/2026-03-16-mcts-reasoning/" class="series-link">
+        <span class="series-number">1</span>
+        <span class="series-title">Watch an LLM Think</span>
+      </a>
+    </li>
+    
+    <li class="series-item current">
+      <a href="../../post/2022-10-term-rewriting/" class="series-link">
+        <span class="series-number">2</span>
+        <span class="series-title">How to Teach a Computer Calculus with Pattern Matching</span>
+      </a>
+    </li>
+    
+  </ol>
+</nav>
+
+<style>
+.series-navigation {
+  margin: var(--space-6) 0;
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.series-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.series-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.series-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.series-name:hover {
+  color: var(--color-accent-primary);
+  text-decoration: underline;
+}
+
+.series-count {
+  font-size: var(--font-size-sm);
+  padding: 2px 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+}
+
+.series-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.series-item {
+  padding: 0;
+}
+
+.series-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.series-link:hover {
+  border-color: var(--color-accent-primary);
+  transform: translateX(4px);
+}
+
+.series-item.current .series-link {
+  background: var(--color-accent-primary);
+  color: white;
+}
+
+.series-item.current .series-number {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.series-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.series-title {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.series-item.current .series-title {
+  color: white;
+}
+
+@media (max-width: 600px) {
+  .series-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
+
+
+
+
+      <div class="post-tts">
+<button class="speak-button" type="button" data-voice="en_US-libritts_r-medium">
+<span class="speak-icon" aria-hidden="true"></span>
+<span class="speak-label">Read aloud</span>
+<span class="speak-status" aria-live="polite"></span>
 </button>
-<script>const backToTop=document.getElementById("back-to-top");window.addEventListener("scroll",()=>{window.scrollY>300?backToTop.style.display="block":backToTop.style.display="none"}),backToTop.addEventListener("click",()=>{window.scrollTo({top:0,behavior:"smooth"})})</script><script data-goatcounter=https://queelius.goatcounter.com/count async src=//gc.zgo.at/count.js></script></body></html>
+</div><link rel="stylesheet" href="../../speak/widget.css">
+<script type="importmap">{"imports":{"onnxruntime-web":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/esm/ort.min.js"}}</script>
+<script type="module" src="../../speak/widget.js"></script>
+
+      <div class="content" itemprop="articleBody">
+        <p>Every expression is a tree. <code>(2 + 3) * x</code> looks like this:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    *            In Python: (&#39;*&#39;, (&#39;+&#39;, 2, 3), &#39;x&#39;)
+</span></span><span class="line"><span class="cl">   / \
+</span></span><span class="line"><span class="cl">  +   x          First element = operator.
+</span></span><span class="line"><span class="cl"> / \             Rest = children.
+</span></span><span class="line"><span class="cl">2   3            Tuples all the way down.
+</span></span></code></pre></div><p>A <strong>rewrite rule</strong> says: <em>when you see this pattern, replace it with that.</em> A handful of them, applied until nothing changes, can simplify or differentiate arbitrary expressions.</p>
+<p>Here&rsquo;s the whole thing. 90 lines of Python. A complete symbolic differentiator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">_W</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="s1">&#39;_&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">_</span> <span class="o">=</span> <span class="n">_W</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">rewrite</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">*</span><span class="n">rules</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">n</span> <span class="o">=</span> <span class="n">r</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span> <span class="k">break</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">:</span> <span class="k">return</span> <span class="n">t</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">bottom_up</span><span class="p">(</span><span class="n">rule</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">go</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="n">t</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">go</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">rule</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">go</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">when</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">pat</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">pat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fn</span> <span class="o">=</span> <span class="n">pat</span><span class="p">,</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">then</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">fn</span> <span class="o">=</span> <span class="n">f</span> <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="k">lambda</span> <span class="o">*</span><span class="n">_</span><span class="p">,</span> <span class="n">v</span><span class="o">=</span><span class="n">f</span><span class="p">:</span> <span class="n">v</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="bp">self</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pat</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fn</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">b</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">t</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">_m</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="n">b</span> <span class="o">=</span> <span class="p">{}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="p">(</span><span class="n">t</span><span class="p">):</span> <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">            <span class="n">b</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">p</span> <span class="ow">is</span> <span class="n">_</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">b</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;_</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">p</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;$&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span> <span class="k">return</span> <span class="n">b</span> <span class="k">if</span> <span class="n">b</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">==</span> <span class="n">t</span> <span class="k">else</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">            <span class="n">b</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span><span class="p">;</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="n">t</span><span class="p">:</span> <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="n">pe</span><span class="p">,</span> <span class="n">te</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">(</span><span class="n">pe</span><span class="p">,</span> <span class="n">te</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span> <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">b</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">is_lit</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">const_wrt</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">e</span> <span class="o">==</span> <span class="n">var</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span> <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">check</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">True</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">check</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">simplify</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># 0 + x = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># x + 0 = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>                    <span class="c1"># 0 * x = 0</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>                    <span class="c1"># x * 0 = 0</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># 1 * x = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># x * 1 = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>                    <span class="c1"># x^0   = 1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">),</span>          <span class="c1"># x^1   = x</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">diff</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">const_wrt</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>                                                       <span class="c1"># constant</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>                                                                   <span class="c1"># variable</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>            <span class="c1"># sum</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>            <span class="c1"># difference</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>                                                              <span class="c1"># product</span>
+</span></span><span class="line"><span class="cl">        <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)))),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))),</span>              <span class="c1"># power</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">is_lit</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>                                                         <span class="c1"># chain+power</span>
+</span></span><span class="line"><span class="cl">        <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span>                                              <span class="c1"># sin</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>                 <span class="c1"># chain+sin</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">))),</span>                                    <span class="c1"># cos</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;cos&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>       <span class="c1"># chain+cos</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span>                                              <span class="c1"># exp</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;exp&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span>                 <span class="c1"># chain+exp</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;ln&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="s1">&#39;x&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">((</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span>                                              <span class="c1"># ln</span>
+</span></span><span class="line"><span class="cl">    <span class="n">when</span><span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="s1">&#39;$v&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span>                                                              <span class="c1"># quotient</span>
+</span></span><span class="line"><span class="cl">        <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)),</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span><span class="p">))),</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="mi">2</span><span class="p">))),</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="n">bottom_up</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">diff</span> <span class="o">+</span> <span class="n">simplify</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">rewrite</span><span class="p">((</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;^&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;sin&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">)),</span> <span class="s1">&#39;x&#39;</span><span class="p">),</span> <span class="o">*</span><span class="n">rules</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># =&gt; (&#39;+&#39;, (&#39;*&#39;, (&#39;^&#39;, &#39;x&#39;, 2), (&#39;cos&#39;, &#39;x&#39;)), (&#39;*&#39;, (&#39;sin&#39;, &#39;x&#39;), (&#39;*&#39;, 2, &#39;x&#39;)))</span>
+</span></span></code></pre></div><p>That&rsquo;s it. <code>rewrite</code> applies rules until nothing changes. <code>bottom_up</code> walks the tree leaves-first. <code>when</code> does pattern matching: <code>_</code> matches anything, <code>$x</code> captures a named variable, callables act as predicates. The rest is just calculus rules written as patterns.</p>
+<p>The chain rule is not coded explicitly. When a rule like <code>d/dx sin(u)</code> produces <code>cos(u) * d/dx u</code>, that new <code>d</code> node gets rewritten by the same rules on the next pass. The recursion emerges from the fixed-point loop.</p>
+<p>The widgets below run a JS reimplementation of the same logic. Step through each one to watch the engine think.</p>
+<h2 id="bottom-up-traversal">Bottom-up traversal</h2>
+<p>The key mechanism. Rules only match at the root of whatever they&rsquo;re given, so <code>bottom_up</code> recurses into children first, then tries the rule at the rebuilt node. Leaves light up first, then the engine works upward.</p>
+<div class="tr-demo" id="bu-demo">
+  <h3>Bottom-Up Traversal</h3>
+  <div class="tr-bar">
+    <select id="bu-example">
+      <option value="add-zero">(+ 0 (+ 0 x))  with  0+x => x</option>
+      <option value="const-fold">(+ (* 2 3) (* 4 5))  with  constant folding</option>
+      <option value="nested">(* (+ x 0) (- 5 5))  with  arithmetic rules</option>
+    </select>
+    <button id="bu-reset">Reset</button>
+    <button id="bu-step">Step</button>
+    <button id="bu-play">Play</button>
+  </div>
+  <div class="tr-canvas"><svg id="bu-svg" width="100%" height="260"></svg></div>
+  <div class="tr-info" id="bu-info">Press Step or Play.</div>
+  <div class="tr-legend">
+    <span><span class="tr-legend-dot c-visit"></span>visiting</span>
+    <span><span class="tr-legend-dot c-match"></span>rule fired</span>
+    <span><span class="tr-legend-dot c-rewrite"></span>rewritten</span>
+    <span><span class="tr-legend-dot c-done"></span>fixed point</span>
+  </div>
+</div>
+<h2 id="arithmetic-simplification">Arithmetic simplification</h2>
+<p>More rules, same engine. Identity elements, absorbing elements, constant folding, cancellation:</p>
+<div class="tr-demo" id="ar-demo">
+  <h3>Arithmetic Simplifier</h3>
+  <div class="tr-pills">
+    <span class="tr-pill">0+x &rarr; x</span>
+    <span class="tr-pill">x*0 &rarr; 0</span>
+    <span class="tr-pill">x*1 &rarr; x</span>
+    <span class="tr-pill">x-x &rarr; 0</span>
+    <span class="tr-pill">n+m &rarr; compute</span>
+  </div>
+  <div class="tr-bar">
+    <select id="ar-example">
+      <option value="ex1">(+ (* 2 3) (* 4 5))</option>
+      <option value="ex2">(* (+ x 0) (- 5 5))</option>
+      <option value="ex3">(+ (+ 0 x) (- y y))</option>
+      <option value="ex4">(/ (* 3 (+ 2 4)) (- 9 3))</option>
+    </select>
+    <button id="ar-reset">Reset</button>
+    <button id="ar-step">Step</button>
+    <button id="ar-play">Play</button>
+  </div>
+  <div class="tr-canvas"><svg id="ar-svg" width="100%" height="280"></svg></div>
+  <div class="tr-info" id="ar-info">Press Step or Play.</div>
+</div>
+<h2 id="symbolic-differentiation">Symbolic differentiation</h2>
+<p>The same engine with the <code>diff</code> rules from above. Watch the product rule split $x^2 \cdot \sin(x)$ into two branches, then the power and chain rules reduce each piece, then simplification cleans up:</p>
+<div class="tr-demo" id="df-demo">
+  <h3>Symbolic Differentiation</h3>
+  <div class="tr-bar">
+    <select id="df-example">
+      <option value="power">d/dx x^3</option>
+      <option value="product">d/dx (x^2 * sin(x))</option>
+      <option value="chain">d/dx sin(x^2)</option>
+      <option value="exp-chain">d/dx e^(x^2)</option>
+      <option value="quotient">d/dx (sin(x) / x)</option>
+    </select>
+    <button id="df-reset">Reset</button>
+    <button id="df-step">Step</button>
+    <button id="df-play">Play</button>
+  </div>
+  <div class="tr-canvas"><svg id="df-svg" width="100%" height="380"></svg></div>
+  <div class="tr-info" id="df-info">Press Step or Play.</div>
+  <div class="tr-iter" id="df-iter"></div>
+</div>
+<style>
+/* ── Container ────────────────────────────────── */
+.tr-demo {
+  max-width: 680px;
+  margin: 2.5em auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.tr-demo h3 {
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin: 0 0 10px;
+}
+
+/* ── Controls ─────────────────────────────────── */
+.tr-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.tr-bar select {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fafafa;
+  flex: 1;
+  min-width: 160px;
+}
+
+.tr-bar button {
+  font-size: 13px;
+  padding: 5px 14px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.tr-bar button:hover:not(:disabled) { background: #f0f0f0; }
+.tr-bar button:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Canvas ───────────────────────────────────── */
+.tr-canvas {
+  border: 1px solid #e4e4e4;
+  border-radius: 6px;
+  background: #fdfdfd;
+  overflow: hidden;
+  min-height: 200px;
+}
+.tr-canvas svg { display: block; width: 100%; }
+
+/* ── Info line ────────────────────────────────── */
+.tr-info {
+  font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  padding: 6px 10px;
+  margin-top: 6px;
+  background: #f7f7f7;
+  border-radius: 4px;
+  min-height: 1.8em;
+  color: #444;
+}
+
+.tr-iter {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+  font-family: 'SF Mono', monospace;
+}
+
+/* ── Rules pills ──────────────────────────────── */
+.tr-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.tr-pill {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  color: #666;
+}
+
+/* ── SVG tree nodes ───────────────────────────── */
+.tr-edge {
+  stroke: #bbb;
+  stroke-width: 1.5;
+  fill: none;
+  transition: stroke 0.25s;
+}
+
+.tr-node circle {
+  fill: #fff;
+  stroke: #555;
+  stroke-width: 2;
+  transition: fill 0.25s, stroke 0.25s;
+}
+.tr-node text {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  fill: #333;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+/* States */
+.tr-node.visiting circle {
+  fill: #dbeafe;
+  stroke: #3b82f6;
+  stroke-width: 2.5;
+}
+.tr-node.matched circle {
+  fill: #fef3c7;
+  stroke: #f59e0b;
+  stroke-width: 2.5;
+}
+.tr-node.rewritten circle {
+  fill: #d1fae5;
+  stroke: #10b981;
+  stroke-width: 2.5;
+}
+.tr-node.done circle {
+  fill: #ede9fe;
+  stroke: #8b5cf6;
+  stroke-width: 2;
+}
+
+/* ── Color legend (inline) ────────────────────── */
+.tr-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+}
+.tr-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.tr-legend-dot.c-visit   { background: #dbeafe; border: 1.5px solid #3b82f6; }
+.tr-legend-dot.c-match   { background: #fef3c7; border: 1.5px solid #f59e0b; }
+.tr-legend-dot.c-rewrite { background: #d1fae5; border: 1.5px solid #10b981; }
+.tr-legend-dot.c-done    { background: #ede9fe; border: 1.5px solid #8b5cf6; }
+
+</style>
+<script>
+"use strict";(()=>{function y(e){return!Array.isArray(e)}function H(e){return Array.isArray(e)?e[0]:e}function I(e,t){return y(e)&&y(t)?e===t:y(e)||y(t)||e.length!==t.length?!1:e.every((n,r)=>I(n,t[r]))}function v(e){return y(e)?e:e.map(v)}function R(e){return y(e)?String(e):"("+e.map(R).join(" ")+")"}function T(e){return typeof e=="number"}function k(e,t){if(e===t)return!1;if(y(e))return!0;for(let n=1;n<e.length;n++)if(!k(e[n],t))return!1;return!0}function B(e,t){let n=[],r=0;function s(u){let f=r++;if(y(u))return n.push({nodeIdx:f,type:"visit",label:String(u)}),u;let c=[u[0]];for(let a=1;a<u.length;a++)c.push(s(u[a]));n.push({nodeIdx:f,type:"visit",label:String(c[0])});for(let a of t)if(a.match(c))return n.push({nodeIdx:f,type:"match",label:a.name,rule:a.name}),a.apply(c);return c}return{result:s(e),events:n}}function O(e,t,n=50){let r=[];for(let s=0;s<n;s++){let{result:p,events:u}=B(e,t);if(r.push({before:v(e),after:v(p),events:u}),I(p,e))break;e=v(p)}return r}function F(e,t,n){let r=[],s=[],p=0;function u(o){let d=p++;if(y(o))return{width:1,tree:o,id:d,label:String(o),children:[]};let h=[];for(let b=1;b<o.length;b++)h.push(u(o[b]));let E=h.reduce((b,l)=>b+l.width,0);return{width:Math.max(E,1),tree:o,id:d,label:String(H(o)),children:h}}function f(o,d,h,E){let b=d+h/2,l={id:o.id,x:b,y:E,label:o.label};if(r.push(l),o.children.length>0){let w=o.children.reduce((S,A)=>S+A.width,0),x=d;for(let S of o.children){let A=S.width/w*h,P=f(S,x,A,E+60);s.push({from:l,to:P}),x+=A}}return l}let c=u(e),a=40;return f(c,a,t-a*2,36),{nodes:r,edges:s}}var C="http://www.w3.org/2000/svg";function j(e){for(;e.firstChild;)e.removeChild(e.firstChild)}function q(e,t){j(e);for(let r of t.edges){let s=document.createElementNS(C,"line");s.setAttribute("x1",String(r.from.x)),s.setAttribute("y1",String(r.from.y)),s.setAttribute("x2",String(r.to.x)),s.setAttribute("y2",String(r.to.y)),s.setAttribute("class","tr-edge"),e.appendChild(s)}for(let r of t.nodes){let s=document.createElementNS(C,"g");s.setAttribute("class","tr-node"),s.setAttribute("transform",`translate(${r.x},${r.y})`),s.dataset.nid=String(r.id);let p=Math.max(16,r.label.length*5+8),u=document.createElementNS(C,"circle");u.setAttribute("r",String(p)),s.appendChild(u);let f=document.createElementNS(C,"text");f.textContent=r.label,s.appendChild(f),e.appendChild(s)}let n=t.nodes.reduce((r,s)=>Math.max(r,s.y),0);e.setAttribute("height",String(n+56))}function M(e,t,n){let r=e.querySelector(`g[data-nid="${t}"]`);r&&r.setAttribute("class","tr-node"+(n?" "+n:""))}function X(e){e.querySelectorAll("g.tr-node").forEach(t=>t.setAttribute("class","tr-node"))}function i(e,t,n){return{name:e,match:t,apply:n}}function m(e,t){return Array.isArray(e)&&e[0]===t&&e.length===3}var N=[i("0 + x \u2192 x",e=>m(e,"+")&&e[1]===0,e=>e[2]),i("x + 0 \u2192 x",e=>m(e,"+")&&e[2]===0,e=>e[1]),i("0 \xD7 x \u2192 0",e=>m(e,"*")&&e[1]===0,()=>0),i("x \xD7 0 \u2192 0",e=>m(e,"*")&&e[2]===0,()=>0),i("1 \xD7 x \u2192 x",e=>m(e,"*")&&e[1]===1,e=>e[2]),i("x \xD7 1 \u2192 x",e=>m(e,"*")&&e[2]===1,e=>e[1]),i("x \u2212 x \u2192 0",e=>m(e,"-")&&I(e[1],e[2]),()=>0),i("n + m",e=>m(e,"+")&&T(e[1])&&T(e[2]),e=>e[1]+e[2]),i("n \xD7 m",e=>m(e,"*")&&T(e[1])&&T(e[2]),e=>e[1]*e[2]),i("n \u2212 m",e=>m(e,"-")&&T(e[1])&&T(e[2]),e=>e[1]-e[2]),i("n / m",e=>m(e,"/")&&T(e[1])&&T(e[2])&&e[2]!==0,e=>{let t=e[1]/e[2];return Number.isInteger(t)?t:Math.round(t*1e3)/1e3})],U=[...N,i("x^0 \u2192 1",e=>m(e,"^")&&e[2]===0,()=>1),i("x^1 \u2192 x",e=>m(e,"^")&&e[2]===1,e=>e[1]),i("x/1 \u2192 x",e=>m(e,"/")&&e[2]===1,e=>e[1]),i("0 \u2212 n \u2192 \u2212n",e=>m(e,"-")&&e[1]===0&&T(e[2]),e=>-e[2])];function V(e){return Array.isArray(e)&&e[0]==="d"&&e.length===3}function g(e,t){return V(e)&&Array.isArray(e[1])&&e[1][0]===t}function D(e,t){return g(e,t)&&e[1][1]==="x"&&e[2]==="x"}var Y=[i("d/dx(const) = 0",e=>V(e)&&e[2]==="x"&&k(e[1],"x"),()=>0),i("d/dx(x) = 1",e=>V(e)&&e[1]==="x"&&e[2]==="x",()=>1),i("sum rule",e=>g(e,"+"),e=>{let[,[,t,n],r]=e;return["+",["d",t,r],["d",n,r]]}),i("difference rule",e=>g(e,"-")&&e[1].length===3,e=>{let[,[,t,n],r]=e;return["-",["d",t,r],["d",n,r]]}),i("product rule",e=>g(e,"*"),e=>{let[,[,t,n],r]=e;return["+",["*",t,["d",n,r]],["*",n,["d",t,r]]]}),i("power rule",e=>g(e,"^")&&e[1][1]==="x"&&T(e[1][2])&&e[2]==="x",e=>{let t=e[1][2];return["*",t,["^","x",t-1]]}),i("chain (power)",e=>g(e,"^")&&T(e[1][2]),e=>{let[,[,t,n],r]=e;return["*",["*",n,["^",t,n-1]],["d",t,r]]}),i("d/dx sin(x) = cos(x)",e=>D(e,"sin"),()=>["cos","x"]),i("chain (sin)",e=>g(e,"sin"),e=>{let[,[,t],n]=e;return["*",["cos",t],["d",t,n]]}),i("d/dx cos(x) = \u2212sin(x)",e=>D(e,"cos"),()=>["-",0,["sin","x"]]),i("chain (cos)",e=>g(e,"cos"),e=>{let[,[,t],n]=e;return["*",["-",0,["sin",t]],["d",t,n]]}),i("d/dx e^x = e^x",e=>D(e,"exp"),()=>["exp","x"]),i("chain (exp)",e=>g(e,"exp"),e=>{let[,[,t],n]=e;return["*",["exp",t],["d",t,n]]}),i("d/dx ln(x) = 1/x",e=>D(e,"ln"),()=>["/",1,"x"]),i("quotient rule",e=>g(e,"/"),e=>{let[,[,t,n],r]=e;return["/",["-",["*",n,["d",t,r]],["*",t,["d",n,r]]],["^",n,2]]})],W=[...Y,...U];var z={"add-zero":{tree:["+",0,["+",0,"x"]],rules:[N[0]]},"const-fold":{tree:["+",["*",2,3],["*",4,5]]},nested:{tree:["*",["+","x",0],["-",5,5]]}},J={ex1:{tree:["+",["*",2,3],["*",4,5]]},ex2:{tree:["*",["+","x",0],["-",5,5]]},ex3:{tree:["+",["+",0,"x"],["-","y","y"]]},ex4:{tree:["/",["*",3,["+",2,4]],["-",9,3]]}},K={power:{tree:["d",["^","x",3],"x"]},product:{tree:["d",["*",["^","x",2],["sin","x"]],"x"]},chain:{tree:["d",["sin",["^","x",2]],"x"]},"exp-chain":{tree:["d",["exp",["^","x",2]],"x"]},quotient:{tree:["d",["/",["sin","x"],"x"],"x"]}};function L(e){return document.getElementById(e)}function _(e,t,n){let r=L(e+"-svg"),s=L(e+"-info"),p=L(e+"-example"),u=L(e+"-reset"),f=L(e+"-step"),c=L(e+"-play"),a=L(e+"-iter");if(!r||!p||!s||!u||!f||!c)return;let o=null,d=null;function h(){d&&(clearInterval(d),d=null);let l=t[p.value],w=l.rules??n,x=v(l.tree),S=O(x,w),A=r.parentElement?.clientWidth??600,P=parseInt(r.getAttribute("height")??"300"),G=F(x,A,P);o={iterations:S,iterIdx:0,evtIdx:0,tree:v(x),layout:G},q(r,G),s.textContent="Press Step or Play.",a&&(a.textContent=""),f.removeAttribute("disabled"),c.removeAttribute("disabled"),c.textContent="Play"}function E(){if(!o)return;let l=o.iterations[o.iterIdx];if(!l){b();return}let w=l.events;if(o.evtIdx<w.length){let x=w[o.evtIdx];X(r),x.nodeIdx<o.layout.nodes.length&&M(r,x.nodeIdx,x.type==="match"?"matched":"visiting"),s.textContent=x.type==="visit"?`Visiting ${x.label}`:`\u2192 ${x.rule}`,o.evtIdx++}else if(I(l.before,l.after))b();else{o.tree=v(l.after),o.iterIdx++,o.evtIdx=0;let x=r.parentElement?.clientWidth??600,S=parseInt(r.getAttribute("height")??"300");o.layout=F(o.tree,x,S),q(r,o.layout);for(let A of o.layout.nodes)M(r,A.id,"rewritten");s.textContent=R(o.tree),a&&(a.textContent=`Iteration ${o.iterIdx}`)}}function b(){if(o){for(let l of o.layout.nodes)M(r,l.id,"done");s.textContent="Done: "+R(o.tree),a&&(a.textContent=`${o.iterIdx} iteration(s)`),f.setAttribute("disabled",""),c.setAttribute("disabled",""),d&&(clearInterval(d),d=null)}}p.addEventListener("change",h),u.addEventListener("click",h),f.addEventListener("click",E),c.addEventListener("click",()=>{d?(clearInterval(d),d=null,c.textContent="Play"):(d=setInterval(E,450),c.textContent="Pause")}),h()}function $(){_("bu",z,N),_("ar",J,N),_("df",K,W)}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",$):$();})();
+
+</script>
+
+        
+
+
+      </div>
+
+    
+    <nav class="post-navigation">
+      
+      <a href="../../post/2022-09-12-regex-machines/" class="nav-prev">
+        <span class="nav-label">← Previous</span>
+        <span class="nav-title">Regex Under the Hood</span>
+      </a>
+      
+      
+      <a href="../../post/2024-06-01-algebraic_hashing/" class="nav-next">
+        <span class="nav-label">Next →</span>
+        <span class="nav-title">Algebraic Hashing: Composable Hash Functions Through XOR</span>
+      </a>
+      
+    </nav>
+    
+
+    
+    
+
+    
+    
+    
+    <section class="related-posts">
+      <h2 class="related-posts-title">Related Posts</h2>
+      <div class="related-posts-grid">
+        
+        <article class="related-post-card">
+          <a href="../../post/2025-11-30-xtk/" class="related-post-link">
+            <h3 class="related-post-title">XTK: A Symbolic Expression Toolkit for Term Rewriting</h3>
+            <p class="related-post-excerpt"><p><strong><a href="https://pypi.org/project/xpression-tk/">XTK</a></strong> (Expression Toolkit) is a Python library for symbolic computation through rule-based term rewriting. You define …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Nov 30, 2025
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">Python</span>
+                
+                  <span class="mini-tag">symbolic-computation</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2025-12-16-rerum/" class="related-post-link">
+            <h3 class="related-post-title">Rerum: Pattern Matching and Term Rewriting in Python</h3>
+            <p class="related-post-excerpt"><p><strong>Rerum</strong> (Rewriting Expressions via Rules Using Morphisms) is a Python library for pattern matching and term rewriting. It …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Dec 16, 2025
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">symbolic-computation</span>
+                
+                  <span class="mini-tag">term-rewriting</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2022-04-finite-diff-stepanov/" class="related-post-link">
+            <h3 class="related-post-title">Numerical Differentiation</h3>
+            <p class="related-post-excerpt"><p><em>Numerical differentiation via finite differences for C++20.</em></p>
+<h2 id="overview">Overview</h2>
+<p>The derivative is defined as a limit:</p>
+$$f'(x) = …</p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Apr 12, 2022
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">C&#43;&#43;</span>
+                
+                  <span class="mini-tag">numerical-methods</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2025-01-differentiation-stepanov/" class="related-post-link">
+            <h3 class="related-post-title">Differentiation: Three Ways</h3>
+            <p class="related-post-excerpt"><p><em>A synthesis of three earlier posts, comparing forward-mode AD, reverse-mode AD, and numerical differentiation.</em></p>
+<p>Computing …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Jan 15, 2025
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">C&#43;&#43;</span>
+                
+                  <span class="mini-tag">automatic-differentiation</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+        <article class="related-post-card">
+          <a href="../../post/2021-09-dual-stepanov/" class="related-post-link">
+            <h3 class="related-post-title">Forward-Mode Automatic Differentiation</h3>
+            <p class="related-post-excerpt"><p><em>Forward-mode automatic differentiation via dual numbers for C++20.</em></p>
+<h2 id="overview">Overview</h2>
+<p>Dual numbers are a simple yet powerful …</p></p>
+            <div class="related-post-meta">
+              <span class="related-post-date">
+                <i class="far fa-calendar" aria-hidden="true"></i>
+                Sep 20, 2021
+              </span>
+              
+              <span class="related-post-tags">
+                
+                  <span class="mini-tag">C&#43;&#43;</span>
+                
+                  <span class="mini-tag">automatic-differentiation</span>
+                
+              </span>
+              
+            </div>
+          </a>
+        </article>
+        
+      </div>
+    </section>
+
+    <style>
+    .related-posts {
+      margin-top: 4rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .related-posts-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+    }
+
+    .related-posts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .related-post-card {
+      background: var(--paper, #fff);
+      border: 1px solid var(--border-color, #e5e7eb);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .related-post-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      border-color: var(--accent, #667eea);
+    }
+
+    .related-post-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .related-post-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--ink, #1a1a1a);
+      font-family: 'Lora', Georgia, serif;
+      line-height: 1.4;
+    }
+
+    .related-post-card:hover .related-post-title {
+      color: var(--accent, #667eea);
+    }
+
+    .related-post-excerpt {
+      font-size: 0.9rem;
+      color: var(--ink-light, #666);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .related-post-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: var(--ink-light, #999);
+    }
+
+    .related-post-date i {
+      margin-right: 0.25rem;
+    }
+
+    .related-post-tags {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .related-post-tags .mini-tag {
+      background: var(--paper-dark, #f5f5f5);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: var(--ink, #1a1a1a);
+    }
+
+    [data-theme="dark"] .related-posts {
+      border-top-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-posts-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-card {
+      background: var(--paper-dark, #222);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .related-post-card:hover {
+      border-color: var(--accent, #667eea);
+    }
+
+    [data-theme="dark"] .related-post-title {
+      color: var(--ink, #e8e8e8);
+    }
+
+    [data-theme="dark"] .related-post-tags .mini-tag {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--ink, #e8e8e8);
+    }
+    </style>
+    
+
+    
+    <section class="comments-section">
+      <h2 class="comments-title">Discussion</h2>
+      <div class="giscus-container"></div>
+      <script src="https://giscus.app/client.js"
+              data-repo="queelius/metafunctor"
+              data-repo-id="R_kgDONbcL1g"
+              data-category="General"
+              data-category-id="DIC_kwDONbcL1s4CwFJ7"
+              data-mapping="pathname"
+              data-strict="0"
+              data-reactions-enabled="1"
+              data-emit-metadata="0"
+              data-input-position="bottom"
+              data-theme="preferred_color_scheme"
+              data-lang="en"
+              crossorigin="anonymous"
+              async>
+      </script>
+    </section>
+  </article>
+</div>
+
+<style>
+.comments-section {
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.comments-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--ink, #1a1a1a);
+  font-family: 'Lora', Georgia, serif;
+}
+
+.giscus-container {
+  margin-top: 1rem;
+}
+
+ 
+[data-theme="dark"] .comments-section {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .comments-title {
+  color: var(--ink, #e8e8e8);
+}
+</style>
+
+<script>
+
+function updateGiscusTheme() {
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  const giscusTheme = theme === 'dark' ? 'dark' : 'light';
+
+  const iframe = document.querySelector('iframe.giscus-frame');
+  if (iframe) {
+    iframe.contentWindow.postMessage({
+      giscus: {
+        setConfig: {
+          theme: giscusTheme
+        }
+      }
+    }, 'https://giscus.app');
+  }
+}
+
+
+const observer = new MutationObserver(updateGiscusTheme);
+observer.observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ['data-theme']
+});
+
+
+setTimeout(updateGiscusTheme, 1000);
+</script>
+  </div>
+</div>
+
+  </main>
+  
+  <footer class="elegant-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-content">
+      <div class="footer-about">
+        <h3>metafunctor</h3>
+        <p>Research engineer and computer scientist specializing in machine learning, statistical computing, and open source software development.</p>
+        <nav aria-label="Social media links" class="social-links">
+          
+          <a href="https://twitter.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+            <i class="fab fa-twitter" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+            <i class="fab fa-github" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.linkedin.com/in/alexander-towell-487015151/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <i class="fab fa-linkedin" aria-hidden="true"></i>
+          </a>
+          
+          <a href="../../index.xml" target="_blank" rel="noopener noreferrer" aria-label="RSS">
+            <i class="fas fa-rss" aria-hidden="true"></i>
+          </a>
+          
+          <a href="mailto:lex@metafunctor.com" target="_blank" rel="noopener noreferrer" aria-label="Email">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://keybase.io/queelius" target="_blank" rel="noopener noreferrer" aria-label="Keybase">
+            <i class="fab fa-keybase" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://www.youtube.com/@queelius" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <i class="fab fa-youtube" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://scholar.google.com/citations?view_op=list_works&amp;hl=en&amp;user=E9mnFzQAAAAJ" target="_blank" rel="noopener noreferrer" aria-label="Google Scholar">
+            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
+          </a>
+          
+          <a href="https://orcid.org/my-orcid?orcid=0000-0001-6443-9897" target="_blank" rel="noopener noreferrer" aria-label="ORCID">
+            <i class="fab fa-orcid" aria-hidden="true"></i>
+          </a>
+          
+        </nav>
+      </div>
+
+      <nav class="footer-section" aria-labelledby="footer-content">
+        <h4 id="footer-content">Content</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/post/">Posts</a>
+          <a href="https://metafunctor.com/papers/">Papers</a>
+          <a href="https://metafunctor.com/series/">Series</a>
+          <a href="https://metafunctor.com/publications/">Publications</a>
+          <a href="https://metafunctor.com/writing/">Writing</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-code">
+        <h4 id="footer-code">Code</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/projects/">Projects</a>
+          <a href="https://github.com/queelius" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://pypi.org/user/queelius/" target="_blank" rel="noopener noreferrer">PyPI</a>
+        </div>
+      </nav>
+
+      <nav class="footer-section" aria-labelledby="footer-connect">
+        <h4 id="footer-connect">Connect</h4>
+        <div class="footer-links">
+          <a href="https://metafunctor.com/about/">About</a>
+          <a href="mailto:lex@metafunctor.com">Contact</a>
+          <a href="https://metafunctor.com/index.xml" type="application/rss+xml">RSS Feed</a>
+        </div>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <p class="copyright">
+        © 2026 Alex Towell. All rights reserved.
+      </p>
+      <p class="accessibility-note">
+        <a href="#main-content">Back to top</a>
+      </p>
+    </div>
+  </footer>
+
+  
+  <script src="../../js/performance-optimizations.js" defer></script>
+  <script src="../../js/performance-enhancements.js" defer></script>
+
+  
+  <script src="../../js/mobile-menu.js" defer></script>
+  <script src="../../js/modern-interactions.js" defer></script>
+  <script src="../../js/search.js" defer></script>
+
+  
+  <script src="../../js/reading-progress.js" defer></script>
+  <script src="../../js/copy-code.js" defer></script>
+  <script src="../../js/anchor-links.js" defer></script>
+
+  
+  <button id="back-to-top" aria-label="Back to top" style="display: none; position: fixed; bottom: 30px; right: 30px; z-index: 1000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <script>
+    
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        backToTop.style.display = 'block';
+      } else {
+        backToTop.style.display = 'none';
+      }
+    });
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+
+  
+  <script data-goatcounter="https://queelius.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+</body>
+</html>
