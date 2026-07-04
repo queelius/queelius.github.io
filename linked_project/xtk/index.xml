@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Xtk on metafunctor</title><link>https://metafunctor.com/linked_project/xtk/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/xtk/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Rerum: Pattern Matching and Term Rewriting in Python</title><link>https://metafunctor.com/post/2025-12-16-rerum/</link><pubDate>Tue, 16 Dec 2025 06:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-16-rerum/</guid><description>A Python library for symbolic computation with a readable DSL, pattern matching, and a security model that separates rules from computation.</description><content:encoded><![CDATA[<p><strong>Rerum</strong> (Rewriting Expressions via Rules Using Morphisms) is a Python library for pattern matching and term rewriting. It makes symbolic computation accessible through a readable DSL while keeping a clean separation between trusted and untrusted code.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Traditional symbolic math systems tend toward two extremes. Monolithic systems like Mathematica bundle everything in. Lighter tools force you to write complex recursive traversals every time you want to transform an expression. I wanted something in between: a simple, extensible system where transformation rules are <em>data</em> that can be loaded, combined, and inspected.</p>
+<h2 id="the-sicp-connection">The SICP Connection</h2>
+<p>This design reflects a core idea from <em>Structure and Interpretation of Computer Programs</em>: when a problem domain is complex enough, the right move is to build a language for it. Rerum&rsquo;s rule DSL makes transformation logic inspectable, composable, and safe.</p>
+<p>The engine composition operators (<code>&gt;&gt;</code> for sequencing, <code>|</code> for union) ensure <strong>closure</strong>: combining engines yields an engine. Same principle that makes Scheme&rsquo;s procedures powerful. You can pass them, return them, combine them, no special cases. Transformation strategies are first-class.</p>
+<h2 id="a-readable-dsl">A Readable DSL</h2>
+<p>At the heart of rerum is a domain-specific language for defining rewrite rules:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># Algebraic simplification
+</span></span><span class="line"><span class="cl">@add-zero[100] &#34;x + 0 = x&#34;: (+ ?x 0) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-one[100]:  (* ?x 1) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-zero[100]: (* ?x 0) =&gt; 0
+</span></span></code></pre></div><p>Each rule has:</p>
+<ul>
+<li><strong>A name</strong>: <code>@add-zero</code> for debugging and tracing</li>
+<li><strong>Optional priority</strong>: <code>[100]</code> determines firing order when multiple rules match</li>
+<li><strong>Optional description</strong>: Human-readable explanation</li>
+<li><strong>A pattern</strong>: <code>(+ ?x 0)</code> matches addition with zero</li>
+<li><strong>A skeleton</strong>: <code>:x</code> is the replacement</li>
+</ul>
+<p>The pattern syntax:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Syntax</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>?x</code></td>
+					<td>Match anything, bind to x</td>
+			</tr>
+			<tr>
+					<td><code>?x:const</code></td>
+					<td>Match only numbers</td>
+			</tr>
+			<tr>
+					<td><code>?x:var</code></td>
+					<td>Match only symbols</td>
+			</tr>
+			<tr>
+					<td><code>?x:free(v)</code></td>
+					<td>Match expressions not containing v</td>
+			</tr>
+			<tr>
+					<td><code>?x...</code></td>
+					<td>Variadic, capture remaining arguments</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="symbolic-differentiation-in-15-lines">Symbolic Differentiation in 15 Lines</h2>
+<p>Here&rsquo;s a calculus ruleset that computes symbolic derivatives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="p">[</span><span class="n">basic</span><span class="o">-</span><span class="n">derivatives</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">const</span><span class="p">[</span><span class="mi">100</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">c</span><span class="p">:</span><span class="k">const</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">var</span><span class="o">-</span><span class="n">same</span><span class="p">[</span><span class="mi">100</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">x</span><span class="p">:</span><span class="k">var</span> <span class="err">?</span><span class="n">x</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">var</span><span class="o">-</span><span class="n">diff</span><span class="p">[</span><span class="mi">90</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">y</span><span class="p">:</span><span class="k">var</span> <span class="err">?</span><span class="n">x</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="n">rules</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">sum</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">+</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">g</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">+</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">g</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">product</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">*</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">g</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">+</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span><span class="n">g</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span> <span class="p">:</span><span class="n">f</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">g</span> <span class="p">:</span><span class="n">v</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">power</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">^</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">n</span><span class="p">:</span><span class="k">const</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">:</span><span class="n">n</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="o">^</span> <span class="p">:</span><span class="n">f</span> <span class="p">(</span><span class="o">-</span> <span class="p">:</span><span class="n">n</span> <span class="mi">1</span><span class="p">))</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">exp</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">exp</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="nb">exp</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">log</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="n">ln</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">/</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">sin</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">sin</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="nb">cos</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">cos</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">cos</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="o">-</span> <span class="p">(</span><span class="nb">sin</span> <span class="p">:</span><span class="n">f</span><span class="p">))</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span></code></pre></div><p>With these rules loaded:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">E</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&#34;calculus.rules&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># d/dx(x^2) = 2x</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(dd (^ x 2) x)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; (* 2 (* (^ x 1) 1))</span>
+</span></span></code></pre></div><p>The result needs simplification (another ruleset), but the differentiation itself is purely declarative.</p>
+<h2 id="the-security-model-rules-vs-preludes">The Security Model: Rules vs. Preludes</h2>
+<p>A key architectural decision: the separation between <strong>rules</strong> (untrusted, serializable) and <strong>preludes</strong> (trusted Python code). Rules define structural transformations. They can reference operations via the <code>(! op args...)</code> compute form, but those operations must be explicitly provided by the host.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">ARITHMETIC_PRELUDE</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="p">(</span><span class="n">RuleEngine</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_prelude</span><span class="p">(</span><span class="n">ARITHMETIC_PRELUDE</span><span class="p">)</span>  <span class="c1"># Enables +, -, *, /, ^</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">load_dsl</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">        @fold-add: (+ ?a ?b) =&gt; (! + :a :b)
+</span></span></span><span class="line"><span class="cl"><span class="s1">                   when (! and (! const? :a) (! const? :b))
+</span></span></span><span class="line"><span class="cl"><span class="s1">    &#39;&#39;&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(+ 1 2)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; 3 (computed by prelude)</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(+ x 2)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; (+ x 2) (no change - x isn&#39;t const)</span>
+</span></span></code></pre></div><p>This means you can load rules from untrusted sources safely. They can only invoke operations you&rsquo;ve explicitly allowed. No arbitrary code execution.</p>
+<h2 id="conditional-guards">Conditional Guards</h2>
+<p>Rules can have guards, conditions that must hold for the rule to fire:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">@abs-pos: (abs ?x) =&gt; :x when (! &gt; :x 0)
+</span></span><span class="line"><span class="cl">@abs-neg: (abs ?x) =&gt; (! - 0 :x) when (! &lt; :x 0)
+</span></span><span class="line"><span class="cl">@abs-zero: (abs ?x) =&gt; 0 when (! = :x 0)
+</span></span></code></pre></div><p>Guards use the same <code>(! ...)</code> compute syntax as skeletons, with access to predicates like <code>const?</code>, <code>var?</code>, <code>list?</code>, and comparison operators.</p>
+<h2 id="rewriting-strategies">Rewriting Strategies</h2>
+<p>Different problems need different traversals:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># exhaustive (default): Apply rules until no more apply</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;exhaustive&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># once: Apply at most one rule anywhere</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;once&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># bottomup: Simplify children before parents</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;bottomup&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># topdown: Try parent before children</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;topdown&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="engine-composition">Engine Composition</h2>
+<p>Engines compose:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">expand</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_dsl</span><span class="p">(</span><span class="s2">&#34;@square: (square ?x) =&gt; (* :x :x)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">simplify</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&#34;algebra.rules&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sequence: expand first, then simplify</span>
+</span></span><span class="line"><span class="cl"><span class="n">normalize</span> <span class="o">=</span> <span class="n">expand</span> <span class="o">&gt;&gt;</span> <span class="n">simplify</span>
+</span></span><span class="line"><span class="cl"><span class="n">normalize</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(square 3)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; 9</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Union: combine all rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">=</span> <span class="n">algebra</span> <span class="o">|</span> <span class="n">calculus</span>
+</span></span></code></pre></div><h2 id="interactive-repl">Interactive REPL</h2>
+<p>The CLI includes an interactive mode:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rerum
+</span></span><span class="line"><span class="cl">rerum&gt; @add-zero: <span class="o">(</span>+ ?x 0<span class="o">)</span> <span class="o">=</span>&gt; :x
+</span></span><span class="line"><span class="cl">Added <span class="m">1</span> rule<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">rerum&gt; <span class="o">(</span>+ y 0<span class="o">)</span>
+</span></span><span class="line"><span class="cl">y
+</span></span><span class="line"><span class="cl">rerum&gt; :load examples/calculus.rules
+</span></span><span class="line"><span class="cl">Loaded <span class="m">12</span> rule<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">rerum&gt; :trace on
+</span></span><span class="line"><span class="cl">rerum&gt; <span class="o">(</span>dd <span class="o">(</span>^ x 3<span class="o">)</span> x<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; <span class="o">(</span>* <span class="m">3</span> <span class="o">(</span>* <span class="o">(</span>^ x 2<span class="o">)</span> 1<span class="o">))</span>
+</span></span><span class="line"><span class="cl">Trace: dd-power
+</span></span></code></pre></div><p>Scripts can be run directly or piped:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rerum calc.rerum
+</span></span><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;(+ 1 2)&#34;</span> <span class="p">|</span> rerum -r algebra.rules -p full -q
+</span></span><span class="line"><span class="cl"><span class="m">3</span>
+</span></span></code></pre></div><h2 id="related-projects">Related Projects</h2>
+<p>Rerum is part of a family:</p>
+<ul>
+<li><strong><a href="/projects/xtk/">xtk</a></strong> &ndash; Expression Toolkit with MCP server integration for Claude Code</li>
+<li><strong><a href="/projects/symlik/">symlik</a></strong> &ndash; Symbolic likelihood models using term rewriting for automatic differentiation of statistical models</li>
+<li><strong><a href="/projects/jsl/">jsl</a></strong> &ndash; A network-native language where code is JSON, using similar s-expression structure</li>
+</ul>
+<p>The common thread: symbolic expressions as first-class citizens that can be transformed, serialized, and reasoned about programmatically.</p>
+<h2 id="getting-started">Getting Started</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install rerum
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">E</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_dsl</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @add-zero: (+ ?x 0) =&gt; :x
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @mul-one: (* ?x 1) =&gt; :x
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @mul-zero: (* ?x 0) =&gt; 0
+</span></span></span><span class="line"><span class="cl"><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(* (+ x 0) 0)&#34;</span><span class="p">)))</span>  <span class="c1"># =&gt; 0</span>
+</span></span></code></pre></div><p>Full documentation is at the <a href="https://github.com/queelius/rerum">GitHub repository</a>. The <code>examples/</code> directory has complete rulesets for algebra, calculus, and number theory.</p>
+<h2 id="why-rerum">Why &ldquo;Rerum&rdquo;?</h2>
+<p>From the Latin <em>&ldquo;rerum natura&rdquo;</em> (the nature of things), Lucretius&rsquo;s work on atomic theory and natural philosophy. Felt right for a library about transforming the fundamental structure of expressions.</p>
+]]></content:encoded><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>dsl</category><category>python</category><category>computer-algebra</category><category>functional-programming</category><category>sicp</category></item><item><title>XTK: A Symbolic Expression Toolkit for Term Rewriting</title><link>https://metafunctor.com/post/2025-11-30-xtk/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-xtk/</guid><description>A Python library for rule-based term rewriting with pattern matching, multiple input formats, and an interactive REPL.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/xpression-tk/">XTK</a></strong> (Expression Toolkit) is a Python library for symbolic computation through rule-based term rewriting. You define pattern-skeleton pairs, and the engine rewrites expressions by matching and substituting until it reaches a normal form.</p>
+<p>I built this because I kept wanting a lightweight term rewriting system that wasn&rsquo;t Mathematica. Something I could embed in other projects, extend with custom rules, and use from the command line.</p>
+<h2 id="quick-start">Quick Start</h2>
+<p>The fastest way to try it is the interactive REPL:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install xpression-tk
+</span></span><span class="line"><span class="cl">python3 -m xtk.cli
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; (+ 2 3)
+</span></span><span class="line"><span class="cl">xtk&gt; /rewrite
+</span></span><span class="line"><span class="cl">Rewritten: 5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">xtk&gt; (define square (lambda (x) (* x x)))
+</span></span><span class="line"><span class="cl">xtk&gt; (square 4)
+</span></span><span class="line"><span class="cl">xtk&gt; /rewrite
+</span></span><span class="line"><span class="cl">Rewritten: 16
+</span></span></code></pre></div><h2 id="core-concepts">Core Concepts</h2>
+<h3 id="s-expressions">S-Expressions</h3>
+<p>XTK uses S-expressions as its primary representation. If you&rsquo;ve used Lisp, this is familiar:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(+ 1 2)           ; Addition
+</span></span><span class="line"><span class="cl">(* x (+ y 1))     ; Nested expressions
+</span></span><span class="line"><span class="cl">(lambda (x) x)    ; Lambda abstraction
+</span></span></code></pre></div><h3 id="infix-notation">Infix Notation</h3>
+<p>For people who&rsquo;d rather not count parentheses, there&rsquo;s infix support:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; /infix 2 + 3 * 4
+</span></span><span class="line"><span class="cl">S-expr: (+ 2 (* 3 4))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">xtk&gt; /infix (x + y) * (x - y)
+</span></span><span class="line"><span class="cl">S-expr: (* (+ x y) (- x y))
+</span></span></code></pre></div><h3 id="rewrite-rules">Rewrite Rules</h3>
+<p>Rules are <code>[pattern, skeleton]</code> pairs. Pattern variables bind to subexpressions, and skeleton references substitute them back:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">xtk</span> <span class="kn">import</span> <span class="n">rewriter</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Define rules: x + 0 =&gt; x, x * 0 =&gt; 0</span>
+</span></span><span class="line"><span class="cl"><span class="n">rules</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">]],</span>  <span class="c1"># x + 0 =&gt; x</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[[</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">],</span>            <span class="c1"># x * 0 =&gt; 0</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create rewriter and apply</span>
+</span></span><span class="line"><span class="cl"><span class="n">rewrite</span> <span class="o">=</span> <span class="n">rewriter</span><span class="p">(</span><span class="n">rules</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">rewrite</span><span class="p">([</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># =&gt; &#39;a&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">rewrite</span><span class="p">([</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># =&gt; 0</span>
+</span></span></code></pre></div><p>Pattern syntax:</p>
+<ul>
+<li><code>['?', 'x']</code> matches any expression, binding it to <code>x</code></li>
+<li><code>[':', 'x']</code> references the matched binding in the skeleton</li>
+</ul>
+<h2 id="built-in-rewrite-rules">Built-in Rewrite Rules</h2>
+<p>XTK ships with standard algebraic simplification rules:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; Arithmetic
+</span></span><span class="line"><span class="cl">(+ x 0) → x
+</span></span><span class="line"><span class="cl">(* x 1) → x
+</span></span><span class="line"><span class="cl">(* x 0) → 0
+</span></span><span class="line"><span class="cl">(- x x) → 0
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Boolean
+</span></span><span class="line"><span class="cl">(and true x) → x
+</span></span><span class="line"><span class="cl">(or false x) → x
+</span></span><span class="line"><span class="cl">(not (not x)) → x
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Lambda calculus
+</span></span><span class="line"><span class="cl">((lambda (x) body) arg) → body[x := arg]
+</span></span></code></pre></div><h2 id="step-by-step-tracing">Step-by-Step Tracing</h2>
+<p>This is where it gets useful for teaching. You can watch the rewriting steps:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; (* (+ 1 2) (- 5 5))
+</span></span><span class="line"><span class="cl">xtk&gt; /trace
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Step 1: (* (+ 1 2) (- 5 5))
+</span></span><span class="line"><span class="cl">  Rule: (+ a b) → eval
+</span></span><span class="line"><span class="cl">  Result: (* 3 (- 5 5))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Step 2: (* 3 (- 5 5))
+</span></span><span class="line"><span class="cl">  Rule: (- a a) → 0
+</span></span><span class="line"><span class="cl">  Result: (* 3 0)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Step 3: (* 3 0)
+</span></span><span class="line"><span class="cl">  Rule: (* x 0) → 0
+</span></span><span class="line"><span class="cl">  Result: 0
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Final: 0
+</span></span></code></pre></div><h2 id="repl-commands">REPL Commands</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="o">/</span><span class="n">help</span>           <span class="n">Show</span> <span class="n">all</span> <span class="n">commands</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">rewrite</span>        <span class="n">Apply</span> <span class="n">rewrite</span> <span class="n">rules</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">step</span>           <span class="n">Single</span> <span class="n">rewrite</span> <span class="n">step</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">trace</span>          <span class="n">Show</span> <span class="n">rewrite</span> <span class="n">trace</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">rules</span>          <span class="n">List</span> <span class="n">active</span> <span class="n">rules</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="nb">load</span> <span class="n">file</span><span class="o">.</span><span class="n">xtk</span>  <span class="n">Load</span> <span class="n">rule</span> <span class="n">definitions</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">infix</span> <span class="n">expr</span>     <span class="n">Parse</span> <span class="n">infix</span> <span class="n">to</span> <span class="n">S</span><span class="o">-</span><span class="n">expr</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">tree</span>           <span class="n">Show</span> <span class="n">expression</span> <span class="n">tree</span>
+</span></span><span class="line"><span class="cl"><span class="o">/</span><span class="n">quit</span>           <span class="n">Exit</span> <span class="n">REPL</span>
+</span></span></code></pre></div><h2 id="python-api">Python API</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">xtk</span> <span class="kn">import</span> <span class="n">Expression</span><span class="p">,</span> <span class="n">RuleSet</span><span class="p">,</span> <span class="n">Engine</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create engine with standard rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="o">.</span><span class="n">with_standard_rules</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Parse and rewrite</span>
+</span></span><span class="line"><span class="cl"><span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(* (+ 1 2) (+ 3 4))&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">rewrite</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># 21</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Custom rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">rules</span> <span class="o">=</span> <span class="n">RuleSet</span><span class="p">([</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Rule</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(square ?x) → (* ?x ?x)&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Rule</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(cube ?x) → (* ?x ?x ?x)&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="o">.</span><span class="n">add_rules</span><span class="p">(</span><span class="n">rules</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&#34;(+ (square 3) (cube 2))&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">rewrite</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># 17</span>
+</span></span></code></pre></div><h2 id="expression-visualization">Expression Visualization</h2>
+<p>The REPL renders expression trees in ASCII:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">xtk&gt; (* (+ a b) (- c d))
+</span></span><span class="line"><span class="cl">xtk&gt; /tree
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        *
+</span></span><span class="line"><span class="cl">       / \
+</span></span><span class="line"><span class="cl">      +   -
+</span></span><span class="line"><span class="cl">     / \ / \
+</span></span><span class="line"><span class="cl">    a  b c  d
+</span></span></code></pre></div><h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Computer algebra</strong>: Symbolic differentiation, integration</li>
+<li><strong>Compiler optimization</strong>: Peephole optimization rules</li>
+<li><strong>Theorem proving</strong>: Automated reasoning steps</li>
+<li><strong>DSL implementation</strong>: Custom language semantics via rewrite rules</li>
+<li><strong>Education</strong>: Teaching term rewriting and lambda calculus</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install xpression-tk
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/xpression-tk/">pypi.org/project/xpression-tk/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/xtk">github.com/queelius/xtk</a></li>
+</ul>
+]]></content:encoded><category>Python</category><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>REPL</category><category>mathematics</category></item></channel></rss>

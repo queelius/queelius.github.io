@@ -1,0 +1,1218 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Dotsuite on metafunctor</title><link>https://metafunctor.com/linked_project/dotsuite/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/dotsuite/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Building Languages to Solve Problems</title><link>https://metafunctor.com/post/2026-01-19-dsls-sicp/</link><pubDate>Mon, 19 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-19-dsls-sicp/</guid><description>When a problem is complex enough, the right move is to build a language for that problem. SICP's most powerful idea.</description><content:encoded><![CDATA[<p>Chapter 4 of <em>Structure and Interpretation of Computer Programs</em> opens with one of the most important insights in programming: <em>the most powerful technique for controlling complexity is metalinguistic abstraction</em>, the establishment of new languages.</p>
+<p>Not libraries. Not frameworks. <em>Languages</em>.</p>
+<p>When you&rsquo;ve abstracted enough of a problem domain into primitives, combination rules, and naming mechanisms, you haven&rsquo;t just written code. You&rsquo;ve created a new way of thinking about the problem. The domain becomes expressible. And once something is expressible, it becomes manipulable, debuggable, and shareable.</p>
+<h2 id="what-is-metalinguistic-abstraction">What Is Metalinguistic Abstraction?</h2>
+<p>The key distinction is between <em>using</em> a language and <em>creating</em> one. A library gives you functions to call. A language gives you a grammar for expressing ideas.</p>
+<p>Consider the difference:</p>
+<p><strong>Library approach</strong>: Call <code>db.execute(&quot;SELECT * FROM users WHERE age &gt; 21&quot;)</code></p>
+<p><strong>Language approach</strong>: Write <code>SELECT * FROM users WHERE age &gt; 21</code></p>
+<p>SQL isn&rsquo;t a library. It&rsquo;s a language, with primitives (tables, columns), means of combination (joins, unions, subqueries), and means of abstraction (views, CTEs). These three elements (primitives, combination, abstraction) are SICP&rsquo;s fundamental criteria for any language, and they&rsquo;re what separates a DSL from a mere API.</p>
+<p>Other examples:</p>
+<ul>
+<li><strong>Regular expressions</strong>: primitives (characters, character classes), combination (concatenation, alternation), abstraction (groups, backreferences)</li>
+<li><strong>Make</strong>: primitives (targets, prerequisites), combination (dependency chains), abstraction (pattern rules, variables)</li>
+<li><strong>CSS selectors</strong>: primitives (elements, classes, IDs), combination (descendant, child, sibling), abstraction (custom properties, mixins in preprocessors)</li>
+</ul>
+<p>In each case, the language captures the <em>essential structure</em> of the problem domain in a way that raw code cannot.</p>
+<h2 id="the-three-requirements">The Three Requirements</h2>
+<p>SICP identifies three necessary components for any language:</p>
+<ol>
+<li><strong>Primitives</strong>: What are the basic elements that cannot be broken down further?</li>
+<li><strong>Means of combination</strong>: How do you build compound elements from simpler ones?</li>
+<li><strong>Means of abstraction</strong>: How do you name and reuse patterns?</li>
+</ol>
+<p>When designing a DSL, these questions guide everything. Get them wrong and you have a clunky API. Get them right and the domain becomes <em>thinkable</em> in your language.</p>
+<p>Consider an expression language for symbolic math:</p>
+<ul>
+<li><strong>Primitives</strong>: numbers, symbols, operators</li>
+<li><strong>Combination</strong>: function application <code>(+ x 1)</code>, nested expressions <code>(* (+ x 1) 2)</code></li>
+<li><strong>Abstraction</strong>: named rules, rulesets, engines</li>
+</ul>
+<p>Or a query language for JSON documents:</p>
+<ul>
+<li><strong>Primitives</strong>: field access, array indexing, literals</li>
+<li><strong>Combination</strong>: boolean operators, path composition</li>
+<li><strong>Abstraction</strong>: named queries, parameterized patterns</li>
+</ul>
+<h2 id="the-closure-property">The Closure Property</h2>
+<p>Beyond the three requirements, SICP emphasizes a crucial design principle: the <strong>closure property</strong>. This isn&rsquo;t about closures in the functional programming sense. It&rsquo;s about algebraic closure: <em>the result of combining things should be the same kind of thing</em>.</p>
+<p>In Scheme, combining procedures yields a procedure. You can pass it, return it, and combine it again without special cases. This enables arbitrary composition.</p>
+<p>In a well-designed DSL:</p>
+<ul>
+<li>Combining queries yields a query</li>
+<li>Combining transformations yields a transformation</li>
+<li>Combining rules yields a ruleset</li>
+</ul>
+<p>When closure holds, your language has compositional depth. Users can build arbitrarily complex structures from simple pieces, and the cognitive load stays constant because they&rsquo;re always working with the same kind of thing.</p>
+<h2 id="dsls-in-my-projects">DSLs in My Projects</h2>
+<p>Several projects embody these principles:</p>
+<h3 id="rerum-rules-as-data">Rerum: Rules as Data</h3>
+<p><a href="/post/2025-12-16-rerum/">Rerum</a> is a pattern matching and term rewriting library with a declarative rule DSL:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">@add-zero[100]: (+ ?x 0) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-one[100]:  (* ?x 1) =&gt; :x
+</span></span></code></pre></div><p>Rules are data, loadable, combinable, inspectable. Engines compose:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">normalize</span> <span class="o">=</span> <span class="n">expand</span> <span class="o">&gt;&gt;</span> <span class="n">simplify</span>  <span class="c1"># Sequence</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">=</span> <span class="n">algebra</span> <span class="o">|</span> <span class="n">calculus</span>   <span class="c1"># Union</span>
+</span></span></code></pre></div><p>Combining engines yields an engine. Closure holds.</p>
+<h3 id="jsonl-algebra-relational-algebra-for-json">jsonl-algebra: Relational Algebra for JSON</h3>
+<p><a href="/post/2024-12-jsonl-algebra/">jsonl-algebra</a> lifts relational algebra concepts to nested JSON:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja <span class="s1">&#39;select(name, age) | where(.age &gt; 21) | sort(name)&#39;</span> data.jsonl
+</span></span></code></pre></div><p>Each operation takes a relation and returns a relation. Pipes compose operations. The Unix philosophy meets relational algebra, and closure means you can chain operations arbitrarily.</p>
+<h3 id="accumux-compositional-statistics">Accumux: Compositional Statistics</h3>
+<p><a href="/post/2024-03-01-accumux/">Accumux</a> treats running statistics as composable monoids:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">stats</span> <span class="o">=</span> <span class="n">count</span><span class="p">()</span> <span class="o">&amp;</span> <span class="n">mean</span><span class="p">(</span><span class="s2">&#34;x&#34;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">variance</span><span class="p">(</span><span class="s2">&#34;x&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">fold</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">data_stream</span><span class="p">)</span>
+</span></span></code></pre></div><p>Combining accumulators yields an accumulator. Parallel streams can be folded independently and merged. The monoid laws guarantee correctness.</p>
+<h3 id="dotsuitejaf-path-expressions-over-documents">dotsuite/JAF: Path Expressions over Documents</h3>
+<p>The JAF path expression language provides boolean algebra over document structure:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">.metadata.author &amp; (.status == &#34;published&#34; | .featured)
+</span></span></code></pre></div><p>Combining predicates yields a predicate. The algebra is closed.</p>
+<h2 id="when-to-build-a-dsl">When to Build a DSL</h2>
+<p>Not every problem needs a language. Here are signs you might need one:</p>
+<p><strong>You should consider a DSL when:</strong></p>
+<ul>
+<li>The same structural patterns keep appearing across your code</li>
+<li>Domain experts need to express logic without writing code</li>
+<li>Configuration has grown complex enough to need validation and tooling</li>
+<li>You want transformations to be inspectable, serializable, or version-controlled</li>
+</ul>
+<p><strong>You probably don&rsquo;t need a DSL when:</strong></p>
+<ul>
+<li>It&rsquo;s a one-off script with no reuse</li>
+<li>Simple CRUD operations suffice</li>
+<li>The domain doesn&rsquo;t have clear compositional structure</li>
+<li>A configuration file would be simpler</li>
+</ul>
+<p>The litmus test: if you find yourself building a recursive interpreter by accident (parsing strings, handling nested cases, managing state) you&rsquo;re already building a language. You might as well do it intentionally.</p>
+<h2 id="the-payoff">The Payoff</h2>
+<p>The real benefit of metalinguistic abstraction isn&rsquo;t cleaner code. It&rsquo;s that the problem domain becomes <em>thinkable</em>.</p>
+<p>When you have a language for expressing transformations, you can reason about transformations. You can ask: what happens if I apply this rule before that one? What&rsquo;s the minimal set of rules that covers this domain? Are these two rulesets equivalent?</p>
+<p>When you have a language for expressing queries, you can optimize queries, explain query plans, and catch errors at parse time rather than runtime.</p>
+<p>When you have a language for expressing configuration, you can validate configurations, diff configurations, and generate configurations from higher-level specifications.</p>
+<p>The language makes the domain explicit. And explicit domains are controllable domains.</p>
+<p>This is why SICP puts metalinguistic abstraction at the pinnacle of the book. Not because it&rsquo;s technically harder than everything else, but because it&rsquo;s the technique that makes everything else possible.</p>
+<hr>
+<p><em>This post is part of a <a href="/series/sicp/">series on SICP</a>, exploring how the ideas from Structure and Interpretation of Computer Programs appear in modern programming practice.</em></p>
+]]></content:encoded><category>sicp</category><category>dsl</category><category>metalinguistic-abstraction</category><category>programming-languages</category><category>functional-programming</category></item><item><title>JAF: Streaming Boolean Algebra Over Nested JSON</title><link>https://metafunctor.com/post/2024-12-jaf/</link><pubDate>Fri, 20 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-12-jaf/</guid><description>A streaming data processing system implementing boolean algebra over nested JSON structures, with lazy evaluation, S-expression queries, and memory-efficient windowed operations.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/jaf">JAF (Just Another Flow)</a></strong> is a streaming data processing system for JSON/JSONL data. It implements boolean algebra over nested JSON structures with lazy evaluation, composable operations, and a fluent API. JAF is the production version of the concepts I explored in <a href="/post/2024-12-dotsuite/">dotsuite</a>.</p>
+<h2 id="the-relationship-to-dotsuite">The Relationship to Dotsuite</h2>
+<p>The short version:</p>
+<ul>
+<li><strong>dotsuite</strong>: &ldquo;This is how it works.&rdquo; Pedagogical, simple, learn-by-building.</li>
+<li><strong>JAF</strong>: &ldquo;This is what you use.&rdquo; Feature-complete, lazy, handles real data.</li>
+</ul>
+<p>JAF implements the highest level of dotsuite&rsquo;s architecture: boolean algebra over collections of nested documents. Where dotsuite teaches the concepts through isolated simple tools, JAF combines them into a unified streaming framework.</p>
+<h3 id="the-boolean-algebra-branch">The Boolean Algebra Branch</h3>
+<p>In dotsuite&rsquo;s three-pillar architecture (Depth, Truth, Shape), JAF focuses on the collections layer, specifically the boolean wing that provides filtering operations with full boolean algebra:</p>
+\[
+\text{filter}: (\mathcal{D} \to \mathbb{B}) \to (C \to C)
+\]<p>Where \(\mathcal{D}\) is the document space, \(\mathbb{B}\) is boolean values, and \(C\) is a collection of documents.</p>
+<p>JAF lifts boolean operations to streams: AND is intersection of filtered streams, OR is union, NOT is complement, and composition gives you chainable predicates with guaranteed homomorphism.</p>
+<h2 id="core-innovation-lazy-streaming">Core Innovation: Lazy Streaming</h2>
+<h3 id="the-problem">The Problem</h3>
+<p>Traditional data processing loads entire datasets into memory:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Eager evaluation - loads everything</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_data</span> <span class="o">=</span> <span class="n">load_json</span><span class="p">(</span><span class="s2">&#34;huge_file.jsonl&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">filtered</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">all_data</span> <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;age&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">25</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">mapped</span> <span class="o">=</span> <span class="p">[</span><span class="n">transform</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">filtered</span><span class="p">]</span>
+</span></span></code></pre></div><p>This fails on large datasets and wastes resources when you only need the first 10 results.</p>
+<h3 id="jafs-solution">JAF&rsquo;s Solution</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Lazy evaluation - nothing executes yet</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;huge_file.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">25</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Only processes 10 matching items</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+</span></span></code></pre></div><p>Constant memory (processes one item at a time), early termination (stops after <code>take(10)</code>), composable (build complex pipelines declaratively), and works with infinite streams.</p>
+<h2 id="three-query-syntaxes">Three Query Syntaxes</h2>
+<p>JAF supports multiple query syntaxes that all compile to the same internal representation.</p>
+<h3 id="s-expression-syntax-lisp-like">S-Expression Syntax (Lisp-like)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Simple</span> <span class="nv">comparisons</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">eq?</span> <span class="nv">@status</span> <span class="s">&#34;active&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">gt?</span> <span class="nv">@age</span> <span class="mi">25</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">contains?</span> <span class="nv">@tags</span> <span class="s">&#34;python&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Boolean</span> <span class="nv">logic</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">and</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nv">gte?</span> <span class="nv">@age</span> <span class="mi">18</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@verified</span> <span class="nv">true</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="err">#</span> <span class="nv">Nested</span> <span class="nv">expressions</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">or</span> <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@role</span> <span class="s">&#34;admin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="nb">and</span> <span class="p">(</span><span class="nv">eq?</span> <span class="nv">@role</span> <span class="s">&#34;user&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">         <span class="p">(</span><span class="nv">gt?</span> <span class="nv">@score</span> <span class="mi">100</span><span class="p">)))</span>
+</span></span></code></pre></div><p>S-expressions because: unambiguous parsing (no precedence rules), easy to serialize, homoiconic (code is data), composable ASTs.</p>
+<h3 id="json-array-syntax">JSON Array Syntax</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Same queries in JSON</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">25</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;and&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;gte?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">18</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span><span class="p">,</span> <span class="n">true</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span></code></pre></div><p>Easy to generate programmatically, standard JSON format, network-transmissible.</p>
+<h3 id="infix-dsl-syntax">Infix DSL Syntax</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Natural infix notation</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@status</span> <span class="o">==</span> <span class="s2">&#34;active&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@age</span> <span class="o">&gt;</span> <span class="mi">25</span> <span class="ow">and</span> <span class="nd">@verified</span> <span class="o">==</span> <span class="n">true</span>
+</span></span><span class="line"><span class="cl"><span class="nd">@role</span> <span class="o">==</span> <span class="s2">&#34;admin&#34;</span> <span class="ow">or</span> <span class="p">(</span><span class="nd">@role</span> <span class="o">==</span> <span class="s2">&#34;user&#34;</span> <span class="ow">and</span> <span class="nd">@score</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">)</span>
+</span></span></code></pre></div><p>Human-readable, familiar, good for CLI usage. All three compile to the same AST.</p>
+<h2 id="advanced-path-system">Advanced Path System</h2>
+<p>JAF extends dotsuite&rsquo;s simple dot notation with more powerful features:</p>
+<h3 id="exact-paths">Exact Paths</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@user.profile.name&#34;</span><span class="p">,</span> <span class="s2">&#34;Alice&#34;</span><span class="p">])</span>
+</span></span></code></pre></div><h3 id="wildcards">Wildcards</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Match any array element</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@users.*.email&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Recursive descent</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@**.id&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="regex-key-matching">Regex Key Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Match keys by pattern</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;regex_key&#34;</span><span class="p">,</span> <span class="s2">&#34;^error_</span><span class="se">\\</span><span class="s2">d+$&#34;</span><span class="p">]</span>
+</span></span></code></pre></div><h3 id="fuzzy-matching">Fuzzy Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Tolerate typos</span>
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;fuzzy_key&#34;</span><span class="p">,</span> <span class="s2">&#34;username&#34;</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">]</span>  <span class="c1"># 80% similarity</span>
+</span></span></code></pre></div><h3 id="array-operations">Array Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Array slicing</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;@items[0:5]&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;@items[-3:]&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Predicate filtering</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;@users[?(@.age &gt; 25)]&#34;</span>
+</span></span></code></pre></div><h2 id="streaming-operations">Streaming Operations</h2>
+<h3 id="filter-boolean-algebra">Filter (Boolean Algebra)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># AND: Intersection</span>
+</span></span><span class="line"><span class="cl"><span class="n">active_verified</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span><span class="p">,</span> <span class="n">true</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># OR: Union (using boolean logic in query)</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins_or_mods</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;or&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@role&#34;</span><span class="p">,</span> <span class="s2">&#34;admin&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@role&#34;</span><span class="p">,</span> <span class="s2">&#34;moderator&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># NOT: Complement</span>
+</span></span><span class="line"><span class="cl"><span class="n">inactive</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">]])</span>
+</span></span></code></pre></div><h3 id="map-transformations">Map (Transformations)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Extract fields</span>
+</span></span><span class="line"><span class="cl"><span class="n">emails</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@email&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Reshape documents</span>
+</span></span><span class="line"><span class="cl"><span class="n">simplified</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;name&#34;</span><span class="p">,</span> <span class="s2">&#34;@firstName&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;age&#34;</span><span class="p">,</span> <span class="s2">&#34;@profile.age&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;verified&#34;</span><span class="p">,</span> <span class="s2">&#34;@verified&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Conditional transformations</span>
+</span></span><span class="line"><span class="cl"><span class="n">categorized</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;sales.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="s2">&#34;@timestamp&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;amount&#34;</span><span class="p">,</span> <span class="s2">&#34;@amount&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;category&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@amount&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span> <span class="s2">&#34;high&#34;</span><span class="p">,</span> <span class="s2">&#34;low&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span></code></pre></div><h3 id="takeskip-pagination">Take/Skip (Pagination)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># First 100 items</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Skip first 100, take next 100</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="batch-chunking">Batch (Chunking)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Process in groups of 1000</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">bulk_insert</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="windowed-operations-for-memory-efficiency">Windowed Operations for Memory Efficiency</h2>
+<p>JAF supports windowed operations that trade accuracy for bounded memory:</p>
+<h3 id="distinct">Distinct</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Exact distinct (potentially unbounded memory)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">(</span><span class="n">window_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Windowed distinct (bounded memory, approximate)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;data.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">distinct</span><span class="p">(</span><span class="n">window_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="groupby">Groupby</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Tumbling window groupby</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream</span><span class="p">(</span><span class="s2">&#34;logs.jsonl&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">key</span><span class="o">=</span><span class="s2">&#34;@level&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">window_size</span><span class="o">=</span><span class="mi">100</span>  <span class="c1"># Group every 100 items</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><h3 id="set-operations">Set Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Exact intersection</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream1</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">stream2</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Windowed intersection (memory-efficient)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stream1</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="n">stream2</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+</span></span></code></pre></div><p>The trade-off: finite windows provide memory bounds but may miss items if windows don&rsquo;t overlap. Choose window size based on your data distribution.</p>
+<h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="log-analysis">Log Analysis</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find critical errors in authentication service</span>
+</span></span><span class="line"><span class="cl"><span class="n">critical_auth_errors</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;app.log.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;and&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@level&#34;</span><span class="p">,</span> <span class="s2">&#34;ERROR&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@service&#34;</span><span class="p">,</span> <span class="s2">&#34;auth&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;contains?&#34;</span><span class="p">,</span> <span class="s2">&#34;@message&#34;</span><span class="p">,</span> <span class="s2">&#34;critical&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;timestamp&#34;</span><span class="p">,</span> <span class="s2">&#34;@timestamp&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;user&#34;</span><span class="p">,</span> <span class="s2">&#34;@context.user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;message&#34;</span><span class="p">,</span> <span class="s2">&#34;@message&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">error</span> <span class="ow">in</span> <span class="n">critical_auth_errors</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">alert_oncall</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="etl-pipeline">ETL Pipeline</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Transform sales data</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;raw_sales.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;completed&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;date&#34;</span><span class="p">,</span> <span class="s2">&#34;@timestamp&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;customer_id&#34;</span><span class="p">,</span> <span class="s2">&#34;@customer.id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;amount&#34;</span><span class="p">,</span> <span class="s2">&#34;@total&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;category&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@total&#34;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="s2">&#34;enterprise&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s2">&#34;standard&#34;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">warehouse</span><span class="o">.</span><span class="n">bulk_insert</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="data-validation">Data Validation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Find invalid user records</span>
+</span></span><span class="line"><span class="cl"><span class="n">invalid_users</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;or&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;exists?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;regex-match?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&#34;^[^@]+@[^@]+\.[^@]+$&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;lt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;gt?&#34;</span><span class="p">,</span> <span class="s2">&#34;@age&#34;</span><span class="p">,</span> <span class="mi">150</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">([</span><span class="s2">&#34;dict&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;id&#34;</span><span class="p">,</span> <span class="s2">&#34;@id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;reason&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;exists?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">            <span class="s2">&#34;missing_email&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="p">[</span><span class="s2">&#34;not&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;regex-match?&#34;</span><span class="p">,</span> <span class="s2">&#34;@email&#34;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&#34;^[^@]+@[^@]+\.[^@]+$&#34;</span><span class="p">]],</span>
+</span></span><span class="line"><span class="cl">                <span class="s2">&#34;invalid_email&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s2">&#34;invalid_age&#34;</span>
+</span></span><span class="line"><span class="cl">            <span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="command-line-usage">Command-Line Usage</h2>
+<p>JAF works well in Unix-style pipelines:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Filter logs</span>
+</span></span><span class="line"><span class="cl">jaf filter app.log.jsonl <span class="s1">&#39;(eq? @level &#34;ERROR&#34;)&#39;</span> --eval
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Chain operations</span>
+</span></span><span class="line"><span class="cl">jaf filter users.jsonl <span class="s1">&#39;(eq? @status &#34;active&#34;)&#39;</span> <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">jaf map - <span class="s2">&#34;@email&#34;</span> <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">jaf <span class="nb">eval</span> -
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Complex queries</span>
+</span></span><span class="line"><span class="cl">jaf filter logs.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="s1">&#39;(and (eq? @level &#34;ERROR&#34;) (gt? @timestamp &#34;2024-01-01&#34;))&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  --eval
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Integrate with other tools</span>
+</span></span><span class="line"><span class="cl">jaf filter data.jsonl <span class="s1">&#39;(exists? @metadata)&#39;</span> --eval <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">jq <span class="s1">&#39;.metadata&#39;</span> <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">sort <span class="p">|</span> uniq -c
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Batch processing</span>
+</span></span><span class="line"><span class="cl">jaf filter orders.jsonl <span class="s1">&#39;(gt? @amount 100)&#39;</span> --eval <span class="p">|</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">ja groupby customer_id --aggregate <span class="s1">&#39;total:amount:sum&#39;</span>
+</span></span></code></pre></div><h2 id="mapping-dotsuite-concepts-to-jaf">Mapping Dotsuite Concepts to JAF</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Dotsuite Tool</th>
+					<th>JAF Feature</th>
+					<th>Notes</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>dotget</strong></td>
+					<td>Path system (<code>@path</code>)</td>
+					<td>JAF adds regex, fuzzy, wildcards</td>
+			</tr>
+			<tr>
+					<td><strong>dotstar</strong></td>
+					<td>Wildcard paths</td>
+					<td><code>@users.*.name</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotfilter</strong></td>
+					<td><code>.filter()</code> method</td>
+					<td>S-expression queries</td>
+			</tr>
+			<tr>
+					<td><strong>dotquery</strong></td>
+					<td>Query language</td>
+					<td>More powerful, S-expressions</td>
+			</tr>
+			<tr>
+					<td><strong>dotmod</strong></td>
+					<td><code>.map()</code> transformations</td>
+					<td>Immutable by default</td>
+			</tr>
+			<tr>
+					<td><strong>dotpipe</strong></td>
+					<td>Method chaining</td>
+					<td>Fluent API</td>
+			</tr>
+			<tr>
+					<td><strong>dotpluck</strong></td>
+					<td>Reshaping with <code>[&quot;dict&quot;, ...]</code></td>
+					<td>Transform documents</td>
+			</tr>
+			<tr>
+					<td><strong>dotrelate</strong></td>
+					<td>Planned (join/union)</td>
+					<td>Future feature</td>
+			</tr>
+	</tbody>
+</table>
+<p>The key difference: JAF is lazy by default, while dotsuite is mostly eager. This is what lets JAF handle datasets that don&rsquo;t fit in memory.</p>
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Operation</th>
+					<th>Memory</th>
+					<th>Time</th>
+					<th>Notes</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>Filter</strong></td>
+					<td>O(1)</td>
+					<td>O(n)</td>
+					<td>Streams one item at a time</td>
+			</tr>
+			<tr>
+					<td><strong>Map</strong></td>
+					<td>O(1)</td>
+					<td>O(n)</td>
+					<td>Zero-copy transformations</td>
+			</tr>
+			<tr>
+					<td><strong>Take</strong></td>
+					<td>O(k)</td>
+					<td>O(k)</td>
+					<td>Early termination</td>
+			</tr>
+			<tr>
+					<td><strong>Distinct</strong></td>
+					<td>O(w)</td>
+					<td>O(n)</td>
+					<td>w = window_size</td>
+			</tr>
+			<tr>
+					<td><strong>Groupby</strong></td>
+					<td>O(w*k)</td>
+					<td>O(n)</td>
+					<td>k = unique keys in window</td>
+			</tr>
+			<tr>
+					<td><strong>Batch</strong></td>
+					<td>O(b)</td>
+					<td>O(n)</td>
+					<td>b = batch_size</td>
+			</tr>
+	</tbody>
+</table>
+<p>Constant memory for basic operations (filter, map, take). Bounded memory for windowed operations. Early termination when using take/skip. Zero serialization overhead via streaming JSON parsing.</p>
+<h2 id="future-work-probabilistic-data-structures">Future Work: Probabilistic Data Structures</h2>
+<p>I plan to add probabilistic data structures for massive-scale operations:</p>
+<p><strong>Bloom filters</strong> for memory-efficient approximate distinct. <strong>Count-Min Sketch</strong> for heavy hitters detection. <strong>HyperLogLog</strong> for cardinality estimation. These provide controllable accuracy/memory tradeoffs with theoretical guarantees, enabling billion-item operations on commodity hardware.</p>
+<h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>JAF implements boolean algebra over document collections.</p>
+<h3 id="predicates-as-sets">Predicates as Sets</h3>
+<p>Each predicate \(p: \mathcal{D} \to \mathbb{B}\) defines a subset:</p>
+\[
+S_p = \lbrace d \in \mathcal{D} \mid p(d) = \text{true}\rbrace
+\]<h3 id="boolean-operations">Boolean Operations</h3>
+\[
+\text{AND}(p_1, p_2) \Rightarrow S_{p_1} \cap S_{p_2}
+\]<p>
+</p>
+\[
+\text{OR}(p_1, p_2) \Rightarrow S_{p_1} \cup S_{p_2}
+\]<p>
+</p>
+\[
+\text{NOT}(p) \Rightarrow \mathcal{D} \setminus S_p
+\]<h3 id="homomorphism">Homomorphism</h3>
+<p>The filter operation is a monoid homomorphism:</p>
+\[
+\text{filter}(C_1 \cup C_2, p) = \text{filter}(C_1, p) \cup \text{filter}(C_2, p)
+\]<p>This guarantees the operation is parallelizable (can split the collection and filter in parallel), composable (sequential filters commute), and streaming (can process incrementally).</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install</span>
+</span></span><span class="line"><span class="cl">pip install jaf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Basic usage</span>
+</span></span><span class="line"><span class="cl">jaf filter data.jsonl <span class="s1">&#39;(gt? @age 25)&#39;</span> --eval
+</span></span></code></pre></div><p>Python API:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jaf</span> <span class="kn">import</span> <span class="n">stream</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build lazy pipeline</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">stream</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="s2">&#34;eq?&#34;</span><span class="p">,</span> <span class="s2">&#34;@status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">])</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="s2">&#34;@email&#34;</span><span class="p">)</span> \
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Execute when ready</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">email</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">evaluate</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">send_newsletter</span><span class="p">(</span><span class="n">email</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="when-to-use-jaf-vs-dotsuite">When to Use JAF vs Dotsuite</h2>
+<p>Use JAF for processing large datasets, when you need lazy evaluation, for production systems, when you need advanced path features (regex, fuzzy), and for windowed operations.</p>
+<p>Use dotsuite for learning data processing concepts, teaching and prototyping, small datasets that fit in memory, when you want simple copyable code, and for building custom tools.</p>
+<p>Or use both: prototype with dotsuite concepts, productionize with JAF.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/jaf">github.com/queelius/jaf</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/jaf/getting-started/">Getting Started</a></li>
+<li><strong>API Guide</strong>: <a href="https://queelius.github.io/jaf/api-guide/">API Reference</a></li>
+<li><strong>Query Language</strong>: <a href="https://queelius.github.io/jaf/query-language/">Query Syntax</a></li>
+<li><strong>Cookbook</strong>: <a href="https://queelius.github.io/jaf/cookbook/">Practical Examples</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+]]></content:encoded><category>Python</category><category>streaming</category><category>JSON</category><category>lazy-evaluation</category><category>functional-programming</category><category>boolean-algebra</category><category>data-processing</category><category>ETL</category></item><item><title>jsonl-algebra: Relational Algebra for Nested JSON</title><link>https://metafunctor.com/post/2024-12-jsonl-algebra/</link><pubDate>Wed, 18 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-12-jsonl-algebra/</guid><description>A command-line implementation of relational algebra for JSONL data with full support for nested structures, schema inference, and composable pipelines.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/jsonl-algebra/">jsonl-algebra</a></strong> (command: <code>ja</code>) is a command-line implementation of relational algebra for JSONL data. It&rsquo;s the production version of <a href="/post/2024-12-dotsuite/">dotsuite</a>&rsquo;s dotrelate component: SQL-like operations on the command line with first-class support for nested JSON structures.</p>
+<h2 id="the-relationship-to-dotsuite">The Relationship to Dotsuite</h2>
+<p>In dotsuite&rsquo;s architecture, dotrelate provides relational operations on document collections: join, union, project, difference. jsonl-algebra (<code>ja</code>) is the production implementation of those concepts, published on PyPI, with all relational operations plus aggregations, streaming support, schema tools, and an interactive REPL.</p>
+<h2 id="the-core-insight">The Core Insight</h2>
+<p>Traditional relational algebra assumes flat tables:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-sql" data-lang="sql"><span class="line"><span class="cl"><span class="k">SELECT</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">age</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">30</span><span class="w">
+</span></span></span></code></pre></div><p>But real-world JSON is deeply nested:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;user&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;city&#34;</span><span class="p">:</span> <span class="s2">&#34;NYC&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;zip&#34;</span><span class="p">:</span> <span class="s2">&#34;10001&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;orders&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="mi">101</span><span class="p">,</span> <span class="nt">&#34;amount&#34;</span><span class="p">:</span> <span class="mi">50</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>jsonl-algebra bridges this gap by extending relational algebra with dot notation for nested access:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;user.age &gt; 30&#39;</span> users.jsonl
+</span></span><span class="line"><span class="cl">ja project user.name,user.address.city users.jsonl
+</span></span><span class="line"><span class="cl">ja join users.jsonl orders.jsonl --on user.id<span class="o">=</span>customer_id
+</span></span></code></pre></div><h2 id="the-five-core-operations">The Five Core Operations</h2>
+<p>Relational algebra has five fundamental operations that form a complete algebra. Everything else is derived.</p>
+<h3 id="1-selection-filter-rows">1. Selection (filter rows)</h3>
+<p>Mathematical notation: \(\sigma_{\text{predicate}}(R)\)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Filter where status is &#34;active&#34;</span>
+</span></span><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;status == `&#34;active&#34;`&#39;</span> data.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter on nested fields</span>
+</span></span><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;user.age &gt; 30&#39;</span> users.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Complex boolean logic</span>
+</span></span><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;price &lt; 100 and category == `&#34;electronics&#34;`&#39;</span> products.jsonl
+</span></span></code></pre></div><p>Selection is commutative (\(\sigma_{p_1}(\sigma_{p_2}(R)) = \sigma_{p_2}(\sigma_{p_1}(R))\)) and combinable (\(\sigma_{p_1}(\sigma_{p_2}(R)) = \sigma_{p_1 \land p_2}(R)\)).</p>
+<h3 id="2-projection-selectcompute-columns">2. Projection (select/compute columns)</h3>
+<p>Mathematical notation: \(\pi_{\text{columns}}(R)\)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Pick specific fields</span>
+</span></span><span class="line"><span class="cl">ja project id,name data.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Access nested fields</span>
+</span></span><span class="line"><span class="cl">ja project user.name,user.address.city users.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Computed columns (coming soon)</span>
+</span></span><span class="line"><span class="cl">ja project name,annual_income<span class="o">=</span>salary*12 employees.jsonl
+</span></span></code></pre></div><p>Idempotent for simple projections: \(\pi_a(\pi_{a,b}(R)) = \pi_a(R)\).</p>
+<h3 id="3-join-combine-relations">3. Join (combine relations)</h3>
+<p>Mathematical notation: \(R \bowtie_{\text{condition}} S\)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Inner join on user ID</span>
+</span></span><span class="line"><span class="cl">ja join users.jsonl orders.jsonl --on user.id<span class="o">=</span>customer_id
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join on nested fields</span>
+</span></span><span class="line"><span class="cl">ja join posts.jsonl comments.jsonl --on post.id<span class="o">=</span>comment.post_id
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Multiple join keys</span>
+</span></span><span class="line"><span class="cl">ja join users.jsonl accounts.jsonl --on <span class="nv">id</span><span class="o">=</span>user_id,email<span class="o">=</span>account_email
+</span></span></code></pre></div><p>Commutative and associative, so you can join multiple files in any order:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja join users.jsonl orders.jsonl --on user.id<span class="o">=</span>customer_id <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja join - products.jsonl --on <span class="nv">product_id</span><span class="o">=</span>id
+</span></span></code></pre></div><h3 id="4-union-combine-all-rows">4. Union (combine all rows)</h3>
+<p>Mathematical notation: \(R \cup S\)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Combine employees and contractors</span>
+</span></span><span class="line"><span class="cl">ja union employees.jsonl contractors.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Union multiple sources</span>
+</span></span><span class="line"><span class="cl">ja union jan.jsonl feb.jsonl mar.jsonl
+</span></span></code></pre></div><h3 id="5-difference-set-subtraction">5. Difference (set subtraction)</h3>
+<p>Mathematical notation: \(R - S\)</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Find users without orders</span>
+</span></span><span class="line"><span class="cl">ja difference users.jsonl customers_with_orders.jsonl --on id
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Set operations</span>
+</span></span><span class="line"><span class="cl">ja difference all_items.jsonl sold_items.jsonl --on sku
+</span></span></code></pre></div><p>Not commutative: \(R - S \neq S - R\). This is the one that isn&rsquo;t symmetric.</p>
+<h2 id="aggregation-operations">Aggregation Operations</h2>
+<p>The five core operations are complete in the theoretical sense, but practical data processing needs aggregation.</p>
+<h3 id="groupby">GroupBy</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Count by category</span>
+</span></span><span class="line"><span class="cl">ja groupby category --agg count products.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sum by customer</span>
+</span></span><span class="line"><span class="cl">ja groupby customer_id --agg sum:amount orders.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Multiple aggregations</span>
+</span></span><span class="line"><span class="cl">ja groupby department --agg avg:salary,count,max:age employees.jsonl
+</span></span></code></pre></div><p>Supported aggregations: <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>list</code>.</p>
+<h3 id="chained-grouping">Chained Grouping</h3>
+<p>Traditional SQL requires nested subqueries for multi-level grouping. jsonl-algebra enables chained grouping through metadata preservation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Multi-level grouping</span>
+</span></span><span class="line"><span class="cl">cat sales.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby region <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby product <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby month <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja agg <span class="nv">total</span><span class="o">=</span>sum:amount
+</span></span></code></pre></div><p>Each <code>groupby</code> adds metadata without aggregating:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;sale_id&#34;</span><span class="p">:</span> <span class="mi">101</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;region&#34;</span><span class="p">:</span> <span class="s2">&#34;east&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;product&#34;</span><span class="p">:</span> <span class="s2">&#34;laptop&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;month&#34;</span><span class="p">:</span> <span class="s2">&#34;jan&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;amount&#34;</span><span class="p">:</span> <span class="mi">1200</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;_groups&#34;</span><span class="p">:</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="nt">&#34;field&#34;</span><span class="p">:</span> <span class="s2">&#34;region&#34;</span><span class="p">,</span> <span class="nt">&#34;value&#34;</span><span class="p">:</span> <span class="s2">&#34;east&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="nt">&#34;field&#34;</span><span class="p">:</span> <span class="s2">&#34;product&#34;</span><span class="p">,</span> <span class="nt">&#34;value&#34;</span><span class="p">:</span> <span class="s2">&#34;laptop&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span><span class="nt">&#34;field&#34;</span><span class="p">:</span> <span class="s2">&#34;month&#34;</span><span class="p">,</span> <span class="nt">&#34;value&#34;</span><span class="p">:</span> <span class="s2">&#34;jan&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">],</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;_group_size&#34;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;_group_index&#34;</span><span class="p">:</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This preserves the relational structure while tracking grouping hierarchy. It&rsquo;s what makes the chaining composable.</p>
+<h2 id="the-5-minute-tour">The 5-Minute Tour</h2>
+<p>Two JSONL files:</p>
+<p><code>users.jsonl</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;user&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">}}</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;user&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Bob&#34;</span><span class="p">}}</span>
+</span></span></code></pre></div><p><code>orders.jsonl</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;order_id&#34;</span><span class="p">:</span> <span class="mi">101</span><span class="p">,</span> <span class="nt">&#34;customer_id&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nt">&#34;amount&#34;</span><span class="p">:</span> <span class="mi">50</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;order_id&#34;</span><span class="p">:</span> <span class="mi">102</span><span class="p">,</span> <span class="nt">&#34;customer_id&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nt">&#34;amount&#34;</span><span class="p">:</span> <span class="mi">75</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;order_id&#34;</span><span class="p">:</span> <span class="mi">103</span><span class="p">,</span> <span class="nt">&#34;customer_id&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="nt">&#34;amount&#34;</span><span class="p">:</span> <span class="mi">120</span><span class="p">}</span>
+</span></span></code></pre></div><p>Goal: total amount spent by each user.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Join users and orders, then aggregate</span>
+</span></span><span class="line"><span class="cl">ja join users.jsonl orders.jsonl --on user.id<span class="o">=</span>customer_id <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby user.name --agg sum:amount
+</span></span></code></pre></div><p>Output:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;user.name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">,</span> <span class="nt">&#34;sum_amount&#34;</span><span class="p">:</span> <span class="mi">125</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span><span class="nt">&#34;user.name&#34;</span><span class="p">:</span> <span class="s2">&#34;Bob&#34;</span><span class="p">,</span> <span class="nt">&#34;sum_amount&#34;</span><span class="p">:</span> <span class="mi">120</span><span class="p">}</span>
+</span></span></code></pre></div><p>Nested field access, relational join, aggregation, Unix-style piping. That&rsquo;s the whole idea.</p>
+<h2 id="additional-operations">Additional Operations</h2>
+<h3 id="distinct">Distinct</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja distinct users.jsonl
+</span></span><span class="line"><span class="cl">ja distinct --key user.id,email contacts.jsonl
+</span></span></code></pre></div><h3 id="sort">Sort</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja sort age users.jsonl
+</span></span><span class="line"><span class="cl">ja sort age:desc users.jsonl
+</span></span><span class="line"><span class="cl">ja sort department,salary:desc employees.jsonl
+</span></span></code></pre></div><h3 id="rename">Rename</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja rename <span class="nv">id</span><span class="o">=</span>user_id data.jsonl
+</span></span><span class="line"><span class="cl">ja rename user.loc<span class="o">=</span>user.location data.jsonl
+</span></span></code></pre></div><h3 id="headtail">Head/Tail</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja head <span class="m">10</span> data.jsonl
+</span></span><span class="line"><span class="cl">ja tail <span class="m">10</span> data.jsonl
+</span></span></code></pre></div><h2 id="schema-operations">Schema Operations</h2>
+<h3 id="inference">Inference</h3>
+<p>Automatically discover the structure of your data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja schema infer users.jsonl &gt; users_schema.json
+</span></span></code></pre></div><p>Output:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;object&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;id&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;integer&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;string&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;age&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;integer&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;address&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;object&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;properties&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;city&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;string&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;zip&#34;</span><span class="p">:</span> <span class="p">{</span><span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;string&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h3 id="validation">Validation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja schema validate users_schema.json users.jsonl
+</span></span></code></pre></div><p>Useful for data quality checks, ETL pipeline validation, and API contract testing.</p>
+<h2 id="format-conversion">Format Conversion</h2>
+<h3 id="jsonl-to-csv">JSONL to CSV</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja to-csv users.jsonl &gt; users.csv
+</span></span><span class="line"><span class="cl">ja project user.name,user.age users.jsonl <span class="p">|</span> ja to-csv &gt; simple.csv
+</span></span></code></pre></div><p>Nested structures get flattened intelligently: <code>{&quot;user&quot;: {&quot;name&quot;: &quot;Alice&quot;, &quot;age&quot;: 30}}</code> becomes <code>user.name,user.age\nAlice,30</code>.</p>
+<h3 id="csv-to-jsonl">CSV to JSONL</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja from-csv users.csv &gt; users.jsonl
+</span></span></code></pre></div><h2 id="interactive-repl">Interactive REPL</h2>
+<p>Build and test pipelines interactively:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ ja repl users.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ja&gt; <span class="k">select</span> <span class="s1">&#39;age &gt; 25&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Preview first few results...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ja&gt; project name,email
+</span></span><span class="line"><span class="cl"><span class="c1"># Preview transformed data...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ja&gt; groupby department --agg avg:salary
+</span></span><span class="line"><span class="cl"><span class="c1"># See aggregated results...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ja&gt; write output.jsonl
+</span></span><span class="line"><span class="cl"><span class="c1"># Save pipeline results</span>
+</span></span></code></pre></div><p>Good for exploring unfamiliar data, testing query predicates, and iterative pipeline development.</p>
+<h2 id="command-line-examples">Command-Line Examples</h2>
+<h3 id="log-analysis">Log Analysis</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;level == `&#34;ERROR&#34;` and service == `&#34;auth&#34;`&#39;</span> app.log.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;level == `&#34;ERROR&#34;`&#39;</span> app.log.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby service --agg count
+</span></span></code></pre></div><h3 id="etl-pipeline">ETL Pipeline</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;status == `&#34;completed&#34;`&#39;</span> sales.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja project customer_id,amount,date <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja join - customers.jsonl --on <span class="nv">customer_id</span><span class="o">=</span>id <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby customer.region --agg sum:amount <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja sort sum_amount:desc <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja head <span class="m">10</span>
+</span></span></code></pre></div><h3 id="data-quality-checks">Data Quality Checks</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Find users without email</span>
+</span></span><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;not (email != `null`)&#39;</span> users.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find duplicate user IDs</span>
+</span></span><span class="line"><span class="cl">ja groupby user_id users.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja <span class="k">select</span> <span class="s1">&#39;_group_size &gt; 1&#39;</span>
+</span></span></code></pre></div><h3 id="report-generation">Report Generation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja join orders.jsonl products.jsonl --on <span class="nv">product_id</span><span class="o">=</span>id <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby month,category --agg sum:revenue,count:orders <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja sort month,sum_revenue:desc <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja to-csv &gt; monthly_report.csv
+</span></span></code></pre></div><h2 id="python-api">Python API</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">ja.core</span> <span class="kn">import</span> <span class="n">read_jsonl</span><span class="p">,</span> <span class="n">join</span><span class="p">,</span> <span class="n">groupby_agg</span><span class="p">,</span> <span class="n">select_rows</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">ja.schema</span> <span class="kn">import</span> <span class="n">infer_schema</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Load data</span>
+</span></span><span class="line"><span class="cl"><span class="n">users</span> <span class="o">=</span> <span class="n">read_jsonl</span><span class="p">(</span><span class="s2">&#34;users.jsonl&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">orders</span> <span class="o">=</span> <span class="n">read_jsonl</span><span class="p">(</span><span class="s2">&#34;orders.jsonl&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join</span>
+</span></span><span class="line"><span class="cl"><span class="n">joined</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[(</span><span class="s2">&#34;user.id&#34;</span><span class="p">,</span> <span class="s2">&#34;customer_id&#34;</span><span class="p">)])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter</span>
+</span></span><span class="line"><span class="cl"><span class="n">high_value</span> <span class="o">=</span> <span class="n">select_rows</span><span class="p">(</span><span class="n">joined</span><span class="p">,</span> <span class="s2">&#34;amount &gt; 100&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Aggregate</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">groupby_agg</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">high_value</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">group_by_key</span><span class="o">=</span><span class="s2">&#34;user.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">aggregations</span><span class="o">=</span><span class="p">[(</span><span class="s2">&#34;sum&#34;</span><span class="p">,</span> <span class="s2">&#34;amount&#34;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&#34;count&#34;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Schema inference</span>
+</span></span><span class="line"><span class="cl"><span class="n">schema</span> <span class="o">=</span> <span class="n">infer_schema</span><span class="p">(</span><span class="n">users</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="integration-with-ecosystem">Integration with Ecosystem</h2>
+<h3 id="with-jaf-filtering">With JAF (filtering)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">jaf filter users.jsonl <span class="s1">&#39;(eq? @status &#34;active&#34;)&#39;</span> --eval <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja join - orders.jsonl --on <span class="nv">id</span><span class="o">=</span>user_id <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> ja groupby name --agg sum:amount
+</span></span></code></pre></div><h3 id="with-jq-json-manipulation">With jq (JSON manipulation)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja join users.jsonl orders.jsonl --on <span class="nv">id</span><span class="o">=</span>user_id <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> jq <span class="s1">&#39;.metadata = {processed: now, version: &#34;1.0&#34;}&#39;</span>
+</span></span></code></pre></div><h3 id="with-standard-unix-tools">With standard Unix tools</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ja project email users.jsonl <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> grep <span class="s1">&#39;@gmail.com&#39;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> sort <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> uniq -c
+</span></span></code></pre></div><h2 id="theoretical-foundation">Theoretical Foundation</h2>
+<p>jsonl-algebra implements Codd&rsquo;s relational algebra extended for nested data.</p>
+<h3 id="completeness">Completeness</h3>
+<p>The five operations (selection, projection, join, union, difference) form a complete algebra. Any relational query can be expressed using these primitives.</p>
+<h3 id="closure-property">Closure Property</h3>
+<p>Every operation produces a valid relation:</p>
+\[
+\text{Relation} \xrightarrow{\text{Operation}} \text{Relation}
+\]<p>This ensures composability: <code>R | op1 | op2 | op3</code> always works.</p>
+<h3 id="query-optimization">Query Optimization</h3>
+<p>Because operations have well-defined algebraic properties, queries can be optimized:</p>
+<p>Selection pushdown:
+</p>
+\[
+\sigma_p(R \bowtie S) \equiv (\sigma_p(R)) \bowtie S \quad \text{(if p only references R)}
+\]<p>Projection elimination:
+</p>
+\[
+\pi_a(\pi_{a,b}(R)) \equiv \pi_a(R)
+\]<p>These enable automatic query optimization (future work).</p>
+<h3 id="nested-data-extension">Nested Data Extension</h3>
+<p>Traditional relational algebra assumes flat tuples. jsonl-algebra extends this with path expressions (replace column names with dot-separated paths), deep equality (join conditions can reference nested fields), and projection flattening (projection can flatten nested structures).</p>
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Operation</th>
+					<th>Memory</th>
+					<th>Time</th>
+					<th>Notes</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>select</strong></td>
+					<td>O(1)</td>
+					<td>O(n)</td>
+					<td>Streaming filter</td>
+			</tr>
+			<tr>
+					<td><strong>project</strong></td>
+					<td>O(1)</td>
+					<td>O(n)</td>
+					<td>Field extraction</td>
+			</tr>
+			<tr>
+					<td><strong>join</strong></td>
+					<td>O(min(R,S))</td>
+					<td>O(R*S)</td>
+					<td>Hash join (smaller table in memory)</td>
+			</tr>
+			<tr>
+					<td><strong>union</strong></td>
+					<td>O(1)</td>
+					<td>O(R+S)</td>
+					<td>Streaming concatenation</td>
+			</tr>
+			<tr>
+					<td><strong>distinct</strong></td>
+					<td>O(k)</td>
+					<td>O(n)</td>
+					<td>k = unique items</td>
+			</tr>
+			<tr>
+					<td><strong>groupby</strong></td>
+					<td>O(g)</td>
+					<td>O(n)</td>
+					<td>g = number of groups</td>
+			</tr>
+			<tr>
+					<td><strong>sort</strong></td>
+					<td>O(n)</td>
+					<td>O(n log n)</td>
+					<td>External sort for large data</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="when-to-use-jsonl-algebra">When to Use jsonl-algebra</h2>
+<p>Use <code>ja</code> for working with JSONL data, SQL-like operations on nested JSON, command-line data pipelines, joining multiple data sources, aggregating and grouping data, and schema inference/validation.</p>
+<p>Use something else for persistent databases (PostgreSQL, MongoDB), complex analytical queries (DuckDB, ClickHouse), real-time streaming (Kafka, Flink), or if you just need filtering and mapping (JAF).</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install</span>
+</span></span><span class="line"><span class="cl">pip install jsonl-algebra
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Basic usage</span>
+</span></span><span class="line"><span class="cl">ja <span class="k">select</span> <span class="s1">&#39;age &gt; 30&#39;</span> users.jsonl
+</span></span><span class="line"><span class="cl">ja project name,email users.jsonl
+</span></span><span class="line"><span class="cl">ja join users.jsonl orders.jsonl --on <span class="nv">id</span><span class="o">=</span>user_id
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Interactive mode</span>
+</span></span><span class="line"><span class="cl">ja repl data.jsonl
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/jsonl-algebra/">pypi.org/project/jsonl-algebra/</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/jsonl-algebra">github.com/queelius/jsonl-algebra</a></li>
+<li><strong>Quick Start</strong>: <a href="https://github.com/queelius/jsonl-algebra/blob/master/docs/quickstart.md">docs/quickstart.md</a></li>
+<li><strong>Concepts</strong>: <a href="https://github.com/queelius/jsonl-algebra/blob/master/docs/concepts/jsonl-algebra.md">docs/concepts/jsonl-algebra.md</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+]]></content:encoded><category>Python</category><category>JSON</category><category>relational-algebra</category><category>ETL</category><category>data-processing</category><category>Unix-philosophy</category><category>command-line</category><category>sicp</category></item><item><title>The Dot Ecosystem: From Simple Paths to Data Algebras</title><link>https://metafunctor.com/post/2024-12-dotsuite/</link><pubDate>Sun, 15 Dec 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-12-dotsuite/</guid><description>A composable ecosystem of tools for manipulating nested data structures. From a simple helper function to a full data algebra, guided by purity, pedagogy, and the principle of least power.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/dotsuite">dotsuite</a></strong> is a suite of composable tools for working with nested data structures like JSON, YAML, and Python dictionaries. It started as a single helper function and grew into something with actual mathematical structure. That growth is the interesting part.</p>
+<h2 id="the-origin">The Origin</h2>
+<p>It always starts with a simple problem. You have a nested dictionary and you need a value buried deep inside:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Brittle code that crashes on missing keys</span>
+</span></span><span class="line"><span class="cl"><span class="n">email</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;user&#39;</span><span class="p">][</span><span class="s1">&#39;contacts&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;email&#39;</span><span class="p">]</span>  <span class="c1"># KeyError? IndexError?</span>
+</span></span></code></pre></div><p>The first solution is a helper function:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># The essence of dotget - simple enough to copy</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">segment</span><span class="p">)]</span> <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">else</span> <span class="n">data</span><span class="p">[</span><span class="n">segment</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">data</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">default</span>
+</span></span></code></pre></div><p>This is where the story begins. That single function, once you start asking questions about what else you need, leads to a complete ecosystem for data manipulation. The trick is that the questions have a natural structure to them.</p>
+<h2 id="the-three-pillars">The Three Pillars</h2>
+<p>The ecosystem organizes around three fundamental questions about data:</p>
+<h3 id="depth-pillar-where-is-the-data">Depth Pillar: &ldquo;Where is the data?&rdquo;</h3>
+<p>Tools for finding and extracting values from within documents.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Tool</th>
+					<th>Purpose</th>
+					<th>Complexity</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>dotget</strong></td>
+					<td>Simple exact paths</td>
+					<td><code>get(data, &quot;user.name&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotstar</strong></td>
+					<td>Wildcard patterns</td>
+					<td><code>search(data, &quot;users.*.name&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotselect</strong></td>
+					<td>Advanced selection with predicates</td>
+					<td><code>find_first(data, &quot;users[role=admin].name&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotpath</strong></td>
+					<td>Extensible path engine</td>
+					<td>Powers all other tools, Turing-complete</td>
+			</tr>
+	</tbody>
+</table>
+<p>The addressing layer forms a free algebra on selectors, with operators being morphisms in the Kleisli category of the powerset monad. In practice this means <code>dotstar</code> composed with <code>dotselect</code> still yields a well-defined set of values. You can compose these things without worrying about edge cases blowing up.</p>
+<h3 id="truth-pillar-is-this-assertion-true">Truth Pillar: &ldquo;Is this assertion true?&rdquo;</h3>
+<p>Tools for asking boolean questions and validating data.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Tool</th>
+					<th>Purpose</th>
+					<th>Logic</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>dotexists</strong></td>
+					<td>Path existence</td>
+					<td><code>check(data, &quot;user.email&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotany</strong></td>
+					<td>Existential quantifier</td>
+					<td><code>any_match(data, &quot;users.*.role&quot;, &quot;admin&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotall</strong></td>
+					<td>Universal quantifier</td>
+					<td><code>all_match(data, &quot;users.*.status&quot;, &quot;active&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotquery</strong></td>
+					<td>Compositional logic engine</td>
+					<td><code>Query(&quot;any equals role admin&quot;).check(data)</code></td>
+			</tr>
+	</tbody>
+</table>
+<p>Predicates form a Boolean algebra under conjunction, disjunction, and negation that is homomorphic to set algebra on result subsets. This enables short-circuit evaluation and distributive laws. The math isn&rsquo;t decoration; it&rsquo;s what makes the composition reliable.</p>
+<h3 id="shape-pillar-how-should-the-data-be-transformed">Shape Pillar: &ldquo;How should the data be transformed?&rdquo;</h3>
+<p>Tools for reshaping and modifying data structures.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Tool</th>
+					<th>Purpose</th>
+					<th>Type</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>dotmod</strong></td>
+					<td>Surgical modifications</td>
+					<td><code>set_(data, &quot;user.status&quot;, &quot;inactive&quot;)</code></td>
+			</tr>
+			<tr>
+					<td><strong>dotbatch</strong></td>
+					<td>Atomic transactions</td>
+					<td>Apply multiple changes safely</td>
+			</tr>
+			<tr>
+					<td><strong>dotpipe</strong></td>
+					<td>Data transformation pipelines</td>
+					<td>Reshape documents into new forms</td>
+			</tr>
+			<tr>
+					<td><strong>dotpluck</strong></td>
+					<td>Value extraction</td>
+					<td>Create new structures from selections</td>
+			</tr>
+	</tbody>
+</table>
+<p>Transformations are endofunctors on document spaces with monoid composition. <code>dotmod</code> implements lenses with put-get laws, while <code>dotpipe</code> provides Kleisli composition of pure functions.</p>
+<h2 id="the-pedagogical-gradient">The Pedagogical Gradient</h2>
+<p>The ecosystem is designed as a learning path. Each level builds on the previous, and no tool becomes obsolete.</p>
+<p><strong>1. Hello World</strong> (minimal mental load):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotget.core</span> <span class="kn">import</span> <span class="n">get</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotexists.core</span> <span class="kn">import</span> <span class="n">check</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;users&#34;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">}]}</span>
+</span></span><span class="line"><span class="cl"><span class="n">name</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.name&#34;</span><span class="p">)</span>  <span class="c1"># &#34;Alice&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="n">exists</span> <span class="o">=</span> <span class="n">check</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.email&#34;</span><span class="p">)</span>  <span class="c1"># False</span>
+</span></span></code></pre></div><p><strong>2. Pattern Phase</strong> (wildcards and basic changes):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotmod.core</span> <span class="kn">import</span> <span class="n">set_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">all_names</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.*.name&#34;</span><span class="p">)</span>  <span class="c1"># [&#34;Alice&#34;]</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_data</span> <span class="o">=</span> <span class="n">set_</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">)</span>  <span class="c1"># Immutable!</span>
+</span></span></code></pre></div><p><strong>3. Power User</strong> (complex operations):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compositional boolean logic</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin and greater login_count 10&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="p">[</span><span class="n">user</span> <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">users</span> <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">user</span><span class="p">)]</span>
+</span></span></code></pre></div><p><strong>4. Expert</strong> (extensible engines):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotpath.core</span> <span class="kn">import</span> <span class="n">PathEngine</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Custom selector primitives</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">PathEngine</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="o">.</span><span class="n">register_selector</span><span class="p">(</span><span class="n">FuzzyKeySelector</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relational operations</span>
+</span></span><span class="line"><span class="cl"><span class="n">enriched</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>A <code>dotget</code> call is still the right choice when you know the exact path. You don&rsquo;t outgrow the simple tools; you add more when you need them.</p>
+<h2 id="the-steal-this-code-philosophy">The &ldquo;Steal This Code&rdquo; Philosophy</h2>
+<p>Many tools are intentionally simple enough that you can copy their core logic rather than add a dependency:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># The entire essence of dotget</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">segment</span><span class="p">)]</span> <span class="k">if</span> <span class="n">segment</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span><span class="p">[</span><span class="n">segment</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">data</span>
+</span></span><span class="line"><span class="cl">    <span class="k">except</span> <span class="p">(</span><span class="ne">KeyError</span><span class="p">,</span> <span class="ne">IndexError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">default</span>
+</span></span></code></pre></div><p>Make each program do one thing so well that its implementation becomes obvious. If you don&rsquo;t need the rest of the suite, just take what you need.</p>
+<h2 id="lifting-to-collections">Lifting to Collections</h2>
+<p>Once you have operations on single documents, you can lift them to collections. This is where the category theory actually pays off.</p>
+<h3 id="boolean-wing-filtering">Boolean Wing (Filtering)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotfilter.core</span> <span class="kn">import</span> <span class="n">filter_collection</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter documents matching a predicate</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="n">filter_collection</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">users</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Boolean algebra on collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">active_admins</span> <span class="o">=</span> <span class="n">filter_collection</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">admins</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals status active&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Every collection operator is a monoid homomorphism with respect to multiset union, which means you can parallelize and stream without thinking about correctness.</p>
+<h3 id="relational-wing-joining-and-transforming">Relational Wing (Joining and Transforming)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">project</span><span class="p">,</span> <span class="n">union</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Relational algebra on document collections</span>
+</span></span><span class="line"><span class="cl"><span class="n">user_orders</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">how</span><span class="o">=</span><span class="s2">&#34;left&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Project to specific fields</span>
+</span></span><span class="line"><span class="cl"><span class="n">summary</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">user_orders</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;name&#34;</span><span class="p">,</span> <span class="s2">&#34;total_spent&#34;</span><span class="p">])</span>
+</span></span></code></pre></div><p>This mirrors database theory: single-document logic is like tuple calculus; <code>dotrelate</code> is like relational algebra.</p>
+<h2 id="command-line-first">Command-Line First</h2>
+<p>Every tool works from the command line:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Check if any user is an admin</span>
+</span></span><span class="line"><span class="cl">cat users.json <span class="p">|</span> dotquery <span class="s2">&#34;any equals role admin&#34;</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">&#34;Admin found&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract all email addresses</span>
+</span></span><span class="line"><span class="cl">cat contacts.json <span class="p">|</span> dotstar <span class="s2">&#34;contacts.*.email&#34;</span> &gt; emails.txt
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join users with their orders</span>
+</span></span><span class="line"><span class="cl">dotrelate join --on<span class="o">=</span><span class="s2">&#34;user_id&#34;</span> users.jsonl orders.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter pipeline</span>
+</span></span><span class="line"><span class="cl">cat books.json <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> dotquery <span class="s2">&#34;less price 10 or equals author &#39;Tolkien&#39;&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> dotquery and <span class="s2">&#34;equals in_stock true&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl">  <span class="p">|</span> dotquery resolve
+</span></span></code></pre></div><h2 id="dual-apis-programmatic-and-declarative">Dual APIs: Programmatic and Declarative</h2>
+<p>Many tools offer both Python APIs and serializable query formats:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Programmatic (Python API)</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.primitives</span> <span class="kn">import</span> <span class="n">equals</span><span class="p">,</span> <span class="n">greater</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">equals</span><span class="p">(</span><span class="s1">&#39;role&#39;</span><span class="p">,</span> <span class="s1">&#39;admin&#39;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">greater</span><span class="p">(</span><span class="s1">&#39;login_count&#39;</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Declarative (string DSL)</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin and greater login_count 10&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Both produce the same AST</span>
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="n">query</span><span class="o">.</span><span class="n">ast</span> <span class="o">==</span> <span class="n">other_query</span><span class="o">.</span><span class="n">ast</span>
+</span></span></code></pre></div><p>This means you can serialize queries to JSON, send them over APIs, version control them in git, and use them from the command line. Same semantics everywhere.</p>
+<h2 id="mathematical-foundation">Mathematical Foundation</h2>
+<p>For those who care about the formal structure (I do):</p>
+<h3 id="type-signatures">Type Signatures</h3>
+<p><strong>Depth Pillar</strong> (Addressing):
+</p>
+\[
+\text{dotget}: \mathcal{D} \times \text{Path}_{\text{exact}} \to V \cup \lbrace \emptyset\rbrace
+\]<p>
+</p>
+\[
+\text{dotstar}: \mathcal{D} \times \text{Path}_{*} \to V^{*}
+\]<p>
+</p>
+\[
+\text{dotpath}: \text{Free algebra on selectors (Turing-complete)}
+\]<p><strong>Truth Pillar</strong> (Predicates):
+</p>
+\[
+\text{dotexists}: \mathcal{D} \times P \to \mathbb{B}
+\]<p>
+</p>
+\[
+\text{dotquery}: \mathcal{D} \times \mathcal{L}_{\text{BOOL}}(\varphi_i) \to \mathbb{B}
+\]<p><strong>Shape Pillar</strong> (Transformations):
+</p>
+\[
+\text{dotmod}: \mathcal{D} \times \delta \to \mathcal{D} \quad \text{(lens with put-get law)}
+\]<p>
+</p>
+\[
+\text{dotpipe}: \mathcal{D} \times F^{*} \to \mathcal{D} \quad \text{(Kleisli composition)}
+\]<h3 id="functorial-lifting">Functorial Lifting</h3>
+<p>Operations lift to collections via functors:</p>
+\[
+\text{map}: (\mathcal{D} \to X) \to (C \to X^{*})
+\]<p>
+</p>
+\[
+\text{filter}: (\mathcal{D} \to \mathbb{B}) \to (C \to C)
+\]<p>Where \(C \subseteq \mathcal{D}\) is a finite multiset (collection).</p>
+<h3 id="key-properties">Key Properties</h3>
+<ol>
+<li><strong>Compositionality</strong>: Operators form algebras (Boolean, monoidal, Kleisli) guaranteeing local reasoning</li>
+<li><strong>Purity</strong>: Functions are referentially transparent, so concurrency is trivial</li>
+<li><strong>Totality</strong>: Missing paths yield the empty set rather than exceptions</li>
+<li><strong>Orthogonality</strong>: No operator belongs to multiple pillars</li>
+<li><strong>Homomorphism</strong>: Collection operators preserve structure under union</li>
+</ol>
+<h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="data-pipeline-processing">Data Pipeline Processing</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotpipe.core</span> <span class="kn">import</span> <span class="n">pipe</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Extract -&gt; Filter -&gt; Transform pipeline</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">pipe</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">doc</span><span class="p">:</span> <span class="n">search</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="s2">&#34;transactions.*.amount&#34;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">amounts</span><span class="p">:</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">amounts</span> <span class="k">if</span> <span class="n">a</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="k">lambda</span> <span class="n">large</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">large</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">total_large_transactions</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">financial_data</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="etl-with-relational-operations">ETL with Relational Operations</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">collections.dotrelate.core</span> <span class="kn">import</span> <span class="n">join</span><span class="p">,</span> <span class="n">project</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join users with orders</span>
+</span></span><span class="line"><span class="cl"><span class="n">user_orders</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">users</span><span class="p">,</span> <span class="n">orders</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;user_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;customer_id&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Join with products</span>
+</span></span><span class="line"><span class="cl"><span class="n">full_data</span> <span class="o">=</span> <span class="n">join</span><span class="p">(</span><span class="n">user_orders</span><span class="p">,</span> <span class="n">products</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">left_on</span><span class="o">=</span><span class="s2">&#34;product_id&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                 <span class="n">right_on</span><span class="o">=</span><span class="s2">&#34;id&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Project to summary</span>
+</span></span><span class="line"><span class="cl"><span class="n">summary</span> <span class="o">=</span> <span class="n">project</span><span class="p">(</span><span class="n">full_data</span><span class="p">,</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;user.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;order.date&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;product.name&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;order.total&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="p">])</span>
+</span></span></code></pre></div><h3 id="complex-boolean-logic">Complex Boolean Logic</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find books that are:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Either cheap (&lt;$10) OR by Tolkien</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - AND in stock</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - AND have good reviews (&gt;4 stars)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;&#34;&#34;
+</span></span></span><span class="line"><span class="cl"><span class="s2">    (less price 10 or equals author &#39;Tolkien&#39;)
+</span></span></span><span class="line"><span class="cl"><span class="s2">    and equals in_stock true
+</span></span></span><span class="line"><span class="cl"><span class="s2">    and greater rating 4.0
+</span></span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matching_books</span> <span class="o">=</span> <span class="p">[</span><span class="n">book</span> <span class="k">for</span> <span class="n">book</span> <span class="ow">in</span> <span class="n">catalog</span> <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">book</span><span class="p">)]</span>
+</span></span></code></pre></div><h2 id="design-principles">Design Principles</h2>
+<ul>
+<li><strong>Compositionality</strong>: Every tool composes cleanly with others</li>
+<li><strong>Immutability</strong>: Original data is never modified</li>
+<li><strong>Pedagogical</strong>: Simple tools graduate to powerful ones</li>
+<li><strong>Single Purpose</strong>: Each tool has one clear responsibility</li>
+<li><strong>Interoperability</strong>: Common patterns work across all tools</li>
+<li><strong>Safety</strong>: Graceful handling of missing paths and malformed data</li>
+</ul>
+<h2 id="category-theory-for-the-curious">Category Theory for the Curious</h2>
+<p>For those interested in the theoretical foundations:</p>
+<p><strong>Paths as Optics</strong>: The addressing layer implements lenses and prisms from optics theory, providing composable getters and setters.</p>
+<p><strong>Predicates as Subobjects</strong>: Boolean queries correspond to subobjects in the topos of sets, with conjunction/disjunction/negation being categorical limits/colimits/exponentials.</p>
+<p><strong>Transformations as Endofunctors</strong>: Shape operations are endofunctors on the category of documents, with natural transformations providing the composition structure.</p>
+<p><strong>Collections as Functorial Lift</strong>: The map/filter operations on collections are functors from the category of single-document operations to the category of collection operations, preserving algebraic structure.</p>
+<p>This isn&rsquo;t mathematical window dressing. These properties guarantee that composition behaves predictably and that parallel evaluation is always safe. When I say &ldquo;this composes,&rdquo; I mean it in the category-theoretic sense, not the marketing sense.</p>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install from PyPI (once published)</span>
+</span></span><span class="line"><span class="cl">pip install dotsuite
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Or install from source</span>
+</span></span><span class="line"><span class="cl">git clone https://github.com/queelius/dotsuite.git
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> dotsuite
+</span></span><span class="line"><span class="cl">pip install -e .
+</span></span></code></pre></div><p>Basic usage:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotget.core</span> <span class="kn">import</span> <span class="n">get</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">depth.dotstar.core</span> <span class="kn">import</span> <span class="n">search</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">truth.dotquery.core</span> <span class="kn">import</span> <span class="n">Query</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">shape.dotmod.core</span> <span class="kn">import</span> <span class="n">set_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Simple addressing</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;users&#34;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Alice&#34;</span><span class="p">,</span> <span class="s2">&#34;role&#34;</span><span class="p">:</span> <span class="s2">&#34;admin&#34;</span><span class="p">}]}</span>
+</span></span><span class="line"><span class="cl"><span class="n">name</span> <span class="o">=</span> <span class="n">get</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.name&#34;</span><span class="p">)</span>  <span class="c1"># &#34;Alice&#34;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pattern matching</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_names</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.*.name&#34;</span><span class="p">)</span>  <span class="c1"># [&#34;Alice&#34;]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Boolean queries</span>
+</span></span><span class="line"><span class="cl"><span class="n">is_admin</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="s2">&#34;equals role admin&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&#34;users&#34;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># True</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Immutable modifications</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_data</span> <span class="o">=</span> <span class="n">set_</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&#34;users.0.status&#34;</span><span class="p">,</span> <span class="s2">&#34;active&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/dotsuite">github.com/queelius/dotsuite</a></li>
+<li><strong>Philosophy</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/philosophy.md">docs/philosophy.md</a></li>
+<li><strong>Formal Spec</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/dot-formalism.md">docs/dot-formalism.md</a></li>
+<li><strong>Tool Docs</strong>: Individual README for each tool</li>
+<li><strong>JAF Comparison</strong>: <a href="https://github.com/queelius/dotsuite/blob/master/docs/jaf-comparison.md">docs/jaf-comparison.md</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+]]></content:encoded><category>Python</category><category>data-structures</category><category>JSON</category><category>functional-programming</category><category>API-design</category><category>category-theory</category><category>compositionality</category><category>Unix-philosophy</category></item></channel></rss>

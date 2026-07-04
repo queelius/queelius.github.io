@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Reliability-Estimation-in-Series-Systems on metafunctor</title><link>https://metafunctor.com/linked_project/reliability-estimation-in-series-systems/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/reliability-estimation-in-series-systems/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Master's Project: Reliability Estimation in Series Systems</title><link>https://metafunctor.com/post/masters-stats-siue-proj/</link><pubDate>Mon, 19 Feb 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/masters-stats-siue-proj/</guid><description>My master's project on maximum likelihood estimation for series systems with right-censored and masked failure data.</description><content:encoded><![CDATA[<p>I presented my master&rsquo;s project in October 2023, finishing up my MS in statistics/mathematics at SIUE. The associated paper is titled &ldquo;Reliability Estimation in Series Systems: Maximum Likelihood Techniques for Right-Censored and Masked Failure Data.&rdquo;</p>
+<h2 id="the-problem">The Problem</h2>
+<p>In reliability engineering, you often find yourself in an annoying situation: a system fails, but you do not know which component caused the failure. This is called <em>masked failure data</em>. On top of that, some systems are still running when you stop observing them, so you only know they survived at least that long. That is <em>right censoring</em>. Both are common in practice. Identifying the exact failed component is expensive or sometimes impossible.</p>
+<p>The project builds a likelihood-based framework that handles both masking and censoring simultaneously, models component lifetimes with Weibull distributions, derives closed-form Fisher information for the exponential special case, and provides bootstrap methods for uncertainty quantification. I implemented it all in an R package so practitioners can actually use it.</p>
+<h2 id="related-work">Related Work</h2>
+<p>This connects to several other posts and projects:</p>
+<ul>
+<li><a href="/post/expo-masked-fim/">Closed-Form Results for Masked Exponential Series Systems</a> covers the exponential distribution special case with analytical solutions</li>
+<li><a href="/projects/likelihood.model/">likelihood.model R package</a> is the software implementation</li>
+</ul>
+<p>See the full project page <a href="/projects/reliability-estimation-in-series-systems/">here</a>.</p>
+]]></content:encoded><category>series systems</category><category>masked failure data</category><category>censoring</category><category>reliability analysis</category><category>maximum likelihood</category><category>Weibull distribution</category><category>R</category></item><item><title>mdrelax: When Masking Conditions Don't Hold</title><link>https://metafunctor.com/post/2025-12-03-mdrelax/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-03-mdrelax/</guid><description>Extending masked failure data analysis when the standard C1-C2-C3 masking conditions are violated.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/mdrelax">mdrelax</a></strong> extends my work on series system reliability by handling cases where the standard masking assumptions break down.</p>
+<h2 id="background-the-c1-c2-c3-framework">Background: The C1-C2-C3 Framework</h2>
+<p>My <a href="/publications/math-proj/">master&rsquo;s thesis</a> developed maximum likelihood techniques for series systems with masked failure data. The standard framework assumes three conditions:</p>
+<ul>
+<li><strong>C1</strong>: The failed component is always in the candidate set</li>
+<li><strong>C2</strong>: Non-informative masking (uniform probability within candidate set)</li>
+<li><strong>C3</strong>: Masking mechanism is independent of system parameters</li>
+</ul>
+<p>When these hold, the masking probabilities factor out and you can ignore them for parameter estimation. The <a href="/papers/expo-masked-fim/">expo-masked-fim</a> paper derives closed-form Fisher Information for the exponential case, and <a href="/projects/maskedcauses/">maskedcauses</a> implements the general framework.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>In practice, C2 and C3 are often violated.</p>
+<p><strong>Informative masking (C2 violation)</strong>: Diagnostic tests may be better at identifying certain failure modes than others. A component that fails catastrophically is easier to identify than one that degrades subtly.</p>
+<p><strong>Parameter-dependent masking (C3 violation)</strong>: The masking mechanism might depend on component reliabilities. Components with shorter lifetimes fail more often, so technicians get more practice diagnosing them.</p>
+<p>If you pretend C2 and C3 hold when they don&rsquo;t, your parameter estimates are biased. Sometimes badly.</p>
+<h2 id="what-mdrelax-does">What mdrelax Does</h2>
+<p>The package implements likelihood-based inference with relaxed conditions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="nf">library</span><span class="p">(</span><span class="n">mdrelax</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Generate masked data with Bernoulli candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_bernoulli_cand_C1_C2_C3</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sample candidate sets</span>
+</span></span><span class="line"><span class="cl"><span class="n">md</span> <span class="o">&lt;-</span> <span class="nf">md_cand_sampler</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># MLE for exponential series system</span>
+</span></span><span class="line"><span class="cl"><span class="n">fit</span> <span class="o">&lt;-</span> <span class="nf">md_mle_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fisher information matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">fim</span> <span class="o">&lt;-</span> <span class="nf">md_fim_exp_series_C1_C2_C3</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="nf">params</span><span class="p">(</span><span class="n">fit</span><span class="p">))</span>
+</span></span></code></pre></div><h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>Flexible masking models</strong>: Bernoulli, rank-based, KL-divergence constrained</li>
+<li><strong>Identifiability analysis</strong>: Tools to check when parameters can actually be estimated</li>
+<li><strong>Fisher information</strong>: Efficiency analysis under relaxed conditions</li>
+<li><strong>Simulation utilities</strong>: Monte Carlo studies for method validation</li>
+</ul>
+<h2 id="relationship-to-other-work">Relationship to Other Work</h2>
+<p>This package sits at the end of a progression toward generality:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Project</th>
+					<th>Focus</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><a href="/papers/expo-masked-fim/">expo-masked-fim</a></td>
+					<td>Closed-form FIM for exponential case</td>
+			</tr>
+			<tr>
+					<td><a href="/projects/maskedcauses/">maskedcauses</a></td>
+					<td>General R framework for masked data likelihood</td>
+			</tr>
+			<tr>
+					<td><a href="/projects/reliability-estimation-in-series-systems/">reliability-estimation-in-series-systems</a></td>
+					<td>Master&rsquo;s thesis implementation</td>
+			</tr>
+			<tr>
+					<td><a href="/projects/wei.series.md.c1.c2.c3/">wei.series.md.c1.c2.c3</a></td>
+					<td>Weibull series systems under C1-C2-C3</td>
+			</tr>
+			<tr>
+					<td><strong>mdrelax</strong></td>
+					<td>Relaxed conditions (C2, C3 violations)</td>
+			</tr>
+	</tbody>
+</table>
+<p>The progression:</p>
+<ol>
+<li><strong>Exponential + C1-C2-C3</strong>: Closed-form solutions</li>
+<li><strong>Weibull + C1-C2-C3</strong>: Numerical MLE</li>
+<li><strong>Weibull + relaxed conditions</strong>: mdrelax</li>
+</ol>
+<p>Each step trades analytical tractability for realism.</p>
+<h2 id="when-to-use-it">When to Use It</h2>
+<p>Use mdrelax when you suspect:</p>
+<ul>
+<li>Diagnostic accuracy varies by component type</li>
+<li>Masking patterns correlate with component reliabilities</li>
+<li>Standard C1-C2-C3 assumptions are too restrictive for your data</li>
+</ul>
+<p>The trade-off is real: relaxed models have more parameters and may need larger samples for reliable estimation. But biased estimates from wrong assumptions aren&rsquo;t free either.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/mdrelax">github.com/queelius/mdrelax</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/mdrelax/">queelius.github.io/mdrelax</a></li>
+<li><strong>Master&rsquo;s Thesis</strong>: <a href="/publications/math-proj/">Reliability Estimation in Series Systems</a></li>
+<li><strong>Theoretical Foundation</strong>: <a href="/papers/expo-masked-fim/">Closed-Form Fisher Information</a></li>
+</ul>
+]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category></item><item><title>Weibull Distributions: From Reliability Theory to My Own Survival Curve</title><link>https://metafunctor.com/post/2022-04-weibull-survival-cancer/</link><pubDate>Mon, 18 Apr 2022 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2022-04-weibull-survival-cancer/</guid><description>Weibull distributions model time-to-failure in reliability engineering and cancer survival. I study both professionally. One of them became personal.</description><content:encoded><![CDATA[<p>The Weibull distribution models time-to-failure. In reliability engineering, that means component lifetimes. In medicine, it means survival times. I have been working with Weibull models for my thesis on series system reliability. Then I got diagnosed with cancer, and now every time I work with survival curves, I am looking at mathematical abstractions of something very concrete: how long until failure?</p>
+<h2 id="the-mathematics">The Mathematics</h2>
+<p>The Weibull CDF:</p>
+<p>F(t) = 1 - exp(-(t/λ)^k)</p>
+<p>Two parameters:</p>
+<ul>
+<li>λ: scale (characteristic lifetime)</li>
+<li>k: shape (how failure rate changes over time)</li>
+</ul>
+<p>The shape parameter k tells you the whole story:</p>
+<p><strong>k &lt; 1</strong>: Decreasing hazard. If you survive early on, your risk goes down. This is the infant mortality pattern.</p>
+<p><strong>k = 1</strong>: Constant hazard. Memoryless. This is just the exponential distribution.</p>
+<p><strong>k &gt; 1</strong>: Increasing hazard. Things wear out.</p>
+<h2 id="the-hazard-function">The Hazard Function</h2>
+<p>The hazard function is what makes Weibull useful for survival analysis:</p>
+<p>h(t) = (k/λ)(t/λ)^(k-1)</p>
+<p>This is the instantaneous failure rate: given that you have survived to time t, what is the probability you fail in the next instant?</p>
+<p>For cancer, this is the number that matters. Some cancers have increasing hazard (the longer you have it, the worse things get). Others have decreasing hazard after initial treatment, meaning if you make it past the critical period, prognosis improves. Knowing which pattern applies to your disease changes how you think about time.</p>
+<h2 id="personal-context">Personal Context</h2>
+<p>When you study survival analysis academically, it is abstract. When you are living it, every curve is personal.</p>
+<p>I look at Kaplan-Meier plots and see myself somewhere on that curve. I work with hazard functions and think: is my k &gt; 1 or k &lt; 1? Am I in the wearing-out regime or the if-you-make-it-past-this-it-gets-better regime?</p>
+<p>The math does not change. But the meaning does.</p>
+<h2 id="the-irony">The Irony</h2>
+<p>I chose reliability engineering for my thesis before the cancer diagnosis. I was studying component failures in series systems, where if any one part fails, the whole system fails.</p>
+<p>Then I became a series system. Organs, treatment response, immune function. All have to work. Failure of any one is catastrophic.</p>
+<p>The mathematics I was studying abstractly became uncomfortably literal.</p>
+<h2 id="why-weibull-matters">Why Weibull Matters</h2>
+<p>In engineering, Weibull helps you predict when systems will fail, schedule preventive maintenance, design redundancy, optimize replacement schedules.</p>
+<p>In medicine, it helps you estimate survival probabilities, compare treatment efficacy, identify risk factors, plan clinical trials.</p>
+<p>Same math. Different substrates.</p>
+<h2 id="censored-data">Censored Data</h2>
+<p>Both domains deal with censored data: observations where you know someone (or something) survived to time t, but not when failure actually occurs.</p>
+<p>In engineering, tests end before all components fail. In medicine, studies end before all patients die.</p>
+<p>The mathematical treatment is identical. Maximum likelihood estimation with likelihood contributions from:</p>
+<ul>
+<li>Failures: contribute density f(t)</li>
+<li>Censored observations: contribute survival S(t)</li>
+</ul>
+<p>The abstract machinery handles both cases without caring which one you are talking about.</p>
+<h2 id="the-weibull-assumptions">The Weibull Assumptions</h2>
+<p>Weibull assumes a specific relationship between time and failure risk. It is flexible, but not universal. Some cancers do not follow Weibull patterns. Some failure mechanisms are more complex. The model is useful but approximate.</p>
+<p>Living with cancer while studying survival analysis teaches you something the textbooks skip: models are maps, not territory. The math gives you probabilistic guidance. Reality gives you a sample of size one.</p>
+<h2 id="connection-to-my-thesis">Connection to My Thesis</h2>
+<p>My thesis work uses Weibull models for series systems with masked failure data. You know the system failed, but not which component caused it.</p>
+<p>Cancer sometimes feels like this. Something failed, but identifying the exact mechanism is hard. Genetic? Environmental? Random? The cause is masked.</p>
+<p>The EM algorithm I use for maximum likelihood estimation handles this ambiguity mathematically. It does not remove uncertainty. It quantifies it.</p>
+<h2 id="why-i-keep-working">Why I Keep Working</h2>
+<p>People ask why I am continuing with the thesis while dealing with cancer.</p>
+<p>Because the work is meaningful regardless. Mathematics is reliable when biology is not. Contributing to survival analysis feels appropriate. The distraction helps. And if I am going to be a data point in someone&rsquo;s survival curve, I might as well understand the mathematics.</p>
+<h2 id="the-broader-lesson">The Broader Lesson</h2>
+<p>Weibull distributions teach you that failure is statistical, not deterministic. Populations have distributions; individuals have outcomes. Hazard rates change over time. Survival to time t changes your conditional probabilities. Mathematics can describe but not control fate.</p>
+<p>These lessons apply to components and to people.</p>
+]]></content:encoded><category>weibull</category><category>survival-analysis</category><category>statistics</category><category>cancer</category><category>mortality</category></item><item><title>Bootstrap Methods: When Theory Meets Computation</title><link>https://metafunctor.com/post/2021-09-bootstrap-methods-theory/</link><pubDate>Fri, 10 Sep 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2021-09-bootstrap-methods-theory/</guid><description>Bootstrap resampling trades mathematical complexity for computational burden. When you can't derive the variance analytically, you resample. For my thesis work on masked failure data, that trade is essential.</description><content:encoded><![CDATA[<p>The bootstrap is a trade: mathematical complexity for computational burden. Instead of deriving analytical formulas for sampling distributions, you simulate them.</p>
+<h2 id="the-idea">The Idea</h2>
+<p>If you don&rsquo;t know the sampling distribution of a statistic, approximate it by resampling from your data.</p>
+<ol>
+<li>Draw samples with replacement from the original data</li>
+<li>Compute your statistic on each resample</li>
+<li>The distribution of resampled statistics approximates the true sampling distribution</li>
+</ol>
+<p>That&rsquo;s it. The justification is more subtle than the procedure. Under regularity conditions, the bootstrap distribution converges to the true sampling distribution as sample size grows. This is non-parametric inference: you use the empirical distribution as a stand-in for the true distribution, without assuming a parametric form.</p>
+<h2 id="when-i-use-it">When I Use It</h2>
+<p>Bootstrap is my default tool when:</p>
+<ul>
+<li>I need <strong>confidence intervals</strong> for statistics with no closed-form variance</li>
+<li><strong>Asymptotic theory</strong> doesn&rsquo;t apply (small samples, non-standard statistics)</li>
+<li>I&rsquo;m doing <strong>model selection</strong> via bootstrap cross-validation</li>
+<li>I&rsquo;m working with <strong>censored data</strong> where standard errors are intractable</li>
+</ul>
+<p>That last case is the one that matters most for my research.</p>
+<h2 id="the-computational-trade">The Computational Trade</h2>
+<p>Better to get the right answer slowly than the wrong answer quickly.</p>
+<p>Deriving an analytical variance formula is hard. Sometimes it&rsquo;s impossible for the statistic you actually care about. Bootstrap says: just compute the statistic 10,000 times on resampled data and look at the spread. With modern hardware, 10,000 resamples takes seconds.</p>
+<p>The trade is almost always worth it.</p>
+<h2 id="my-thesis-work">My Thesis Work</h2>
+<p>My research uses bootstrap heavily. I&rsquo;m working on reliability estimation for series systems where components fail and you don&rsquo;t know which one caused the system failure. This is the masked failure data problem.</p>
+<p>For these models, the MLE exists and you can compute it, but the standard variance formulas don&rsquo;t. The Fisher information matrix involves expectations over the masking distribution that don&rsquo;t simplify to anything closed-form.</p>
+<p>Bootstrap gives me confidence intervals anyway. Resample the masked failure data, recompute the MLE on each resample, and use the distribution of bootstrapped MLEs to construct intervals. It&rsquo;s not elegant, but it works, and &ldquo;works&rdquo; is the right criterion when the alternative is &ldquo;no confidence intervals at all.&rdquo;</p>
+]]></content:encoded><category>bootstrap</category><category>statistics</category><category>computational-statistics</category><category>monte-carlo</category></item><item><title>Reliability Analysis and the Problem of Censored Data</title><link>https://metafunctor.com/post/2019-08-reliability-censored-data/</link><pubDate>Wed, 14 Aug 2019 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2019-08-reliability-censored-data/</guid><description>Introduction to reliability analysis with censored data, where observations are incomplete but statistically informative.</description><content:encoded><![CDATA[<p>One of the most interesting statistical problems I have encountered is reliability analysis with censored data: situations where you know something <em>didn&rsquo;t</em> fail, but not when it <em>will</em> fail.</p>
+<h2 id="the-censoring-problem">The Censoring Problem</h2>
+<p>Imagine testing light bulbs. You run them for 1000 hours. Some fail during the test. Others are still working when you stop.</p>
+<p>For the survivors, you know:</p>
+<ul>
+<li>They lasted <em>at least</em> 1000 hours</li>
+<li>You do not know their actual lifetime</li>
+</ul>
+<p>This is <strong>right censoring</strong>. The true value lies somewhere to the right of your observation. You have a lower bound, not a measurement.</p>
+<h2 id="why-this-matters">Why This Matters</h2>
+<p>Censored data is everywhere:</p>
+<ul>
+<li>Medical studies (patients still alive at study end)</li>
+<li>Engineering tests (components that have not failed)</li>
+<li>Customer retention (users still active)</li>
+</ul>
+<p>The naive responses are both wrong. Ignoring censored observations wastes information. Treating them as failures introduces bias. You need a framework that uses the partial information you actually have.</p>
+<h2 id="maximum-likelihood-to-the-rescue">Maximum Likelihood to the Rescue</h2>
+<p>The solution is maximum likelihood estimation with likelihood contributions that account for censoring:</p>
+<ul>
+<li><strong>Failure observations</strong> contribute the probability density \(f(t)\). You observed the exact failure time, so you know the probability of failing at that time.</li>
+<li><strong>Censored observations</strong> contribute the survival probability \(S(t)\). You know the unit survived to time \(t\), so its contribution is the probability of surviving at least that long.</li>
+</ul>
+<p>The likelihood for the whole sample is:</p>
+$$L = \prod_{i: \text{failed}} f(t_i) \prod_{j: \text{censored}} S(t_j)$$<p>This lets you extract information from both failed and surviving units. The censored observations pull the estimated reliability upward; the failures pull it downward. Maximum likelihood balances them.</p>
+<h2 id="series-systems-complexity">Series Systems Complexity</h2>
+<p>It gets more interesting with <strong>series systems</strong>, systems that fail when <em>any</em> component fails. If you observe system failure but do not know <em>which</em> component caused it, you have <strong>masked failure data</strong>.</p>
+<p>This is the problem I am most interested in: extracting component-level reliability from system-level failures when the cause is ambiguous. The masking adds a latent variable, and the likelihood becomes a mixture. You can handle it with EM algorithms or direct optimization, but the combinatorics grow quickly with system size.</p>
+<p>This work is laying groundwork for what will become a major focus of my mathematical statistics degree.</p>
+]]></content:encoded><category>reliability</category><category>statistics</category><category>censored-data</category><category>survival-analysis</category></item></channel></rss>

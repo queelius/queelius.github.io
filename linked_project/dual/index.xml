@@ -1,0 +1,888 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Dual on metafunctor</title><link>https://metafunctor.com/linked_project/dual/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/dual/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Duality: The Hidden Structure of Opposites</title><link>https://metafunctor.com/post/2026-01-19-duality-stepanov/</link><pubDate>Mon, 19 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-19-duality-stepanov/</guid><description>Many structures come in pairs: forward/reverse AD, push/pull iteration, encode/decode. Recognizing duality lets you transfer theorems and insights between domains.</description><content:encoded><![CDATA[<p><em>Many structures come in pairs. Recognizing duality lets you transfer insights between domains.</em></p>
+<h2 id="the-motivating-example">The Motivating Example</h2>
+<p>This collection includes two approaches to automatic differentiation:</p>
+<ul>
+<li><strong>Forward mode</strong> (in <a href="/post/2021-09-dual-stepanov/">dual</a>): Propagate derivatives alongside values, from inputs toward outputs</li>
+<li><strong>Reverse mode</strong> (in <a href="/post/2023-01-autodiff-stepanov/">autodiff</a>): Build a graph during forward evaluation, then propagate gradients backward from outputs toward inputs</li>
+</ul>
+<p>These aren&rsquo;t just two implementations of the same idea. They&rsquo;re <em>duals</em>, mirror images with complementary strengths.</p>
+<p>Forward mode computes one column of the Jacobian per pass. If \(f: \mathbb{R}^n \to \mathbb{R}^m\), computing the full Jacobian takes \(n\) passes. Reverse mode computes one row per pass, \(m\) passes for the full Jacobian.</p>
+<p>For neural network training, we have many inputs (millions of parameters) and one output (the loss). Reverse mode wins overwhelmingly: one backward pass gives all gradients. This is why backpropagation dominates deep learning.</p>
+<p>For sensitivity analysis with few parameters and many outputs, forward mode wins. Same algorithm structure, opposite traversal direction, complementary use cases.</p>
+<p>The mathematical explanation: forward mode computes Jacobian-vector products (\(Jv\)); reverse mode computes vector-Jacobian products (\(v^T J\)). These are transposes of each other. <strong>Duality is transposition.</strong></p>
+<h2 id="push-vs-pull">Push vs Pull</h2>
+<p>Consider two ways to traverse a sequence:</p>
+<p><strong>Pull (iterator/consumer controls):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">seq</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">seq</span><span class="p">.</span><span class="n">end</span><span class="p">();</span> <span class="o">++</span><span class="n">it</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="o">*</span><span class="n">it</span><span class="p">);</span>  <span class="c1">// Consumer pulls each element
+</span></span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Push (producer controls):</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">seq</span><span class="p">.</span><span class="n">for_each</span><span class="p">([](</span><span class="k">auto</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>  <span class="c1">// Producer pushes each element
+</span></span></span><span class="line"><span class="cl"><span class="p">});</span>
+</span></span></code></pre></div><p>Same traversal. Same elements processed. But control flow is reversed:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Aspect</th>
+					<th>Pull (Iterator)</th>
+					<th>Push (Generator)</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Who controls pace?</td>
+					<td>Consumer</td>
+					<td>Producer</td>
+			</tr>
+			<tr>
+					<td>Suspend/resume?</td>
+					<td>Consumer decides when to call <code>++</code></td>
+					<td>Producer decides when to yield</td>
+			</tr>
+			<tr>
+					<td>Backpressure</td>
+					<td>Natural (just stop pulling)</td>
+					<td>Must be designed in</td>
+			</tr>
+			<tr>
+					<td>Composition</td>
+					<td>Chain iterators</td>
+					<td>Chain callbacks</td>
+			</tr>
+	</tbody>
+</table>
+<p>C++ ranges are pull-based: <code>view | filter | transform</code> creates an iterator that pulls through the pipeline. Reactive streams (Rx) are push-based: events flow through a pipeline of observers.</p>
+<p>These are duals. Given a pull-based algorithm, you can mechanically derive its push-based counterpart by reversing who initiates each step. The transformation preserves correctness because it&rsquo;s just changing <em>direction</em>, not <em>content</em>.</p>
+<h2 id="encode-vs-decode">Encode vs Decode</h2>
+<p>Compression algorithms come in pairs:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Encoder: structure -&gt; bits
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="nf">encode</span><span class="p">(</span><span class="k">const</span> <span class="n">Document</span><span class="o">&amp;</span> <span class="n">doc</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Bitstream</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Decoder: bits -&gt; structure
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="nf">decode</span><span class="p">(</span><span class="k">const</span> <span class="n">Bitstream</span><span class="o">&amp;</span> <span class="n">bits</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Document</span><span class="p">;</span>
+</span></span></code></pre></div><p>These must be inverses: <code>decode(encode(x)) == x</code>. But their implementations are often strikingly different:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Aspect</th>
+					<th>Encoder</th>
+					<th>Decoder</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Sees</td>
+					<td>Full structure</td>
+					<td>Linear stream</td>
+			</tr>
+			<tr>
+					<td>Can do</td>
+					<td>Multiple passes, global analysis</td>
+					<td>Single pass, local decisions</td>
+			</tr>
+			<tr>
+					<td>Optimizes for</td>
+					<td>Small output</td>
+					<td>Fast reconstruction</td>
+			</tr>
+	</tbody>
+</table>
+<p>Huffman coding illustrates this asymmetry. Encoding requires building a frequency table (scan all symbols), constructing a tree, then traversing the tree for each symbol. Decoding walks the tree bit-by-bit, simpler, often faster.</p>
+<p>The same pattern appears in:</p>
+<ul>
+<li>Serialization (object to bytes) vs deserialization (bytes to object)</li>
+<li>Compilation (source to bytecode) vs interpretation (bytecode to execution)</li>
+<li>Encryption vs decryption</li>
+</ul>
+<p>Recognizing encode/decode as duals suggests questions: if encoding is hard, can decoding be easy? If we have a fast encoder, what does its dual look like?</p>
+<h2 id="covariance-and-contravariance">Covariance and Contravariance</h2>
+<p>Functions have a peculiar duality in their arguments:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// If Dog &lt;: Animal (Dog is a subtype of Animal)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Then:
+</span></span></span><span class="line"><span class="cl"><span class="c1">//   vector&lt;Dog&gt; is NOT a subtype of vector&lt;Animal&gt;     (invariant)
+</span></span></span><span class="line"><span class="cl"><span class="c1">//   function&lt;Dog&gt; is NOT a subtype of function&lt;Animal&gt;  (contravariant in input)
+</span></span></span><span class="line"><span class="cl"><span class="c1">//   function returning Dog IS a subtype of function returning Animal (covariant in output)
+</span></span></span></code></pre></div><p>A function <code>Animal -&gt; String</code> can substitute for <code>Dog -&gt; String</code> because any code expecting to pass a Dog can pass it to something expecting any Animal. The subtyping relationship <em>reverses</em> for inputs.</p>
+<p>This is contravariance: inputs are dual to outputs. The reversal happens because inputs flow <em>into</em> the function while outputs flow <em>out</em>. Direction reversal is duality.</p>
+<p>In C++, this manifests in template variance:</p>
+<ul>
+<li><code>const T*</code> is covariant in T (can convert <code>const Dog*</code> to <code>const Animal*</code>)</li>
+<li>Function parameters are contravariant (accepting broader types is safe)</li>
+</ul>
+<p>Understanding this duality prevents type errors and clarifies API design.</p>
+<h2 id="the-category-theoretic-view">The Category-Theoretic View</h2>
+<p>Category theory makes duality precise. A category has objects and arrows (morphisms) between them:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    f        g
+</span></span><span class="line"><span class="cl">A -----&gt; B -----&gt; C
+</span></span></code></pre></div><p>The <strong>opposite category</strong> \(C^{op}\) has the same objects but all arrows reversed:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    f^op     g^op
+</span></span><span class="line"><span class="cl">A &lt;----- B &lt;----- C
+</span></span></code></pre></div><p>Every theorem in \(C\) has a dual theorem in \(C^{op}\), obtained by reversing all arrows. This mechanical transformation (&ldquo;reverse the arrows&rdquo;) generates valid mathematics for free.</p>
+<p>Some dualities this reveals:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Concept</th>
+					<th>Dual Concept</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Product (\(A \times B\))</td>
+					<td>Coproduct (\(A + B\), sum type)</td>
+			</tr>
+			<tr>
+					<td>Terminal object (unit, <code>void</code>)</td>
+					<td>Initial object (empty, <code>never</code>)</td>
+			</tr>
+			<tr>
+					<td>Monomorphism (injection)</td>
+					<td>Epimorphism (surjection)</td>
+			</tr>
+			<tr>
+					<td>Limit</td>
+					<td>Colimit</td>
+			</tr>
+			<tr>
+					<td>Algebra</td>
+					<td>Coalgebra</td>
+			</tr>
+	</tbody>
+</table>
+<p>A <strong>product</strong> is an object \(P\) with projections to \(A\) and \(B\) such that any object with maps to both \(A\) and \(B\) factors uniquely through \(P\):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">        X
+</span></span><span class="line"><span class="cl">       /|\
+</span></span><span class="line"><span class="cl">      / | \
+</span></span><span class="line"><span class="cl">     /  |  \
+</span></span><span class="line"><span class="cl">    v   v   v
+</span></span><span class="line"><span class="cl">    A&lt;--P--&gt;B
+</span></span></code></pre></div><p>A <strong>coproduct</strong> is the dual: an object \(S\) with injections from \(A\) and \(B\), such that any object receiving maps from both factors uniquely through \(S\):</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    A--&gt;S&lt;--B
+</span></span><span class="line"><span class="cl">        |
+</span></span><span class="line"><span class="cl">        v
+</span></span><span class="line"><span class="cl">        X
+</span></span></code></pre></div><p>In types: product is <code>struct { A a; B b; }</code> (you have both). Coproduct is <code>variant&lt;A, B&gt;</code> (you have one or the other). Same diagram, arrows reversed.</p>
+<h2 id="why-duality-matters">Why Duality Matters</h2>
+<p><strong>Transfer theorems.</strong> Prove something about products; the dual theorem about coproducts follows automatically. Prove forward-mode AD is correct; reverse-mode correctness follows by transposition. Work done once yields two results.</p>
+<p><strong>Design insight.</strong> When you build X, ask: what is dual(X)? If you have a parser (string to tree), consider the printer (tree to string). If you have a fold (consume structure), consider an unfold (produce structure). The dual often fills a complementary need.</p>
+<p><strong>Debugging.</strong> If forward mode works but reverse mode doesn&rsquo;t, examine where arrow reversal might have gone wrong. Duality localizes errors: the bug is where the dual transformation wasn&rsquo;t applied correctly.</p>
+<p><strong>API symmetry.</strong> Push/pull, encode/decode, serialize/deserialize. Recognizing these as duals suggests they should have symmetric interfaces. Asymmetry in dual pairs often indicates missing functionality or awkward design.</p>
+<h2 id="examples-in-this-collection">Examples in This Collection</h2>
+<p>The duality theme runs through several posts:</p>
+<p><strong>Forward vs reverse AD</strong> (<a href="/post/2021-09-dual-stepanov/">dual</a> and <a href="/post/2023-01-autodiff-stepanov/">autodiff</a>): The clearest example. Same derivatives, opposite traversal directions, complementary efficiency profiles.</p>
+<p><strong>Iterators and ranges</strong>: The <a href="/post/2021-03-elementa-stepanov/">elementa</a> matrix iteration follows pull semantics. The dual push semantics would be a visitor pattern over matrix elements.</p>
+<p><strong>Fold and unfold in power()</strong>: The <a href="/post/2019-03-peasant-stepanov/">peasant</a> algorithm is a fold: it consumes the exponent bit-by-bit, accumulating the result. The dual unfold would generate the sequence of squares from a base, which is exactly what repeated squaring does implicitly.</p>
+<p><strong>Encode/decode</strong>: While not explicitly covered, the type-erasure post implies this pattern: erasing a type is encoding its operations; invoking through the erased interface is decoding back to behavior.</p>
+<h2 id="the-deeper-pattern">The Deeper Pattern</h2>
+<p>Duality arises whenever there&rsquo;s a notion of <em>direction</em> that can be reversed:</p>
+<ul>
+<li>Data flow direction (forward/backward)</li>
+<li>Control flow direction (push/pull)</li>
+<li>Type hierarchy direction (covariant/contravariant)</li>
+<li>Logical implication direction (modus ponens/modus tollens)</li>
+<li>Arrow direction in diagrams</li>
+</ul>
+<p>Each reversal is a duality. Each duality doubles your theorems, doubles your designs, and halves your blind spots.</p>
+<p>The next time you build something, ask: what happens if I reverse the arrows? The answer might be exactly what you need.</p>
+<hr>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Wadler, &ldquo;Theorems for Free!&rdquo; (1989), parametricity as a source of dual theorems</li>
+<li>Gibbons, &ldquo;Calculating Functional Programs&rdquo;, unfolds as duals of folds</li>
+<li>Awodey, <em>Category Theory</em>, the formal treatment of opposite categories</li>
+<li>Baydin et al., &ldquo;Automatic Differentiation in Machine Learning: a Survey&rdquo;, forward vs reverse mode</li>
+</ul>
+]]></content:encoded><category>C++</category><category>duality</category><category>category-theory</category><category>automatic-differentiation</category><category>iterators</category><category>generic-programming</category></item><item><title>Seeing Structure First</title><link>https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</link><pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</guid><description>A reflection on eleven explorations in generic programming, and how algorithms arise from algebraic structure.</description><content:encoded><![CDATA[<p><em>A reflection on eleven explorations in generic programming</em></p>
+<h2 id="the-question-behind-the-code">The Question Behind the Code</h2>
+<p>What do these computations have in common?</p>
+<ul>
+<li>Computing the millionth Fibonacci number</li>
+<li>Finding the shortest path between cities in a weighted graph</li>
+<li>Calculating compound interest over thirty years</li>
+<li>Composing ten 3D rotations into one</li>
+<li>Repeating a string n times</li>
+</ul>
+<p>The answer: they&rsquo;re all computed by the same twenty lines of code.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">T</span> <span class="n">power</span><span class="p">(</span><span class="n">T</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">base</span><span class="p">,</span> <span class="n">T</span> <span class="n">exp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">==</span> <span class="n">zero</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span> <span class="k">return</span> <span class="n">one</span><span class="p">(</span><span class="n">exp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">==</span> <span class="n">one</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span>  <span class="k">return</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">even</span><span class="p">(</span><span class="n">exp</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">?</span> <span class="n">square</span><span class="p">(</span><span class="n">power</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">half</span><span class="p">(</span><span class="n">exp</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">        <span class="o">:</span> <span class="n">product</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">power</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">decrement</span><span class="p">(</span><span class="n">exp</span><span class="p">)));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This shouldn&rsquo;t work. Fibonacci numbers involve integer sequences. Shortest paths involve graphs. Rotations involve 3D geometry. Different domains, different mathematics.</p>
+<p>Yet they share structure. Once you see it, a single algorithm serves them all.</p>
+<p>This collection of eleven blog posts is an extended meditation on one idea: <strong>algorithms arise from algebraic structure</strong>. The posts cover different domains (number theory, calculus, linear algebra, polymorphism) but they circle the same insight. Recognize the structure; the algorithm follows.</p>
+<hr>
+<h2 id="the-principle">The Principle</h2>
+<p>Alex Stepanov articulated this most clearly in <em>Elements of Programming</em>: &ldquo;Generic programming is about abstracting and classifying algorithms and data structures.&rdquo; But the deeper point is <em>how</em> to abstract. Not by common syntax or superficial similarity, but by the algebraic laws a type obeys.</p>
+<p>Why does structure appear <em>everywhere</em>? Because reality has structure. The algebraic structures we discover in programming (groups, rings, monoids) are the same structures physicists discover in nature. Rotations form a group. Spacetime transformations form a group. This isn&rsquo;t coincidence. We&rsquo;re uncovering patterns that exist.</p>
+<p>Noether&rsquo;s theorem makes this precise: every continuous symmetry corresponds to a conservation law. Time-translation symmetry gives conservation of energy. Space-translation symmetry gives conservation of momentum. Rotational symmetry gives conservation of angular momentum. The symmetry groups of physics <em>are</em> algebraic structures.</p>
+<p>When we recognize &ldquo;this is a monoid&rdquo; in our code, we&rsquo;re tapping into the same mathematical substrate that governs physical law. The algorithms follow because the structure constrains what&rsquo;s possible, both in computation and in nature.</p>
+<p>Consider the <code>power()</code> function above. What does it require?</p>
+<ul>
+<li>An associative binary operation (so we can regroup: \((a \cdot b) \cdot c = a \cdot (b \cdot c)\))</li>
+<li>An identity element (so \(1 \cdot x = x \cdot 1 = x\))</li>
+<li>Halving and parity testing on the exponent</li>
+</ul>
+<p>That&rsquo;s it. Any type providing these operations, with these laws, can use this algorithm. The requirements are <em>algebraic</em>, not syntactic.</p>
+<p>There&rsquo;s a deeper way to understand this: <strong>structure is compressed information</strong>. When you say &ldquo;this type is a monoid,&rdquo; you&rsquo;re transmitting an enormous amount of data in a few bits. A monoid guarantees associativity, which is infinitely many facts about every possible triple of elements. It guarantees an identity, which is infinitely many facts about every element&rsquo;s interaction with it.</p>
+<p>The algorithm exploits this compressed information. It doesn&rsquo;t need to be told that \((a \cdot b) \cdot c = a \cdot (b \cdot c)\) for your particular type; it knows because you declared the structure. Minimal interfaces are powerful precisely <em>because</em> they&rsquo;re maximally informative per requirement. Each law you can assume is exponentially more constraint you don&rsquo;t have to check.</p>
+<p>This shifts how we think about programming:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Traditional OOP</th>
+					<th>Stepanov&rsquo;s Approach</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>What <em>is</em> this type?</td>
+					<td>What can I <em>do</em> with it?</td>
+			</tr>
+			<tr>
+					<td>Inheritance hierarchy</td>
+					<td>Algebraic concepts</td>
+			</tr>
+			<tr>
+					<td>Shared base class</td>
+					<td>Shared operations</td>
+			</tr>
+			<tr>
+					<td>Runtime polymorphism</td>
+					<td>Compile-time genericity</td>
+			</tr>
+	</tbody>
+</table>
+<p>The question isn&rsquo;t &ldquo;is this a number?&rdquo; but &ldquo;does this form a monoid under some operation?&rdquo; If yes, <code>power()</code> applies.</p>
+<p>This collection explores what happens when you take this principle seriously across eleven different domains.</p>
+<hr>
+<h2 id="universality-one-algorithm-many-faces">Universality: One Algorithm, Many Faces</h2>
+<p>The <a href="/post/2019-03-peasant-stepanov/">peasant</a> post demonstrates the principle most dramatically. The Russian peasant algorithm, an ancient technique for multiplication without times tables, generalizes to any monoid. The same code computes:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Type</th>
+					<th>Operation</th>
+					<th>Identity</th>
+					<th><code>power(x, n)</code> computes&hellip;</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Integer</td>
+					<td>x</td>
+					<td>1</td>
+					<td>\(x^n\)</td>
+			</tr>
+			<tr>
+					<td>2x2 Matrix</td>
+					<td>x</td>
+					<td>I</td>
+					<td>\(F(n)\) (Fibonacci via matrix form)</td>
+			</tr>
+			<tr>
+					<td>Quaternion</td>
+					<td>x</td>
+					<td>1</td>
+					<td>n-fold rotation composition</td>
+			</tr>
+			<tr>
+					<td>Tropical (min,+)</td>
+					<td>min, +</td>
+					<td>0, inf</td>
+					<td>n-hop shortest path</td>
+			</tr>
+			<tr>
+					<td>String</td>
+					<td>concat</td>
+					<td>&quot;&quot;</td>
+					<td>n-fold string repetition</td>
+			</tr>
+			<tr>
+					<td>Permutation</td>
+					<td>compose</td>
+					<td>id</td>
+					<td>n-fold permutation</td>
+			</tr>
+			<tr>
+					<td>Affine transform</td>
+					<td>compose</td>
+					<td>id</td>
+					<td>n periods of compound interest</td>
+			</tr>
+			<tr>
+					<td>Polynomial</td>
+					<td>x</td>
+					<td>1</td>
+					<td>Polynomial powers</td>
+			</tr>
+			<tr>
+					<td>Modular integer</td>
+					<td>x</td>
+					<td>1</td>
+					<td>Modular exponentiation</td>
+			</tr>
+			<tr>
+					<td>Boolean matrix</td>
+					<td>and, or</td>
+					<td>I</td>
+					<td>n-step reachability</td>
+			</tr>
+	</tbody>
+</table>
+<p>Fifteen examples in total. Each requires about fifty lines to define the type and its operations. Then <code>power()</code> works unchanged.</p>
+<p>The pattern repeats in <a href="/post/2020-07-polynomials-stepanov/">polynomials</a>. The GCD algorithm (Euclid&rsquo;s method from 300 BCE) works identically on integers and polynomials:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Same algorithm for both!
+</span></span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">euclidean_domain</span> <span class="n">E</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">E</span> <span class="n">gcd</span><span class="p">(</span><span class="n">E</span> <span class="n">a</span><span class="p">,</span> <span class="n">E</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">b</span> <span class="o">!=</span> <span class="n">E</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">exchange</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">%</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>For integers: \(\gcd(48, 18) = 6\)</p>
+<p>For polynomials: \(\gcd(x^3 - 1, x^2 - 1) = x - 1\)</p>
+<p>Both are Euclidean domains, algebraic structures where division with remainder is always possible, with the remainder &ldquo;smaller&rdquo; than the divisor. Integers use absolute value as the size; polynomials use degree. The algorithm doesn&rsquo;t care which. It only needs the Euclidean property.</p>
+<hr>
+<h2 id="minimal-interfaces">Minimal Interfaces</h2>
+<p>Each algorithm requires <em>exactly</em> what it needs. No more, no less.</p>
+<p>The peasant algorithms need:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zero</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>       <span class="c1">// additive identity
+</span></span></span><span class="line"><span class="cl"><span class="n">one</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>        <span class="c1">// multiplicative identity
+</span></span></span><span class="line"><span class="cl"><span class="n">twice</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>      <span class="c1">// doubling
+</span></span></span><span class="line"><span class="cl"><span class="n">half</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>       <span class="c1">// halving
+</span></span></span><span class="line"><span class="cl"><span class="n">even</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>       <span class="c1">// parity test
+</span></span></span></code></pre></div><p>The <a href="/post/2023-08-integration-stepanov/">integration</a> module needs an ordered field:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">ordered_field</span> <span class="o">=</span>
+</span></span><span class="line"><span class="cl">    <span class="n">has_add</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_sub</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_mul</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_div</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">has_neg</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_order</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span> <span class="p">{</span> <span class="n">T</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="n">T</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="n">T</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span> <span class="p">};</span>
+</span></span></code></pre></div><p>The <a href="/post/2021-03-elementa-stepanov/">elementa</a> matrix library needs:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Matrix</span> <span class="o">=</span> <span class="k">requires</span><span class="p">(</span><span class="n">M</span> <span class="n">m</span><span class="p">,</span> <span class="k">const</span> <span class="n">M</span> <span class="n">cm</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">.</span><span class="n">rows</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">.</span><span class="n">cols</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">m</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&amp;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">const</span> <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&amp;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>C++20 concepts make these requirements explicit and checkable. But the deeper point is <em>designing</em> algorithms around minimal requirements. When you ask &ldquo;what does this algorithm actually need?&rdquo;, you discover its true scope.</p>
+<p>The <a href="/post/2020-02-rational-stepanov/">rational</a> post illustrates this well. A rational number needs:</p>
+<ul>
+<li>Numerator and denominator (integers)</li>
+<li>GCD (to reduce to lowest terms)</li>
+<li>The usual arithmetic</li>
+</ul>
+<p>But <em>which</em> integer type? The implementation is templated:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">integral</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">rat</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">num_</span><span class="p">;</span>  <span class="c1">// numerator (carries sign)
+</span></span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">den_</span><span class="p">;</span>  <span class="c1">// denominator (always positive)
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Use <code>int</code> for small fractions. Use <code>int64_t</code> for larger ones. Plug in an arbitrary-precision integer type and get exact rational arithmetic with no overflow. The algorithm doesn&rsquo;t change.</p>
+<hr>
+<h2 id="adl-based-free-functions">ADL-Based Free Functions</h2>
+<p>A design pattern runs through every post: types expose algebraic operations as <em>free functions</em>, not member methods.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Not this:
+</span></span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">my_type</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">my_type</span> <span class="nf">twice</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">my_type</span> <span class="nf">half</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="nf">is_even</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// But this:
+</span></span></span><span class="line"><span class="cl"><span class="n">my_type</span> <span class="nf">twice</span><span class="p">(</span><span class="n">my_type</span> <span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">my_type</span> <span class="nf">half</span><span class="p">(</span><span class="n">my_type</span> <span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">even</span><span class="p">(</span><span class="n">my_type</span> <span class="n">x</span><span class="p">);</span>
+</span></span></code></pre></div><p>Why? Argument-dependent lookup (ADL). When generic code calls <code>twice(x)</code>, the compiler searches for <code>twice</code> in the namespace where <code>x</code>&rsquo;s type is defined. No inheritance required. No base class needed. The type just provides the operations in its namespace.</p>
+<p>This pattern enables the full universality. You can&rsquo;t inherit <code>int</code> from a base class, but you can provide <code>twice(int x)</code> as a free function. Suddenly built-in types participate equally with user-defined types.</p>
+<p>The <a href="/post/2019-06-modular-stepanov/">modular</a> post shows this clearly:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">one</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">twice</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">x</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">half</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="n">inverse</span><span class="p">();</span>  <span class="c1">// Requires prime N
+</span></span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Now <code>power()</code> works with modular integers. The same twenty lines compute modular exponentiation, the workhorse of public-key cryptography.</p>
+<hr>
+<h2 id="composition-through-algebra">Composition Through Algebra</h2>
+<p>When two algebraic types compose, their algorithms compose too. This is where the approach becomes genuinely powerful.</p>
+<h3 id="dual-numbers--integration--leibnizs-rule">Dual Numbers + Integration = Leibniz&rsquo;s Rule</h3>
+<p>The <a href="/post/2021-09-dual-stepanov/">dual</a> post introduces dual numbers for automatic differentiation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">x</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">x</span> <span class="o">-</span> <span class="mf">3.0</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// f.value() = 3.0
+</span></span></span><span class="line"><span class="cl"><span class="c1">// f.derivative() = 9.0  (the derivative f&#39;(2) = 3x^2 - 3 = 9)
+</span></span></span></code></pre></div><p>The derivative emerges automatically from the algebra. No symbolic manipulation. No finite differences. Just arithmetic with a different number type.</p>
+<p>The <a href="/post/2023-08-integration-stepanov/">integration</a> module computes numerical integrals:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">([](</span><span class="kt">double</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">},</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">M_PI</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// result ~ 2.0
+</span></span></span></code></pre></div><p>Now here&rsquo;s the payoff. Because <code>integrate</code> is written generically (requiring only an ordered field) it works with dual numbers:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">D</span> <span class="o">=</span> <span class="n">dual</span><span class="o">::</span><span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">a</span> <span class="o">=</span> <span class="n">D</span><span class="o">::</span><span class="n">variable</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>  <span class="c1">// Parameter to differentiate
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">a</span><span class="p">](</span><span class="n">D</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">result</span> <span class="o">=</span> <span class="n">composite_simpsons</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// result.value() = 1/3 (the integral of ax^2 from 0 to 1 = a/3)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// result.derivative() = 1/3 (d/da of the integral = integral of x^2 dx)
+</span></span></span></code></pre></div><p>This is Leibniz&rsquo;s integral rule (the derivative of an integral with respect to a parameter) implemented through <em>pure algebra</em>. No special cases. No separate implementation. The composition emerges automatically because both components respect the same algebraic structure.</p>
+<h3 id="autodiff--elementa--matrix-calculus">Autodiff + Elementa = Matrix Calculus</h3>
+<p>The <a href="/post/2023-01-autodiff-stepanov/">autodiff</a> post builds reverse-mode automatic differentiation on top of <a href="/post/2021-03-elementa-stepanov/">elementa</a>&rsquo;s matrix concept:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">matmul</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">A</span><span class="p">));</span>  <span class="c1">// f(A) = sum(A^2)
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matrix</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">A</span><span class="p">{{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">},</span> <span class="p">{</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">}};</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">A</span><span class="p">);</span>  <span class="c1">// df/dA
+</span></span></span></code></pre></div><p>The gradient of matrix functions, computed exactly. The chain rule applied through a computational graph. Classic results from matrix calculus (like \(\partial\det(A)/\partial A = \det(A) \cdot A^{-T}\)) appear as backward functions in the graph.</p>
+<p>Because autodiff builds on the Matrix concept, not a concrete type, it would work with any conforming matrix implementation: dense, sparse, symbolic, GPU-accelerated. The algorithm is decoupled from the representation.</p>
+<h3 id="type-erasure--ring-axioms--runtime-polymorphism-with-guarantees">Type Erasure + Ring Axioms = Runtime Polymorphism with Guarantees</h3>
+<p>The <a href="/post/2024-02-type-erasure-stepanov/">type-erasure</a> post takes Sean Parent&rsquo;s technique and applies it to algebraic structures:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">any_ring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">concept_t</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">add</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">multiply</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">negate</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">one</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Now <code>any_ring</code> can hold integers, polynomials, matrices, any ring. You can do arithmetic at runtime without knowing the concrete type at compile time. The algebraic laws still hold because every wrapped type satisfies them.</p>
+<p>This is Stepanov&rsquo;s approach extended to runtime polymorphism: the interface is algebraic (ring operations), not arbitrary methods.</p>
+<hr>
+<h2 id="correctness-from-structure">Correctness from Structure</h2>
+<p>When the algebra is right, the algorithm cannot be wrong. Not &ldquo;unlikely to be wrong,&rdquo; <em>cannot</em>.</p>
+<h3 id="miller-rabin-error-bounds-from-group-theory">Miller-Rabin: Error Bounds from Group Theory</h3>
+<p>The <a href="/post/2019-09-miller-rabin-stepanov/">miller-rabin</a> post implements probabilistic primality testing. The algorithm has a clean error analysis: for any composite n, at least 3/4 of potential witnesses will detect it.</p>
+<p>Where does 3/4 come from? Not from empirical testing. From the structure of multiplicative groups modulo n. The witnesses that fail to detect a composite form a subgroup; subgroups divide the group order; the analysis bounds the subgroup size.</p>
+$$
+P(\text{false positive}) \leq \left(\frac{1}{4}\right)^k
+$$<p>With \(k = 20\) witnesses: error \(< 10^{-12}\). Not &ldquo;probably correct,&rdquo; provably bounded error, derived from algebra.</p>
+<h3 id="rationals-canonical-form-as-theorem">Rationals: Canonical Form as Theorem</h3>
+<p>The <a href="/post/2020-02-rational-stepanov/">rational</a> post maintains fractions in lowest terms:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">reduce</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">g</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">gcd</span><span class="p">(</span><span class="n">abs</span><span class="p">(</span><span class="n">num_</span><span class="p">),</span> <span class="n">den_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">num_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">den_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Every rational has a unique reduced representation. This isn&rsquo;t a policy decision. It&rsquo;s a theorem about greatest common divisors. The canonical form follows from the algebraic structure of integers (a unique factorization domain) and the definition of GCD.</p>
+<p>Because of this, equality testing is trivial:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">num_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">num_</span> <span class="o">&amp;&amp;</span> <span class="n">den_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>No tolerance. No floating-point fuzziness. Exact equality, guaranteed by algebraic structure.</p>
+<h3 id="dual-numbers-correctness-by-construction">Dual Numbers: Correctness by Construction</h3>
+<p>The <a href="/post/2021-09-dual-stepanov/">dual</a> post computes derivatives through the algebra of dual numbers, where \(\varepsilon^2 = 0\):</p>
+$$
+f(x + \varepsilon) = f(x) + \varepsilon f'(x)
+$$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges from the definition of dual number arithmetic:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dual</span> <span class="k">operator</span><span class="o">*</span><span class="p">(</span><span class="n">dual</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// (a + be)(c + de) = ac + (ad + bc)e + bde^2 = ac + (ad + bc)e
+</span></span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">{</span><span class="n">val</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">val</span><span class="p">,</span> <span class="n">val</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">der</span> <span class="o">+</span> <span class="n">der</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">val</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The product rule is <em>built into</em> the multiplication. If the algebra is implemented correctly, derivatives are correct by construction.</p>
+<hr>
+<h2 id="the-meta-pattern-how-to-see-this-way">The Meta-Pattern: How to See This Way</h2>
+<p>After reading these eleven posts, patterns emerge. Here&rsquo;s how to develop this perspective:</p>
+<p><strong>Ask: What operations does this algorithm actually need?</strong></p>
+<p>Not &ldquo;what type am I working with?&rdquo; but &ldquo;what can I do with it?&rdquo; List the operations. Check which ones you actually call. That&rsquo;s your concept.</p>
+<p><strong>Ask: What laws must hold?</strong></p>
+<p>Associativity? Commutativity? Distributivity? An identity element? Inverses? These laws determine which algorithms apply. If you need \(a \cdot (b \cdot c) = (a \cdot b) \cdot c\), you need a semigroup. Add an identity, you have a monoid. Add inverses, a group.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Structure</th>
+					<th>Laws</th>
+					<th>Enables</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Semigroup</td>
+					<td>Associativity</td>
+					<td>Parallel reduction</td>
+			</tr>
+			<tr>
+					<td>Monoid</td>
+					<td>+ Identity</td>
+					<td>Power by squaring</td>
+			</tr>
+			<tr>
+					<td>Group</td>
+					<td>+ Inverses</td>
+					<td>Division, subtraction</td>
+			</tr>
+			<tr>
+					<td>Ring</td>
+					<td>Monoid (x), Group (+), Distributive</td>
+					<td>Polynomial arithmetic</td>
+			</tr>
+			<tr>
+					<td>Field</td>
+					<td>Ring + multiplicative inverses</td>
+					<td>Division, linear algebra</td>
+			</tr>
+			<tr>
+					<td>Euclidean domain</td>
+					<td>Ring + division with remainder</td>
+					<td>GCD, fraction reduction</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>Design the concept as the minimal contract.</strong></p>
+<p>Don&rsquo;t require what you don&rsquo;t need. Each additional requirement excludes types that might work. The goal is maximum generality with guaranteed correctness.</p>
+<p><strong>Express operations as free functions.</strong></p>
+<p>This enables ADL, which enables working with types you don&rsquo;t control. Built-in types, third-party libraries, legacy code, all can participate.</p>
+<p><strong>Let composition emerge from shared structure.</strong></p>
+<p>When component A requires concept X, and component B produces concept X, they compose. No explicit integration needed. The algebra mediates.</p>
+<p><strong>Turn laws into tests.</strong></p>
+<p>If you know something is a monoid, you can automatically generate property-based tests. Associativity becomes <code>assert(op(op(a,b),c) == op(a,op(b,c)))</code> for random a, b, c. Identity becomes <code>assert(op(e,x) == x &amp;&amp; op(x,e) == x)</code> for random x.</p>
+<p>This isn&rsquo;t new: Claessen and Hughes&rsquo;s QuickCheck (2000) pioneered property-based testing; Wadler&rsquo;s &ldquo;Theorems for Free&rdquo; (1989) showed that parametric polymorphism implies algebraic properties. But the connection to Stepanov-style programming is direct: declaring structure gives you tests for free. The laws become executable specifications.</p>
+<p><strong>The open question: discovering structure.</strong></p>
+<p>This collection teaches you to <em>use</em> structures once recognized, but how do you recognize them in the first place? That creative act remains underexplored.</p>
+<p>Sometimes the process is clear: you have an algorithm, you analyze what operations and laws it requires, and you name the resulting concept. But sometimes you have a messy domain and wonder: is there hidden structure here? Could I reformulate this problem so a known structure applies?</p>
+<p>Pattern-matching against known structures helps. Working backward from desired algorithms helps. But no systematic method exists for <em>discovering</em> new useful structures. That gap is worth acknowledging, and perhaps worth exploring.</p>
+<hr>
+<h2 id="the-posts-a-dependency-graph">The Posts: A Dependency Graph</h2>
+<p>The eleven posts build on each other in a directed acyclic graph:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">peasant (monoids, power by squaring)
+</span></span><span class="line"><span class="cl">+-- miller-rabin (modular exponentiation for primality)
+</span></span><span class="line"><span class="cl">+-- modular (ring/field structure, Fermat&#39;s theorem)
+</span></span><span class="line"><span class="cl">+-- type-erasure (algebraic concepts at runtime)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">rational (fields, GCD, unique factorization)
+</span></span><span class="line"><span class="cl">+-- polynomials (Euclidean domains, same GCD algorithm)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">dual (forward-mode autodiff via algebra)
+</span></span><span class="line"><span class="cl">+-- finite-diff (verification, error analysis comparison)
+</span></span><span class="line"><span class="cl">+-- integration (Leibniz&#39;s rule through composition)
+</span></span><span class="line"><span class="cl">+-- autodiff (reverse-mode for scalar outputs)
+</span></span><span class="line"><span class="cl">    +-- elementa (Matrix concept foundation)
+</span></span></code></pre></div><p><strong>Entry points by interest:</strong></p>
+<ul>
+<li><em>Number theory</em>: Start with <a href="/post/2019-03-peasant-stepanov/">peasant</a>, then <a href="/post/2019-06-modular-stepanov/">modular</a>, then <a href="/post/2019-09-miller-rabin-stepanov/">miller-rabin</a></li>
+<li><em>Calculus and optimization</em>: Start with <a href="/post/2021-09-dual-stepanov/">dual</a>, then <a href="/post/2022-04-finite-diff-stepanov/">finite-diff</a>, then <a href="/post/2023-08-integration-stepanov/">integration</a></li>
+<li><em>Linear algebra</em>: Start with <a href="/post/2021-03-elementa-stepanov/">elementa</a>, then <a href="/post/2023-01-autodiff-stepanov/">autodiff</a></li>
+<li><em>Generic programming patterns</em>: Start with <a href="/post/2019-03-peasant-stepanov/">peasant</a>, then <a href="/post/2024-02-type-erasure-stepanov/">type-erasure</a></li>
+<li><em>Algebraic structures</em>: Start with <a href="/post/2020-02-rational-stepanov/">rational</a>, then <a href="/post/2020-07-polynomials-stepanov/">polynomials</a></li>
+</ul>
+<hr>
+<h2 id="appendix-reading-guide">Appendix: Reading Guide</h2>
+<h3 id="peasant">peasant/</h3>
+<p><strong>One Algorithm, Infinite Powers</strong></p>
+<p>The Russian peasant multiplication algorithm generalizes to any monoid. Computes \(x^n\) in \(O(\log n)\) operations using only associativity and identity. Fifteen worked examples: integers, matrices (Fibonacci), quaternions (rotations), tropical semiring (shortest paths), strings, permutations, affine transforms (compound interest), and more.</p>
+<p><em>Key insight</em>: The same code structure appears everywhere because it depends only on monoid axioms, not the specific domain.</p>
+<h3 id="miller-rabin">miller-rabin/</h3>
+<p><strong>Is It Prime?</strong></p>
+<p>Probabilistic primality testing with quantifiable error bounds. Uses modular exponentiation from peasant. The 3/4 witness bound comes from group theory. Handles Carmichael numbers that fool simpler tests.</p>
+<p><em>Key insight</em>: Error analysis follows from algebraic structure, not empirical observation.</p>
+<h3 id="rational">rational/</h3>
+<p><strong>Exact Rational Arithmetic</strong></p>
+<p>Fractions that never lose precision. GCD reduction ensures unique representation. Connects to continued fractions and the Stern-Brocot tree.</p>
+<p><em>Key insight</em>: Canonical form is a theorem about algebraic structure, not a design choice.</p>
+<h3 id="modular">modular/</h3>
+<p><strong>Modular Arithmetic as Rings</strong></p>
+<p>Integers mod N form rings; when N is prime, they form fields. Fermat&rsquo;s little theorem gives multiplicative inverses. Type-safe: <code>mod_int&lt;7&gt;</code> and <code>mod_int&lt;11&gt;</code> are incompatible types.</p>
+<p><em>Key insight</em>: Understanding ring/field structure tells you which algorithms apply.</p>
+<h3 id="polynomials">polynomials/</h3>
+<p><strong>Polynomial Arithmetic as Euclidean Domains</strong></p>
+<p>The same GCD algorithm works for integers and polynomials because both are Euclidean domains. Sparse representation handles high-degree polynomials efficiently.</p>
+<p><em>Key insight</em>: Shared algebraic structure enables algorithm reuse across apparently different domains.</p>
+<h3 id="type-erasure">type-erasure/</h3>
+<p><strong>Runtime Polymorphism Without Inheritance</strong></p>
+<p>Sean Parent&rsquo;s technique: wrap any type satisfying an interface, without requiring inheritance. Extended to algebraic interfaces: <code>any_ring</code>, <code>any_vector_space</code>, <code>any_matrix</code>.</p>
+<p><em>Key insight</em>: Algebraic concepts can be erased at runtime while preserving guarantees.</p>
+<h3 id="dual">dual/</h3>
+<p><strong>Forward-Mode Automatic Differentiation</strong></p>
+<p>Dual numbers (\(a + b\varepsilon\) where \(\varepsilon^2 = 0\)) compute derivatives through arithmetic. Evaluate \(f(x + \varepsilon)\) to get \(f(x) + \varepsilon f'(x)\). Supports higher-order derivatives via nesting.</p>
+<p><em>Key insight</em>: The derivative emerges automatically from the algebra of dual numbers.</p>
+<h3 id="finite-diff">finite-diff/</h3>
+<p><strong>Numerical Differentiation</strong></p>
+<p>Finite difference formulas with optimal step sizes derived from error analysis. Forward, central, and five-point stencils. Useful for verification and black-box functions.</p>
+<p><em>Key insight</em>: Two error sources (truncation and round-off) determine optimal step size.</p>
+<h3 id="integration">integration/</h3>
+<p><strong>Numerical Quadrature</strong></p>
+<p>Simpson&rsquo;s rule, Gauss-Legendre, adaptive methods. Written generically for any ordered field, enabling composition with dual numbers (Leibniz&rsquo;s rule).</p>
+<p><em>Key insight</em>: Generic implementation enables unexpected compositions.</p>
+<h3 id="elementa">elementa/</h3>
+<p><strong>Pedagogical Linear Algebra</strong></p>
+<p>Matrix concept in C++20. LU decomposition powers determinants, inverses, and linear system solving. Cache-conscious multiplication. Value semantics throughout.</p>
+<p><em>Key insight</em>: A concept defines what matrices <em>are</em>, enabling algorithms independent of representation.</p>
+<h3 id="autodiff">autodiff/</h3>
+<p><strong>Reverse-Mode Automatic Differentiation</strong></p>
+<p>Gradient computation via computational graphs. Builds on elementa&rsquo;s Matrix concept. Implements matrix calculus Jacobians (determinant, inverse, multiplication). Verified against finite differences.</p>
+<p><em>Key insight</em>: Systematic chain rule application, automated through graph traversal.</p>
+<hr>
+<h2 id="where-the-principle-struggles">Where the Principle Struggles</h2>
+<p>No principle applies universally. Here&rsquo;s where &ldquo;structure first, algorithm second&rdquo; meets friction:</p>
+<p><strong>Generic overhead.</strong> Sometimes a specialized algorithm beats the generic one. SIMD-optimized matrix multiplication exploits specific hardware layouts in ways a generic <code>Matrix</code> concept can&rsquo;t express. The structure is there, but capturing it costs more than hard-coding it.</p>
+<p><strong>Approximate fit.</strong> Floating-point numbers <em>almost</em> form a field, but not quite. Addition isn&rsquo;t associative: \((a + b) + c \neq a + (b + c)\) in general, due to rounding. Algorithms that assume exact associativity may accumulate errors or produce inconsistent results. The structure is a useful fiction, not a guarantee.</p>
+<p><strong>Missing concepts.</strong> Some useful algorithms lack clean algebraic characterization. What structure does &ldquo;topological sort&rdquo; require? &ldquo;Strongly connected components&rdquo;? These algorithms have preconditions (acyclic graph, directed graph), but they don&rsquo;t fit neatly into the algebraic hierarchy.</p>
+<p><strong>Impedance mismatch.</strong> Stateful, imperative code (caches, mutation, side effects) doesn&rsquo;t always fit the algebraic mold. You <em>can</em> model state transformations as monoid actions, but the encoding may obscure rather than clarify.</p>
+<p>This isn&rsquo;t failure. It&rsquo;s knowing when the tool applies. The principle illuminates a wide territory; recognizing its boundaries makes you more effective within them.</p>
+<hr>
+<h2 id="an-invitation">An Invitation</h2>
+<p>These eleven posts are entry points, not destinations. The principle, <em>structure first, algorithm second</em>, extends far beyond the domains explored here.</p>
+<p>Consider data structures: a balanced binary search tree, a skip list, and a B-tree all implement the same abstract interface (ordered set). Algorithms written to that interface work on all three.</p>
+<p>Consider I/O: streams, files, network sockets, and string buffers can satisfy the same concept. Generic code handles them uniformly.</p>
+<p>Consider concurrency: different synchronization primitives satisfy different algebraic laws. Understanding those laws clarifies which patterns are safe.</p>
+<p>The principle is simple. Seeing it takes practice. These posts offer exercises.</p>
+<p>Write the algorithm once. State its requirements precisely. Let it work on anything that satisfies those requirements. That&rsquo;s generic programming in the Stepanov tradition.</p>
+<p>When you recognize &ldquo;this is a ring,&rdquo; you immediately know which algorithms apply. When you recognize &ldquo;this is a monoid,&rdquo; <code>power()</code> is available. When you see structure first, algorithms follow.</p>
+<hr>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em> &ndash; accessible introduction</li>
+<li>Stepanov &amp; McJones, <em>Elements of Programming</em> &ndash; the definitive treatment</li>
+<li>Sean Parent, &ldquo;Inheritance Is The Base Class of Evil&rdquo; (GoingNative 2013) &ndash; type erasure</li>
+<li>Ireland &amp; Rosen, <em>A Classical Introduction to Modern Number Theory</em> &ndash; modular arithmetic</li>
+<li>Graham, Knuth, Patashnik, <em>Concrete Mathematics</em> &ndash; rational numbers, recurrences</li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>algebraic-structures</category><category>stepanov</category></item><item><title>Differentiation: Three Ways</title><link>https://metafunctor.com/post/2025-01-differentiation-stepanov/</link><pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-01-differentiation-stepanov/</guid><description>Three approaches to computing derivatives, forward-mode AD, reverse-mode AD, and finite differences, each with different trade-offs for numerical computing and machine learning.</description><content:encoded><![CDATA[<p><em>A synthesis of three earlier posts, comparing forward-mode AD, reverse-mode AD, and numerical differentiation.</em></p>
+<p>Computing derivatives shows up everywhere: optimization, machine learning, physics simulation, numerical analysis. This series has explored three distinct approaches:</p>
+<ol>
+<li><strong>Forward-mode AD</strong> via dual numbers</li>
+<li><strong>Reverse-mode AD</strong> via computational graphs</li>
+<li><strong>Numerical differentiation</strong> via finite differences</li>
+</ol>
+<p>Each has different strengths. The right choice depends on the shape of your problem.</p>
+<h2 id="the-landscape">The Landscape</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Method</th>
+					<th>Accuracy</th>
+					<th>Cost for \(f: \mathbb{R}^n \to \mathbb{R}\)</th>
+					<th>Cost for \(f: \mathbb{R} \to \mathbb{R}^m\)</th>
+					<th>Memory</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Forward AD</td>
+					<td>Exact</td>
+					<td>\(O(n)\) passes</td>
+					<td>\(O(1)\) pass</td>
+					<td>\(O(1)\)</td>
+			</tr>
+			<tr>
+					<td>Reverse AD</td>
+					<td>Exact</td>
+					<td>\(O(1)\) pass</td>
+					<td>\(O(m)\) passes</td>
+					<td>\(O(\text{ops})\)</td>
+			</tr>
+			<tr>
+					<td>Finite Diff</td>
+					<td>\(O(h^p)\)</td>
+					<td>\(O(n)\) evaluations</td>
+					<td>\(O(n)\) evaluations</td>
+					<td>\(O(1)\)</td>
+			</tr>
+	</tbody>
+</table>
+<p>The key point: <strong>problem structure determines the best method</strong>.</p>
+<h2 id="forward-mode-ad-dual-numbers">Forward-Mode AD: Dual Numbers</h2>
+<p>Forward-mode AD extends numbers with an infinitesimal \(\varepsilon\) where \(\varepsilon^2 = 0\). The derivative falls out of the arithmetic for free:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// f(x) = x^3 - 3x + 1
+</span></span></span><span class="line"><span class="cl"><span class="c1">// f&#39;(x) = 3x^2 - 3
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">x</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>  <span class="c1">// x = 2, dx = 1
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">x</span> <span class="o">-</span> <span class="mf">3.0</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">f</span><span class="p">.</span><span class="n">value</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>       <span class="c1">// 3.0
+</span></span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">f</span><span class="p">.</span><span class="n">derivative</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>  <span class="c1">// 9.0
+</span></span></span></code></pre></div><p><strong>Strengths:</strong></p>
+<ul>
+<li>Simple implementation (operator overloading)</li>
+<li>No memory overhead</li>
+<li>Naturally composable for higher derivatives</li>
+<li>Works with any function of overloaded operators</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Single input variable (or few inputs)</li>
+<li>Computing Jacobian-vector products</li>
+<li>Higher-order derivatives via nesting</li>
+<li>Sensitivity analysis along one direction</li>
+</ul>
+<p><strong>Complexity</strong>: One forward pass per input variable. For f: R^n -&gt; R^m, computing the full Jacobian requires n passes.</p>
+<h2 id="reverse-mode-ad-computational-graphs">Reverse-Mode AD: Computational Graphs</h2>
+<p>Reverse-mode AD builds a computational graph during the forward pass, then propagates gradients backward via the chain rule:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">pow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">));</span>  <span class="c1">// f(x) = sum(x^2)
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">df</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">);</span>  <span class="c1">// Returns gradient function
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">df</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>  <span class="c1">// One backward pass for all partials
+</span></span></span></code></pre></div><p><strong>Strengths:</strong></p>
+<ul>
+<li>O(1) backward passes regardless of input dimension</li>
+<li>Powers modern deep learning (backpropagation)</li>
+<li>Efficient for loss functions: f: R^n -&gt; R</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Many inputs, scalar output (neural networks)</li>
+<li>Computing vector-Jacobian products</li>
+<li>Optimization where you need the full gradient</li>
+</ul>
+<p><strong>Complexity</strong>: One forward pass to build the graph, one backward pass to compute all gradients. Memory scales with the number of operations because you have to store intermediate values.</p>
+<h2 id="numerical-differentiation-finite-differences">Numerical Differentiation: Finite Differences</h2>
+<p>Approximate the derivative using the limit definition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Central difference: f&#39;(x) ~ (f(x+h) - f(x-h)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">df</span> <span class="o">=</span> <span class="n">central_difference</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+</span></span></code></pre></div><p><strong>Strengths:</strong></p>
+<ul>
+<li>Works with black-box functions</li>
+<li>No special types required</li>
+<li>Simple to implement and understand</li>
+</ul>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Approximate (truncation error + round-off error)</li>
+<li>Requires careful step size selection</li>
+<li>O(n) function evaluations for gradient</li>
+</ul>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Black-box functions (no source code)</li>
+<li>Quick approximations</li>
+<li><strong>Validating AD implementations</strong></li>
+</ul>
+<h2 id="decision-tree">Decision Tree</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">Need derivatives?
+</span></span><span class="line"><span class="cl">|
+</span></span><span class="line"><span class="cl">+-- Source code available?
+</span></span><span class="line"><span class="cl">|   |
+</span></span><span class="line"><span class="cl">|   +-- Yes: Use AD
+</span></span><span class="line"><span class="cl">|   |   |
+</span></span><span class="line"><span class="cl">|   |   +-- f: R -&gt; R^m (few inputs, many outputs)?
+</span></span><span class="line"><span class="cl">|   |   |   --&gt; Forward-mode AD
+</span></span><span class="line"><span class="cl">|   |   |
+</span></span><span class="line"><span class="cl">|   |   +-- f: R^n -&gt; R (many inputs, scalar output)?
+</span></span><span class="line"><span class="cl">|   |   |   --&gt; Reverse-mode AD
+</span></span><span class="line"><span class="cl">|   |   |
+</span></span><span class="line"><span class="cl">|   |   +-- f: R^n -&gt; R^m (both)?
+</span></span><span class="line"><span class="cl">|   |       --&gt; Forward for m &lt; n, Reverse for n &lt; m
+</span></span><span class="line"><span class="cl">|   |
+</span></span><span class="line"><span class="cl">|   +-- No: Black-box function
+</span></span><span class="line"><span class="cl">|       --&gt; Finite differences
+</span></span><span class="line"><span class="cl">|
+</span></span><span class="line"><span class="cl">+-- Validating correctness?
+</span></span><span class="line"><span class="cl">    --&gt; Finite differences (ground truth)
+</span></span></code></pre></div><h2 id="side-by-side-comparison">Side-by-Side Comparison</h2>
+<p>Consider f(x,y,z) = x^2 + y^2 + z^2, evaluated at (1, 2, 3).</p>
+<h3 id="forward-mode-3-passes-for-full-gradient">Forward-Mode (3 passes for full gradient)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Pass 1: differentiate w.r.t. x
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">dx</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">constant</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">z1</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">constant</span><span class="p">(</span><span class="mf">3.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f1</span> <span class="o">=</span> <span class="n">dx</span><span class="o">*</span><span class="n">dx</span> <span class="o">+</span> <span class="n">y1</span><span class="o">*</span><span class="n">y1</span> <span class="o">+</span> <span class="n">z1</span><span class="o">*</span><span class="n">z1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// f1.derivative() = 2 (df/dx)
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Pass 2: differentiate w.r.t. y
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Pass 3: differentiate w.r.t. z
+</span></span></span></code></pre></div><h3 id="reverse-mode-1-pass-for-full-gradient">Reverse-Mode (1 pass for full gradient)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">v</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">*</span><span class="n">v</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">v</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">v</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">v</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">*</span><span class="n">v</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">vector</span><span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// gradient = {2, 4, 6} in one backward pass
+</span></span></span></code></pre></div><h3 id="finite-differences-3-evaluations-for-gradient">Finite Differences (3 evaluations for gradient)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// df/dx ~ (f(1+h,2,3) - f(1-h,2,3)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="c1">// df/dy ~ (f(1,2+h,3) - f(1,2-h,3)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="c1">// df/dz ~ (f(1,2,3+h) - f(1,2,3-h)) / 2h
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">finite_diff</span><span class="o">::</span><span class="n">gradient</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">{</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">});</span>
+</span></span></code></pre></div><h2 id="combining-methods-validation">Combining Methods: Validation</h2>
+<p>The gold standard for testing AD: compare against finite differences.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">ad_grad</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">fd_grad</span> <span class="o">=</span> <span class="n">finite_diff</span><span class="o">::</span><span class="n">gradient</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Should match within tolerance
+</span></span></span><span class="line"><span class="cl"><span class="n">REQUIRE</span><span class="p">(</span><span class="n">approx_equal</span><span class="p">(</span><span class="n">ad_grad</span><span class="p">,</span> <span class="n">fd_grad</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">));</span>
+</span></span></code></pre></div><p>Finite differences are slow and approximate, but they don&rsquo;t lie. If your AD implementation disagrees with finite differences, the AD is wrong.</p>
+<h2 id="complexity-analysis">Complexity Analysis</h2>
+<p>For \(f: \mathbb{R}^n \to \mathbb{R}^m\) with \(p\) elementary operations:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Method</th>
+					<th>Time</th>
+					<th>Space</th>
+					<th>Function Evals</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Forward AD</td>
+					<td>\(O(np)\)</td>
+					<td>\(O(1)\)</td>
+					<td>\(n\)</td>
+			</tr>
+			<tr>
+					<td>Reverse AD</td>
+					<td>\(O(mp)\)</td>
+					<td>\(O(p)\)</td>
+					<td>\(m\)</td>
+			</tr>
+			<tr>
+					<td>Finite Diff</td>
+					<td>\(O(n)\)</td>
+					<td>\(O(1)\)</td>
+					<td>\(2n\) (central)</td>
+			</tr>
+	</tbody>
+</table>
+<p>The crossover point:</p>
+<ul>
+<li><strong>\(n < m\)</strong>: Forward-mode wins</li>
+<li><strong>\(n > m\)</strong>: Reverse-mode wins</li>
+<li><strong>\(n \approx m\)</strong>: Either works; consider memory constraints</li>
+</ul>
+<p>For neural networks with millions of parameters and scalar loss, reverse mode is the only practical choice.</p>
+<h2 id="integration-with-numerical-quadrature">Integration with Numerical Quadrature</h2>
+<p>One of my favorite applications: differentiation under the integral sign.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Compute d/da of integral from 0 to 1 of a*sin(x) dx
+</span></span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">D</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">a</span> <span class="o">=</span> <span class="n">D</span><span class="o">::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">integrand</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">a</span><span class="p">](</span><span class="n">D</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="nf">sin</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">(</span><span class="n">integrand</span><span class="p">,</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">1.0</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// result.value() = 2 * (1 - cos(1)) ~ 0.919
+</span></span></span><span class="line"><span class="cl"><span class="c1">// result.derivative() = (1 - cos(1)) ~ 0.459
+</span></span></span></code></pre></div><p>Forward-mode AD composes naturally with generic numerical algorithms because dual numbers form a ring. They satisfy the algebraic requirements that the algorithms need. You don&rsquo;t have to do anything special.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Three methods, three use cases:</p>
+<ol>
+<li><strong>Forward-mode AD</strong>: Simple, memory-efficient, ideal for few inputs</li>
+<li><strong>Reverse-mode AD</strong>: Powers deep learning, ideal for many inputs</li>
+<li><strong>Finite differences</strong>: Universal fallback, validation tool</li>
+</ol>
+<p>The Stepanov perspective: each method exploits different structure. Forward AD uses the ring structure of dual numbers. Reverse AD uses the DAG structure of computation. Finite differences use only function evaluation. Understanding which structure your problem has tells you which method to reach for.</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li><a href="/computer-science/stepanov/2021-09-dual/">Forward-Mode Automatic Differentiation</a> - Dual numbers in detail</li>
+<li><a href="/computer-science/stepanov/2023-01-autodiff/">Reverse-Mode Automatic Differentiation</a> - Building a computational graph</li>
+<li><a href="/computer-science/stepanov/2022-04-finite-diff/">Numerical Differentiation</a> - Finite difference schemes</li>
+<li><a href="/computer-science/stepanov/2023-08-integration/">Numerical Integration with Generic Concepts</a> - Leibniz rule via dual numbers</li>
+</ul>
+]]></content:encoded><category>C++</category><category>automatic-differentiation</category><category>numerical-methods</category><category>calculus</category><category>machine-learning</category><category>dual-numbers</category></item></channel></rss>

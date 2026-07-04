@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>AlgoTree on metafunctor</title><link>https://metafunctor.com/linked_project/algotree/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/algotree/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Everything is a File: Virtual Filesystems for CLI Data Tools</title><link>https://metafunctor.com/post/2025-10-20-vfs-cli-tools/</link><pubDate>Mon, 20 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-10-20-vfs-cli-tools/</guid><description>How I turned scattered data managers into navigable systems using virtual filesystems and POSIX commands.</description><content:encoded><![CDATA[<p>I had a bookmark manager. Then an ebook library manager. Then a chat history manager. Each started with the standard CRUD CLI:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk add https://example.com --tags python,tutorial
+</span></span><span class="line"><span class="cl">btk list --tag python
+</span></span><span class="line"><span class="cl">btk search <span class="s2">&#34;async&#34;</span>
+</span></span><span class="line"><span class="cl">btk delete <span class="m">1234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
+</span></span><span class="line"><span class="cl">ebk list --author Knuth
+</span></span><span class="line"><span class="cl">ebk search <span class="s2">&#34;algorithms&#34;</span>
+</span></span></code></pre></div><p>This works fine until you have 10,000+ bookmarks organized with hierarchical tags like <code>programming/python/async</code>, <code>research/ml/transformers</code>, <code>work/clients/acme</code>. Your ebook library has similar structure. Your exported chat conversations from Claude, ChatGPT, and Copilot are piling up.</p>
+<p>Traditional CRUD commands become unwieldy:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk list --tag programming/python/async/io --format json <span class="p">|</span> jq <span class="s1">&#39;.[].title&#39;</span>
+</span></span><span class="line"><span class="cl">ebk list --category <span class="s2">&#34;Computer Science/Algorithms/Graph Theory&#34;</span> --limit <span class="m">50</span>
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;machine learning&#34;</span> --source ChatGPT --date-from 2024-01-01
+</span></span></code></pre></div><p>Each command requires precise arguments. Each tool has different flag conventions. You can&rsquo;t <em>navigate</em> your data. You can only <em>query</em> it. And queries require knowing exactly what you&rsquo;re looking for.</p>
+<h2 id="the-insight-everything-is-a-file">The insight: everything is a file</h2>
+<p>When I have thousands of source files organized in directories, I don&rsquo;t run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">list-files --path /src/components/auth --extension .tsx
+</span></span></code></pre></div><p>I run:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="nb">cd</span> src/components/auth
+</span></span><span class="line"><span class="cl">ls *.tsx
+</span></span></code></pre></div><p>The difference matters. With a filesystem, I can navigate incrementally (<code>cd</code> from general to specific), explore (<code>ls</code> to see what&rsquo;s there), compose (<code>cat file | grep pattern | wc -l</code>), and use familiar tools (<code>find</code>, <code>grep</code>, <code>xargs</code>, pipes, redirection).</p>
+<p>What if my bookmarks, ebooks, and chat histories were filesystems?</p>
+<h2 id="the-pattern">The pattern</h2>
+<p>Over the past year, I built six Python tools that all follow the same architecture:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Tool</th>
+					<th>Domain</th>
+					<th>VFS Root Structure</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>btk</strong></td>
+					<td>Bookmarks</td>
+					<td><code>/bookmarks/</code>, <code>/tags/</code>, <code>/recent/</code>, <code>/domains/</code>, <code>/unread/</code>, <code>/popular/</code></td>
+			</tr>
+			<tr>
+					<td><strong>ebk</strong></td>
+					<td>Ebook library</td>
+					<td><code>/books/</code>, <code>/authors/</code>, <code>/series/</code>, <code>/subjects/</code>, <code>/recent/</code>, <code>/unread/</code></td>
+			</tr>
+			<tr>
+					<td><strong>ctk</strong></td>
+					<td>Chat conversations</td>
+					<td><code>/conversations/</code>, <code>/sources/</code>, <code>/topics/</code>, <code>/starred/</code>, <code>/recent/</code></td>
+			</tr>
+			<tr>
+					<td><strong>ghops</strong></td>
+					<td>Git repositories</td>
+					<td><code>/repos/</code>, <code>/languages/</code>, <code>/topics/</code>, <code>/stars/</code>, <code>/recent/</code></td>
+			</tr>
+			<tr>
+					<td><strong>infinigram</strong></td>
+					<td>N-gram models</td>
+					<td><code>/datasets/</code>, <code>/models/</code>, <code>/corpora/</code></td>
+			</tr>
+			<tr>
+					<td><strong>AlgoTree</strong></td>
+					<td>Tree structures</td>
+					<td><code>/nodes/</code>, <code>/paths/</code>, <code>/subtrees/</code></td>
+			</tr>
+	</tbody>
+</table>
+<p>Each tool provides:</p>
+<ol>
+<li>A stateless CLI for scripting: <code>btk bookmark add URL</code>, <code>ebk import book.pdf</code></li>
+<li>An interactive shell with a virtual filesystem: <code>btk shell</code>, <code>ebk shell</code>, <code>ctk chat</code></li>
+<li>POSIX-like commands: <code>cd</code>, <code>ls</code>, <code>pwd</code>, <code>cat</code>, <code>mv</code>, <code>cp</code>, <code>rm</code>, <code>find</code>, <code>grep</code></li>
+<li>Unix pipeline support: most commands output JSONL by default for piping</li>
+</ol>
+<p>The interesting part is the shell.</p>
+<h2 id="navigating-10000-bookmarks">Navigating 10,000 bookmarks</h2>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/asciinema-player@3.7.0/dist/bundle/asciinema-player.min.js"></script>
+<div id="btk-demo"></div>
+<script>
+AsciinemaPlayer.create('btk.cast', document.getElementById('btk-demo'), {
+  cols: 94,
+  rows: 49,
+  speed: 1,
+  idleTimeLimit: 2,
+  theme: 'monokai',
+  poster: 'npt:0:06'
+});
+</script>
+<p><em>Live recording captured with <a href="https://asciinema.org/">asciinema</a>. You can pause, copy text, and replay. The entire recording is 78KB of text.</em></p>
+<h3 id="the-old-way">The old way</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk search <span class="s2">&#34;python async&#34;</span> --tag programming --limit <span class="m">10</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Returns JSON blob... now what?</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ btk list --tag <span class="s2">&#34;programming/python/async&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Hope I remembered the exact tag path</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">$ btk bookmark get <span class="m">4095</span> --format json <span class="p">|</span> jq <span class="s1">&#39;.tags&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># One bookmark at a time, verbose</span>
+</span></span></code></pre></div><h3 id="the-vfs-way">The VFS way</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ btk shell
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">      __    __  __
+</span></span><span class="line"><span class="cl">     / /_  / /_/ /__
+</span></span><span class="line"><span class="cl">    / __ <span class="se">\/</span> __/ //_/
+</span></span><span class="line"><span class="cl">   / /_/ / /_/ ,&lt;
+</span></span><span class="line"><span class="cl">  /_.___/<span class="se">\_</span>_/_/<span class="p">|</span>_<span class="p">|</span>  v0.7.1
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  Bookmark Toolkit - Virtual Filesystem Shell
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ ls
+</span></span><span class="line"><span class="cl">bookmarks/    <span class="o">(</span>10,247<span class="o">)</span>    All bookmarks
+</span></span><span class="line"><span class="cl">tags/                    Tag hierarchy
+</span></span><span class="line"><span class="cl">recent/                  Time-based navigation
+</span></span><span class="line"><span class="cl">domains/                 Browse by domain
+</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    Never visited
+</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      Most visited
+</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       Dead links
+</span></span><span class="line"><span class="cl">starred/      <span class="o">(</span>156<span class="o">)</span>      Starred bookmarks
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming/python
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ ls
+</span></span><span class="line"><span class="cl">async/        <span class="o">(</span>87<span class="o">)</span>
+</span></span><span class="line"><span class="cl">web/          <span class="o">(</span>124<span class="o">)</span>
+</span></span><span class="line"><span class="cl">data/         <span class="o">(</span>156<span class="o">)</span>
+</span></span><span class="line"><span class="cl">ml/           <span class="o">(</span>89<span class="o">)</span>
+</span></span><span class="line"><span class="cl">testing/      <span class="o">(</span>45<span class="o">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls <span class="p">|</span> head -5
+</span></span><span class="line"><span class="cl"><span class="m">4095</span>  <span class="m">5234</span>  <span class="m">6012</span>  <span class="m">6891</span>  <span class="m">7234</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/title
+</span></span><span class="line"><span class="cl">Real Python - Async IO in Python: A Complete Walkthrough
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ cat 4095/url
+</span></span><span class="line"><span class="cl">https://realpython.com/async-io-python/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ star <span class="m">4095</span>
+</span></span><span class="line"><span class="cl">★ Starred bookmark <span class="c1">#4095</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ <span class="nb">cd</span> /recent/today/added
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ ls
+</span></span><span class="line"><span class="cl"><span class="m">8901</span>  <span class="m">8902</span>  <span class="m">8903</span>  <span class="m">8904</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag <span class="m">8901</span> <span class="m">8902</span> <span class="m">8903</span> todo
+</span></span><span class="line"><span class="cl">✓ Tagged <span class="m">3</span> bookmarks
+</span></span></code></pre></div><p>No flag memorization. Incremental exploration. Context-aware commands. It&rsquo;s just directories and files.</p>
+<h2 id="same-pattern-different-data">Same pattern, different data</h2>
+<h3 id="ebooks-ebk">Ebooks (ebk)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ebk:/$ <span class="nb">cd</span> subjects/Computer<span class="se">\ </span>Science/Algorithms
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ ls
+</span></span><span class="line"><span class="cl">Introduction to Algorithms.pdf
+</span></span><span class="line"><span class="cl">The Algorithm Design Manual.pdf
+</span></span><span class="line"><span class="cl">Algorithms <span class="o">(</span>Sedgewick<span class="o">)</span>.pdf
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ cat <span class="s2">&#34;Introduction to Algorithms.pdf&#34;</span>/metadata
+</span></span><span class="line"><span class="cl">Title: Introduction to Algorithms
+</span></span><span class="line"><span class="cl">Authors: Cormen, Leiserson, Rivest, Stein
+</span></span><span class="line"><span class="cl">ISBN: 978-0262033848
+</span></span><span class="line"><span class="cl">Pages: <span class="m">1312</span>
+</span></span><span class="line"><span class="cl">Rating: 5/5
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ebk:/subjects/Computer Science/Algorithms$ rate * <span class="m">5</span>
+</span></span><span class="line"><span class="cl">✓ Rated <span class="m">3</span> books
+</span></span></code></pre></div><h3 id="chat-history-ctk">Chat history (ctk)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ctk:/$ <span class="nb">cd</span> sources/ChatGPT
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ ls <span class="p">|</span> wc -l
+</span></span><span class="line"><span class="cl"><span class="m">423</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/sources/ChatGPT$ <span class="nb">cd</span> /topics/machine-learning
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ ls
+</span></span><span class="line"><span class="cl">conv_a1b2c3  conv_d4e5f6  conv_g7h8i9
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ show conv_a1b2c3
+</span></span><span class="line"><span class="cl"><span class="o">[</span>Shows conversation tree with messages<span class="o">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ star conv_a1b2c3
+</span></span><span class="line"><span class="cl">★ Starred conversation
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/topics/machine-learning$ <span class="nb">cd</span> /starred
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ctk:/starred$ <span class="nb">export</span> --format markdown &gt; starred_ml_convos.md
+</span></span><span class="line"><span class="cl">✓ Exported <span class="m">5</span> starred conversations to starred_ml_convos.md
+</span></span></code></pre></div><h3 id="git-repositories-ghops">Git repositories (ghops)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">ghops:/$ <span class="nb">cd</span> languages/Python
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python$ ls
+</span></span><span class="line"><span class="cl">btk/  ebk/  ctk/  ghops/  infinigram/  AlgoTree/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python$ <span class="nb">cd</span> btk
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">ghops:/languages/Python/btk$ status
+</span></span><span class="line"><span class="cl">Branch: master
+</span></span><span class="line"><span class="cl">Commits ahead: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">Uncommitted changes: <span class="m">0</span>
+</span></span><span class="line"><span class="cl">Last commit: Release v0.7.1 <span class="o">(</span><span class="m">2</span> days ago<span class="o">)</span>
+</span></span></code></pre></div><h2 id="what-makes-it-work">What makes it work</h2>
+<p>After building six of these, the patterns are clear.</p>
+<h3 id="stateless-cli--stateful-shell">Stateless CLI + stateful shell</h3>
+<p>Every tool has both interfaces. The CLI is for automation and scripting. The shell is for humans.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># CLI (stateless, scriptable)</span>
+</span></span><span class="line"><span class="cl">btk bookmark add https://example.com --tags python,tutorial
+</span></span><span class="line"><span class="cl">ebk import book.pdf --author <span class="s2">&#34;Knuth&#34;</span>
+</span></span><span class="line"><span class="cl">ctk <span class="nb">export</span> --format jsonl &gt; training.jsonl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Shell (stateful, exploratory)</span>
+</span></span><span class="line"><span class="cl">btk shell
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> tags/python
+</span></span><span class="line"><span class="cl">star *
+</span></span></code></pre></div><h3 id="dynamic-virtual-directories">Dynamic virtual directories</h3>
+<p>Traditional filesystems are static. The VFS exposes computed views:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/$ ls
+</span></span><span class="line"><span class="cl">unread/       <span class="o">(</span>2,431<span class="o">)</span>    <span class="c1"># SELECT * WHERE visit_count = 0</span>
+</span></span><span class="line"><span class="cl">popular/      <span class="o">(</span>100<span class="o">)</span>      <span class="c1"># SELECT * ORDER BY visit_count DESC LIMIT 100</span>
+</span></span><span class="line"><span class="cl">broken/       <span class="o">(</span>14<span class="o">)</span>       <span class="c1"># SELECT * WHERE reachable = false</span>
+</span></span><span class="line"><span class="cl">recent/today/added/      <span class="c1"># SELECT * WHERE added &gt;= TODAY</span>
+</span></span></code></pre></div><p>These &ldquo;directories&rdquo; don&rsquo;t exist on disk. They&rsquo;re queries. But they feel like directories, which is the point.</p>
+<h3 id="context-aware-commands">Context-aware commands</h3>
+<p>Commands understand where you are:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">btk:/bookmarks/4095$ cat title
+</span></span><span class="line"><span class="cl"><span class="c1"># Shows title of bookmark 4095</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/python$ star *
+</span></span><span class="line"><span class="cl"><span class="c1"># Stars all Python-tagged bookmarks</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/recent/today/added$ tag * review
+</span></span><span class="line"><span class="cl"><span class="c1"># Tags today&#39;s additions</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/broken$ rm *
+</span></span><span class="line"><span class="cl"><span class="c1"># Removes all broken bookmarks</span>
+</span></span></code></pre></div><p>The current path becomes implicit context. No need to repeat IDs or filters.</p>
+<h3 id="hierarchical-tags-as-directories">Hierarchical tags as directories</h3>
+<p>This is the killer feature. Hierarchical tags map directly to filesystem paths.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Tag with hierarchy</span>
+</span></span><span class="line"><span class="cl">btk tag <span class="m">4095</span> programming/python/async/io
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Navigate the hierarchy</span>
+</span></span><span class="line"><span class="cl">btk:/$ <span class="nb">cd</span> tags/programming
+</span></span><span class="line"><span class="cl">btk:/tags/programming$ ls
+</span></span><span class="line"><span class="cl">python/  javascript/  rust/  go/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">btk:/tags/programming$ <span class="nb">cd</span> python/async
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python/async$ ls
+</span></span><span class="line"><span class="cl">io/  frameworks/  patterns/
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Bulk operations on a hierarchy</span>
+</span></span><span class="line"><span class="cl">btk:/tags/programming/python$ star */advanced/*
+</span></span></code></pre></div><p>Compare with flat tags: <code>python</code>, <code>python-async</code>, <code>python-async-io</code>, <code>python-web</code>, <code>python-web-django</code>. Hierarchy gives you free navigation and organization.</p>
+<h3 id="jsonl-by-default">JSONL by default</h3>
+<p>All commands output newline-delimited JSON by default:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Pipe to jq, grep, awk, anything</span>
+</span></span><span class="line"><span class="cl">btk list <span class="p">|</span> jq <span class="s1">&#39;select(.stars == true)&#39;</span>
+</span></span><span class="line"><span class="cl">ebk status <span class="p">|</span> grep <span class="s2">&#34;rating: 5&#34;</span>
+</span></span><span class="line"><span class="cl">ctk search <span class="s2">&#34;python&#34;</span> <span class="p">|</span> jq <span class="s1">&#39;.id&#39;</span> <span class="p">|</span> xargs ctk <span class="nb">export</span> --ids
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pretty-print for humans</span>
+</span></span><span class="line"><span class="cl">btk list --pretty
+</span></span></code></pre></div><p>This makes the tools composable with the Unix ecosystem. JSONL is streamable, appendable, grepable, and robust (one malformed record doesn&rsquo;t break the file).</p>
+<h2 id="implementation">Implementation</h2>
+<p>The architecture is straightforward. Each tool shares the same stack:</p>
+<ol>
+<li><strong>Database layer</strong> (SQLAlchemy + SQLite): normalized schema, FTS5 search, efficient indexing</li>
+<li><strong>VFS layer</strong> (Python <code>cmd.Cmd</code>): path parsing, context detection, command routing</li>
+<li><strong>Command layer</strong>: context-aware implementations of <code>do_ls()</code>, <code>do_cd()</code>, <code>do_cat()</code>, etc.</li>
+<li><strong>CLI layer</strong> (Typer/argparse): stateless commands for scripting, JSONL output</li>
+</ol>
+<p>The core of it is context detection:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">_get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Determine what &#39;directory&#39; we&#39;re in.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span> <span class="o">==</span> <span class="s2">&#34;/&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;root&#39;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">parts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_path</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tags&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /tags/programming/python</span>
+</span></span><span class="line"><span class="cl">        <span class="n">tag_path</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter_by_tag_prefix</span><span class="p">(</span><span class="n">tag_path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tag&#39;</span><span class="p">,</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="n">tag_path</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /recent/today/added</span>
+</span></span><span class="line"><span class="cl">        <span class="n">period</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># &#39;today&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">activity</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="s1">&#39;visited&#39;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="n">filter_by_time_and_activity</span><span class="p">(</span><span class="n">period</span><span class="p">,</span> <span class="n">activity</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">,</span> <span class="s1">&#39;period&#39;</span><span class="p">:</span> <span class="n">period</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;activity&#39;</span><span class="p">:</span> <span class="n">activity</span><span class="p">,</span> <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;unread&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /unread - smart collection</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmarks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">visit_count</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;unread&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmarks&#39;</span><span class="p">:</span> <span class="n">bookmarks</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmarks&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="c1"># /bookmarks/4095</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmark_id</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">        <span class="n">bookmark</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bookmark_id</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">,</span> <span class="s1">&#39;bookmark_id&#39;</span><span class="p">:</span> <span class="n">bookmark_id</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span> <span class="n">bookmark</span><span class="p">}</span>
+</span></span></code></pre></div><p>Once you know the context, commands adapt:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">do_ls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;List items in current directory.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_context</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;root&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_root</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;tag&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_tag</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;tag&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;recent_activity&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmarks</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;smart_collection&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_collection</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmarks&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">context</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;bookmark&#39;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="bp">self</span><span class="o">.</span><span class="n">_ls_bookmark</span><span class="p">(</span><span class="n">context</span><span class="p">[</span><span class="s1">&#39;bookmark&#39;</span><span class="p">])</span>
+</span></span></code></pre></div><p>Context detection + polymorphic commands. That&rsquo;s the whole trick.</p>
+<h2 id="why-it-matters">Why it matters</h2>
+<p>Traditional CLIs force you to remember exact syntax, construct precise queries, and process JSON blobs. VFS interfaces let you explore incrementally, discover what exists, and operate on context.</p>
+<p>It matches how humans think: spatial navigation over query construction. We already know filesystems. We already know <code>cd</code>, <code>ls</code>, <code>grep</code>, <code>find</code>. The VFS pattern lets you reuse that knowledge for any hierarchical data.</p>
+<h2 id="the-tools">The tools</h2>
+<p>All six are open source and on PyPI:</p>
+<ul>
+<li><strong>btk</strong> (Bookmark Toolkit): <a href="https://github.com/queelius/btk">github.com/queelius/btk</a></li>
+<li><strong>ebk</strong> (eBook Manager): <a href="https://github.com/queelius/ebk">github.com/queelius/ebk</a></li>
+<li><strong>ctk</strong> (Conversation Toolkit): <a href="https://github.com/queelius/ctk">github.com/queelius/ctk</a></li>
+<li><strong>ghops</strong> (Git Repository Manager): <a href="https://github.com/queelius/ghops">github.com/queelius/ghops</a></li>
+<li><strong>infinigram</strong> (N-gram Models): <a href="https://github.com/queelius/infinigram">github.com/queelius/infinigram</a></li>
+<li><strong>AlgoTree</strong> (Tree Structures): <a href="https://github.com/queelius/AlgoTree">github.com/queelius/AlgoTree</a></li>
+</ul>
+<p>If you build CLI tools for hierarchical data, consider the VFS pattern. Your users already know <code>cd</code> and <code>ls</code>. Why make them learn 47 flags?</p>
+<hr>
+<h2 id="technical-notes">Technical notes</h2>
+<h3 id="recording-shell-sessions">Recording shell sessions</h3>
+<p>The interactive demo uses <a href="https://asciinema.org/">asciinema</a>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">asciinema rec btk-demo.cast
+</span></span><span class="line"><span class="cl">btk shell
+</span></span><span class="line"><span class="cl"><span class="c1"># ... do your demo ...</span>
+</span></span><span class="line"><span class="cl"><span class="nb">exit</span>
+</span></span></code></pre></div><p>The <code>.cast</code> file is pure text (JSON), usually a few KB. You get interactive playback via <a href="https://github.com/asciinema/asciinema-player">asciinema-player</a>, copy-pasteable text, and 78KB for several minutes of demo instead of megabytes for a GIF or video. This is better than screen recordings for terminal demos.</p>
+<h3 id="test-coverage">Test coverage</h3>
+<p>All six tools have comprehensive test suites:</p>
+<ul>
+<li><strong>btk</strong>: 515 tests (53% shell coverage, 23% CLI coverage)</li>
+<li><strong>ghops</strong>: 138 tests, 86% coverage</li>
+<li><strong>infinigram</strong>: 36 tests with benchmarks</li>
+<li><strong>AlgoTree</strong>: 197 tests, 86% coverage</li>
+</ul>
+<p>The VFS pattern is highly testable. Each component (path parsing, context detection, command handlers) is isolated and pure. Mock the database, test the rest.</p>
+]]></content:encoded><category>unix-philosophy</category><category>cli-tools</category><category>python</category><category>data-management</category><category>virtual-filesystem</category><category>software-design</category><category>open-source</category></item><item><title>AlgoTree: Immutable Trees with Functional Transformers</title><link>https://metafunctor.com/post/algotree/</link><pubDate>Fri, 21 Jun 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/algotree/</guid><description>An immutable-by-default tree library for Python with composable transformations, pipe-based pipelines, and pattern-matching selectors.</description><content:encoded><![CDATA[<p><a href="https://pypi.org/project/AlgoTree/">AlgoTree</a> is a tree manipulation library for Python. Version 2.0 is a complete redesign built on immutable-by-default principles with composable transformers and pattern-matching selectors.</p>
+<h2 id="why-immutable-trees">Why immutable trees?</h2>
+<p>Mutable tree libraries have hidden costs. Modifying a tree can break other code holding references to it. Changes are hard to track during debugging. Concurrent modifications cause subtle bugs. The usual story.</p>
+<p>AlgoTree takes a different approach: all operations return new tree objects. The original is never modified.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Node</span><span class="p">,</span> <span class="n">node</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build a tree</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">node</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child1&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child2&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># All operations return new trees</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree2</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="s2">&#34;new_root&#34;</span><span class="p">)</span>  <span class="c1"># tree unchanged</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree3</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">with_child</span><span class="p">(</span><span class="n">Node</span><span class="p">(</span><span class="s2">&#34;child3&#34;</span><span class="p">))</span>  <span class="c1"># tree unchanged</span>
+</span></span></code></pre></div><p>This is the same idea behind persistent data structures in Clojure or Haskell. Immutability eliminates a whole class of bugs at the cost of some allocation overhead. For tree manipulation tasks (as opposed to, say, hot inner loops), the tradeoff is worth it.</p>
+<h2 id="building-trees">Building Trees</h2>
+<p>Multiple construction styles for different use cases:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Node</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">TreeBuilder</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Simple construction with Node</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">Node</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Node</span><span class="p">(</span><span class="s2">&#34;child1&#34;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;value&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Node</span><span class="p">(</span><span class="s2">&#34;child2&#34;</span><span class="p">,</span> <span class="n">attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;value&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Convenience function (auto-converts strings)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">node</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child1&#34;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;child2&#34;</span><span class="p">,</span>  <span class="c1"># Strings auto-convert to nodes</span>
+</span></span><span class="line"><span class="cl">    <span class="n">node</span><span class="p">(</span><span class="s2">&#34;child3&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;grandchild1&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;grandchild2&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fluent builder API</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="p">(</span><span class="n">TreeBuilder</span><span class="p">(</span><span class="s2">&#34;root&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;container&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;src&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;main.py&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;file&#34;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">1024</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;utils.py&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;file&#34;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">up</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;docs&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">.</span><span class="n">child</span><span class="p">(</span><span class="s2">&#34;README.md&#34;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&#34;file&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">build</span><span class="p">())</span>
+</span></span></code></pre></div><h2 id="functional-transformations">Functional Transformations</h2>
+<p>The standard functional toolkit, applied to trees:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Map: transform all nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">doubled</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">with_attrs</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">value</span><span class="o">=</span><span class="n">n</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;value&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+</span></span><span class="line"><span class="cl"><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Filter: keep nodes matching predicate</span>
+</span></span><span class="line"><span class="cl"><span class="n">filtered</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;value&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find: locate specific nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">nodes</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="composable-selectors">Composable Selectors</h2>
+<p>Pattern matching with wildcards and logical composition:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">name</span><span class="p">,</span> <span class="n">attrs</span><span class="p">,</span> <span class="n">leaf</span><span class="p">,</span> <span class="n">type_</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Pattern matching with wildcards</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">name</span><span class="p">(</span><span class="s2">&#34;*.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Attribute matching with predicates</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">attrs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Logical composition with operators</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">type_</span><span class="p">(</span><span class="s2">&#34;file&#34;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">leaf</span><span class="p">()</span>  <span class="c1"># Files that aren&#39;t leaves</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Structural selectors</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">type_</span><span class="p">(</span><span class="s2">&#34;file&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">child_of</span><span class="p">(</span><span class="n">name</span><span class="p">(</span><span class="s2">&#34;src&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">selector</span> <span class="o">=</span> <span class="n">leaf</span><span class="p">()</span><span class="o">.</span><span class="n">at_depth</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Use selectors with trees</span>
+</span></span><span class="line"><span class="cl"><span class="n">matching_nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">selector</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">tree</span><span class="p">))</span>
+</span></span></code></pre></div><p>The selectors compose with <code>&amp;</code>, <code>|</code>, and <code>~</code>. This means you can build complex queries from simple parts without writing custom traversal code.</p>
+<h2 id="pipe-based-transformers">Pipe-Based Transformers</h2>
+<p>Build transformation pipelines with the <code>&gt;&gt;</code> operator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">map_</span><span class="p">,</span> <span class="n">filter_</span><span class="p">,</span> <span class="n">prune</span><span class="p">,</span> <span class="n">normalize</span><span class="p">,</span> <span class="n">extract</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build transformation pipelines</span>
+</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">map_</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="p">{</span><span class="s2">&#34;processed&#34;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span> <span class="o">&gt;&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">filter_</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&#34;active&#34;</span><span class="p">))</span> <span class="o">&gt;&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">normalize</span><span class="p">(</span><span class="n">sort_children</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">&gt;&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">extract</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="n">n</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Apply pipeline to tree</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span></code></pre></div><p>This is the same idea as Unix pipes. Each stage takes a tree and returns a tree (or extracted values). The <code>&gt;&gt;</code> operator chains them left to right.</p>
+<h2 id="export-formats">Export Formats</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># JSON export</span>
+</span></span><span class="line"><span class="cl"><span class="n">json_str</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># GraphViz for visualization</span>
+</span></span><span class="line"><span class="cl"><span class="n">dot_str</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_graphviz</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Mermaid diagrams</span>
+</span></span><span class="line"><span class="cl"><span class="n">mermaid_str</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_mermaid</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Path listings</span>
+</span></span><span class="line"><span class="cl"><span class="n">paths</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_paths</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="relationship-to-algograph">Relationship to AlgoGraph</h2>
+<p>AlgoTree and <a href="/post/2025-11-30-algograph/">AlgoGraph</a> share the same design philosophy: immutable data structures, pipe-based transformers, declarative selectors, lazy views. They also interoperate:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Tree</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">tree_to_graph</span><span class="p">,</span> <span class="n">graph_to_tree</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Tree to Graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Graph to Tree (extracts spanning tree)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">graph_to_tree</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s1">&#39;root&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoTree
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/AlgoTree/">pypi.org/project/AlgoTree/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoTree">github.com/queelius/AlgoTree</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoTree/">queelius.github.io/AlgoTree/</a></li>
+</ul>
+]]></content:encoded><category>Python</category><category>data-structures</category><category>trees</category><category>functional-programming</category><category>immutability</category><category>pattern-matching</category></item></channel></rss>

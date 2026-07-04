@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>AlgoGraph on metafunctor</title><link>https://metafunctor.com/linked_project/algograph/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/algograph/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>AlgoGraph: Immutable Graph Library with Functional Transformers</title><link>https://metafunctor.com/post/2025-11-30-algograph/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-algograph/</guid><description>AlgoGraph is an immutable graph library for Python with pipe-based transformers, declarative selectors, and lazy views.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/AlgoGraph/">AlgoGraph</a></strong> is an immutable graph library for Python. Version 2.0.0 introduces pipe-based transformers, declarative selectors, and lazy views, which together cut boilerplate by roughly 90% for common graph operations.</p>
+<h2 id="why-immutability-for-graphs">Why Immutability for Graphs?</h2>
+<p>Mutable graph libraries like NetworkX are powerful but carry hidden costs:</p>
+<ul>
+<li><strong>Side effects</strong>: Modifying a graph can break other code holding references to it</li>
+<li><strong>Debugging difficulty</strong>: Hard to track when and where a graph changed</li>
+<li><strong>Thread unsafety</strong>: Concurrent modifications cause subtle bugs</li>
+</ul>
+<p>AlgoGraph takes a different approach: <strong>all operations return new graph objects</strong>. The original is never modified.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">g1</span> <span class="o">=</span> <span class="n">Graph</span><span class="o">.</span><span class="n">from_edges</span><span class="p">((</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="s1">&#39;C&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">g2</span> <span class="o">=</span> <span class="n">g1</span><span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;D&#39;</span><span class="p">)</span>  <span class="c1"># g1 unchanged, g2 is new graph</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">g1</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="k">assert</span> <span class="s1">&#39;D&#39;</span> <span class="ow">in</span> <span class="n">g2</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span>
+</span></span></code></pre></div><p>This is the same idea behind persistent data structures in Clojure or Haskell. You get referential transparency, which means you can reason about graph transformations without worrying about what else might be mutating the same object.</p>
+<h2 id="pipe-based-transformers">Pipe-Based Transformers</h2>
+<p>The main feature of v2.0.0 is the transformer pipeline using Python&rsquo;s <code>|</code> operator:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">largest_component</span><span class="p">,</span> <span class="n">stats</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compose operations declaratively</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">graph</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">largest_component</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">|</span> <span class="n">stats</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># result: {&#39;vertex_count&#39;: 42, &#39;edge_count&#39;: 156, &#39;density&#39;: 0.18, ...}</span>
+</span></span></code></pre></div><p>Compare with the imperative alternative:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Old way (NetworkX-style)</span>
+</span></span><span class="line"><span class="cl"><span class="n">active</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">subgraph</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">vertices</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">)])</span>
+</span></span><span class="line"><span class="cl"><span class="n">components</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">connected_components</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">largest</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">components</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">subgraph</span> <span class="o">=</span> <span class="n">active</span><span class="o">.</span><span class="n">subgraph</span><span class="p">(</span><span class="n">largest</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">stats</span> <span class="o">=</span> <span class="n">compute_stats</span><span class="p">(</span><span class="n">subgraph</span><span class="p">)</span>
+</span></span></code></pre></div><p>The pipe version reads top to bottom. Each step is a function. You can compose them, reuse them, test them independently.</p>
+<p><strong>Available transformers:</strong></p>
+<ul>
+<li><code>filter_vertices(pred)</code>, <code>filter_edges(pred)</code> &ndash; Filter by predicate</li>
+<li><code>map_vertices(fn)</code>, <code>map_edges(fn)</code> &ndash; Transform attributes</li>
+<li><code>reverse()</code>, <code>to_undirected()</code> &ndash; Structure transformations</li>
+<li><code>largest_component()</code>, <code>minimum_spanning_tree()</code> &ndash; Algorithm-based</li>
+<li><code>to_dict()</code>, <code>to_adjacency_list()</code>, <code>stats()</code> &ndash; Export operations</li>
+</ul>
+<h2 id="declarative-selectors">Declarative Selectors</h2>
+<p>Query vertices and edges with logical operators instead of filtering lambdas:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.graph_selectors</span> <span class="kn">import</span> <span class="n">vertex</span> <span class="k">as</span> <span class="n">v</span><span class="p">,</span> <span class="n">edge</span> <span class="k">as</span> <span class="n">e</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find active users with high degree</span>
+</span></span><span class="line"><span class="cl"><span class="n">power_users</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find heavy edges from admin nodes</span>
+</span></span><span class="line"><span class="cl"><span class="n">admin_edges</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_edges</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;admin&#39;</span><span class="p">))</span> <span class="o">&amp;</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span><span class="p">(</span><span class="n">min_weight</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Complex queries with OR, NOT, XOR</span>
+</span></span><span class="line"><span class="cl"><span class="n">special</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">select_vertices</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">vip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">|</span> <span class="n">v</span><span class="o">.</span><span class="n">degree</span><span class="p">(</span><span class="n">min_degree</span><span class="o">=</span><span class="mi">50</span><span class="p">))</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">v</span><span class="o">.</span><span class="n">attrs</span><span class="p">(</span><span class="n">banned</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>You specify <em>what</em> you want, not <em>how</em> to find it. The selector algebra handles the rest.</p>
+<h2 id="lazy-views">Lazy Views</h2>
+<p>Views provide efficient filtering without copying data:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.views</span> <span class="kn">import</span> <span class="n">filtered_view</span><span class="p">,</span> <span class="n">neighborhood_view</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create view without copying (O(1) space)</span>
+</span></span><span class="line"><span class="cl"><span class="n">view</span> <span class="o">=</span> <span class="n">filtered_view</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">large_graph</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">vertex_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;active&#39;</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">edge_filter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">weight</span> <span class="o">&gt;</span> <span class="mf">5.0</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Iterate lazily</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="n">view</span><span class="o">.</span><span class="n">vertices</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">process</span><span class="p">(</span><span class="n">vertex</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Materialize only when needed</span>
+</span></span><span class="line"><span class="cl"><span class="n">small_graph</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">materialize</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Explore k-hop neighborhood</span>
+</span></span><span class="line"><span class="cl"><span class="n">local</span> <span class="o">=</span> <span class="n">neighborhood_view</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="s1">&#39;Alice&#39;</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong>View types:</strong></p>
+<ul>
+<li><code>filtered_view()</code> &ndash; Filter vertices/edges</li>
+<li><code>subgraph_view()</code> &ndash; View specific vertices</li>
+<li><code>reversed_view()</code> &ndash; Reverse edge directions</li>
+<li><code>undirected_view()</code> &ndash; View as undirected</li>
+<li><code>neighborhood_view()</code> &ndash; k-hop neighborhood</li>
+</ul>
+<h2 id="56-algorithms">56+ Algorithms</h2>
+<p>AlgoGraph includes broad algorithm coverage:</p>
+<h3 id="traversal">Traversal</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dfs</span><span class="p">,</span> <span class="n">bfs</span><span class="p">,</span> <span class="n">topological_sort</span><span class="p">,</span> <span class="n">find_path</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">visited</span> <span class="o">=</span> <span class="n">dfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">levels</span> <span class="o">=</span> <span class="n">bfs</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">start_vertex</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">order</span> <span class="o">=</span> <span class="n">topological_sort</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># DAG only</span>
+</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">find_path</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="shortest-paths">Shortest Paths</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">bellman_ford</span><span class="p">,</span> <span class="n">floyd_warshall</span><span class="p">,</span> <span class="n">a_star</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">bellman_ford</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>  <span class="c1"># Handles negative weights</span>
+</span></span><span class="line"><span class="cl"><span class="n">all_pairs</span> <span class="o">=</span> <span class="n">floyd_warshall</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">path</span> <span class="o">=</span> <span class="n">a_star</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;Z&#39;</span><span class="p">,</span> <span class="n">heuristic</span><span class="o">=</span><span class="n">h</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="centrality">Centrality</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">pagerank</span><span class="p">,</span> <span class="n">betweenness_centrality</span><span class="p">,</span> <span class="n">closeness_centrality</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">social_network</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">bc</span> <span class="o">=</span> <span class="n">betweenness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cc</span> <span class="o">=</span> <span class="n">closeness_centrality</span><span class="p">(</span><span class="n">network</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="flow-networks">Flow Networks</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">max_flow</span><span class="p">,</span> <span class="n">min_cut</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">flow_value</span> <span class="o">=</span> <span class="n">max_flow</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">cut_value</span><span class="p">,</span> <span class="n">source_set</span><span class="p">,</span> <span class="n">sink_set</span> <span class="o">=</span> <span class="n">min_cut</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="s1">&#39;Source&#39;</span><span class="p">,</span> <span class="s1">&#39;Sink&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="matching">Matching</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">hopcroft_karp</span><span class="p">,</span> <span class="n">maximum_bipartite_matching</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matching</span> <span class="o">=</span> <span class="n">hopcroft_karp</span><span class="p">(</span><span class="n">bipartite_graph</span><span class="p">,</span> <span class="n">left_set</span><span class="p">,</span> <span class="n">right_set</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">max_matching</span> <span class="o">=</span> <span class="n">maximum_bipartite_matching</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="graph-coloring">Graph Coloring</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">welsh_powell</span><span class="p">,</span> <span class="n">chromatic_number</span><span class="p">,</span> <span class="n">dsatur</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">welsh_powell</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">num_colors</span> <span class="o">=</span> <span class="n">chromatic_number</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">coloring</span> <span class="o">=</span> <span class="n">dsatur</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>  <span class="c1"># Often better than greedy</span>
+</span></span></code></pre></div><h2 id="interactive-shell">Interactive Shell</h2>
+<p>Explore graphs with a filesystem-like interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
+</span></span><span class="line"><span class="cl">algograph network.json
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">graph(5v):/$ ls
+</span></span><span class="line"><span class="cl">Alice/  [2 neighbors]
+</span></span><span class="line"><span class="cl">Bob/    [3 neighbors]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">graph(5v):/$ cd Alice
+</span></span><span class="line"><span class="cl">graph(5v):/Alice$ ls
+</span></span><span class="line"><span class="cl">Attributes:
+</span></span><span class="line"><span class="cl">  age = 30
+</span></span><span class="line"><span class="cl">neighbors/  [2 vertices]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">graph(5v):/Alice$ path Bob Eve
+</span></span><span class="line"><span class="cl">Path found: Alice -&gt; Bob -&gt; Diana -&gt; Eve
+</span></span></code></pre></div><p>I like this shell. Graphs are inherently navigable structures, and treating them like a filesystem makes exploration feel natural.</p>
+<h2 id="relationship-to-algotree">Relationship to AlgoTree</h2>
+<p>AlgoGraph and <a href="/post/algotree-post/">AlgoTree</a> share the same design philosophy:</p>
+<ul>
+<li>Immutable data structures</li>
+<li>Pipe-based transformers</li>
+<li>Declarative selectors</li>
+<li>Lazy views</li>
+</ul>
+<p>They also interoperate:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoTree</span> <span class="kn">import</span> <span class="n">Tree</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">tree_to_graph</span><span class="p">,</span> <span class="n">graph_to_tree</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Tree to Graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">graph</span> <span class="o">=</span> <span class="n">tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Graph to Tree (extracts spanning tree)</span>
+</span></span><span class="line"><span class="cl"><span class="n">tree</span> <span class="o">=</span> <span class="n">graph_to_tree</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s1">&#39;root&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install AlgoGraph
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph</span> <span class="kn">import</span> <span class="n">Graph</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.algorithms</span> <span class="kn">import</span> <span class="n">dijkstra</span><span class="p">,</span> <span class="n">pagerank</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">AlgoGraph.transformers</span> <span class="kn">import</span> <span class="n">filter_vertices</span><span class="p">,</span> <span class="n">stats</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Build a graph</span>
+</span></span><span class="line"><span class="cl"><span class="n">g</span> <span class="o">=</span> <span class="p">(</span><span class="n">Graph</span><span class="o">.</span><span class="n">builder</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_vertex</span><span class="p">(</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">age</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="o">.</span><span class="n">build</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Run algorithms</span>
+</span></span><span class="line"><span class="cl"><span class="n">distances</span> <span class="o">=</span> <span class="n">dijkstra</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">pr</span> <span class="o">=</span> <span class="n">pagerank</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Transform with pipes</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">g</span> <span class="o">|</span> <span class="n">filter_vertices</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">20</span><span class="p">)</span> <span class="o">|</span> <span class="n">stats</span><span class="p">()</span>
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/AlgoGraph/">pypi.org/project/AlgoGraph/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/AlgoGraph">github.com/queelius/AlgoGraph</a></li>
+<li><strong>Documentation</strong>: <a href="https://queelius.github.io/AlgoGraph/">queelius.github.io/AlgoGraph/</a></li>
+</ul>
+]]></content:encoded><category>Python</category><category>graphs</category><category>algorithms</category><category>functional-programming</category><category>data-structures</category><category>immutability</category></item></channel></rss>

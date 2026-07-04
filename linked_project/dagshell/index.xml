@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Dagshell on metafunctor</title><link>https://metafunctor.com/linked_project/dagshell/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/dagshell/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>DagShell: A Content-Addressable Virtual Filesystem</title><link>https://metafunctor.com/post/2024-08-15-dagshell/</link><pubDate>Sun, 12 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-08-15-dagshell/</guid><description>A virtual POSIX-compliant filesystem using content-addressable DAG storage with SHA256 deduplication.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/dagshell">DagShell</a> is a virtual filesystem that organizes data by content instead of location. Identical files automatically share storage through SHA256 hashing. The structure is a directed acyclic graph rather than a tree, so the same content block can be referenced from multiple paths without duplication.</p>
+<p>I built it because sometimes you need filesystem semantics without touching actual disk. Testing, sandboxing, versioning, portability. The implementation has 583 tests with 77% coverage.</p>
+<h2 id="the-dag-structure">The DAG structure</h2>
+<p>Traditional filesystems are trees: each file has exactly one parent. DagShell uses a DAG where content is stored once and referenced by hash:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">/project/
+</span></span><span class="line"><span class="cl">├── src/
+</span></span><span class="line"><span class="cl">│   └── main.py  ──────┐
+</span></span><span class="line"><span class="cl">├── backup/            │
+</span></span><span class="line"><span class="cl">│   └── main.py  ──────┼──&gt; [SHA256: abc123...] -&gt; &#34;print(&#39;hello&#39;)&#34;
+</span></span><span class="line"><span class="cl">└── archive/           │
+</span></span><span class="line"><span class="cl">    └── main.py  ──────┘
+</span></span></code></pre></div><p>Three paths, one storage block.</p>
+<h2 id="fluent-python-api">Fluent Python API</h2>
+<p>DagShell provides a chainable API that mirrors shell commands:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">dagshell.dagshell_fluent</span> <span class="kn">import</span> <span class="n">DagShell</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">shell</span> <span class="o">=</span> <span class="n">DagShell</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create project structure</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="n">shell</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/project/src&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="s2">&#34;/project/docs&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">cd</span><span class="p">(</span><span class="s2">&#34;/project/src&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;def main(): pass&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;main.py&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;# My Project&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;../docs/README.md&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Navigate with directory stack</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">pushd</span><span class="p">(</span><span class="s2">&#34;/tmp&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">touch</span><span class="p">(</span><span class="s2">&#34;scratch.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">popd</span><span class="p">()</span>  <span class="c1"># Back to /project/src</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Save entire filesystem to JSON</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&#34;project_snapshot.json&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="terminal-emulator">Terminal emulator</h2>
+<p>For interactive exploration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">python -m dagshell.terminal
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">dagshell:/$ mkdir /home/user
+</span></span><span class="line"><span class="cl">dagshell:/$ <span class="nb">cd</span> /home/user
+</span></span><span class="line"><span class="cl">dagshell:/home/user$ <span class="nb">echo</span> <span class="s2">&#34;Hello&#34;</span> &gt; greeting.txt
+</span></span><span class="line"><span class="cl">dagshell:/home/user$ cat greeting.txt
+</span></span><span class="line"><span class="cl">Hello
+</span></span><span class="line"><span class="cl">dagshell:/home/user$ ls -la
+</span></span><span class="line"><span class="cl">total <span class="m">1</span>
+</span></span><span class="line"><span class="cl">drwxr-xr-x  <span class="m">2</span> user user  <span class="m">4096</span> Aug <span class="m">15</span> 10:00 .
+</span></span><span class="line"><span class="cl">drwxr-xr-x  <span class="m">3</span> user user  <span class="m">4096</span> Aug <span class="m">15</span> 10:00 ..
+</span></span><span class="line"><span class="cl">-rw-r--r--  <span class="m">1</span> user user     <span class="m">6</span> Aug <span class="m">15</span> 10:00 greeting.txt
+</span></span></code></pre></div><h2 id="virtual-devices">Virtual devices</h2>
+<p>Standard Unix special files work:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">echo</span><span class="p">(</span><span class="s2">&#34;garbage&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="s2">&#34;/dev/null&#34;</span><span class="p">)</span>  <span class="c1"># Discarded</span>
+</span></span><span class="line"><span class="cl"><span class="n">random_bytes</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="s2">&#34;/dev/random&#34;</span><span class="p">)</span>  <span class="c1"># Random data</span>
+</span></span><span class="line"><span class="cl"><span class="n">zeros</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="s2">&#34;/dev/zero&#34;</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>     <span class="c1"># 100 zero bytes</span>
+</span></span></code></pre></div><h2 id="importexport">Import/export</h2>
+<p>Move files between real and virtual filesystems:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Import from real filesystem</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">import_file</span><span class="p">(</span><span class="s2">&#34;/real/path/data.csv&#34;</span><span class="p">,</span> <span class="s2">&#34;/virtual/data.csv&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Export to real filesystem</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">export_file</span><span class="p">(</span><span class="s2">&#34;/virtual/results.json&#34;</span><span class="p">,</span> <span class="s2">&#34;/real/path/results.json&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Import entire directory</span>
+</span></span><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">import_dir</span><span class="p">(</span><span class="s2">&#34;/real/project&#34;</span><span class="p">,</span> <span class="s2">&#34;/virtual/project&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="persistence">Persistence</h2>
+<p>The entire filesystem state serializes to JSON:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">shell</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&#34;filesystem.json&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">restored</span> <span class="o">=</span> <span class="n">DagShell</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&#34;filesystem.json&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Or get JSON directly</span>
+</span></span><span class="line"><span class="cl"><span class="n">state</span> <span class="o">=</span> <span class="n">shell</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+</span></span></code></pre></div><p>The JSON format is human-readable:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;root&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;directory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;children&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nt">&#34;project&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;directory&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nt">&#34;children&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">          <span class="nt">&#34;README.md&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;file&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="nt">&#34;content_hash&#34;</span><span class="p">:</span> <span class="s2">&#34;abc123...&#34;</span>
+</span></span><span class="line"><span class="cl">          <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">},</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&#34;content_store&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&#34;abc123...&#34;</span><span class="p">:</span> <span class="s2">&#34;# My Project\n...&#34;</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Content hashes in the directory tree, actual content in a flat store. Deduplication falls out naturally.</p>
+<h2 id="scheme-dsl">Scheme DSL</h2>
+<p>For Lisp people, there&rsquo;s a Scheme interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-scheme" data-lang="scheme"><span class="line"><span class="cl"><span class="p">(</span><span class="nf">mkdir</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">cd</span> <span class="s">&#34;/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">echo</span> <span class="s">&#34;Hello&#34;</span> <span class="s">&#34;greeting.txt&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="k">define </span><span class="nv">files</span> <span class="p">(</span><span class="nf">ls</span><span class="p">))</span>
+</span></span></code></pre></div><p>I included this partly because I like Scheme and partly because a filesystem is a natural fit for s-expressions.</p>
+<h2 id="use-cases">Use cases</h2>
+<ul>
+<li><strong>Build systems</strong>: track input/output files without disk I/O</li>
+<li><strong>Testing frameworks</strong>: create fixture filesystems programmatically</li>
+<li><strong>Backup tools</strong>: represent filesystem snapshots efficiently</li>
+<li><strong>Educational</strong>: teach filesystem concepts without system access</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install dagshell
+</span></span><span class="line"><span class="cl"><span class="c1"># Or from source</span>
+</span></span><span class="line"><span class="cl">pip install -e .
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><a href="https://github.com/queelius/dagshell">github.com/queelius/dagshell</a></li>
+<li><a href="/papers/dagshell/">DagShell Technical Report</a></li>
+</ul>
+]]></content:encoded><category>Python</category><category>filesystem</category><category>content-addressable</category><category>DAG</category><category>virtual-filesystem</category><category>POSIX</category></item></channel></rss>

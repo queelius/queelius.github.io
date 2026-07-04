@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Src2md on metafunctor</title><link>https://metafunctor.com/linked_project/src2md/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/src2md/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>src2md: Fitting Codebases into LLM Context Windows</title><link>https://metafunctor.com/post/2025-11-30-src2md/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-src2md/</guid><description>A tool that converts source code repositories into structured, context-window-optimized Markdown for LLMs, with intelligent summarization and importance scoring.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/src2md/">src2md</a></strong> solves a practical problem: you want an LLM to understand your codebase, but the codebase doesn&rsquo;t fit in the context window.</p>
+<p>GPT-4 gives you ~128K tokens. Claude gives you ~200K. A medium-sized project blows past both. Naive truncation loses critical context. Manual curation doesn&rsquo;t scale. So I built a tool that does it automatically.</p>
+<h2 id="how-it-works">How It Works</h2>
+<p>src2md reads a source tree, scores files by importance, and compresses them to fit a target token budget. The output is structured Markdown (or JSON, or plain text) ready to paste into an LLM conversation.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install src2md
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Basic markdown generation</span>
+</span></span><span class="line"><span class="cl">src2md /path/to/project -o documentation.md
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># With context optimization for GPT-4</span>
+</span></span><span class="line"><span class="cl">src2md /path/to/project --gpt4 -o optimized.md
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># With intelligent summarization</span>
+</span></span><span class="line"><span class="cl">src2md /path/to/project --summarize --compression-ratio 0.3
+</span></span></code></pre></div><h2 id="context-window-targeting">Context Window Targeting</h2>
+<p>You can target specific LLM context windows:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Target specific LLM context windows</span>
+</span></span><span class="line"><span class="cl">src2md . --target-tokens <span class="m">128000</span>  <span class="c1"># GPT-4</span>
+</span></span><span class="line"><span class="cl">src2md . --target-tokens <span class="m">200000</span>  <span class="c1"># Claude</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Predefined windows</span>
+</span></span><span class="line"><span class="cl">src2md . --window gpt-4-turbo
+</span></span><span class="line"><span class="cl">src2md . --window claude-3
+</span></span></code></pre></div><h2 id="multi-tier-summarization">Multi-Tier Summarization</h2>
+<p>Not all files are equally important. src2md uses progressive compression: critical files get full source, important files get AST-level summaries, supporting files get docstrings only, and peripheral files get dropped.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">src2md</span> <span class="kn">import</span> <span class="n">Converter</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">converter</span> <span class="o">=</span> <span class="n">Converter</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">target_tokens</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">summarization_levels</span><span class="o">=</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s1">&#39;critical&#39;</span><span class="p">:</span> <span class="s1">&#39;full&#39;</span><span class="p">,</span>      <span class="c1"># Keep full source</span>
+</span></span><span class="line"><span class="cl">        <span class="s1">&#39;important&#39;</span><span class="p">:</span> <span class="s1">&#39;ast&#39;</span><span class="p">,</span>       <span class="c1"># AST-based summary</span>
+</span></span><span class="line"><span class="cl">        <span class="s1">&#39;supporting&#39;</span><span class="p">:</span> <span class="s1">&#39;minimal&#39;</span><span class="p">,</span>  <span class="c1"># Docstrings only</span>
+</span></span><span class="line"><span class="cl">        <span class="s1">&#39;peripheral&#39;</span><span class="p">:</span> <span class="s1">&#39;exclude&#39;</span>   <span class="c1"># Skip entirely</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><h2 id="file-importance-scoring">File Importance Scoring</h2>
+<p>The importance scoring considers multiple factors:</p>
+<ul>
+<li><strong>Centrality</strong>: How many other files import this one?</li>
+<li><strong>Complexity</strong>: Cyclomatic complexity, lines of code</li>
+<li><strong>Recency</strong>: Recently modified files matter more</li>
+<li><strong>Naming</strong>: <code>main.py</code>, <code>index.ts</code> get a priority boost</li>
+</ul>
+<h2 id="ast-based-analysis">AST-Based Analysis</h2>
+<p>For supported languages, src2md parses the AST to extract structure rather than just truncating text:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># From a 500-line Python file, extract:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Class/function signatures</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Docstrings</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Type hints</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># - Key logic patterns</span>
+</span></span></code></pre></div><p>This preserves the information an LLM actually needs to reason about the code.</p>
+<h2 id="output-formats">Output Formats</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">src2md . --format markdown    <span class="c1"># Default</span>
+</span></span><span class="line"><span class="cl">src2md . --format json        <span class="c1"># Structured data</span>
+</span></span><span class="line"><span class="cl">src2md . --format jsonl       <span class="c1"># Line-delimited JSON</span>
+</span></span><span class="line"><span class="cl">src2md . --format html        <span class="c1"># Web-viewable</span>
+</span></span><span class="line"><span class="cl">src2md . --format text        <span class="c1"># Plain text</span>
+</span></span></code></pre></div><h2 id="python-api">Python API</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">src2md</span> <span class="kn">import</span> <span class="n">Repository</span><span class="p">,</span> <span class="n">ContextWindow</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Basic usage</span>
+</span></span><span class="line"><span class="cl"><span class="n">output</span> <span class="o">=</span> <span class="n">Repository</span><span class="p">(</span><span class="s2">&#34;/path/to/project&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Optimize for GPT-4 context window</span>
+</span></span><span class="line"><span class="cl"><span class="n">output</span> <span class="o">=</span> <span class="p">(</span><span class="n">Repository</span><span class="p">(</span><span class="s2">&#34;/path/to/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">optimize_for</span><span class="p">(</span><span class="n">ContextWindow</span><span class="o">.</span><span class="n">GPT_4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">to_markdown</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Full fluent API with all features</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">Repository</span><span class="p">(</span><span class="s2">&#34;/path/to/project&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&#34;MyProject&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">include</span><span class="p">(</span><span class="s2">&#34;src/&#34;</span><span class="p">,</span> <span class="s2">&#34;lib/&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">exclude</span><span class="p">(</span><span class="s2">&#34;tests/&#34;</span><span class="p">,</span> <span class="s2">&#34;*.log&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_importance_scoring</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_summarization</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">compression_ratio</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">preserve_important</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">use_llm</span><span class="o">=</span><span class="kc">True</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">optimize_for_tokens</span><span class="p">(</span><span class="mi">100_000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">pretty</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</span></span></code></pre></div><h2 id="llm-powered-compression">LLM-Powered Compression</h2>
+<p>For semantic understanding beyond AST extraction, you can use an LLM to do the summarization itself:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Use OpenAI for semantic compression</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">OPENAI_API_KEY</span><span class="o">=</span>...
+</span></span><span class="line"><span class="cl">src2md . --llm-compress --provider openai
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Use Anthropic</span>
+</span></span><span class="line"><span class="cl"><span class="nb">export</span> <span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>...
+</span></span><span class="line"><span class="cl">src2md . --llm-compress --provider anthropic
+</span></span></code></pre></div><p>The LLM produces human-readable summaries rather than mechanical truncation. It knows what matters.</p>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install src2md
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># With LLM support</span>
+</span></span><span class="line"><span class="cl">pip install src2md<span class="o">[</span>llm<span class="o">]</span>
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/src2md/">pypi.org/project/src2md/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/src2md">github.com/queelius/src2md</a></li>
+</ul>
+]]></content:encoded><category>Python</category><category>LLM</category><category>code-analysis</category><category>developer-tools</category><category>AI</category><category>documentation</category></item></channel></rss>

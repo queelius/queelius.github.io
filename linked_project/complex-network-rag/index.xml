@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Complex-Network-Rag on metafunctor</title><link>https://metafunctor.com/linked_project/complex-network-rag/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/complex-network-rag/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Cluster-Aware Retrieval for RAG Systems</title><link>https://metafunctor.com/post/2024-11-cluster-aware-rag/</link><pubDate>Fri, 15 Nov 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-11-cluster-aware-rag/</guid><description>Using GMM clustering to improve retrieval in topically diverse knowledge bases</description><content:encoded><![CDATA[<p>Most RAG systems treat embedding spaces as flat, uniform distributions. They&rsquo;re not. Real knowledge bases contain distinct semantic clusters: database docs, frontend frameworks, DevOps practices, each with different internal structure. Ignoring this wastes retrieval precision.</p>
+<h2 id="the-problem-with-flat-retrieval">The Problem with Flat Retrieval</h2>
+<p>A query about &ldquo;React hooks optimization&rdquo; should pull from the frontend cluster, not equally consider database or infrastructure docs that happen to share semantic overlap. Standard cosine similarity doesn&rsquo;t care about topical boundaries. You get results that are individually relevant but collectively unfocused.</p>
+<h2 id="modeling-clusters-with-gmm">Modeling Clusters with GMM</h2>
+<p>Gaussian Mixture Models assume your embeddings arise from \(K\) underlying Gaussian distributions:</p>
+$$p(v) = \sum_{k=1}^K \pi_k \mathcal{N}(v \mid \mu_k, \Sigma_k)$$<p>For a query \(q\), compute the posterior probability of each cluster:</p>
+$$p(k \mid q) = \frac{\pi_k \mathcal{N}(q \mid \mu_k, \Sigma_k)}{\sum_{j=1}^K \pi_j \mathcal{N}(q \mid \mu_j, \Sigma_j)}$$<p>This gives you soft assignments: the probability that a query belongs to each semantic cluster.</p>
+<h2 id="two-stage-retrieval">Two-Stage Retrieval</h2>
+<ol>
+<li><strong>Cluster selection</strong>: Pick cluster(s) with highest \(p(k \mid q)\). Take top-2 for ambiguous queries.</li>
+<li><strong>Intra-cluster retrieval</strong>: Run k-NN within selected clusters.</li>
+</ol>
+<p>The cluster boundaries act as a soft filter, avoiding the &ldquo;dilution effect&rdquo; where off-topic documents dominate results.</p>
+<h2 id="mahalanobis-distance-per-cluster">Mahalanobis Distance Per Cluster</h2>
+<p>Here&rsquo;s the underexplored part: different clusters can use different distance metrics. For a cluster modeled as \(\mathcal{N}(\mu_k, \Sigma_k)\), the Mahalanobis distance accounts for the cluster&rsquo;s shape:</p>
+$$d_{\text{Mah}}(q, v) = \sqrt{(q - v)^T \Sigma_k^{-1} (q - v)}$$<p>Elongated clusters in certain semantic directions get stretched appropriately. Cosine similarity treats all directions equally. Mahalanobis adapts.</p>
+<h2 id="clusters-as-agent-tools">Clusters as Agent Tools</h2>
+<p>In agentic RAG, each cluster becomes a tool the agent can invoke:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ClusterRetrievalTool</span><span class="p">(</span><span class="n">cluster_id</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&#34;Search </span><span class="si">{</span><span class="n">topic_k</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">K</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span></code></pre></div><p>The agent decides which clusters to search and in what order:</p>
+<ul>
+<li>Query: &ldquo;How does React&rsquo;s context API compare to Redux?&rdquo;</li>
+<li>Agent plan:
+<ol>
+<li>Search frontend cluster for React context</li>
+<li>Search state management cluster for Redux patterns</li>
+<li>Synthesize comparison</li>
+</ol>
+</li>
+</ul>
+<p>This beats flat retrieval for cross-topic synthesis.</p>
+<h2 id="implementation">Implementation</h2>
+<p>Fit GMM offline on document embeddings:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">sklearn.mixture</span> <span class="kn">import</span> <span class="n">GaussianMixture</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">gmm</span> <span class="o">=</span> <span class="n">GaussianMixture</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">K</span><span class="p">,</span> <span class="n">covariance_type</span><span class="o">=</span><span class="s1">&#39;full&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">gmm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">document_embeddings</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># For query q:</span>
+</span></span><span class="line"><span class="cl"><span class="n">cluster_probs</span> <span class="o">=</span> <span class="n">gmm</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">selected_clusters</span> <span class="o">=</span> <span class="n">cluster_probs</span><span class="o">.</span><span class="n">argsort</span><span class="p">()[</span><span class="o">-</span><span class="mi">2</span><span class="p">:][::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># top-2</span>
+</span></span></code></pre></div><p>Store cluster assignments as metadata in your vector DB:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">results</span> <span class="o">=</span> <span class="n">vector_db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">query_embedding</span><span class="o">=</span><span class="n">q</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">filter</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;cluster_id&#34;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&#34;$in&#34;</span><span class="p">:</span> <span class="n">selected_clusters</span><span class="p">}},</span>
+</span></span><span class="line"><span class="cl">    <span class="n">top_k</span><span class="o">=</span><span class="mi">20</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>Key decisions:</p>
+<ul>
+<li><strong>Number of clusters</strong>: Use BIC/AIC or domain knowledge</li>
+<li><strong>Regularization</strong>: Add \(\lambda I\) to covariance matrices to prevent singularities</li>
+<li><strong>Initialization</strong>: k-means++ for better convergence</li>
+</ul>
+<h2 id="when-it-helps">When It Helps</h2>
+<ul>
+<li><strong>Topically diverse corpora</strong>: Multi-product docs, cross-domain papers</li>
+<li><strong>Single-topic queries</strong>: Clear primary topic to route to</li>
+<li><strong>Noise reduction</strong>: Distant-but-similar content diluting results</li>
+</ul>
+<p>When it doesn&rsquo;t:</p>
+<ul>
+<li>Homogeneous corpora</li>
+<li>Very small datasets</li>
+<li>Queries requiring extensive cross-topic synthesis (agentic patterns help here)</li>
+</ul>
+<h2 id="limitations">Limitations</h2>
+<p><strong>Cluster boundaries</strong>: Queries near boundaries may be misrouted. Soft routing (weighted retrieval across clusters) helps.</p>
+<p><strong>Scalability</strong>: GMM fitting doesn&rsquo;t scale well beyond roughly 100 clusters and millions of docs. Use hierarchical clustering or vector DB partitioning for large systems.</p>
+<p><strong>Benchmark first</strong>: Flat retrieval with strong reranking is a tough baseline. Always compare.</p>
+<p>The core insight: embedding spaces have structure. Exploit it.</p>
+]]></content:encoded><category>rag</category><category>machine-learning</category><category>embeddings</category><category>information-retrieval</category><category>llm</category></item></channel></rss>

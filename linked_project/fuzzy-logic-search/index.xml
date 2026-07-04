@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Fuzzy-Logic-Search on metafunctor</title><link>https://metafunctor.com/linked_project/fuzzy-logic-search/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/fuzzy-logic-search/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>fuzzy-logic-search: Query Documents with Fuzzy Logic</title><link>https://metafunctor.com/post/2025-11-30-fuzzy-logic-search/</link><pubDate>Sun, 30 Nov 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-11-30-fuzzy-logic-search/</guid><description>A framework for querying structured JSON documents using fuzzy logic, producing degree-of-membership scores instead of binary relevance.</description><content:encoded><![CDATA[<p><strong><a href="https://github.com/queelius/fuzzy-logic-search">fuzzy-logic-search</a></strong> (<code>fls</code>) brings fuzzy logic to document querying. Unlike traditional Boolean search that returns binary relevant/not-relevant results, fls produces a <strong>degree-of-membership</strong> score in [0, 1], indicating how well each document matches your query.</p>
+<h2 id="the-problem-with-boolean-search">The Problem with Boolean Search</h2>
+<p>Boolean search is rigid: a document either matches or it does not. If you search for &ldquo;python AND machine-learning,&rdquo; you get a binary split. A document about Python ML that never uses the exact term &ldquo;machine-learning&rdquo; gets zero, same as a document about medieval pottery.</p>
+<p>Fuzzy logic captures the gradation that Boolean search throws away.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">fuzzy_logic_search.fuzzy_query</span> <span class="kn">import</span> <span class="n">FuzzyQuery</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">fuzzy_logic_search.fuzzy_set</span> <span class="kn">import</span> <span class="n">FuzzySet</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Construct a query</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;(and python machine-learning)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Or use Python operators</span>
+</span></span><span class="line"><span class="cl"><span class="n">q1</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;python&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">q2</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;machine-learning&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">q1</span> <span class="o">&amp;</span> <span class="n">q2</span>  <span class="c1"># Equivalent to (and python machine-learning)</span>
+</span></span></code></pre></div><h2 id="query-language">Query Language</h2>
+<p>Queries use a Lisp-like syntax that maps to an AST:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="c1">; Simple conjunction</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">and</span> <span class="nv">cat</span> <span class="nv">dog</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; With negation</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">and</span> <span class="nv">cat</span> <span class="nv">dog</span> <span class="p">(</span><span class="nf">not</span> <span class="nv">fish</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; With fuzzy modifiers</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">very</span> <span class="p">(</span><span class="nb">and</span> <span class="nv">cat</span> <span class="nv">dog</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; Complex nested query</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">or</span> <span class="p">(</span><span class="nb">and</span> <span class="nv">python</span> <span class="nv">ml</span><span class="p">)</span> <span class="p">(</span><span class="nv">very</span> <span class="p">(</span><span class="nf">not</span> <span class="nv">java</span><span class="p">)))</span>
+</span></span></code></pre></div><p>Or construct directly with Python:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Using operators</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;cat&#34;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;dog&#34;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;fish&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Using AST directly</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">([</span><span class="s1">&#39;and&#39;</span><span class="p">,</span> <span class="s1">&#39;cat&#39;</span><span class="p">,</span> <span class="s1">&#39;dog&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;not&#39;</span><span class="p">,</span> <span class="s1">&#39;fish&#39;</span><span class="p">]])</span>
+</span></span></code></pre></div><p>I went with S-expressions for the query language because they map directly to the AST. No parsing ambiguity, trivial to serialize, and anyone who has written a Lisp evaluator can understand the implementation in about ten minutes.</p>
+<h2 id="fuzzy-modifiers">Fuzzy Modifiers</h2>
+<p>Linguistic hedges transform membership values:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># &#34;Very&#34; squares the membership (emphasizes strong matches)</span>
+</span></span><span class="line"><span class="cl"><span class="n">very_query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;python&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">very</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 0.9 -&gt; 0.81, 0.5 -&gt; 0.25</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># &#34;Somewhat&#34; takes square root (broadens tolerance)</span>
+</span></span><span class="line"><span class="cl"><span class="n">somewhat_query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;python&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">somewhat</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 0.9 -&gt; 0.95, 0.25 -&gt; 0.5</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># &#34;Extremely&#34; cubes the membership</span>
+</span></span><span class="line"><span class="cl"><span class="n">extremely_query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;python&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">extremely</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># &#34;Slightly&#34; takes 10th root</span>
+</span></span><span class="line"><span class="cl"><span class="n">slightly_query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;python&#34;</span><span class="p">)</span><span class="o">.</span><span class="n">slightly</span><span class="p">()</span>
+</span></span></code></pre></div><p>These come from Zadeh&rsquo;s original fuzzy logic work. &ldquo;Very&rdquo; is concentration (squaring), &ldquo;somewhat&rdquo; is dilation (square root). They are mathematically clean and semantically intuitive: &ldquo;very python&rdquo; means &ldquo;only documents that are strongly about Python.&rdquo;</p>
+<h2 id="evaluating-queries">Evaluating Queries</h2>
+<p>Evaluate queries against a document corpus:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Documents as lists of terms</span>
+</span></span><span class="line"><span class="cl"><span class="n">docs</span> <span class="o">=</span> <span class="p">[</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;python&#34;</span><span class="p">,</span> <span class="s2">&#34;machine-learning&#34;</span><span class="p">,</span> <span class="s2">&#34;tensorflow&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;java&#34;</span><span class="p">,</span> <span class="s2">&#34;spring&#34;</span><span class="p">,</span> <span class="s2">&#34;microservices&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;python&#34;</span><span class="p">,</span> <span class="s2">&#34;web&#34;</span><span class="p">,</span> <span class="s2">&#34;flask&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;machine-learning&#34;</span><span class="p">,</span> <span class="s2">&#34;neural-networks&#34;</span><span class="p">,</span> <span class="s2">&#34;pytorch&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Evaluate query</span>
+</span></span><span class="line"><span class="cl"><span class="n">query</span> <span class="o">=</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;python&#34;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">FuzzyQuery</span><span class="p">(</span><span class="s2">&#34;machine-learning&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>  <span class="c1"># Returns FuzzySet</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># result.memberships = [1.0, 0.0, 0.0, 0.0]</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Only first document has both terms</span>
+</span></span></code></pre></div><h2 id="custom-membership-functions">Custom Membership Functions</h2>
+<p>The default membership is crisp (term present or not), but you can provide custom functions for more nuanced matching:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">tf_idf_membership</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">doc</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;Use TF-IDF instead of crisp membership.&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">term</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">doc</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="mf">0.0</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tf</span> <span class="o">=</span> <span class="n">doc</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">term</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># ... compute IDF from corpus</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">tf</span> <span class="o">*</span> <span class="n">idf</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">membership_fn</span><span class="o">=</span><span class="n">tf_idf_membership</span><span class="p">)</span>
+</span></span></code></pre></div><p>This is where it becomes useful for real applications. Swap in TF-IDF, BM25, or embedding cosine similarity as your membership function, and you get fuzzy set operations on top of whatever relevance model you prefer.</p>
+<h2 id="fuzzy-set-operations">Fuzzy Set Operations</h2>
+<p>Results are <code>FuzzySet</code> objects with set-theoretic operations:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Evaluate two queries</span>
+</span></span><span class="line"><span class="cl"><span class="n">result1</span> <span class="o">=</span> <span class="n">query1</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>  <span class="c1"># FuzzySet</span>
+</span></span><span class="line"><span class="cl"><span class="n">result2</span> <span class="o">=</span> <span class="n">query2</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>  <span class="c1"># FuzzySet</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fuzzy intersection (AND) - element-wise min</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">=</span> <span class="n">result1</span> <span class="o">&amp;</span> <span class="n">result2</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fuzzy union (OR) - element-wise max</span>
+</span></span><span class="line"><span class="cl"><span class="n">either</span> <span class="o">=</span> <span class="n">result1</span> <span class="o">|</span> <span class="n">result2</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Fuzzy complement (NOT)</span>
+</span></span><span class="line"><span class="cl"><span class="n">opposite</span> <span class="o">=</span> <span class="o">~</span><span class="n">result1</span>
+</span></span></code></pre></div><h2 id="logical-operators">Logical Operators</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Operator</th>
+					<th>Fuzzy Operation</th>
+					<th>Effect</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>and</code></td>
+					<td>minimum</td>
+					<td>Both conditions must match</td>
+			</tr>
+			<tr>
+					<td><code>or</code></td>
+					<td>maximum</td>
+					<td>Either condition can match</td>
+			</tr>
+			<tr>
+					<td><code>not</code></td>
+					<td>1 - x</td>
+					<td>Inverts membership</td>
+			</tr>
+			<tr>
+					<td><code>sym-diff</code></td>
+					<td>max - min</td>
+					<td>Symmetric difference</td>
+			</tr>
+			<tr>
+					<td><code>diff</code></td>
+					<td>max(a - b, 0)</td>
+					<td>Set difference</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="homomorphism-property">Homomorphism Property</h2>
+<p>A key mathematical property: the mapping from queries to results is a <strong>homomorphism</strong>. Operations on queries translate directly to operations on their result sets:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># These produce identical results:</span>
+</span></span><span class="line"><span class="cl"><span class="n">result1</span> <span class="o">=</span> <span class="p">(</span><span class="n">q1</span> <span class="o">&amp;</span> <span class="n">q2</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result2</span> <span class="o">=</span> <span class="n">q1</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">q2</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># For any operation op:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># (q1 op q2).evaluate(D) = q1.evaluate(D) op q2.evaluate(D)</span>
+</span></span></code></pre></div><p>This is not just a nice-to-have. It means you can optimize query processing by pushing operations down to the result level, or pull them up to the query level, without changing semantics. The algebra is consistent across the abstraction boundary.</p>
+<h2 id="json-path-queries">JSON Path Queries</h2>
+<p>For structured JSON documents, use path expressions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="c1">; Query nested fields</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">&gt;</span> <span class="ss">:user.age</span> <span class="mi">25</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; String predicates</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nv">starts-with?</span> <span class="ss">:name</span> <span class="s">&#34;John&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; Combine with logic</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nb">and</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="nv">==</span> <span class="ss">:address.city</span> <span class="s">&#34;New York&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="nf">not</span> <span class="p">(</span><span class="nf">&lt;</span> <span class="ss">:age</span> <span class="mi">25</span><span class="p">)))</span>
+</span></span></code></pre></div><h2 id="supported-predicates">Supported Predicates</h2>
+<ul>
+<li><code>==</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code> &ndash; Numeric comparisons with fuzzy tolerance</li>
+<li><code>starts-with?</code>, <code>ends-with?</code>, <code>contains?</code> &ndash; String matching</li>
+<li><code>in?</code> &ndash; Membership in set/range</li>
+<li><code>regex?</code> &ndash; Regular expression matching</li>
+<li><code>jaccard?</code> &ndash; Jaccard similarity</li>
+<li><code>tf-idf?</code> &ndash; TF-IDF scoring</li>
+<li><code>lev?</code> &ndash; Levenshtein distance-based matching</li>
+</ul>
+<h2 id="use-cases">Use Cases</h2>
+<ul>
+<li><strong>Search Engines</strong>: Graded results reflecting partial matches</li>
+<li><strong>Recommendation Systems</strong>: Combine multiple preferences fuzzily</li>
+<li><strong>Data Analysis</strong>: Query JSON datasets with flexible, human-like reasoning</li>
+<li><strong>Information Retrieval</strong>: Beyond binary keyword matching</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install fuzzy-logic-search
+</span></span></code></pre></div><h2 id="resources">Resources</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/fuzzy-logic-search">github.com/queelius/fuzzy-logic-search</a></li>
+</ul>
+]]></content:encoded><category>Python</category><category>fuzzy-logic</category><category>search</category><category>information-retrieval</category><category>data-science</category></item></channel></rss>

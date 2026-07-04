@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Compositional.mle on metafunctor</title><link>https://metafunctor.com/linked_project/compositional.mle/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/compositional.mle/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Observation Functors: Composable Censoring for Series System Simulation</title><link>https://metafunctor.com/post/2026-02-13-observation-functors/</link><pubDate>Fri, 13 Feb 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-02-13-observation-functors/</guid><description>Observation functors in maskedcauses: composable functions that separate the data-generating process from the observation mechanism, enabling mixed-censoring simulation and verified Monte Carlo studies.</description><content:encoded><![CDATA[<p>Last week I <a href="/post/2026-02-05-likelihood-model-series-md/">announced</a> <code>maskedcauses</code>, the R package for estimating component reliability from masked series system failures. That post covered the three likelihood models and the path to CRAN.</p>
+<p>This post is about what happened next: the package now supports <strong>four observation types</strong> (exact, right-censored, left-censored, and interval-censored) via composable <strong>observation functors</strong>. Along the way, I wrote four vignettes, removed the <code>md.tools</code> dependency, and developed a verification methodology for keeping prose honest about simulation results.</p>
+<h2 id="the-problem-hardcoded-right-censoring">The Problem: Hardcoded Right-Censoring</h2>
+<p>The original <code>rdata()</code> method for each model had a simple observation mechanism baked in: if a system failed before the study end time \(\tau\), you saw the exact failure time; if it survived past \(\tau\), you got a right-censored observation. Two outcomes, one knob.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># The old way: right-censoring was the only option</span>
+</span></span><span class="line"><span class="cl"><span class="n">gen</span> <span class="o">&lt;-</span> <span class="nf">rdata</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">df</span> <span class="o">&lt;-</span> <span class="nf">gen</span><span class="p">(</span><span class="n">theta</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">1.0</span><span class="p">,</span> <span class="m">1.1</span><span class="p">,</span> <span class="m">0.95</span><span class="p">),</span> <span class="n">n</span> <span class="o">=</span> <span class="m">500</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">3</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Every observation is either omega = &#34;exact&#34; or omega = &#34;right&#34;</span>
+</span></span></code></pre></div><p>This is fine for textbook problems, but real monitoring produces other kinds of incomplete data:</p>
+<ul>
+<li>
+<p><strong>Left-censoring</strong>: You inspect a system once. If it&rsquo;s already failed, you know it died before the inspection, but not when. Single-inspection monitoring of remote equipment works this way.</p>
+</li>
+<li>
+<p><strong>Interval-censoring</strong>: You inspect periodically. A system that was running at inspection \(k\) but failed by inspection \(k+1\) gives you a bracket \([t_k, t_{k+1}]\) containing the failure time. This is the norm in industrial maintenance, medical follow-up studies, and field reliability testing.</p>
+</li>
+<li>
+<p><strong>Mixed monitoring</strong>: Different units in the same study may be observed under different schemes. Some get continuous monitoring (exact/right), some get periodic inspections (interval), some get a single check (left).</p>
+</li>
+</ul>
+<p>Hardcoding the observation mechanism into the data-generating process conflates two orthogonal concerns: <em>how components fail</em> (the DGP, governed by the lifetime distribution) and <em>what we see</em> (the observation mechanism, governed by the monitoring protocol). These should be separate.</p>
+<h2 id="observation-functors">Observation Functors</h2>
+<p>The solution is a small algebra of <strong>observation functors</strong>, closures that transform true failure times into observed data. Each functor has the same signature:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Signature: function(t_true) -&gt; list(t, omega, t_upper)</span>
+</span></span></code></pre></div><p>Given the true failure time <code>t_true</code>, the functor returns what the observer actually sees: the recorded time <code>t</code>, the observation type <code>omega</code> (one of <code>&quot;exact&quot;</code>, <code>&quot;right&quot;</code>, <code>&quot;left&quot;</code>, <code>&quot;interval&quot;</code>), and an upper bound <code>t_upper</code> for interval observations.</p>
+<p>Four primitives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="c1"># Exact observation if t &lt; tau, right-censored otherwise</span>
+</span></span><span class="line"><span class="cl"><span class="nf">observe_right_censor</span><span class="p">(</span><span class="n">tau</span> <span class="o">=</span> <span class="m">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Single inspection: left-censored if failed, right-censored if running</span>
+</span></span><span class="line"><span class="cl"><span class="nf">observe_left_censor</span><span class="p">(</span><span class="n">tau</span> <span class="o">=</span> <span class="m">50</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Periodic inspection: interval-censored in [floor, ceiling]</span>
+</span></span><span class="line"><span class="cl"><span class="nf">observe_periodic</span><span class="p">(</span><span class="n">delta</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Randomly select a scheme per observation</span>
+</span></span><span class="line"><span class="cl"><span class="nf">observe_mixture</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">observe_right_censor</span><span class="p">(</span><span class="n">tau</span> <span class="o">=</span> <span class="m">100</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">observe_left_censor</span><span class="p">(</span><span class="n">tau</span> <span class="o">=</span> <span class="m">50</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">observe_periodic</span><span class="p">(</span><span class="n">delta</span> <span class="o">=</span> <span class="m">10</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">100</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">  <span class="n">weights</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">0.5</span><span class="p">,</span> <span class="m">0.2</span><span class="p">,</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span></code></pre></div><p>The key design property: <strong>functors compose</strong>. <code>observe_mixture</code> takes functors as arguments and returns a new functor with the same signature. You can nest mixtures, combine any primitives, or write your own functor. Anything with signature <code>function(t_true) -&gt; list(t, omega, t_upper)</code> works.</p>
+<p>This draws from the same compositional philosophy behind <a href="/projects/compositional.mle/">compositional.mle</a> and the broader ecosystem: define small, well-typed building blocks; compose them into complex behavior. The SICP maxim applies: the means of combination should produce objects of the same type as the things being combined.</p>
+<h3 id="using-functors-with-rdata">Using Functors with <code>rdata()</code></h3>
+<p>The <code>rdata()</code> method on every model now accepts an <code>observe</code> parameter:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-r" data-lang="r"><span class="line"><span class="cl"><span class="n">model</span> <span class="o">&lt;-</span> <span class="nf">exp_series_md_c1_c2_c3</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">gen</span> <span class="o">&lt;-</span> <span class="nf">rdata</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Right-censoring (default, backwards-compatible)</span>
+</span></span><span class="line"><span class="cl"><span class="n">df_right</span> <span class="o">&lt;-</span> <span class="nf">gen</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="m">500</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">5</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Periodic inspection every 0.5 time units</span>
+</span></span><span class="line"><span class="cl"><span class="n">df_interval</span> <span class="o">&lt;-</span> <span class="nf">gen</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="m">500</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">observe</span> <span class="o">=</span> <span class="nf">observe_periodic</span><span class="p">(</span><span class="n">delta</span> <span class="o">=</span> <span class="m">0.5</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">5</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Mixed monitoring environment</span>
+</span></span><span class="line"><span class="cl"><span class="n">df_mixed</span> <span class="o">&lt;-</span> <span class="nf">gen</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="m">500</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="m">0.3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                <span class="n">observe</span> <span class="o">=</span> <span class="nf">observe_mixture</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">                  <span class="nf">observe_right_censor</span><span class="p">(</span><span class="n">tau</span> <span class="o">=</span> <span class="m">5</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">                  <span class="nf">observe_left_censor</span><span class="p">(</span><span class="n">tau</span> <span class="o">=</span> <span class="m">3</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">                  <span class="nf">observe_periodic</span><span class="p">(</span><span class="n">delta</span> <span class="o">=</span> <span class="m">0.5</span><span class="p">,</span> <span class="n">tau</span> <span class="o">=</span> <span class="m">5</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">                  <span class="n">weights</span> <span class="o">=</span> <span class="nf">c</span><span class="p">(</span><span class="m">0.6</span><span class="p">,</span> <span class="m">0.2</span><span class="p">,</span> <span class="m">0.2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="p">))</span>
+</span></span></code></pre></div><p>When <code>observe</code> is <code>NULL</code> (the default), <code>rdata()</code> uses <code>observe_right_censor(tau)</code> for full backwards compatibility. No existing code breaks.</p>
+<h3 id="what-the-likelihood-sees">What the Likelihood Sees</h3>
+<p>Each observation type contributes differently to the log-likelihood. Under the C1-C2-C3 masking conditions:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Type</th>
+					<th>Log-likelihood contribution</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Exact</td>
+					<td>\(\log\bigl(\sum_{j \in C_i} h_j(t_i)\bigr) - H(t_i)\)</td>
+			</tr>
+			<tr>
+					<td>Right</td>
+					<td>\(-H(t_i)\)</td>
+			</tr>
+			<tr>
+					<td>Left</td>
+					<td>\(\log\bigl(\sum_{j \in C_i} \int_0^{t_i} h_j(u)R(u)\,du\bigr) - \log(1 - R(t_i))\)</td>
+			</tr>
+			<tr>
+					<td>Interval</td>
+					<td>\(\log\bigl(\sum_{j \in C_i} \int_a^b h_j(u)R(u)\,du\bigr) - \log(R(a) - R(b))\)</td>
+			</tr>
+	</tbody>
+</table>
+<p>Here \(h_j\) is component \(j\)&rsquo;s hazard, \(H = \sum_j H_j\) is the system cumulative hazard, and \(R = \exp(-H)\) is the system reliability function. Exact observations carry the most information (you see the hazard directly). Right-censored observations say only &ldquo;survived this long.&rdquo; Left and interval observations fall between these extremes.</p>
+<p>The three models handle these integrals differently:</p>
+<ul>
+<li><strong>Exponential</strong>: all four types have closed-form expressions for loglik, score, and Hessian</li>
+<li><strong>Homogeneous Weibull</strong>: closed-form loglik for all types via \(w_c\) weights (shared shape simplifies the integral); numerical Hessian via <code>numDeriv::jacobian</code></li>
+<li><strong>Heterogeneous Weibull</strong>: closed-form for exact/right; <code>stats::integrate</code> for left/interval; numerical Hessian</li>
+</ul>
+<h2 id="four-vignettes">Four Vignettes</h2>
+<p>The observation functor system needed validation across all three models and multiple censoring configurations. This produced four vignettes, each a complete Monte Carlo study with precomputed results.</p>
+<h3 id="exponential-series">Exponential Series</h3>
+<p>The <a href="https://queelius.github.io/maskedcauses/articles/exponential_series.html">exponential series vignette</a> is the tutorial entry point. It walks through the full pipeline: model construction, data generation, MLE fitting, and Monte Carlo simulation under all four observation types.</p>
+<p>The exponential case is special because everything is analytical. The score and Hessian have closed-form expressions for all observation types, so the MLE converges fast and asymptotic standard errors are exact (no numerical differentiation). This makes it the ideal test bed for the functor system. Any discrepancy between analytical and numerical results points to a bug in the functor, not in a numerical approximation.</p>
+<p>The vignette also covers masking probability sensitivity: as the masking probability \(p\) decreases (more masking), RMSE increases and confidence interval coverage degrades. The fundamental tradeoff in masked data: information loss from incomplete cause identification.</p>
+<h3 id="homogeneous-weibull">Homogeneous Weibull</h3>
+<p>The <a href="https://queelius.github.io/maskedcauses/articles/weibull_homogeneous_series.html">homogeneous Weibull vignette</a> studies the shared-shape model across three hazard regimes:</p>
+<ul>
+<li><strong>DFR</strong> (decreasing failure rate, \(k < 1\)): Early failures dominate. Common in burn-in periods and infant mortality.</li>
+<li><strong>CFR</strong> (constant failure rate, \(k = 1\)): Reduces to exponential. Memoryless.</li>
+<li><strong>IFR</strong> (increasing failure rate, \(k > 1\)): Wear-out dominates. The typical aging process.</li>
+</ul>
+<p>The mathematical insight: when all Weibull components share shape \(k\), the system lifetime is also Weibull with shape \(k\) and system scale \(\beta_s = (\sum_j \beta_j^{-k})^{-1/k}\). This means the left- and interval-censored likelihood contributions have closed-form expressions using weight factors \(w_c = \beta_c^{-k} / \sum_j \beta_j^{-k}\), no numerical integration needed. The shared shape is a strong assumption, but when it holds, estimation is remarkably efficient.</p>
+<h3 id="heterogeneous-weibull">Heterogeneous Weibull</h3>
+<p>The <a href="https://queelius.github.io/maskedcauses/articles/weibull_series.html">heterogeneous Weibull vignette</a> drops the shared-shape assumption. Each component gets its own shape \(k_j\) and scale \(\beta_j\), doubling the parameter count to \(2m\).</p>
+<p>With mixed shapes, the system lifetime is <em>not</em> Weibull. It&rsquo;s a competing-risks minimum of Weibull variates with different shape parameters. The left- and interval-censored contributions require numerical integration via <code>stats::integrate</code>. Slower, but handles the realistic case where components age at different rates (e.g., a capacitor with IFR alongside a solder joint with DFR).</p>
+<h3 id="censoring-comparison">Censoring Comparison</h3>
+<p>The <a href="https://queelius.github.io/maskedcauses/articles/censoring_comparison.html">censoring comparison vignette</a> is the cross-cutting analysis. It runs the exponential model under five monitoring configurations:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Config</th>
+					<th>Description</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>A</td>
+					<td>Exact + right (continuous monitoring)</td>
+			</tr>
+			<tr>
+					<td>B</td>
+					<td>Left + right (single inspection)</td>
+			</tr>
+			<tr>
+					<td>C</td>
+					<td>Interval + right (periodic, wide intervals)</td>
+			</tr>
+			<tr>
+					<td>D</td>
+					<td>Interval + right (periodic, narrow intervals)</td>
+			</tr>
+			<tr>
+					<td>E</td>
+					<td>Mixed (all observation types)</td>
+			</tr>
+	</tbody>
+</table>
+<p>The results confirm the expected information ordering: <strong>exact &gt; narrow-interval &gt; wide-interval &gt; left \(\approx\) right</strong>. Exact observations carry the most information because you see the failure time precisely. Narrow intervals are close to exact. Left-censored data is nearly as uninformative as right-censored: knowing only &ldquo;it failed before \(\tau\)&rdquo; is almost as vague as &ldquo;it survived past \(\tau\).&rdquo;</p>
+<p>The practical takeaway: if you&rsquo;re designing a monitoring protocol and can choose between a single end-of-study inspection (left-censoring) and periodic inspections (interval-censoring), periodic inspections are strictly better for parameter estimation. The frequency of inspection trades off against cost. Narrower intervals give better estimates but require more inspections.</p>
+<h2 id="verified-prose">Verified Prose</h2>
+<p>Writing prose about simulation results is easy to get wrong. You run a Monte Carlo study, get an RMSE of 0.042, then write &ldquo;RMSE ranges from 0.035 to 0.045.&rdquo; Later someone changes the simulation seed or sample size, and the prose is silently wrong.</p>
+<p>I developed a verification methodology for this package: <strong>every numerical claim in vignette commentary is cross-checked against the precomputed <code>.rds</code> data</strong>.</p>
+<p>The workflow:</p>
+<ol>
+<li>Extract values: <code>readRDS(&quot;vignettes/precomputed_results.rds&quot;)</code></li>
+<li>Compute metrics from the raw simulation output</li>
+<li>Round consistently (3 decimal places for RMSE, 1 for percentages)</li>
+<li>Only then write the prose</li>
+</ol>
+<p>This caught several errors during the vignette audit. An RMSE range was off by 0.001. A coverage percentage rounded the wrong direction. A score comparison paragraph claimed &ldquo;near zero&rdquo; when the actual values were order \(10^{-6}\), technically true but not the same as &ldquo;precisely zero&rdquo; which is what holds at the analytical MLE.</p>
+<p>The <code>.rds</code> files have different structures across vignettes (the exponential data is a flat list; the homogeneous Weibull data is nested by scenario; the censoring comparison has pre-aggregated summaries), so the verification code isn&rsquo;t one-size-fits-all. But the principle is: <strong>no prose about numbers without first reading the numbers</strong>.</p>
+<h2 id="mdtools-removal"><code>md.tools</code> Removal</h2>
+<p>The <code>md.tools</code> package provided four utility functions for encoding and decoding masked data matrices:</p>
+<ul>
+<li><code>md_decode_matrix</code>: Extract prefixed columns (e.g., <code>x1, x2, x3</code>) as a matrix</li>
+<li><code>md_encode_matrix</code>: Convert matrix to prefixed columns in a data frame</li>
+<li><code>md_mark_latent</code>: Tag columns as latent (for display purposes)</li>
+<li><code>md_boolean_matrix_to_charsets</code>: Convert Boolean columns to set notation (<code>{1, 3}</code>)</li>
+</ul>
+<p>These are small functions. The largest is about 10 lines. Carrying a GitHub remote dependency for 40 lines of base R was unnecessary friction for installation and CRAN submission.</p>
+<p>I internalized all four into <code>R/md_compat.R</code>, keeping the same function names and signatures. The package now has three GitHub remotes (down from four):</p>
+<ul>
+<li><a href="https://github.com/queelius/algebraic.mle">algebraic.mle</a>: MLE algebra</li>
+<li><a href="https://github.com/queelius/likelihood.model">likelihood.model</a>: Inference framework</li>
+<li><a href="https://github.com/queelius/algebraic.dist">algebraic.dist</a>: Distribution utilities</li>
+</ul>
+<p>Zero non-base R dependencies for the core matrix encoding/decoding operations. The <code>generics</code> package for <code>fit</code> is the only remaining external import beyond the ecosystem packages.</p>
+<h2 id="testing">Testing</h2>
+<p>The observation functor system is validated by 798 tests at 99.45% line coverage. The test suite mirrors the source file structure:</p>
+<ul>
+<li><code>test-observe.R</code>: Unit tests for each primitive functor (boundary conditions, output format)</li>
+<li><code>test-censoring.R</code>: Integration tests for the full pipeline (generate data, fit model, check estimates)</li>
+<li><code>test-exp_series_md_c1_c2_c3.R</code>, <code>test-wei_series_*.R</code>: Model-specific tests for all four observation types</li>
+</ul>
+<p>The censoring integration tests are the important ones: they verify that the loglik, score, and Hessian functions handle mixed observation types correctly. A dataset with some exact, some right, some left, and some interval observations should produce a valid log-likelihood that MLE can optimize.</p>
+<h2 id="whats-next">What&rsquo;s Next</h2>
+<p><strong>CRAN submission.</strong> The package is <code>R CMD check</code>-clean with no notes or warnings. Once <a href="/projects/likelihood.model/">likelihood.model</a> is accepted, this package follows immediately.</p>
+<p><strong>Arbitrary hazard functions.</strong> The current models assume exponential or Weibull components. The <a href="/projects/maskedhaz/">maskedhaz</a> extension will support components specified by arbitrary hazard functions via <a href="/projects/flexhaz/">flexhaz</a>: define a component by its hazard rate and get likelihood contributions automatically.</p>
+<p><strong>Relaxed masking.</strong> The C2 condition (uniform masking within candidate sets) is often unrealistic. <a href="/papers/mdrelax/">mdrelax</a> extends the model to handle non-uniform masking probabilities, but its integration with the observation functor system is not yet complete.</p>
+<p><strong><code>observe_mixture</code> as a model for heterogeneous monitoring.</strong> The current mixture functor randomly assigns observation schemes. A natural extension is to let the monitoring scheme depend on covariates: different sites, different equipment classes, different maintenance budgets.</p>
+<hr>
+<p><strong>Resources</strong>:</p>
+<ul>
+<li><a href="https://github.com/queelius/maskedcauses">GitHub repository</a></li>
+<li><a href="https://queelius.github.io/maskedcauses/">Package documentation</a></li>
+<li><a href="/post/2026-02-05-likelihood-model-series-md/">Previous post: Package announcement</a></li>
+<li><a href="https://queelius.github.io/maskedcauses/reference/observe_right_censor.html">Observation functor API reference</a></li>
+<li><a href="https://queelius.github.io/maskedcauses/articles/censoring_comparison.html">Censoring comparison vignette</a></li>
+<li><a href="/series/statistical-reliability/">Series landing page</a></li>
+</ul>]]></content:encoded><category>R</category><category>statistics</category><category>reliability</category><category>series systems</category><category>masked data</category><category>maximum likelihood</category><category>censoring</category><category>simulation</category><category>observation functors</category><category>Weibull</category></item><item><title>Numerical Methods for Maximum Likelihood Estimation</title><link>https://metafunctor.com/post/2024-06-05-numerical.mle/</link><pubDate>Sun, 05 Feb 2023 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-06-05-numerical.mle/</guid><description>Numerical approaches to maximum likelihood estimation, covering the optimization methods and computational issues that come up in practice.</description><content:encoded><![CDATA[<p>Maximum likelihood estimation sounds clean on paper: write down the likelihood, take derivatives, set them to zero, solve. In practice, the &ldquo;solve&rdquo; step is where things get interesting. Most likelihoods don&rsquo;t have closed-form solutions, so you need numerical methods, and the choice of method matters more than most textbooks let on.</p>
+<p>This write-up covers the numerical side of MLE: the optimization algorithms, convergence issues, and computational tricks that make the difference between getting an answer and getting the right answer. The full treatment is in the PDF.</p>
+<p><a href="/latex/numerical.mle/">View PDF</a></p>
+<h2 id="related-work">Related work</h2>
+<p>For more on the statistical and mathematical context, see my <a href="/research/">research page</a> and <a href="/publications/">publications</a>.</p>
+]]></content:encoded><category>numerical-analysis</category><category>statistics</category><category>optimization</category></item></channel></rss>

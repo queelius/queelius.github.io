@@ -1,0 +1,572 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Elementa on metafunctor</title><link>https://metafunctor.com/linked_project/elementa/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/elementa/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Seeing Structure First</title><link>https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</link><pubDate>Sun, 18 Jan 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2026-01-18-synthesis-stepanov/</guid><description>A reflection on eleven explorations in generic programming, and how algorithms arise from algebraic structure.</description><content:encoded><![CDATA[<p><em>A reflection on eleven explorations in generic programming</em></p>
+<h2 id="the-question-behind-the-code">The Question Behind the Code</h2>
+<p>What do these computations have in common?</p>
+<ul>
+<li>Computing the millionth Fibonacci number</li>
+<li>Finding the shortest path between cities in a weighted graph</li>
+<li>Calculating compound interest over thirty years</li>
+<li>Composing ten 3D rotations into one</li>
+<li>Repeating a string n times</li>
+</ul>
+<p>The answer: they&rsquo;re all computed by the same twenty lines of code.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">T</span> <span class="n">power</span><span class="p">(</span><span class="n">T</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">base</span><span class="p">,</span> <span class="n">T</span> <span class="n">exp</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">==</span> <span class="n">zero</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span> <span class="k">return</span> <span class="n">one</span><span class="p">(</span><span class="n">exp</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">exp</span> <span class="o">==</span> <span class="n">one</span><span class="p">(</span><span class="n">exp</span><span class="p">))</span>  <span class="k">return</span> <span class="n">base</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">even</span><span class="p">(</span><span class="n">exp</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="o">?</span> <span class="n">square</span><span class="p">(</span><span class="n">power</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">half</span><span class="p">(</span><span class="n">exp</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">        <span class="o">:</span> <span class="n">product</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">power</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">decrement</span><span class="p">(</span><span class="n">exp</span><span class="p">)));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>This shouldn&rsquo;t work. Fibonacci numbers involve integer sequences. Shortest paths involve graphs. Rotations involve 3D geometry. Different domains, different mathematics.</p>
+<p>Yet they share structure. Once you see it, a single algorithm serves them all.</p>
+<p>This collection of eleven blog posts is an extended meditation on one idea: <strong>algorithms arise from algebraic structure</strong>. The posts cover different domains (number theory, calculus, linear algebra, polymorphism) but they circle the same insight. Recognize the structure; the algorithm follows.</p>
+<hr>
+<h2 id="the-principle">The Principle</h2>
+<p>Alex Stepanov articulated this most clearly in <em>Elements of Programming</em>: &ldquo;Generic programming is about abstracting and classifying algorithms and data structures.&rdquo; But the deeper point is <em>how</em> to abstract. Not by common syntax or superficial similarity, but by the algebraic laws a type obeys.</p>
+<p>Why does structure appear <em>everywhere</em>? Because reality has structure. The algebraic structures we discover in programming (groups, rings, monoids) are the same structures physicists discover in nature. Rotations form a group. Spacetime transformations form a group. This isn&rsquo;t coincidence. We&rsquo;re uncovering patterns that exist.</p>
+<p>Noether&rsquo;s theorem makes this precise: every continuous symmetry corresponds to a conservation law. Time-translation symmetry gives conservation of energy. Space-translation symmetry gives conservation of momentum. Rotational symmetry gives conservation of angular momentum. The symmetry groups of physics <em>are</em> algebraic structures.</p>
+<p>When we recognize &ldquo;this is a monoid&rdquo; in our code, we&rsquo;re tapping into the same mathematical substrate that governs physical law. The algorithms follow because the structure constrains what&rsquo;s possible, both in computation and in nature.</p>
+<p>Consider the <code>power()</code> function above. What does it require?</p>
+<ul>
+<li>An associative binary operation (so we can regroup: \((a \cdot b) \cdot c = a \cdot (b \cdot c)\))</li>
+<li>An identity element (so \(1 \cdot x = x \cdot 1 = x\))</li>
+<li>Halving and parity testing on the exponent</li>
+</ul>
+<p>That&rsquo;s it. Any type providing these operations, with these laws, can use this algorithm. The requirements are <em>algebraic</em>, not syntactic.</p>
+<p>There&rsquo;s a deeper way to understand this: <strong>structure is compressed information</strong>. When you say &ldquo;this type is a monoid,&rdquo; you&rsquo;re transmitting an enormous amount of data in a few bits. A monoid guarantees associativity, which is infinitely many facts about every possible triple of elements. It guarantees an identity, which is infinitely many facts about every element&rsquo;s interaction with it.</p>
+<p>The algorithm exploits this compressed information. It doesn&rsquo;t need to be told that \((a \cdot b) \cdot c = a \cdot (b \cdot c)\) for your particular type; it knows because you declared the structure. Minimal interfaces are powerful precisely <em>because</em> they&rsquo;re maximally informative per requirement. Each law you can assume is exponentially more constraint you don&rsquo;t have to check.</p>
+<p>This shifts how we think about programming:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Traditional OOP</th>
+					<th>Stepanov&rsquo;s Approach</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>What <em>is</em> this type?</td>
+					<td>What can I <em>do</em> with it?</td>
+			</tr>
+			<tr>
+					<td>Inheritance hierarchy</td>
+					<td>Algebraic concepts</td>
+			</tr>
+			<tr>
+					<td>Shared base class</td>
+					<td>Shared operations</td>
+			</tr>
+			<tr>
+					<td>Runtime polymorphism</td>
+					<td>Compile-time genericity</td>
+			</tr>
+	</tbody>
+</table>
+<p>The question isn&rsquo;t &ldquo;is this a number?&rdquo; but &ldquo;does this form a monoid under some operation?&rdquo; If yes, <code>power()</code> applies.</p>
+<p>This collection explores what happens when you take this principle seriously across eleven different domains.</p>
+<hr>
+<h2 id="universality-one-algorithm-many-faces">Universality: One Algorithm, Many Faces</h2>
+<p>The <a href="/post/2019-03-peasant-stepanov/">peasant</a> post demonstrates the principle most dramatically. The Russian peasant algorithm, an ancient technique for multiplication without times tables, generalizes to any monoid. The same code computes:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Type</th>
+					<th>Operation</th>
+					<th>Identity</th>
+					<th><code>power(x, n)</code> computes&hellip;</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Integer</td>
+					<td>x</td>
+					<td>1</td>
+					<td>\(x^n\)</td>
+			</tr>
+			<tr>
+					<td>2x2 Matrix</td>
+					<td>x</td>
+					<td>I</td>
+					<td>\(F(n)\) (Fibonacci via matrix form)</td>
+			</tr>
+			<tr>
+					<td>Quaternion</td>
+					<td>x</td>
+					<td>1</td>
+					<td>n-fold rotation composition</td>
+			</tr>
+			<tr>
+					<td>Tropical (min,+)</td>
+					<td>min, +</td>
+					<td>0, inf</td>
+					<td>n-hop shortest path</td>
+			</tr>
+			<tr>
+					<td>String</td>
+					<td>concat</td>
+					<td>&quot;&quot;</td>
+					<td>n-fold string repetition</td>
+			</tr>
+			<tr>
+					<td>Permutation</td>
+					<td>compose</td>
+					<td>id</td>
+					<td>n-fold permutation</td>
+			</tr>
+			<tr>
+					<td>Affine transform</td>
+					<td>compose</td>
+					<td>id</td>
+					<td>n periods of compound interest</td>
+			</tr>
+			<tr>
+					<td>Polynomial</td>
+					<td>x</td>
+					<td>1</td>
+					<td>Polynomial powers</td>
+			</tr>
+			<tr>
+					<td>Modular integer</td>
+					<td>x</td>
+					<td>1</td>
+					<td>Modular exponentiation</td>
+			</tr>
+			<tr>
+					<td>Boolean matrix</td>
+					<td>and, or</td>
+					<td>I</td>
+					<td>n-step reachability</td>
+			</tr>
+	</tbody>
+</table>
+<p>Fifteen examples in total. Each requires about fifty lines to define the type and its operations. Then <code>power()</code> works unchanged.</p>
+<p>The pattern repeats in <a href="/post/2020-07-polynomials-stepanov/">polynomials</a>. The GCD algorithm (Euclid&rsquo;s method from 300 BCE) works identically on integers and polynomials:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Same algorithm for both!
+</span></span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">euclidean_domain</span> <span class="n">E</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="n">E</span> <span class="n">gcd</span><span class="p">(</span><span class="n">E</span> <span class="n">a</span><span class="p">,</span> <span class="n">E</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">b</span> <span class="o">!=</span> <span class="n">E</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">a</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">exchange</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">%</span> <span class="n">b</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>For integers: \(\gcd(48, 18) = 6\)</p>
+<p>For polynomials: \(\gcd(x^3 - 1, x^2 - 1) = x - 1\)</p>
+<p>Both are Euclidean domains, algebraic structures where division with remainder is always possible, with the remainder &ldquo;smaller&rdquo; than the divisor. Integers use absolute value as the size; polynomials use degree. The algorithm doesn&rsquo;t care which. It only needs the Euclidean property.</p>
+<hr>
+<h2 id="minimal-interfaces">Minimal Interfaces</h2>
+<p>Each algorithm requires <em>exactly</em> what it needs. No more, no less.</p>
+<p>The peasant algorithms need:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">zero</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>       <span class="c1">// additive identity
+</span></span></span><span class="line"><span class="cl"><span class="n">one</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>        <span class="c1">// multiplicative identity
+</span></span></span><span class="line"><span class="cl"><span class="n">twice</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>      <span class="c1">// doubling
+</span></span></span><span class="line"><span class="cl"><span class="n">half</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>       <span class="c1">// halving
+</span></span></span><span class="line"><span class="cl"><span class="n">even</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>       <span class="c1">// parity test
+</span></span></span></code></pre></div><p>The <a href="/post/2023-08-integration-stepanov/">integration</a> module needs an ordered field:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">ordered_field</span> <span class="o">=</span>
+</span></span><span class="line"><span class="cl">    <span class="n">has_add</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_sub</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_mul</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_div</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">has_neg</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span> <span class="n">has_order</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">requires</span> <span class="p">{</span> <span class="n">T</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="n">T</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="n">T</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span> <span class="p">};</span>
+</span></span></code></pre></div><p>The <a href="/post/2021-03-elementa-stepanov/">elementa</a> matrix library needs:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Matrix</span> <span class="o">=</span> <span class="k">requires</span><span class="p">(</span><span class="n">M</span> <span class="n">m</span><span class="p">,</span> <span class="k">const</span> <span class="n">M</span> <span class="n">cm</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">.</span><span class="n">rows</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">.</span><span class="n">cols</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">m</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&amp;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">const</span> <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&amp;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>C++20 concepts make these requirements explicit and checkable. But the deeper point is <em>designing</em> algorithms around minimal requirements. When you ask &ldquo;what does this algorithm actually need?&rdquo;, you discover its true scope.</p>
+<p>The <a href="/post/2020-02-rational-stepanov/">rational</a> post illustrates this well. A rational number needs:</p>
+<ul>
+<li>Numerator and denominator (integers)</li>
+<li>GCD (to reduce to lowest terms)</li>
+<li>The usual arithmetic</li>
+</ul>
+<p>But <em>which</em> integer type? The implementation is templated:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">integral</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">rat</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">num_</span><span class="p">;</span>  <span class="c1">// numerator (carries sign)
+</span></span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">den_</span><span class="p">;</span>  <span class="c1">// denominator (always positive)
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Use <code>int</code> for small fractions. Use <code>int64_t</code> for larger ones. Plug in an arbitrary-precision integer type and get exact rational arithmetic with no overflow. The algorithm doesn&rsquo;t change.</p>
+<hr>
+<h2 id="adl-based-free-functions">ADL-Based Free Functions</h2>
+<p>A design pattern runs through every post: types expose algebraic operations as <em>free functions</em>, not member methods.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Not this:
+</span></span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">my_type</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">my_type</span> <span class="nf">twice</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">my_type</span> <span class="nf">half</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="nf">is_even</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// But this:
+</span></span></span><span class="line"><span class="cl"><span class="n">my_type</span> <span class="nf">twice</span><span class="p">(</span><span class="n">my_type</span> <span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">my_type</span> <span class="nf">half</span><span class="p">(</span><span class="n">my_type</span> <span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">even</span><span class="p">(</span><span class="n">my_type</span> <span class="n">x</span><span class="p">);</span>
+</span></span></code></pre></div><p>Why? Argument-dependent lookup (ADL). When generic code calls <code>twice(x)</code>, the compiler searches for <code>twice</code> in the namespace where <code>x</code>&rsquo;s type is defined. No inheritance required. No base class needed. The type just provides the operations in its namespace.</p>
+<p>This pattern enables the full universality. You can&rsquo;t inherit <code>int</code> from a base class, but you can provide <code>twice(int x)</code> as a free function. Suddenly built-in types participate equally with user-defined types.</p>
+<p>The <a href="/post/2019-06-modular-stepanov/">modular</a> post shows this clearly:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">one</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">twice</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">x</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">template</span><span class="o">&lt;</span><span class="kt">int64_t</span> <span class="n">N</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">constexpr</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">half</span><span class="p">(</span><span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">mod_int</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="n">inverse</span><span class="p">();</span>  <span class="c1">// Requires prime N
+</span></span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Now <code>power()</code> works with modular integers. The same twenty lines compute modular exponentiation, the workhorse of public-key cryptography.</p>
+<hr>
+<h2 id="composition-through-algebra">Composition Through Algebra</h2>
+<p>When two algebraic types compose, their algorithms compose too. This is where the approach becomes genuinely powerful.</p>
+<h3 id="dual-numbers--integration--leibnizs-rule">Dual Numbers + Integration = Leibniz&rsquo;s Rule</h3>
+<p>The <a href="/post/2021-09-dual-stepanov/">dual</a> post introduces dual numbers for automatic differentiation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">x</span> <span class="o">=</span> <span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">variable</span><span class="p">(</span><span class="mf">2.0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="n">x</span><span class="o">*</span><span class="n">x</span><span class="o">*</span><span class="n">x</span> <span class="o">-</span> <span class="mf">3.0</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// f.value() = 3.0
+</span></span></span><span class="line"><span class="cl"><span class="c1">// f.derivative() = 9.0  (the derivative f&#39;(2) = 3x^2 - 3 = 9)
+</span></span></span></code></pre></div><p>The derivative emerges automatically from the algebra. No symbolic manipulation. No finite differences. Just arithmetic with a different number type.</p>
+<p>The <a href="/post/2023-08-integration-stepanov/">integration</a> module computes numerical integrals:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">result</span> <span class="o">=</span> <span class="n">integrate</span><span class="p">([](</span><span class="kt">double</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">);</span> <span class="p">},</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">M_PI</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// result ~ 2.0
+</span></span></span></code></pre></div><p>Now here&rsquo;s the payoff. Because <code>integrate</code> is written generically (requiring only an ordered field) it works with dual numbers:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">D</span> <span class="o">=</span> <span class="n">dual</span><span class="o">::</span><span class="n">dual</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">a</span> <span class="o">=</span> <span class="n">D</span><span class="o">::</span><span class="n">variable</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span>  <span class="c1">// Parameter to differentiate
+</span></span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[</span><span class="o">&amp;</span><span class="n">a</span><span class="p">](</span><span class="n">D</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">a</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">D</span> <span class="n">result</span> <span class="o">=</span> <span class="n">composite_simpsons</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span> <span class="n">D</span><span class="o">::</span><span class="n">constant</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="mi">100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// result.value() = 1/3 (the integral of ax^2 from 0 to 1 = a/3)
+</span></span></span><span class="line"><span class="cl"><span class="c1">// result.derivative() = 1/3 (d/da of the integral = integral of x^2 dx)
+</span></span></span></code></pre></div><p>This is Leibniz&rsquo;s integral rule (the derivative of an integral with respect to a parameter) implemented through <em>pure algebra</em>. No special cases. No separate implementation. The composition emerges automatically because both components respect the same algebraic structure.</p>
+<h3 id="autodiff--elementa--matrix-calculus">Autodiff + Elementa = Matrix Calculus</h3>
+<p>The <a href="/post/2023-01-autodiff-stepanov/">autodiff</a> post builds reverse-mode automatic differentiation on top of <a href="/post/2021-03-elementa-stepanov/">elementa</a>&rsquo;s matrix concept:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">f</span> <span class="o">=</span> <span class="p">[](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">matmul</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">A</span><span class="p">));</span>  <span class="c1">// f(A) = sum(A^2)
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">matrix</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">A</span><span class="p">{{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">},</span> <span class="p">{</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">}};</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">gradient</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">f</span><span class="p">)(</span><span class="n">A</span><span class="p">);</span>  <span class="c1">// df/dA
+</span></span></span></code></pre></div><p>The gradient of matrix functions, computed exactly. The chain rule applied through a computational graph. Classic results from matrix calculus (like \(\partial\det(A)/\partial A = \det(A) \cdot A^{-T}\)) appear as backward functions in the graph.</p>
+<p>Because autodiff builds on the Matrix concept, not a concrete type, it would work with any conforming matrix implementation: dense, sparse, symbolic, GPU-accelerated. The algorithm is decoupled from the representation.</p>
+<h3 id="type-erasure--ring-axioms--runtime-polymorphism-with-guarantees">Type Erasure + Ring Axioms = Runtime Polymorphism with Guarantees</h3>
+<p>The <a href="/post/2024-02-type-erasure-stepanov/">type-erasure</a> post takes Sean Parent&rsquo;s technique and applies it to algebraic structures:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">any_ring</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">struct</span> <span class="nc">concept_t</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">add</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">multiply</span><span class="p">(</span><span class="n">concept_t</span> <span class="k">const</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">negate</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">zero</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">virtual</span> <span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">concept_t</span><span class="o">&gt;</span> <span class="n">one</span><span class="p">()</span> <span class="k">const</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// ...
+</span></span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>Now <code>any_ring</code> can hold integers, polynomials, matrices, any ring. You can do arithmetic at runtime without knowing the concrete type at compile time. The algebraic laws still hold because every wrapped type satisfies them.</p>
+<p>This is Stepanov&rsquo;s approach extended to runtime polymorphism: the interface is algebraic (ring operations), not arbitrary methods.</p>
+<hr>
+<h2 id="correctness-from-structure">Correctness from Structure</h2>
+<p>When the algebra is right, the algorithm cannot be wrong. Not &ldquo;unlikely to be wrong,&rdquo; <em>cannot</em>.</p>
+<h3 id="miller-rabin-error-bounds-from-group-theory">Miller-Rabin: Error Bounds from Group Theory</h3>
+<p>The <a href="/post/2019-09-miller-rabin-stepanov/">miller-rabin</a> post implements probabilistic primality testing. The algorithm has a clean error analysis: for any composite n, at least 3/4 of potential witnesses will detect it.</p>
+<p>Where does 3/4 come from? Not from empirical testing. From the structure of multiplicative groups modulo n. The witnesses that fail to detect a composite form a subgroup; subgroups divide the group order; the analysis bounds the subgroup size.</p>
+$$
+P(\text{false positive}) \leq \left(\frac{1}{4}\right)^k
+$$<p>With \(k = 20\) witnesses: error \(< 10^{-12}\). Not &ldquo;probably correct,&rdquo; provably bounded error, derived from algebra.</p>
+<h3 id="rationals-canonical-form-as-theorem">Rationals: Canonical Form as Theorem</h3>
+<p>The <a href="/post/2020-02-rational-stepanov/">rational</a> post maintains fractions in lowest terms:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">reduce</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">g</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">gcd</span><span class="p">(</span><span class="n">abs</span><span class="p">(</span><span class="n">num_</span><span class="p">),</span> <span class="n">den_</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">num_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">den_</span> <span class="o">/=</span> <span class="n">g</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Every rational has a unique reduced representation. This isn&rsquo;t a policy decision. It&rsquo;s a theorem about greatest common divisors. The canonical form follows from the algebraic structure of integers (a unique factorization domain) and the definition of GCD.</p>
+<p>Because of this, equality testing is trivial:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">rat</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">rhs</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">num_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">num_</span> <span class="o">&amp;&amp;</span> <span class="n">den_</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">.</span><span class="n">den_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>No tolerance. No floating-point fuzziness. Exact equality, guaranteed by algebraic structure.</p>
+<h3 id="dual-numbers-correctness-by-construction">Dual Numbers: Correctness by Construction</h3>
+<p>The <a href="/post/2021-09-dual-stepanov/">dual</a> post computes derivatives through the algebra of dual numbers, where \(\varepsilon^2 = 0\):</p>
+$$
+f(x + \varepsilon) = f(x) + \varepsilon f'(x)
+$$<p>This isn&rsquo;t an approximation. It&rsquo;s exact. The derivative emerges from the definition of dual number arithmetic:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">dual</span> <span class="k">operator</span><span class="o">*</span><span class="p">(</span><span class="n">dual</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// (a + be)(c + de) = ac + (ad + bc)e + bde^2 = ac + (ad + bc)e
+</span></span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">{</span><span class="n">val</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">val</span><span class="p">,</span> <span class="n">val</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">der</span> <span class="o">+</span> <span class="n">der</span> <span class="o">*</span> <span class="n">other</span><span class="p">.</span><span class="n">val</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The product rule is <em>built into</em> the multiplication. If the algebra is implemented correctly, derivatives are correct by construction.</p>
+<hr>
+<h2 id="the-meta-pattern-how-to-see-this-way">The Meta-Pattern: How to See This Way</h2>
+<p>After reading these eleven posts, patterns emerge. Here&rsquo;s how to develop this perspective:</p>
+<p><strong>Ask: What operations does this algorithm actually need?</strong></p>
+<p>Not &ldquo;what type am I working with?&rdquo; but &ldquo;what can I do with it?&rdquo; List the operations. Check which ones you actually call. That&rsquo;s your concept.</p>
+<p><strong>Ask: What laws must hold?</strong></p>
+<p>Associativity? Commutativity? Distributivity? An identity element? Inverses? These laws determine which algorithms apply. If you need \(a \cdot (b \cdot c) = (a \cdot b) \cdot c\), you need a semigroup. Add an identity, you have a monoid. Add inverses, a group.</p>
+<table>
+	<thead>
+			<tr>
+					<th>Structure</th>
+					<th>Laws</th>
+					<th>Enables</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Semigroup</td>
+					<td>Associativity</td>
+					<td>Parallel reduction</td>
+			</tr>
+			<tr>
+					<td>Monoid</td>
+					<td>+ Identity</td>
+					<td>Power by squaring</td>
+			</tr>
+			<tr>
+					<td>Group</td>
+					<td>+ Inverses</td>
+					<td>Division, subtraction</td>
+			</tr>
+			<tr>
+					<td>Ring</td>
+					<td>Monoid (x), Group (+), Distributive</td>
+					<td>Polynomial arithmetic</td>
+			</tr>
+			<tr>
+					<td>Field</td>
+					<td>Ring + multiplicative inverses</td>
+					<td>Division, linear algebra</td>
+			</tr>
+			<tr>
+					<td>Euclidean domain</td>
+					<td>Ring + division with remainder</td>
+					<td>GCD, fraction reduction</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>Design the concept as the minimal contract.</strong></p>
+<p>Don&rsquo;t require what you don&rsquo;t need. Each additional requirement excludes types that might work. The goal is maximum generality with guaranteed correctness.</p>
+<p><strong>Express operations as free functions.</strong></p>
+<p>This enables ADL, which enables working with types you don&rsquo;t control. Built-in types, third-party libraries, legacy code, all can participate.</p>
+<p><strong>Let composition emerge from shared structure.</strong></p>
+<p>When component A requires concept X, and component B produces concept X, they compose. No explicit integration needed. The algebra mediates.</p>
+<p><strong>Turn laws into tests.</strong></p>
+<p>If you know something is a monoid, you can automatically generate property-based tests. Associativity becomes <code>assert(op(op(a,b),c) == op(a,op(b,c)))</code> for random a, b, c. Identity becomes <code>assert(op(e,x) == x &amp;&amp; op(x,e) == x)</code> for random x.</p>
+<p>This isn&rsquo;t new: Claessen and Hughes&rsquo;s QuickCheck (2000) pioneered property-based testing; Wadler&rsquo;s &ldquo;Theorems for Free&rdquo; (1989) showed that parametric polymorphism implies algebraic properties. But the connection to Stepanov-style programming is direct: declaring structure gives you tests for free. The laws become executable specifications.</p>
+<p><strong>The open question: discovering structure.</strong></p>
+<p>This collection teaches you to <em>use</em> structures once recognized, but how do you recognize them in the first place? That creative act remains underexplored.</p>
+<p>Sometimes the process is clear: you have an algorithm, you analyze what operations and laws it requires, and you name the resulting concept. But sometimes you have a messy domain and wonder: is there hidden structure here? Could I reformulate this problem so a known structure applies?</p>
+<p>Pattern-matching against known structures helps. Working backward from desired algorithms helps. But no systematic method exists for <em>discovering</em> new useful structures. That gap is worth acknowledging, and perhaps worth exploring.</p>
+<hr>
+<h2 id="the-posts-a-dependency-graph">The Posts: A Dependency Graph</h2>
+<p>The eleven posts build on each other in a directed acyclic graph:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">peasant (monoids, power by squaring)
+</span></span><span class="line"><span class="cl">+-- miller-rabin (modular exponentiation for primality)
+</span></span><span class="line"><span class="cl">+-- modular (ring/field structure, Fermat&#39;s theorem)
+</span></span><span class="line"><span class="cl">+-- type-erasure (algebraic concepts at runtime)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">rational (fields, GCD, unique factorization)
+</span></span><span class="line"><span class="cl">+-- polynomials (Euclidean domains, same GCD algorithm)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">dual (forward-mode autodiff via algebra)
+</span></span><span class="line"><span class="cl">+-- finite-diff (verification, error analysis comparison)
+</span></span><span class="line"><span class="cl">+-- integration (Leibniz&#39;s rule through composition)
+</span></span><span class="line"><span class="cl">+-- autodiff (reverse-mode for scalar outputs)
+</span></span><span class="line"><span class="cl">    +-- elementa (Matrix concept foundation)
+</span></span></code></pre></div><p><strong>Entry points by interest:</strong></p>
+<ul>
+<li><em>Number theory</em>: Start with <a href="/post/2019-03-peasant-stepanov/">peasant</a>, then <a href="/post/2019-06-modular-stepanov/">modular</a>, then <a href="/post/2019-09-miller-rabin-stepanov/">miller-rabin</a></li>
+<li><em>Calculus and optimization</em>: Start with <a href="/post/2021-09-dual-stepanov/">dual</a>, then <a href="/post/2022-04-finite-diff-stepanov/">finite-diff</a>, then <a href="/post/2023-08-integration-stepanov/">integration</a></li>
+<li><em>Linear algebra</em>: Start with <a href="/post/2021-03-elementa-stepanov/">elementa</a>, then <a href="/post/2023-01-autodiff-stepanov/">autodiff</a></li>
+<li><em>Generic programming patterns</em>: Start with <a href="/post/2019-03-peasant-stepanov/">peasant</a>, then <a href="/post/2024-02-type-erasure-stepanov/">type-erasure</a></li>
+<li><em>Algebraic structures</em>: Start with <a href="/post/2020-02-rational-stepanov/">rational</a>, then <a href="/post/2020-07-polynomials-stepanov/">polynomials</a></li>
+</ul>
+<hr>
+<h2 id="appendix-reading-guide">Appendix: Reading Guide</h2>
+<h3 id="peasant">peasant/</h3>
+<p><strong>One Algorithm, Infinite Powers</strong></p>
+<p>The Russian peasant multiplication algorithm generalizes to any monoid. Computes \(x^n\) in \(O(\log n)\) operations using only associativity and identity. Fifteen worked examples: integers, matrices (Fibonacci), quaternions (rotations), tropical semiring (shortest paths), strings, permutations, affine transforms (compound interest), and more.</p>
+<p><em>Key insight</em>: The same code structure appears everywhere because it depends only on monoid axioms, not the specific domain.</p>
+<h3 id="miller-rabin">miller-rabin/</h3>
+<p><strong>Is It Prime?</strong></p>
+<p>Probabilistic primality testing with quantifiable error bounds. Uses modular exponentiation from peasant. The 3/4 witness bound comes from group theory. Handles Carmichael numbers that fool simpler tests.</p>
+<p><em>Key insight</em>: Error analysis follows from algebraic structure, not empirical observation.</p>
+<h3 id="rational">rational/</h3>
+<p><strong>Exact Rational Arithmetic</strong></p>
+<p>Fractions that never lose precision. GCD reduction ensures unique representation. Connects to continued fractions and the Stern-Brocot tree.</p>
+<p><em>Key insight</em>: Canonical form is a theorem about algebraic structure, not a design choice.</p>
+<h3 id="modular">modular/</h3>
+<p><strong>Modular Arithmetic as Rings</strong></p>
+<p>Integers mod N form rings; when N is prime, they form fields. Fermat&rsquo;s little theorem gives multiplicative inverses. Type-safe: <code>mod_int&lt;7&gt;</code> and <code>mod_int&lt;11&gt;</code> are incompatible types.</p>
+<p><em>Key insight</em>: Understanding ring/field structure tells you which algorithms apply.</p>
+<h3 id="polynomials">polynomials/</h3>
+<p><strong>Polynomial Arithmetic as Euclidean Domains</strong></p>
+<p>The same GCD algorithm works for integers and polynomials because both are Euclidean domains. Sparse representation handles high-degree polynomials efficiently.</p>
+<p><em>Key insight</em>: Shared algebraic structure enables algorithm reuse across apparently different domains.</p>
+<h3 id="type-erasure">type-erasure/</h3>
+<p><strong>Runtime Polymorphism Without Inheritance</strong></p>
+<p>Sean Parent&rsquo;s technique: wrap any type satisfying an interface, without requiring inheritance. Extended to algebraic interfaces: <code>any_ring</code>, <code>any_vector_space</code>, <code>any_matrix</code>.</p>
+<p><em>Key insight</em>: Algebraic concepts can be erased at runtime while preserving guarantees.</p>
+<h3 id="dual">dual/</h3>
+<p><strong>Forward-Mode Automatic Differentiation</strong></p>
+<p>Dual numbers (\(a + b\varepsilon\) where \(\varepsilon^2 = 0\)) compute derivatives through arithmetic. Evaluate \(f(x + \varepsilon)\) to get \(f(x) + \varepsilon f'(x)\). Supports higher-order derivatives via nesting.</p>
+<p><em>Key insight</em>: The derivative emerges automatically from the algebra of dual numbers.</p>
+<h3 id="finite-diff">finite-diff/</h3>
+<p><strong>Numerical Differentiation</strong></p>
+<p>Finite difference formulas with optimal step sizes derived from error analysis. Forward, central, and five-point stencils. Useful for verification and black-box functions.</p>
+<p><em>Key insight</em>: Two error sources (truncation and round-off) determine optimal step size.</p>
+<h3 id="integration">integration/</h3>
+<p><strong>Numerical Quadrature</strong></p>
+<p>Simpson&rsquo;s rule, Gauss-Legendre, adaptive methods. Written generically for any ordered field, enabling composition with dual numbers (Leibniz&rsquo;s rule).</p>
+<p><em>Key insight</em>: Generic implementation enables unexpected compositions.</p>
+<h3 id="elementa">elementa/</h3>
+<p><strong>Pedagogical Linear Algebra</strong></p>
+<p>Matrix concept in C++20. LU decomposition powers determinants, inverses, and linear system solving. Cache-conscious multiplication. Value semantics throughout.</p>
+<p><em>Key insight</em>: A concept defines what matrices <em>are</em>, enabling algorithms independent of representation.</p>
+<h3 id="autodiff">autodiff/</h3>
+<p><strong>Reverse-Mode Automatic Differentiation</strong></p>
+<p>Gradient computation via computational graphs. Builds on elementa&rsquo;s Matrix concept. Implements matrix calculus Jacobians (determinant, inverse, multiplication). Verified against finite differences.</p>
+<p><em>Key insight</em>: Systematic chain rule application, automated through graph traversal.</p>
+<hr>
+<h2 id="where-the-principle-struggles">Where the Principle Struggles</h2>
+<p>No principle applies universally. Here&rsquo;s where &ldquo;structure first, algorithm second&rdquo; meets friction:</p>
+<p><strong>Generic overhead.</strong> Sometimes a specialized algorithm beats the generic one. SIMD-optimized matrix multiplication exploits specific hardware layouts in ways a generic <code>Matrix</code> concept can&rsquo;t express. The structure is there, but capturing it costs more than hard-coding it.</p>
+<p><strong>Approximate fit.</strong> Floating-point numbers <em>almost</em> form a field, but not quite. Addition isn&rsquo;t associative: \((a + b) + c \neq a + (b + c)\) in general, due to rounding. Algorithms that assume exact associativity may accumulate errors or produce inconsistent results. The structure is a useful fiction, not a guarantee.</p>
+<p><strong>Missing concepts.</strong> Some useful algorithms lack clean algebraic characterization. What structure does &ldquo;topological sort&rdquo; require? &ldquo;Strongly connected components&rdquo;? These algorithms have preconditions (acyclic graph, directed graph), but they don&rsquo;t fit neatly into the algebraic hierarchy.</p>
+<p><strong>Impedance mismatch.</strong> Stateful, imperative code (caches, mutation, side effects) doesn&rsquo;t always fit the algebraic mold. You <em>can</em> model state transformations as monoid actions, but the encoding may obscure rather than clarify.</p>
+<p>This isn&rsquo;t failure. It&rsquo;s knowing when the tool applies. The principle illuminates a wide territory; recognizing its boundaries makes you more effective within them.</p>
+<hr>
+<h2 id="an-invitation">An Invitation</h2>
+<p>These eleven posts are entry points, not destinations. The principle, <em>structure first, algorithm second</em>, extends far beyond the domains explored here.</p>
+<p>Consider data structures: a balanced binary search tree, a skip list, and a B-tree all implement the same abstract interface (ordered set). Algorithms written to that interface work on all three.</p>
+<p>Consider I/O: streams, files, network sockets, and string buffers can satisfy the same concept. Generic code handles them uniformly.</p>
+<p>Consider concurrency: different synchronization primitives satisfy different algebraic laws. Understanding those laws clarifies which patterns are safe.</p>
+<p>The principle is simple. Seeing it takes practice. These posts offer exercises.</p>
+<p>Write the algorithm once. State its requirements precisely. Let it work on anything that satisfies those requirements. That&rsquo;s generic programming in the Stepanov tradition.</p>
+<p>When you recognize &ldquo;this is a ring,&rdquo; you immediately know which algorithms apply. When you recognize &ldquo;this is a monoid,&rdquo; <code>power()</code> is available. When you see structure first, algorithms follow.</p>
+<hr>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li>Stepanov &amp; Rose, <em>From Mathematics to Generic Programming</em> &ndash; accessible introduction</li>
+<li>Stepanov &amp; McJones, <em>Elements of Programming</em> &ndash; the definitive treatment</li>
+<li>Sean Parent, &ldquo;Inheritance Is The Base Class of Evil&rdquo; (GoingNative 2013) &ndash; type erasure</li>
+<li>Ireland &amp; Rosen, <em>A Classical Introduction to Modern Number Theory</em> &ndash; modular arithmetic</li>
+<li>Graham, Knuth, Patashnik, <em>Concrete Mathematics</em> &ndash; rational numbers, recurrences</li>
+</ul>
+]]></content:encoded><category>C++</category><category>generic-programming</category><category>algorithms</category><category>monoids</category><category>algebraic-structures</category><category>stepanov</category></item><item><title>Teaching Linear Algebra with C++20 Concepts</title><link>https://metafunctor.com/post/2021-03-elementa-stepanov/</link><pubDate>Mon, 08 Mar 2021 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2021-03-elementa-stepanov/</guid><description>elementa is a linear algebra library built to teach. Every design decision prioritizes clarity over cleverness. Code that reads like a textbook and compiles.</description><content:encoded><![CDATA[<p>The world has Eigen, Armadillo, Blaze. Why build another linear algebra library?</p>
+<p>Because none of them are trying to teach. elementa exists to teach three things at once: linear algebra, modern C++, and numerical computing. Every design choice prioritizes clarity over cleverness. The code reads like a textbook that happens to compile.</p>
+<h2 id="the-matrix-concept">The Matrix Concept</h2>
+<p>C++20 concepts let you express &ldquo;what a matrix is&rdquo; as a compile-time contract:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">concept</span> <span class="n">Matrix</span> <span class="o">=</span> <span class="k">requires</span><span class="p">(</span><span class="n">M</span> <span class="n">m</span><span class="p">,</span> <span class="k">const</span> <span class="n">M</span> <span class="n">cm</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">.</span><span class="n">rows</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">.</span><span class="n">cols</span><span class="p">()</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">m</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&amp;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="k">const</span> <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&amp;&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span> <span class="o">+</span> <span class="n">cm</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">cm</span> <span class="o">-</span> <span class="n">cm</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="o">-</span><span class="n">cm</span> <span class="p">}</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>This says: a type <code>M</code> is a Matrix if it has a <code>scalar_type</code>, dimension queries, element access (mutable and const), and basic arithmetic. Notice what&rsquo;s absent: scalar multiplication. That omission is deliberate. Including it creates circular constraint issues with the <code>operator*</code> overload for matrix multiplication. Instead, there&rsquo;s a <code>scale()</code> function for generic code.</p>
+<p>The point of the concept is that any type satisfying these constraints works with all the algorithms. No inheritance. No virtual functions. You can write:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span> <span class="o">&lt;</span><span class="n">Matrix</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">det</span><span class="p">(</span><span class="k">const</span> <span class="n">M</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="p">;</span>
+</span></span></code></pre></div><p>and it works for <code>matrix&lt;double&gt;</code>, <code>matrix&lt;float&gt;</code>, or any future type that satisfies <code>Matrix</code>.</p>
+<h2 id="api-design">API Design</h2>
+<p>A pedagogical library needs a clean interface:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Default: empty 0x0
+</span></span></span><span class="line"><span class="cl"><span class="n">matrix</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">empty</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Filled with value
+</span></span></span><span class="line"><span class="cl"><span class="n">matrix</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">);</span>  <span class="c1">// 3x4 of zeros
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Flat initializer list (row-major)
+</span></span></span><span class="line"><span class="cl"><span class="n">matrix</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">flat</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Nested initializer list (most natural)
+</span></span></span><span class="line"><span class="cl"><span class="n">matrix</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span> <span class="n">natural</span><span class="p">{{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">                       <span class="p">{</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">}};</span>
+</span></span></code></pre></div><p>Value semantics throughout. Operators like <code>+</code> and <code>-</code> return new matrices, marked <code>[[nodiscard]]</code> so you can&rsquo;t accidentally discard a result.</p>
+<h2 id="lu-decomposition">LU Decomposition</h2>
+<p>LU decomposition is the workhorse. It factors A into a lower triangular L and upper triangular U such that PA = LU, where P is a permutation matrix capturing row swaps. This single factorization gives you determinants, inverses, and linear system solving.</p>
+<p>The implementation uses partial pivoting: at each step, find the largest absolute value in the current column and use it as the pivot. This prevents division by small numbers that amplify rounding errors.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span> <span class="o">&lt;</span><span class="n">Arithmetic</span> <span class="n">T</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">lu_result</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">matrix</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">L</span><span class="p">;</span>                     <span class="c1">// Lower triangular (unit diagonal)
+</span></span></span><span class="line"><span class="cl">    <span class="n">matrix</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">U</span><span class="p">;</span>                     <span class="c1">// Upper triangular
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span><span class="o">&gt;</span> <span class="n">perm</span><span class="p">;</span>   <span class="c1">// Permutation vector
+</span></span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">sign</span><span class="p">;</span>                        <span class="c1">// Sign of permutation (+1 or -1)
+</span></span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="n">singular</span><span class="p">;</span>                   <span class="c1">// True if matrix is singular
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><h2 id="everything-follows-from-lu">Everything Follows from LU</h2>
+<p>Once you have the factorization, the rest falls out.</p>
+<p><strong>Determinant</strong>: det(PA) = det(L)det(U), and L has unit diagonal, so the determinant is just the product of U&rsquo;s diagonal entries times the permutation sign:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span> <span class="o">&lt;</span><span class="n">Matrix</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">det</span><span class="p">(</span><span class="k">const</span> <span class="n">M</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="p">[</span><span class="n">L</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">perm</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">singular</span><span class="p">]</span> <span class="o">=</span> <span class="n">lu</span><span class="p">(</span><span class="n">A</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">singular</span><span class="p">)</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">result</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">sign</span><span class="p">);</span>  <span class="c1">// +/- 1
+</span></span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">U</span><span class="p">.</span><span class="n">rows</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span> <span class="o">*=</span> <span class="n">U</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>  <span class="c1">// Product of diagonal
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>Solve Ax = b</strong>: Apply the permutation to b, forward-substitute through L, back-substitute through U.</p>
+<p><strong>Inverse</strong>: Solve A * X = I column by column. Computing the inverse by solving n linear systems is more numerically stable than explicit formulas.</p>
+<h2 id="numerical-realities">Numerical Realities</h2>
+<p>For large matrices, computing the determinant directly risks overflow or underflow. The fix is <code>logdet</code>, which works in log space:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span> <span class="o">&lt;</span><span class="n">Matrix</span> <span class="n">M</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">logdet</span><span class="p">(</span><span class="k">const</span> <span class="n">M</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="k">typename</span> <span class="n">M</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&gt;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="p">[</span><span class="n">L</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">perm</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">singular</span><span class="p">]</span> <span class="o">=</span> <span class="n">lu</span><span class="p">(</span><span class="n">A</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">singular</span><span class="p">)</span> <span class="k">return</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">std</span><span class="o">::</span><span class="n">numeric_limits</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">infinity</span><span class="p">()};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">T</span> <span class="n">log_abs_det</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">result_sign</span> <span class="o">=</span> <span class="n">sign</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">U</span><span class="p">.</span><span class="n">rows</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span> <span class="n">diag</span> <span class="o">=</span> <span class="n">U</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">diag</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">result_sign</span> <span class="o">=</span> <span class="o">-</span><span class="n">result_sign</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">diag</span> <span class="o">=</span> <span class="o">-</span><span class="n">diag</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">log_abs_det</span> <span class="o">+=</span> <span class="n">std</span><span class="o">::</span><span class="n">log</span><span class="p">(</span><span class="n">diag</span><span class="p">);</span>  <span class="c1">// Sum of logs = log of product
+</span></span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">{</span><span class="n">result_sign</span><span class="p">,</span> <span class="n">log_abs_det</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><h2 id="cache-conscious-multiplication">Cache-Conscious Multiplication</h2>
+<p>The standard matrix multiplication formula:</p>
+<pre><code>C(i,j) = sum over k of A(i,k) * B(k,j)
+</code></pre>
+<p>A naive i-j-k loop order causes cache misses when accessing B(k,j) for varying k with row-major storage. You&rsquo;re jumping through memory by column.</p>
+<p>Reorder to i-k-j:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">template</span> <span class="o">&lt;</span><span class="n">Matrix</span> <span class="n">M1</span><span class="p">,</span> <span class="n">Matrix</span> <span class="n">M2</span><span class="o">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="k">auto</span> <span class="n">matmul</span><span class="p">(</span><span class="k">const</span> <span class="n">M1</span><span class="o">&amp;</span> <span class="n">A</span><span class="p">,</span> <span class="k">const</span> <span class="n">M2</span><span class="o">&amp;</span> <span class="n">B</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">matrix</span><span class="o">&lt;</span><span class="k">typename</span> <span class="n">M1</span><span class="o">::</span><span class="n">scalar_type</span><span class="o">&gt;</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">matrix</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="n">C</span><span class="p">(</span><span class="n">A</span><span class="p">.</span><span class="n">rows</span><span class="p">(),</span> <span class="n">B</span><span class="p">.</span><span class="n">cols</span><span class="p">(),</span> <span class="n">T</span><span class="p">{</span><span class="mi">0</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">A</span><span class="p">.</span><span class="n">rows</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">A</span><span class="p">.</span><span class="n">cols</span><span class="p">();</span> <span class="o">++</span><span class="n">k</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">auto</span> <span class="n">aik</span> <span class="o">=</span> <span class="n">A</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">k</span><span class="p">);</span>  <span class="c1">// Load once, reuse across j loop
+</span></span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">B</span><span class="p">.</span><span class="n">cols</span><span class="p">();</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">C</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">+=</span> <span class="n">aik</span> <span class="o">*</span> <span class="n">B</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">C</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Now <code>A(i,k)</code> loads once and reuses for all j. This reordering alone gives 2-10x speedups on real hardware. It&rsquo;s the same computation, just friendlier to the cache hierarchy.</p>
+<h2 id="the-bigger-picture">The Bigger Picture</h2>
+<p>elementa shows that linear algebra code can be readable without being slow. The C++20 concept defines what matrices <em>are</em>, not how they&rsquo;re stored. LU serves as the algorithmic foundation. Numerical details like logdet acknowledge floating-point realities.</p>
+<p>The payoff for generic design shows up downstream. The automatic differentiation library I built (the dual numbers post) works directly with elementa&rsquo;s Matrix concept, computing gradients for matrix operations without knowing the concrete type. That&rsquo;s what concept-based generic programming gives you: algorithms that work for any conforming type, now and in the future.</p>
+]]></content:encoded><category>C++</category><category>C++20</category><category>linear-algebra</category><category>concepts</category><category>matrices</category><category>generic-programming</category></item></channel></rss>

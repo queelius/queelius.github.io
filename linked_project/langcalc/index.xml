@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Langcalc on metafunctor</title><link>https://metafunctor.com/linked_project/langcalc/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/langcalc/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Infinigram: Variable-Length N-grams via Suffix Arrays</title><link>https://metafunctor.com/post/infini-gram/</link><pubDate>Wed, 03 Dec 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/infini-gram/</guid><description>A corpus-based language model using suffix arrays for O(m log n) pattern matching. The corpus is the model.</description><content:encoded><![CDATA[<p><a href="https://github.com/queelius/infinigram">Infinigram</a> (<code>pip install py-infinigram</code>) is a corpus-based language model that uses suffix arrays for variable-length n-gram pattern matching. Unlike neural language models, there is no training step. The corpus <em>is</em> the model.</p>
+<h2 id="the-problem-with-fixed-n-grams">The problem with fixed n-grams</h2>
+<p>Traditional n-gram models use fixed context lengths and blow up exponentially. A 5-gram model over a 50,000-word vocabulary needs to store up to \(50000^5\) possible patterns. That is roughly 312 petabytes. Nobody does this.</p>
+<p>Infinigram uses suffix arrays instead:</p>
+<ul>
+<li><strong>O(n) space</strong>: Linear in corpus size, not vocabulary size</li>
+<li><strong>O(m log n) queries</strong>: Fast pattern matching for any context length</li>
+<li><strong>Variable-length matching</strong>: Automatically uses the longest matching context</li>
+</ul>
+<p>For a 1B token corpus, this means about 1GB instead of about 34GB for hash-based 5-grams.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Given a context, Infinigram finds the longest matching suffix in the training corpus:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">infinigram</span> <span class="kn">import</span> <span class="n">Infinigram</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">corpus</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">Infinigram</span><span class="p">(</span><span class="n">corpus</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Find longest match for context [2, 3]</span>
+</span></span><span class="line"><span class="cl"><span class="n">position</span><span class="p">,</span> <span class="n">length</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">longest_suffix</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Predict next token</span>
+</span></span><span class="line"><span class="cl"><span class="n">probs</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># {4: 0.66, 5: 0.33, ...}</span>
+</span></span></code></pre></div><p>Predictions come from counting what tokens follow the matched pattern in the corpus. Simple frequency estimation, but over arbitrarily long contexts.</p>
+<h2 id="llm-probability-mixing">LLM probability mixing</h2>
+<p>The practical application I care about most: grounding LLM outputs without retraining.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Mix LLM with corpus-based predictions</span>
+</span></span><span class="line"><span class="cl"><span class="n">P_final</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">P_llm</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_infinigram</span>
+</span></span></code></pre></div><p>This gives you:</p>
+<ul>
+<li><strong>Domain adaptation</strong> without fine-tuning. Load a legal corpus and you get legal-domain predictions.</li>
+<li><strong>Hallucination reduction</strong> by anchoring to actual corpus content.</li>
+<li><strong>Explainability</strong>. Every prediction traces to specific corpus evidence. You can point to the exact passages.</li>
+</ul>
+<h2 id="projections-as-inductive-biases">Projections as inductive biases</h2>
+<p>I wrote a theoretical framework viewing inductive biases as projections: transformations applied to queries or training data that enable generalization.</p>
+<ul>
+<li><strong>Runtime transforms</strong>: lowercase normalization, stemming, synonym expansion</li>
+<li><strong>Corpus augmentations</strong>: data augmentation, paraphrasing</li>
+</ul>
+<p>This gives a principled way to think about out-of-distribution generalization in corpus-based models. The projection determines what the model treats as &ldquo;the same.&rdquo;</p>
+<h2 id="interactive-repl">Interactive REPL</h2>
+<p>Infinigram includes an interactive REPL for exploration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">infinigram-repl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">infinigram&gt; /dataset demo
+</span></span><span class="line"><span class="cl">infinigram <span class="o">[</span>demo<span class="o">]</span>&gt; /load the cat sat on the mat
+</span></span><span class="line"><span class="cl">infinigram <span class="o">[</span>demo<span class="o">]</span>&gt; /predict the cat
+</span></span><span class="line"><span class="cl">infinigram <span class="o">[</span>demo<span class="o">]</span>&gt; /complete the cat --max <span class="m">20</span>
+</span></span></code></pre></div><h2 id="future-langcalc-integration">Future: LangCalc integration</h2>
+<p>Infinigram is designed to work with <a href="/projects/langcalc/">LangCalc</a>, an algebraic framework for composing language models:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Compose models algebraically</span>
+</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">llm</span> <span class="o">+</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="n">wiki_infinigram</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">code_infinigram</span>
+</span></span></code></pre></div><p>Mix neural and corpus-based models with explicit control over domain influence.</p>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <code>pip install py-infinigram</code></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/queelius/infinigram">github.com/queelius/infinigram</a></li>
+<li><strong>Paper</strong>: <a href="/papers/infinigram/">Infinigram Technical Report</a></li>
+<li><strong>Related</strong>: <a href="/projects/langcalc/">LangCalc Project</a></li>
+</ul>
+<h2 id="background">Background</h2>
+<p>This builds on ideas from a <a href="https://github.com/queelius/sluug-talk-llm">SLUUG talk on LLMs</a> where I demonstrated arbitrary-size n-grams using recursive dictionaries for a crude expression evaluator. Infinigram takes those ideas further with suffix arrays and the projection framework for generalization.</p>
+]]></content:encoded><category>language models</category><category>n-gram</category><category>suffix arrays</category><category>NLP</category><category>LLM grounding</category><category>Python</category></item><item><title>Language Calculus: An Algebraic Framework for LLM Composition</title><link>https://metafunctor.com/post/2025-10-07-langcalc/</link><pubDate>Tue, 07 Oct 2025 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-10-07-langcalc/</guid><description>A mathematical framework that treats language models as algebraic objects with compositional structure.</description><content:encoded><![CDATA[<p>What if we could compose language models the way we compose functions in mathematics? What if there was an algebra of language models?</p>
+<p><strong>Language Calculus</strong> (langcalc) is an algebraic framework for building and reasoning about language model systems.</p>
+<h2 id="the-problem-with-current-llm-composition">The Problem with Current LLM Composition</h2>
+<p>Today, combining language models typically means:</p>
+<ul>
+<li>Ad-hoc ensembling techniques</li>
+<li>Manual prompt chaining</li>
+<li>Hardcoded decision trees</li>
+<li>Black-box orchestration layers</li>
+</ul>
+<p>There&rsquo;s no principled way to reason about what these compositions do or how they behave. You wire things together and hope it works.</p>
+<h2 id="the-algebraic-approach">The Algebraic Approach</h2>
+<p>Language Calculus introduces operators with well-defined semantics:</p>
+<h3 id="core-operators">Core Operators</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">M1 + M2     Mixture (weighted combination)
+</span></span><span class="line"><span class="cl">k * M       Scaling (temperature/probability adjustment)
+</span></span><span class="line"><span class="cl">M1 | M2     Maximum (most confident response)
+</span></span><span class="line"><span class="cl">M1 &amp; M2     Minimum (most conservative response)
+</span></span><span class="line"><span class="cl">M1 ^ M2     Exclusive-or (diverse perspectives)
+</span></span><span class="line"><span class="cl">M ** t      Temperature adjustment
+</span></span><span class="line"><span class="cl">M ?? p      Threshold filtering
+</span></span><span class="line"><span class="cl">M &gt;&gt;&gt; t     Truncation/limiting
+</span></span></code></pre></div><h3 id="why-this-matters">Why This Matters</h3>
+<p>These operators satisfy algebraic laws:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(M1 + M2) + M3 = M1 + (M2 + M3)   # Associativity
+</span></span><span class="line"><span class="cl">M1 + M2 = M2 + M1                  # Commutativity
+</span></span><span class="line"><span class="cl">M + 0 = M                          # Identity
+</span></span><span class="line"><span class="cl">a * (M1 + M2) = a*M1 + a*M2        # Distributivity
+</span></span></code></pre></div><p>This means we can transform, optimize, and reason about language model compositions algebraically. The laws aren&rsquo;t just nice properties. They let you simplify compositions, prove equivalences, and optimize execution.</p>
+<h2 id="practical-examples">Practical Examples</h2>
+<h3 id="ensemble-with-confidence-weighting">Ensemble with Confidence Weighting</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">output = 0.4 * GPT4 + 0.3 * Claude + 0.3 * Llama
+</span></span></code></pre></div><h3 id="expert-selection">Expert Selection</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">code_task = (CodeLlama | GPT4) &amp; SafetyModel
+</span></span></code></pre></div><h3 id="diverse-brainstorming">Diverse Brainstorming</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">ideas = CreativeModel ^ ConservativeModel ^ TechnicalModel
+</span></span></code></pre></div><h3 id="temperature-search">Temperature Search</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">explore = Model ** 1.5
+</span></span><span class="line"><span class="cl">exploit = Model ** 0.2
+</span></span><span class="line"><span class="cl">adaptive = 0.7 * exploit + 0.3 * explore
+</span></span></code></pre></div><h2 id="theoretical-foundations">Theoretical Foundations</h2>
+<p>The framework provides:</p>
+<ul>
+<li><strong>Formal semantics</strong> for each operator</li>
+<li><strong>Type system</strong> ensuring valid compositions</li>
+<li><strong>Equivalence relations</strong> for optimization</li>
+<li><strong>Normal forms</strong> for canonical representations</li>
+</ul>
+<p>This lets us prove properties like:</p>
+<ul>
+<li>Safety preservation under composition</li>
+<li>Bias reduction through specific mixtures</li>
+<li>Computational complexity bounds</li>
+</ul>
+<h2 id="applications">Applications</h2>
+<p>Language Calculus enables:</p>
+<ol>
+<li><strong>Automatic Optimization</strong>: Transform expensive compositions into equivalent cheaper ones</li>
+<li><strong>Compositional Testing</strong>: Verify properties of complex systems from component properties</li>
+<li><strong>Explainability</strong>: Understand what a composition does from its algebraic structure</li>
+<li><strong>Meta-Learning</strong>: Learn optimal compositions for task families</li>
+</ol>
+<h2 id="implementation">Implementation</h2>
+<p>The paper includes:</p>
+<ul>
+<li>Reference implementation in Python</li>
+<li>Type checker for valid compositions</li>
+<li>Optimizer for algebraic simplification</li>
+<li>Library of common composition patterns</li>
+</ul>
+<h2 id="read-more">Read More</h2>
+<p>For the full mathematical treatment, formal semantics, and experimental validation:</p>
+<blockquote>
+<p><a href="/latex/langcalc/">View Paper</a></p>
+</blockquote>
+<p>The paper covers:</p>
+<ul>
+<li>Complete operator semantics</li>
+<li>Algebraic laws and their proofs</li>
+<li>Type system formalization</li>
+<li>Optimization algorithms</li>
+<li>Empirical evaluation on benchmark tasks</li>
+<li>Comparison with existing composition methods</li>
+</ul>
+]]></content:encoded><category>llm</category><category>algebra</category><category>composition</category><category>framework</category><category>language-models</category></item></channel></rss>

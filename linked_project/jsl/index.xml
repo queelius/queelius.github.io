@@ -1,0 +1,606 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Jsl on metafunctor</title><link>https://metafunctor.com/linked_project/jsl/</link><description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description><language>en-us</language><managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor><webMaster>lex@metafunctor.com (Alex Towell)</webMaster><lastBuildDate>Fri, 03 Jul 2026 22:19:57 -0500</lastBuildDate><atom:link href="https://metafunctor.com/linked_project/jsl/" rel="self" type="application/rss+xml"/><image><url>https://metafunctor.com/images/og-image.jpg</url><title>metafunctor</title><link>https://metafunctor.com/</link></image><item><title>Rerum: Pattern Matching and Term Rewriting in Python</title><link>https://metafunctor.com/post/2025-12-16-rerum/</link><pubDate>Tue, 16 Dec 2025 06:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2025-12-16-rerum/</guid><description>A Python library for symbolic computation with a readable DSL, pattern matching, and a security model that separates rules from computation.</description><content:encoded><![CDATA[<p><strong>Rerum</strong> (Rewriting Expressions via Rules Using Morphisms) is a Python library for pattern matching and term rewriting. It makes symbolic computation accessible through a readable DSL while keeping a clean separation between trusted and untrusted code.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Traditional symbolic math systems tend toward two extremes. Monolithic systems like Mathematica bundle everything in. Lighter tools force you to write complex recursive traversals every time you want to transform an expression. I wanted something in between: a simple, extensible system where transformation rules are <em>data</em> that can be loaded, combined, and inspected.</p>
+<h2 id="the-sicp-connection">The SICP Connection</h2>
+<p>This design reflects a core idea from <em>Structure and Interpretation of Computer Programs</em>: when a problem domain is complex enough, the right move is to build a language for it. Rerum&rsquo;s rule DSL makes transformation logic inspectable, composable, and safe.</p>
+<p>The engine composition operators (<code>&gt;&gt;</code> for sequencing, <code>|</code> for union) ensure <strong>closure</strong>: combining engines yields an engine. Same principle that makes Scheme&rsquo;s procedures powerful. You can pass them, return them, combine them, no special cases. Transformation strategies are first-class.</p>
+<h2 id="a-readable-dsl">A Readable DSL</h2>
+<p>At the heart of rerum is a domain-specific language for defining rewrite rules:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl"># Algebraic simplification
+</span></span><span class="line"><span class="cl">@add-zero[100] &#34;x + 0 = x&#34;: (+ ?x 0) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-one[100]:  (* ?x 1) =&gt; :x
+</span></span><span class="line"><span class="cl">@mul-zero[100]: (* ?x 0) =&gt; 0
+</span></span></code></pre></div><p>Each rule has:</p>
+<ul>
+<li><strong>A name</strong>: <code>@add-zero</code> for debugging and tracing</li>
+<li><strong>Optional priority</strong>: <code>[100]</code> determines firing order when multiple rules match</li>
+<li><strong>Optional description</strong>: Human-readable explanation</li>
+<li><strong>A pattern</strong>: <code>(+ ?x 0)</code> matches addition with zero</li>
+<li><strong>A skeleton</strong>: <code>:x</code> is the replacement</li>
+</ul>
+<p>The pattern syntax:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Syntax</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>?x</code></td>
+					<td>Match anything, bind to x</td>
+			</tr>
+			<tr>
+					<td><code>?x:const</code></td>
+					<td>Match only numbers</td>
+			</tr>
+			<tr>
+					<td><code>?x:var</code></td>
+					<td>Match only symbols</td>
+			</tr>
+			<tr>
+					<td><code>?x:free(v)</code></td>
+					<td>Match expressions not containing v</td>
+			</tr>
+			<tr>
+					<td><code>?x...</code></td>
+					<td>Variadic, capture remaining arguments</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="symbolic-differentiation-in-15-lines">Symbolic Differentiation in 15 Lines</h2>
+<p>Here&rsquo;s a calculus ruleset that computes symbolic derivatives:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gdscript3" data-lang="gdscript3"><span class="line"><span class="cl"><span class="p">[</span><span class="n">basic</span><span class="o">-</span><span class="n">derivatives</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">const</span><span class="p">[</span><span class="mi">100</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">c</span><span class="p">:</span><span class="k">const</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">var</span><span class="o">-</span><span class="n">same</span><span class="p">[</span><span class="mi">100</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">x</span><span class="p">:</span><span class="k">var</span> <span class="err">?</span><span class="n">x</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="k">var</span><span class="o">-</span><span class="n">diff</span><span class="p">[</span><span class="mi">90</span><span class="p">]:</span> <span class="p">(</span><span class="n">dd</span> <span class="err">?</span><span class="n">y</span><span class="p">:</span><span class="k">var</span> <span class="err">?</span><span class="n">x</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">[</span><span class="n">rules</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">sum</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">+</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">g</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">+</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">g</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">product</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">*</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">g</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">+</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span><span class="n">g</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span> <span class="p">:</span><span class="n">f</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">g</span> <span class="p">:</span><span class="n">v</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="n">power</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="o">^</span> <span class="err">?</span><span class="n">f</span> <span class="err">?</span><span class="n">n</span><span class="p">:</span><span class="k">const</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">:</span><span class="n">n</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="o">^</span> <span class="p">:</span><span class="n">f</span> <span class="p">(</span><span class="o">-</span> <span class="p">:</span><span class="n">n</span> <span class="mi">1</span><span class="p">))</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">exp</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">exp</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="nb">exp</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">log</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="n">ln</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">/</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">)</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">sin</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">sin</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="nb">cos</span> <span class="p">:</span><span class="n">f</span><span class="p">)</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="err">@</span><span class="n">dd</span><span class="o">-</span><span class="nb">cos</span><span class="p">:</span> <span class="p">(</span><span class="n">dd</span> <span class="p">(</span><span class="nb">cos</span> <span class="err">?</span><span class="n">f</span><span class="p">)</span> <span class="err">?</span><span class="n">v</span><span class="p">:</span><span class="k">var</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="o">*</span> <span class="p">(</span><span class="o">-</span> <span class="p">(</span><span class="nb">sin</span> <span class="p">:</span><span class="n">f</span><span class="p">))</span> <span class="p">(</span><span class="n">dd</span> <span class="p">:</span><span class="n">f</span> <span class="p">:</span><span class="n">v</span><span class="p">))</span>
+</span></span></code></pre></div><p>With these rules loaded:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">E</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&#34;calculus.rules&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># d/dx(x^2) = 2x</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(dd (^ x 2) x)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; (* 2 (* (^ x 1) 1))</span>
+</span></span></code></pre></div><p>The result needs simplification (another ruleset), but the differentiation itself is purely declarative.</p>
+<h2 id="the-security-model-rules-vs-preludes">The Security Model: Rules vs. Preludes</h2>
+<p>A key architectural decision: the separation between <strong>rules</strong> (untrusted, serializable) and <strong>preludes</strong> (trusted Python code). Rules define structural transformations. They can reference operations via the <code>(! op args...)</code> compute form, but those operations must be explicitly provided by the host.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">ARITHMETIC_PRELUDE</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="p">(</span><span class="n">RuleEngine</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">with_prelude</span><span class="p">(</span><span class="n">ARITHMETIC_PRELUDE</span><span class="p">)</span>  <span class="c1"># Enables +, -, *, /, ^</span>
+</span></span><span class="line"><span class="cl">    <span class="o">.</span><span class="n">load_dsl</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">        @fold-add: (+ ?a ?b) =&gt; (! + :a :b)
+</span></span></span><span class="line"><span class="cl"><span class="s1">                   when (! and (! const? :a) (! const? :b))
+</span></span></span><span class="line"><span class="cl"><span class="s1">    &#39;&#39;&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(+ 1 2)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; 3 (computed by prelude)</span>
+</span></span><span class="line"><span class="cl"><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(+ x 2)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; (+ x 2) (no change - x isn&#39;t const)</span>
+</span></span></code></pre></div><p>This means you can load rules from untrusted sources safely. They can only invoke operations you&rsquo;ve explicitly allowed. No arbitrary code execution.</p>
+<h2 id="conditional-guards">Conditional Guards</h2>
+<p>Rules can have guards, conditions that must hold for the rule to fire:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">@abs-pos: (abs ?x) =&gt; :x when (! &gt; :x 0)
+</span></span><span class="line"><span class="cl">@abs-neg: (abs ?x) =&gt; (! - 0 :x) when (! &lt; :x 0)
+</span></span><span class="line"><span class="cl">@abs-zero: (abs ?x) =&gt; 0 when (! = :x 0)
+</span></span></code></pre></div><p>Guards use the same <code>(! ...)</code> compute syntax as skeletons, with access to predicates like <code>const?</code>, <code>var?</code>, <code>list?</code>, and comparison operators.</p>
+<h2 id="rewriting-strategies">Rewriting Strategies</h2>
+<p>Different problems need different traversals:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># exhaustive (default): Apply rules until no more apply</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;exhaustive&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># once: Apply at most one rule anywhere</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;once&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># bottomup: Simplify children before parents</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;bottomup&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># topdown: Try parent before children</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">engine</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&#34;topdown&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="engine-composition">Engine Composition</h2>
+<p>Engines compose:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">expand</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_dsl</span><span class="p">(</span><span class="s2">&#34;@square: (square ?x) =&gt; (* :x :x)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">simplify</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&#34;algebra.rules&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Sequence: expand first, then simplify</span>
+</span></span><span class="line"><span class="cl"><span class="n">normalize</span> <span class="o">=</span> <span class="n">expand</span> <span class="o">&gt;&gt;</span> <span class="n">simplify</span>
+</span></span><span class="line"><span class="cl"><span class="n">normalize</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(square 3)&#34;</span><span class="p">))</span>  <span class="c1"># =&gt; 9</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Union: combine all rules</span>
+</span></span><span class="line"><span class="cl"><span class="n">combined</span> <span class="o">=</span> <span class="n">algebra</span> <span class="o">|</span> <span class="n">calculus</span>
+</span></span></code></pre></div><h2 id="interactive-repl">Interactive REPL</h2>
+<p>The CLI includes an interactive mode:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rerum
+</span></span><span class="line"><span class="cl">rerum&gt; @add-zero: <span class="o">(</span>+ ?x 0<span class="o">)</span> <span class="o">=</span>&gt; :x
+</span></span><span class="line"><span class="cl">Added <span class="m">1</span> rule<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">rerum&gt; <span class="o">(</span>+ y 0<span class="o">)</span>
+</span></span><span class="line"><span class="cl">y
+</span></span><span class="line"><span class="cl">rerum&gt; :load examples/calculus.rules
+</span></span><span class="line"><span class="cl">Loaded <span class="m">12</span> rule<span class="o">(</span>s<span class="o">)</span>
+</span></span><span class="line"><span class="cl">rerum&gt; :trace on
+</span></span><span class="line"><span class="cl">rerum&gt; <span class="o">(</span>dd <span class="o">(</span>^ x 3<span class="o">)</span> x<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">=</span>&gt; <span class="o">(</span>* <span class="m">3</span> <span class="o">(</span>* <span class="o">(</span>^ x 2<span class="o">)</span> 1<span class="o">))</span>
+</span></span><span class="line"><span class="cl">Trace: dd-power
+</span></span></code></pre></div><p>Scripts can be run directly or piped:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">$ rerum calc.rerum
+</span></span><span class="line"><span class="cl">$ <span class="nb">echo</span> <span class="s2">&#34;(+ 1 2)&#34;</span> <span class="p">|</span> rerum -r algebra.rules -p full -q
+</span></span><span class="line"><span class="cl"><span class="m">3</span>
+</span></span></code></pre></div><h2 id="related-projects">Related Projects</h2>
+<p>Rerum is part of a family:</p>
+<ul>
+<li><strong><a href="/projects/xtk/">xtk</a></strong> &ndash; Expression Toolkit with MCP server integration for Claude Code</li>
+<li><strong><a href="/projects/symlik/">symlik</a></strong> &ndash; Symbolic likelihood models using term rewriting for automatic differentiation of statistical models</li>
+<li><strong><a href="/projects/jsl/">jsl</a></strong> &ndash; A network-native language where code is JSON, using similar s-expression structure</li>
+</ul>
+<p>The common thread: symbolic expressions as first-class citizens that can be transformed, serialized, and reasoned about programmatically.</p>
+<h2 id="getting-started">Getting Started</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">pip install rerum
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">rerum</span> <span class="kn">import</span> <span class="n">RuleEngine</span><span class="p">,</span> <span class="n">E</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">engine</span> <span class="o">=</span> <span class="n">RuleEngine</span><span class="o">.</span><span class="n">from_dsl</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @add-zero: (+ ?x 0) =&gt; :x
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @mul-one: (* ?x 1) =&gt; :x
+</span></span></span><span class="line"><span class="cl"><span class="s1">    @mul-zero: (* ?x 0) =&gt; 0
+</span></span></span><span class="line"><span class="cl"><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">engine</span><span class="p">(</span><span class="n">E</span><span class="p">(</span><span class="s2">&#34;(* (+ x 0) 0)&#34;</span><span class="p">)))</span>  <span class="c1"># =&gt; 0</span>
+</span></span></code></pre></div><p>Full documentation is at the <a href="https://github.com/queelius/rerum">GitHub repository</a>. The <code>examples/</code> directory has complete rulesets for algebra, calculus, and number theory.</p>
+<h2 id="why-rerum">Why &ldquo;Rerum&rdquo;?</h2>
+<p>From the Latin <em>&ldquo;rerum natura&rdquo;</em> (the nature of things), Lucretius&rsquo;s work on atomic theory and natural philosophy. Felt right for a library about transforming the fundamental structure of expressions.</p>
+]]></content:encoded><category>symbolic-computation</category><category>term-rewriting</category><category>pattern-matching</category><category>dsl</category><category>python</category><category>computer-algebra</category><category>functional-programming</category><category>sicp</category></item><item><title>JSL: A Functional Language Where Code Is JSON</title><link>https://metafunctor.com/post/2024-11-jsl/</link><pubDate>Wed, 20 Nov 2024 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://metafunctor.com/post/2024-11-jsl/</guid><description>A Lisp-like functional language designed for network transmission. JSL makes JSON serialization a first-class design principle, so closures, continuations, and entire computation states can travel over the wire.</description><content:encoded><![CDATA[<p><strong><a href="https://pypi.org/project/jsl-lang/">JSL (JSON Serializable Language)</a></strong> is a functional programming language where code is JSON. The whole point: if your code is already valid JSON, serialization stops being a problem you solve and starts being a property you have.</p>
+<h2 id="the-problem">The Problem</h2>
+<p>Most languages treat serialization as an afterthought. You write code in one representation, data lives in another, and moving computation across a network requires marshalling, pickling, or worse.</p>
+<p>The traditional approach:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Code: Python AST, bytecode, machine code</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">factorial</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">n</span> <span class="o">*</span> <span class="n">factorial</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Data: JSON</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&#34;n&#34;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Problem: Can&#39;t serialize the function, can&#39;t send it over network</span>
+</span></span></code></pre></div><p>JSL&rsquo;s approach:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;do&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="p">[</span><span class="s2">&#34;def&#34;</span><span class="p">,</span> <span class="s2">&#34;factorial&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="s2">&#34;lambda&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;n&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">      <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;&lt;=&#34;</span><span class="p">,</span> <span class="s2">&#34;n&#34;</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[</span><span class="s2">&#34;*&#34;</span><span class="p">,</span> <span class="s2">&#34;n&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;factorial&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;-&#34;</span><span class="p">,</span> <span class="s2">&#34;n&#34;</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]]]]],</span>
+</span></span><span class="line"><span class="cl">  <span class="p">[</span><span class="s2">&#34;factorial&#34;</span><span class="p">,</span> <span class="mi">5</span><span class="p">]]</span>
+</span></span></code></pre></div><p>That program is valid JSON. Any JSON parser reads it. Any HTTP endpoint transmits it. Any database stores it. Any program generates it. Code and data are the same thing, which is Lisp&rsquo;s oldest idea wearing a new coat.</p>
+<h2 id="design-principles">Design Principles</h2>
+<h3 id="json-as-code-and-data">JSON as Code and Data</h3>
+<p>All JSL programs and data structures are representable as standard JSON. This means universal parsing, generation, and compatibility with every tool that speaks JSON (which is basically every tool).</p>
+<h3 id="serializable-closures">Serializable Closures</h3>
+<p>This is the thing I actually care about. Closures (functions with captured environment) are fully serializable:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jsl</span> <span class="kn">import</span> <span class="n">JSLRunner</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">runner</span> <span class="o">=</span> <span class="n">JSLRunner</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Create a closure that captures &#39;multiplier&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">(do
+</span></span></span><span class="line"><span class="cl"><span class="s1">  (def multiplier 10)
+</span></span></span><span class="line"><span class="cl"><span class="s1">  (def make-multiplier (lambda (x) (* x multiplier)))
+</span></span></span><span class="line"><span class="cl"><span class="s1">  (def my-func (make-multiplier 5)))
+</span></span></span><span class="line"><span class="cl"><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Serialize the closure</span>
+</span></span><span class="line"><span class="cl"><span class="n">serialized</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">serialize_value</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;my-func&#39;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Send over network, store in database, etc.</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Later, deserialize and execute</span>
+</span></span><span class="line"><span class="cl"><span class="n">deserialized_func</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">deserialize_value</span><span class="p">(</span><span class="n">serialized</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">deserialized_func</span><span class="p">,</span> <span class="p">[</span><span class="mi">3</span><span class="p">])</span>  <span class="c1"># 30</span>
+</span></span></code></pre></div><p>The closure retains its captured <code>multiplier</code> variable even after serialization. In Python you&rsquo;d reach for <code>pickle</code>, which is unsafe and fragile. Here it just works because the closure was JSON the whole time.</p>
+<h3 id="effect-reification">Effect Reification</h3>
+<p>Side effects are not executed directly. They&rsquo;re described as data structures:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; This doesn&#39;t perform I/O directly
+</span></span><span class="line"><span class="cl">(host file-read &#34;/tmp/data.json&#34;)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Instead, it produces a data structure:
+</span></span><span class="line"><span class="cl">{
+</span></span><span class="line"><span class="cl">  &#34;effect&#34;: &#34;host&#34;,
+</span></span><span class="line"><span class="cl">  &#34;command&#34;: &#34;file-read&#34;,
+</span></span><span class="line"><span class="cl">  &#34;args&#34;: [&#34;/tmp/data.json&#34;]
+</span></span><span class="line"><span class="cl">}
+</span></span></code></pre></div><p>The host environment controls, audits, or modifies these effects before execution. This is basically the algebraic effects pattern: pure computation produces descriptions of what it wants done, and the runtime decides whether to actually do it.</p>
+<h3 id="deterministic-evaluation">Deterministic Evaluation</h3>
+<p>The core JSL evaluation (excluding host interactions) is deterministic. Same input, same output. This makes testing and debugging distributed computations tractable, which matters more than it sounds like it does.</p>
+<h2 id="dual-evaluation-engines">Dual Evaluation Engines</h2>
+<p>JSL provides two complementary evaluation strategies. I built both because they solve different problems.</p>
+<h3 id="recursive-evaluator">Recursive Evaluator</h3>
+<p>The traditional tree-walking interpreter:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jsl.evaluator</span> <span class="kn">import</span> <span class="n">Evaluator</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">evaluator</span> <span class="o">=</span> <span class="n">Evaluator</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">eval</span><span class="p">([</span><span class="s2">&#34;*&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;+&#34;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="mi">4</span><span class="p">])</span>  <span class="c1"># 20</span>
+</span></span></code></pre></div><p>Direct AST evaluation, natural semantics, good for development and debugging. Nothing fancy here.</p>
+<h3 id="stack-based-evaluator">Stack-Based Evaluator</h3>
+<p>This is the interesting one. It compiles to JPN (JSL Postfix Notation) bytecode and executes on a stack machine:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jsl.stack_evaluator</span> <span class="kn">import</span> <span class="n">StackEvaluator</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">evaluator</span> <span class="o">=</span> <span class="n">StackEvaluator</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compile to JPN bytecode</span>
+</span></span><span class="line"><span class="cl"><span class="n">jpn</span> <span class="o">=</span> <span class="n">compile_to_postfix</span><span class="p">([</span><span class="s2">&#34;*&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;+&#34;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="mi">4</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># Result: [2, 3, &#34;+&#34;, 4, &#34;*&#34;]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Execute with step limits</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">eval_partial</span><span class="p">(</span><span class="n">jpn</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="n">state</span><span class="p">:</span>  <span class="c1"># Computation paused</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># State is fully serializable</span>
+</span></span><span class="line"><span class="cl">    <span class="n">serialized</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Resume later, possibly on different machine</span>
+</span></span><span class="line"><span class="cl">    <span class="n">final_result</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">resume</span><span class="p">(</span><span class="n">serialized</span><span class="p">)</span>
+</span></span></code></pre></div><p>The key property: you can pause a computation, serialize the entire execution state to JSON, ship it to another machine, and resume there. The program counter, the operand stack, the environment, the call stack, all of it is just JSON.</p>
+<h2 id="jpn-jsl-postfix-notation">JPN: JSL Postfix Notation</h2>
+<p>JPN is the compiled bytecode format. Postfix notation makes the stack machine simple and the execution state trivially serializable.</p>
+<h3 id="compilation">Compilation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jsl.compiler</span> <span class="kn">import</span> <span class="n">compile_to_postfix</span><span class="p">,</span> <span class="n">decompile_from_postfix</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># S-expression</span>
+</span></span><span class="line"><span class="cl"><span class="n">expr</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;if&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;=&#34;</span><span class="p">,</span> <span class="s2">&#34;x&#34;</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="s2">&#34;yes&#34;</span><span class="p">,</span> <span class="s2">&#34;no&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Compile to JPN</span>
+</span></span><span class="line"><span class="cl"><span class="n">jpn</span> <span class="o">=</span> <span class="n">compile_to_postfix</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># JPN uses opcodes for control flow</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># [var_lookup(&#34;x&#34;), 5, &#34;=&#34;, &#34;if_start&#34;, &#34;yes&#34;, &#34;if_branch&#34;, &#34;no&#34;, &#34;if_end&#34;]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Can decompile back</span>
+</span></span><span class="line"><span class="cl"><span class="n">original</span> <span class="o">=</span> <span class="n">decompile_from_postfix</span><span class="p">(</span><span class="n">jpn</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="resumable-computation">Resumable Computation</h3>
+<p>This is where it gets useful:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Execute with step limit</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">eval_partial</span><span class="p">(</span><span class="n">jpn</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="n">state</span><span class="p">:</span>  <span class="c1"># Paused at step 1000</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># Serialize entire execution state</span>
+</span></span><span class="line"><span class="cl">    <span class="n">checkpoint</span> <span class="o">=</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;program&#34;</span><span class="p">:</span> <span class="n">jpn</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;pc&#34;</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">pc</span><span class="p">,</span>              <span class="c1"># Program counter</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;stack&#34;</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">stack</span><span class="p">,</span>        <span class="c1"># Operand stack</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;env&#34;</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>  <span class="c1"># Environment</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;call_stack&#34;</span><span class="p">:</span> <span class="n">state</span><span class="o">.</span><span class="n">call_stack</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># Send checkpoint to another machine</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># Resume there</span>
+</span></span><span class="line"><span class="cl">    <span class="n">new_evaluator</span> <span class="o">=</span> <span class="n">StackEvaluator</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="n">final</span> <span class="o">=</span> <span class="n">new_evaluator</span><span class="o">.</span><span class="n">eval_partial</span><span class="p">(</span><span class="n">jpn</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">State</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">))</span>
+</span></span></code></pre></div><p>This enables fault tolerance (checkpoint and restart), load balancing (move computation to less-busy nodes), edge computing (pause on edge, resume in cloud), and fair scheduling (time-slice multiple programs). All because the execution state is just data.</p>
+<h2 id="syntax-options">Syntax Options</h2>
+<p>JSL offers two syntactic representations:</p>
+<h3 id="json-array-syntax-network-native">JSON Array Syntax (Network-Native)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-json" data-lang="json"><span class="line"><span class="cl"><span class="p">[</span><span class="s2">&#34;do&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="p">[</span><span class="s2">&#34;def&#34;</span><span class="p">,</span> <span class="s2">&#34;square&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;lambda&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;x&#34;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&#34;*&#34;</span><span class="p">,</span> <span class="s2">&#34;x&#34;</span><span class="p">,</span> <span class="s2">&#34;x&#34;</span><span class="p">]]],</span>
+</span></span><span class="line"><span class="cl">  <span class="p">[</span><span class="s2">&#34;map&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&#34;square&#34;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&#34;@&#34;</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]]]]</span>
+</span></span></code></pre></div><p>Valid JSON, parseable anywhere, easy to generate programmatically.</p>
+<h3 id="lisp-style-syntax-human-friendly">Lisp-Style Syntax (Human-Friendly)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="p">(</span><span class="nb">do</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="nv">def</span> <span class="nv">square</span> <span class="p">(</span><span class="nb">lambda</span> <span class="p">(</span><span class="nv">x</span><span class="p">)</span> <span class="p">(</span><span class="nf">*</span> <span class="nv">x</span> <span class="nv">x</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">  <span class="p">(</span><span class="nf">map</span> <span class="nv">square</span> <span class="p">(</span><span class="nv">@</span> <span class="nv">[1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">4</span> <span class="nv">5]</span><span class="p">)))</span>
+</span></span></code></pre></div><p>More readable for humans, familiar to Lisp programmers. Both compile to the same internal representation.</p>
+<h2 id="query-and-transform-operations">Query and Transform Operations</h2>
+<p>JSL provides declarative operations for data manipulation. These look a lot like what you&rsquo;d write in a query language, except they compose naturally because they&rsquo;re just functions.</p>
+<h3 id="where-filtering">Where (Filtering)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; Define data
+</span></span><span class="line"><span class="cl">(def users [@
+</span></span><span class="line"><span class="cl">  {&#34;name&#34;: &#34;Alice&#34;, &#34;age&#34;: 30, &#34;role&#34;: &#34;admin&#34;}
+</span></span><span class="line"><span class="cl">  {&#34;name&#34;: &#34;Bob&#34;, &#34;age&#34;: 25, &#34;role&#34;: &#34;user&#34;}
+</span></span><span class="line"><span class="cl">  {&#34;name&#34;: &#34;Charlie&#34;, &#34;age&#34;: 35, &#34;role&#34;: &#34;admin&#34;}
+</span></span><span class="line"><span class="cl">])
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Filter by role (fields auto-bind)
+</span></span><span class="line"><span class="cl">(where users (= role &#34;admin&#34;))
+</span></span><span class="line"><span class="cl">; Result: [{&#34;name&#34;: &#34;Alice&#34;, ...}, {&#34;name&#34;: &#34;Charlie&#34;, ...}]
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Complex conditions
+</span></span><span class="line"><span class="cl">(where users (and (&gt;= age 30) (= role &#34;admin&#34;)))
+</span></span><span class="line"><span class="cl">; Result: [{&#34;name&#34;: &#34;Alice&#34;, ...}, {&#34;name&#34;: &#34;Charlie&#34;, ...}]
+</span></span></code></pre></div><p>In <code>where</code> predicates, field names automatically bind to the current object&rsquo;s fields. No explicit path notation needed.</p>
+<h3 id="transform-data-shaping">Transform (Data Shaping)</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; Pick specific fields
+</span></span><span class="line"><span class="cl">(transform users (pick &#34;name&#34; &#34;email&#34;))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Add computed fields
+</span></span><span class="line"><span class="cl">(transform products (assign &#34;discounted&#34; (* price 0.9)))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Remove sensitive fields
+</span></span><span class="line"><span class="cl">(transform users (omit &#34;password&#34; &#34;ssn&#34;))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Rename fields
+</span></span><span class="line"><span class="cl">(transform users (rename &#34;email&#34; &#34;contact_email&#34;))
+</span></span></code></pre></div><h3 id="composition">Composition</h3>
+<p>Operations compose naturally:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(do
+</span></span><span class="line"><span class="cl">  (def expensive (where products (&gt; price 50)))
+</span></span><span class="line"><span class="cl">  (def simplified (transform expensive (pick &#34;name&#34; &#34;price&#34;)))
+</span></span><span class="line"><span class="cl">  (pluck simplified &#34;name&#34;))
+</span></span></code></pre></div><h2 id="resource-management">Resource Management</h2>
+<p>For safe distributed execution, you need to bound what untrusted code can do.</p>
+<h3 id="gas-metering">Gas Metering</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">runner</span> <span class="o">=</span> <span class="n">JSLRunner</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;max_gas&#34;</span><span class="p">:</span> <span class="mi">10000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;gas_costs&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;+&#34;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;*&#34;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;lambda&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="s2">&#34;apply&#34;</span><span class="p">:</span> <span class="mi">5</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">execute_partial</span><span class="p">(</span><span class="n">expensive_program</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Gas consumed: </span><span class="si">{</span><span class="n">state</span><span class="o">.</span><span class="n">gas_consumed</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Gas remaining: </span><span class="si">{</span><span class="n">state</span><span class="o">.</span><span class="n">gas_remaining</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="step-limiting">Step Limiting</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">runner</span> <span class="o">=</span> <span class="n">JSLRunner</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;max_steps&#34;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">result</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">execute_partial</span><span class="p">(</span><span class="n">program</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="n">state</span><span class="p">:</span>  <span class="c1"># Paused at step 1000</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Paused at step </span><span class="si">{</span><span class="n">state</span><span class="o">.</span><span class="n">step_count</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># Resume with more steps</span>
+</span></span><span class="line"><span class="cl">    <span class="n">final</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">execute_partial</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span></code></pre></div><h3 id="fair-scheduling">Fair Scheduling</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">programs</span> <span class="o">=</span> <span class="p">[</span><span class="n">prog1</span><span class="p">,</span> <span class="n">prog2</span><span class="p">,</span> <span class="n">prog3</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">states</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Round-robin execution</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>  <span class="c1"># 100 rounds</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">prog</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">programs</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">result</span><span class="p">,</span> <span class="n">states</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">execute_partial</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">            <span class="n">prog</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">state</span><span class="o">=</span><span class="n">states</span><span class="p">[</span><span class="n">j</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="n">max_steps</span><span class="o">=</span><span class="mi">100</span>  <span class="c1"># 100 steps per round</span>
+</span></span><span class="line"><span class="cl">        <span class="p">)</span>
+</span></span></code></pre></div><h2 id="content-addressable-serialization">Content-Addressable Serialization</h2>
+<p>JSL uses content-addressable storage for efficient serialization of complex object graphs. Simple values serialize directly:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">{</span><span class="s2">&#34;a&#34;</span><span class="p">:</span> <span class="s2">&#34;hello&#34;</span><span class="p">}]</span>
+</span></span><span class="line"><span class="cl"><span class="n">serialized</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">serialize_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># {&#34;result&#34;: [1, 2, {&#34;a&#34;: &#34;hello&#34;}]}</span>
+</span></span></code></pre></div><p>Closures with captured environments use a content-addressable format:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;(def x 10)&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;(def f (lambda (y) (+ x y)))&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">closure</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;f&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">serialized</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">serialize_value</span><span class="p">(</span><span class="n">closure</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Result:</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="s2">&#34;__cas_version__&#34;</span><span class="p">:</span> <span class="s2">&#34;1.0&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="s2">&#34;root&#34;</span><span class="p">:</span> <span class="s2">&#34;hash_of_closure&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">  <span class="s2">&#34;objects&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;hash_of_closure&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;closure&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;params&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;y&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;body&#34;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&#34;+&#34;</span><span class="p">,</span> <span class="s2">&#34;x&#34;</span><span class="p">,</span> <span class="s2">&#34;y&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;env&#34;</span><span class="p">:</span> <span class="s2">&#34;hash_of_env&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;hash_of_env&#34;</span><span class="p">:</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;env&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;bindings&#34;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&#34;x&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">      <span class="s2">&#34;parent&#34;</span><span class="p">:</span> <span class="n">null</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Identical objects are stored once, circular references are handled via hashes, and large environments are shared across multiple closures. Same value always produces the same hash, so you get deduplication for free.</p>
+<h2 id="security-model">Security Model</h2>
+<p>JSL&rsquo;s security is capability-based. No arbitrary code execution (everything runs in the interpreter). All side effects go through the host:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; This produces a data structure, doesn&#39;t execute directly
+</span></span><span class="line"><span class="cl">(host file-write &#34;/tmp/output.txt&#34; &#34;data&#34;)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Host decides whether to allow this
+</span></span></code></pre></div><p>Host implementation:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SecureHost</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">handle_effect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">effect</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">command</span> <span class="o">=</span> <span class="n">effect</span><span class="p">[</span><span class="s2">&#34;command&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="n">command</span> <span class="o">==</span> <span class="s2">&#34;file-write&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="n">path</span> <span class="o">=</span> <span class="n">effect</span><span class="p">[</span><span class="s2">&#34;args&#34;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_allowed_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">                <span class="k">raise</span> <span class="ne">PermissionError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Cannot write to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">do_file_write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">effect</span><span class="p">[</span><span class="s2">&#34;args&#34;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Unknown command: </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>JSL programs run within the interpreter&rsquo;s sandbox: no system calls, no file access (unless the host allows it), no network access (unless the host allows it), bounded computation via gas and step limits. Effect requests are just JSON data, so you can log, audit, or modify them before they execute.</p>
+<h2 id="architecture">Architecture</h2>
+<p>Seven layers, each cleanly separated:</p>
+<ol>
+<li><strong>Wire Layer</strong>: JSON representation for transmission/storage</li>
+<li><strong>Compilation Layer</strong>: Parser + JPN compiler/decompiler</li>
+<li><strong>Runtime Layer</strong>: Dual evaluators + environment management</li>
+<li><strong>Prelude Layer</strong>: Standard library (arithmetic, lists, strings, etc.)</li>
+<li><strong>User Code Layer</strong>: JSL programs and libraries</li>
+<li><strong>Host Interaction Layer</strong>: Effect requests as data</li>
+<li><strong>Host Environment</strong>: Capability control and execution</li>
+</ol>
+<h2 id="theoretical-foundations">Theoretical Foundations</h2>
+<h3 id="homoiconicity">Homoiconicity</h3>
+<p>Like Lisp, JSL code and data share the same structural representation. The difference is that JSL uses JSON arrays and objects instead of S-expressions:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-lisp" data-lang="lisp"><span class="line"><span class="cl"><span class="c1">; Lisp S-expression</span>
+</span></span><span class="line"><span class="cl"><span class="p">(</span><span class="nf">+</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">; JSL JSON array</span>
+</span></span><span class="line"><span class="cl"><span class="nv">[</span><span class="s">&#34;+&#34;</span><span class="o">,</span> <span class="mi">1</span><span class="o">,</span> <span class="mi">2</span><span class="o">,</span> <span class="nv">3]</span>
+</span></span></code></pre></div><p>This enables code generation (programs that write programs), macros (code transformations), and metaprogramming (inspect and modify code as data). The homoiconicity buys you the same things it buys you in Lisp, but now it also buys you wire compatibility.</p>
+<h3 id="lexical-scoping-and-closures">Lexical Scoping and Closures</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(do
+</span></span><span class="line"><span class="cl">  (def make-adder (lambda (n)
+</span></span><span class="line"><span class="cl">    (lambda (x) (+ x n))))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  (def add5 (make-adder 5))
+</span></span><span class="line"><span class="cl">  (def add10 (make-adder 10))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  (add5 3)   ; 8
+</span></span><span class="line"><span class="cl">  (add10 3)  ; 13
+</span></span><span class="line"><span class="cl">)
+</span></span></code></pre></div><p>Both <code>add5</code> and <code>add10</code> are closures that captured different values of <code>n</code> from their lexical environment.</p>
+<h3 id="separation-of-pure-computation-and-effects">Separation of Pure Computation and Effects</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">; Pure computation (deterministic)
+</span></span><span class="line"><span class="cl">(def sum (lambda (xs) (fold + 0 xs)))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">; Effect request (non-deterministic)
+</span></span><span class="line"><span class="cl">(host http-get &#34;https://api.example.com/data&#34;)
+</span></span></code></pre></div><p>Pure computations can be cached, parallelized, tested deterministically, and optimized by the compiler. Effects are isolated and controlled. This separation is old hat in the Haskell world, but it falls out naturally here because effects are literally just data structures.</p>
+<h2 id="use-cases">Use Cases</h2>
+<p>I keep finding more of these. A few that I think are genuinely useful:</p>
+<p><strong>Distributed computing</strong>: Send computation to where data lives. The function is JSON, the data is JSON, the result is JSON.</p>
+<p><strong>Serverless functions</strong>: Define functions as JSON, store them in a database, execute on demand with resource limits.</p>
+<p><strong>API query language</strong>: Let users submit queries that run sandboxed with gas metering. No injection attacks, no arbitrary code execution, bounded resource usage.</p>
+<p><strong>Edge computing</strong>: Deploy logic to edge devices as JSON. Update dynamically without redeployment. Pause on edge, resume in cloud.</p>
+<p><strong>Plugin systems</strong>: Users extend your application with sandboxed plugins. You control what capabilities they have.</p>
+<h2 id="real-world-examples">Real-World Examples</h2>
+<h3 id="etl-pipeline">ETL Pipeline</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(do
+</span></span><span class="line"><span class="cl">  ; Load data
+</span></span><span class="line"><span class="cl">  (def raw-data (host file-read &#34;sales.jsonl&#34;))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  ; Filter completed sales
+</span></span><span class="line"><span class="cl">  (def completed (where raw-data (= status &#34;completed&#34;)))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  ; Transform to summary format
+</span></span><span class="line"><span class="cl">  (def summary (transform completed
+</span></span><span class="line"><span class="cl">                 (pick &#34;customer_id&#34; &#34;amount&#34; &#34;date&#34;)))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  ; Group by customer and sum
+</span></span><span class="line"><span class="cl">  (def totals (group-by summary &#34;customer_id&#34;
+</span></span><span class="line"><span class="cl">                [(sum &#34;amount&#34;)]))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  ; Save results
+</span></span><span class="line"><span class="cl">  (host file-write &#34;totals.json&#34; totals))
+</span></span></code></pre></div><h3 id="data-validation">Data Validation</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">(def validate-user (lambda (user)
+</span></span><span class="line"><span class="cl">  (and
+</span></span><span class="line"><span class="cl">    (has-path user &#34;email&#34;)
+</span></span><span class="line"><span class="cl">    (str-matches (get user &#34;email&#34;) &#34;^[^@]+@[^@]+\\.[^@]+$&#34;)
+</span></span><span class="line"><span class="cl">    (&gt; (get user &#34;age&#34;) 0)
+</span></span><span class="line"><span class="cl">    (&lt; (get user &#34;age&#34;) 150))))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">(def valid-users (where users validate-user))
+</span></span></code></pre></div><h2 id="prelude-functions">Prelude Functions</h2>
+<p>JSL includes a standard library covering the basics:</p>
+<ul>
+<li><strong>Arithmetic</strong>: <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, <code>=</code>, <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code></li>
+<li><strong>Lists</strong>: <code>cons</code>, <code>first</code>, <code>rest</code>, <code>map</code>, <code>filter</code>, <code>fold</code>, <code>take</code>, <code>drop</code>, <code>length</code></li>
+<li><strong>Strings</strong>: <code>str-concat</code>, <code>str-matches</code>, <code>str-replace</code>, <code>str-find-all</code>, <code>str-length</code></li>
+<li><strong>Objects</strong>: <code>get</code>, <code>get-path</code>, <code>set-path</code>, <code>has-path</code>, <code>keys</code>, <code>values</code></li>
+<li><strong>Query</strong>: <code>where</code>, <code>transform</code>, <code>pluck</code>, <code>index-by</code>, <code>group-by</code></li>
+<li><strong>Logic</strong>: <code>and</code>, <code>or</code>, <code>not</code>, <code>if</code></li>
+<li><strong>Functional</strong>: <code>lambda</code>, <code>apply</code>, <code>map</code>, <code>filter</code>, <code>fold</code></li>
+</ul>
+<h2 id="quick-start">Quick Start</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Install</span>
+</span></span><span class="line"><span class="cl">pip install jsl-lang
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Interactive REPL</span>
+</span></span><span class="line"><span class="cl">jsl --repl
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Evaluate expression</span>
+</span></span><span class="line"><span class="cl">jsl --eval <span class="s1">&#39;[&#34;+&#34;, 1, 2, 3]&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Run file</span>
+</span></span><span class="line"><span class="cl">jsl program.jsl
+</span></span></code></pre></div><p>Python usage:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jsl</span> <span class="kn">import</span> <span class="n">JSLRunner</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">runner</span> <span class="o">=</span> <span class="n">JSLRunner</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Execute program</span>
+</span></span><span class="line"><span class="cl"><span class="n">result</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;(+ 1 2 3)&#39;</span><span class="p">)</span>  <span class="c1"># 6</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Define and use functions</span>
+</span></span><span class="line"><span class="cl"><span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;
+</span></span></span><span class="line"><span class="cl"><span class="s1">(do
+</span></span></span><span class="line"><span class="cl"><span class="s1">  (def double (lambda (x) (* x 2)))
+</span></span></span><span class="line"><span class="cl"><span class="s1">  (map double (@ [1 2 3 4 5])))
+</span></span></span><span class="line"><span class="cl"><span class="s1">&#39;&#39;&#39;</span><span class="p">)</span>  <span class="c1"># [2, 4, 6, 8, 10]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Query and transform data</span>
+</span></span><span class="line"><span class="cl"><span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;(def users [@ {...}, {...}])&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">admins</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;(where users (= role &#34;admin&#34;))&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><h2 id="comparison">Comparison</h2>
+<table>
+	<thead>
+			<tr>
+					<th>Feature</th>
+					<th>JSL</th>
+					<th>Python</th>
+					<th>JavaScript</th>
+					<th>Scheme</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Serializable closures</td>
+					<td>Yes</td>
+					<td>No</td>
+					<td>No (limited)</td>
+					<td>No</td>
+			</tr>
+			<tr>
+					<td>Resumable execution</td>
+					<td>Yes</td>
+					<td>No</td>
+					<td>No</td>
+					<td>No</td>
+			</tr>
+			<tr>
+					<td>Gas metering</td>
+					<td>Yes</td>
+					<td>No</td>
+					<td>No</td>
+					<td>No</td>
+			</tr>
+			<tr>
+					<td>Effect reification</td>
+					<td>Yes</td>
+					<td>No</td>
+					<td>No</td>
+					<td>No</td>
+			</tr>
+			<tr>
+					<td>JSON-native</td>
+					<td>Yes</td>
+					<td>No</td>
+					<td>Yes (values)</td>
+					<td>No</td>
+			</tr>
+			<tr>
+					<td>Network transmission</td>
+					<td>Yes</td>
+					<td>Via pickle (unsafe)</td>
+					<td>Limited</td>
+					<td>No</td>
+			</tr>
+			<tr>
+					<td>Sandboxing</td>
+					<td>Yes</td>
+					<td>Limited</td>
+					<td>Limited</td>
+					<td>No</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><strong>PyPI</strong>: <a href="https://pypi.org/project/jsl-lang/">pypi.org/project/jsl-lang/</a></li>
+<li><strong>Repository</strong>: <a href="https://github.com/queelius/jsl">github.com/queelius/jsl</a></li>
+<li><strong>Documentation</strong>: Full API docs and tutorials</li>
+<li><strong>Examples</strong>: See <code>examples/</code> directory</li>
+</ul>
+<h2 id="license">License</h2>
+<p>MIT</p>
+]]></content:encoded><category>Python</category><category>programming-language</category><category>functional-programming</category><category>distributed-computing</category><category>Lisp</category><category>JSON</category><category>homoiconicity</category><category>serialization</category><category>bytecode</category></item></channel></rss>
