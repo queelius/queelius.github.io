@@ -6,26 +6,26 @@
      xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>Wire-Formats on metafunctor</title>
-    <link>https://metafunctor.com/linked_project/wire-formats/</link>
+    <link>http://localhost:1313/linked_project/wire-formats/</link>
     <description>Research Engineer &amp; Computer Scientist - Machine Learning, Statistical Computing, Open Source Development</description>
     <language>en-us</language>
     <managingEditor>lex@metafunctor.com (Alex Towell)</managingEditor>
     <webMaster>lex@metafunctor.com (Alex Towell)</webMaster>
     
-    <lastBuildDate>Sat, 04 Jul 2026 11:57:56 -0500</lastBuildDate>
-    <atom:link href="https://metafunctor.com/linked_project/wire-formats/" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 04 Jul 2026 12:39:27 -0500</lastBuildDate>
+    <atom:link href="http://localhost:1313/linked_project/wire-formats/" rel="self" type="application/rss+xml" />
     <image>
-      <url>https://metafunctor.com/images/og-image.jpg</url>
+      <url>http://localhost:1313/images/og-image.jpg</url>
       <title>metafunctor</title>
-      <link>https://metafunctor.com/</link>
+      <link>http://localhost:1313/</link>
     </image>
     
     <item>
       <title>Synthesis: Codecs as Structure</title>
-      <link>https://metafunctor.com/post/2026-05-synthesis-wire-formats/</link>
+      <link>http://localhost:1313/post/2026-05-synthesis-wire-formats/</link>
       <pubDate>Fri, 15 May 2026 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2026-05-synthesis-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2026-05-synthesis-wire-formats/</guid>
       <description>The series closes by restating the codes-as-priors thesis across all twelve instances and connecting the wire-format side to the Stepanov type-algebra side.</description>
       <content:encoded><![CDATA[<p><em>Twelve posts, twelve codes, one thesis that refused to change. This is the closing summary.</em></p>
 <h2 id="a-the-twelve-codes-together">A. The Twelve Codes Together</h2>
@@ -203,11 +203,326 @@ develops the theory; PFC is the practice.</p>
     </item>
     
     <item>
+      <title>RoaringBitmap</title>
+      <link>http://localhost:1313/post/2025-12-roaring-bitmap-wire-formats/</link>
+      <pubDate>Sun, 07 Dec 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/post/2025-12-roaring-bitmap-wire-formats/</guid>
+      <description>A hybrid compressed bitmap that picks the optimal sub-representation (array, bitmap, or run-length) per 64K-integer chunk based on density. No single prior dominates: Roaring commits to none and adapts per chunk.</description>
+      <content:encoded><![CDATA[<p><em>No single representation is optimal across all density regimes. RoaringBitmap does not try to pick one. It measures, then decides, per chunk.</em></p>
+<h2 id="hybrid-representation-as-polyalgorithm">Hybrid Representation as Polyalgorithm</h2>
+<p>Representing a compressed integer set forces a decision you cannot avoid: the best encoding depends on how dense the data is. Four density regimes each have a natural winner:</p>
+<ul>
+<li><strong>Very sparse</strong> (fewer than ~4096 elements in a 64K range): a sorted array of 16-bit values. Each element costs 2 bytes; 4096 elements cost 8 KB.</li>
+<li><strong>Moderate to dense</strong> (more than ~4096 elements): a dense bit vector, 8 KB for the full 64K range. Contains-check is O(1) via bit indexing.</li>
+<li><strong>Very dense</strong> (almost full): a sorted array of the absent elements, using the same 2 bytes per gap.</li>
+<li><strong>Clustered runs</strong> (many consecutive values): run-length encoding. A run of $k$ consecutive integers costs one 4-byte record regardless of $k$.</li>
+</ul>
+<p>No single prior dominates across all four regimes. RoaringBitmap (Lemire et al., 2014) is the hybrid answer: partition the 32-bit integer space into 64K-element chunks (indexed by the high 16 bits of each value), then assign each chunk the optimal container based on its actual density. The structure adapts per chunk, not globally.</p>
+<h2 id="the-three-container-types">The Three Container Types</h2>
+<p>Every 32-bit integer $v$ maps to chunk-id $v \gg 16$ and low bits $v \mathbin{&amp;} 0\text{xFFFF}$. Each chunk stores its low bits in one of three containers:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">ArrayContainer</span>  <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="o">&gt;</span> <span class="n">elems_</span><span class="p">;</span>   <span class="cm">/* sorted, unique */</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">BitmapContainer</span> <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">words_</span><span class="p">;</span>   <span class="cm">/* 1024 words = 8 KB */</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">RunContainer</span>    <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="p">,</span><span class="kt">uint16_t</span><span class="o">&gt;&gt;</span> <span class="n">runs_</span><span class="p">;</span> <span class="cm">/* (start, len-1) */</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">ContainerVariant</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="n">ArrayContainer</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="p">,</span> <span class="n">RunContainer</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">RoaringBitmap</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="p">,</span> <span class="n">ContainerVariant</span><span class="o">&gt;</span> <span class="n">chunks_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="n">add</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="nf">contains</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">v</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">cardinality</span><span class="p">()</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">void</span> <span class="nf">optimize</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="nf">union_with</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="nf">intersection_with</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="nf">difference</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p><code>ArrayContainer</code> uses a sorted <code>std::vector&lt;uint16_t&gt;</code>. Contains-check is binary search, O(log n). Add is sorted insertion, O(n) worst case but O(1) amortized for sequential loads. Space: 2 bytes per element.</p>
+<p><code>BitmapContainer</code> stores 1024 <code>uint64_t</code> words covering all 65536 possible values. Contains-check is O(1): <code>(words_[v/64] &gt;&gt; (v%64)) &amp; 1</code>. Add is O(1). Cardinality requires scanning all 1024 words with popcount, which is fast in practice. Space: fixed 8 KB regardless of occupancy.</p>
+<p><code>RunContainer</code> stores runs as (start, length-1) pairs sorted by start. A run <code>(s, l)</code> covers values $s$ through $s+l$ inclusive, using 4 bytes. Space grows with the number of runs, not the number of values. One million consecutive integers fit in one 4-byte record.</p>
+<p>The threshold between array and bitmap is 4096 elements: at that point both cost 8 KB, making array-to-bitmap conversion space-neutral. Above 4096, bitmap wins on both space and access time.</p>
+<h2 id="the-conversion-logic">The Conversion Logic</h2>
+<p>When a chunk crosses the array-to-bitmap threshold, it converts automatically on the next <code>add</code>:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">add</span><span class="p">(</span><span class="kt">uint32_t</span> <span class="n">v</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">cid</span> <span class="o">=</span> <span class="n">v</span> <span class="o">&gt;&gt;</span> <span class="mi">16</span><span class="p">,</span> <span class="n">low</span> <span class="o">=</span> <span class="n">v</span> <span class="o">&amp;</span> <span class="mh">0xFFFF</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">cid</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">it</span> <span class="o">==</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">emplace</span><span class="p">(</span><span class="n">cid</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="p">{});</span> <span class="n">it</span> <span class="o">=</span> <span class="n">chunks_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">cid</span><span class="p">);</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">visit</span><span class="p">([</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">using</span> <span class="n">T</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">decay_t</span><span class="o">&lt;</span><span class="k">decltype</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">c</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">low</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">c</span><span class="p">.</span><span class="n">cardinality</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">ARRAY_MAX</span><span class="p">)</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span> <span class="o">=</span> <span class="n">array_to_bitmap</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>  <span class="c1">// convert
+</span></span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">c</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">low</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="cm">/* RunContainer: rebuild via bitmap */</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">},</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The conversion functions are straightforward:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">BitmapContainer</span> <span class="nf">array_to_bitmap</span><span class="p">(</span><span class="k">const</span> <span class="n">ArrayContainer</span><span class="o">&amp;</span> <span class="n">a</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">BitmapContainer</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">uint16_t</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">a</span><span class="p">.</span><span class="n">elements</span><span class="p">())</span> <span class="n">b</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">b</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ArrayContainer</span> <span class="nf">bitmap_to_array</span><span class="p">(</span><span class="k">const</span> <span class="n">BitmapContainer</span><span class="o">&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ArrayContainer</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">w</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">w</span> <span class="o">&lt;</span> <span class="n">b</span><span class="p">.</span><span class="n">raw_words</span><span class="p">().</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">w</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">word</span> <span class="o">=</span> <span class="n">b</span><span class="p">.</span><span class="n">raw_words</span><span class="p">()[</span><span class="n">w</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="p">{</span> <span class="n">a</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">w</span><span class="o">*</span><span class="mi">64</span> <span class="o">+</span> <span class="n">__builtin_ctzll</span><span class="p">(</span><span class="n">word</span><span class="p">));</span> <span class="n">word</span> <span class="o">&amp;=</span> <span class="n">word</span><span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">a</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Run conversion is explicit, called via <code>optimize()</code> after bulk-loading:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">optimize</span><span class="p">()</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="p">[</span><span class="n">cid</span><span class="p">,</span> <span class="n">var</span><span class="p">]</span> <span class="o">:</span> <span class="n">chunks_</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">visit</span><span class="p">([</span><span class="o">&amp;</span><span class="n">var</span><span class="p">](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">using</span> <span class="n">T</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">decay_t</span><span class="o">&lt;</span><span class="k">decltype</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="o">&gt;</span><span class="p">)</span>  <span class="n">var</span> <span class="o">=</span> <span class="n">array_to_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">else</span> <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="n">var</span> <span class="o">=</span> <span class="n">bitmap_to_run</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">},</span> <span class="n">var</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>The automatic conversion on <code>add</code> handles sparse-to-dense transitions. Run detection is deferred to <code>optimize()</code> because detecting runs incrementally during insertion is not worth the overhead. Bulk-load first, then call <code>optimize()</code>.</p>
+<h2 id="the-operations">The Operations</h2>
+<p>Set operations work chunk-by-chunk. Each chunk dispatches on its container type via <code>std::visit</code>. Union iterates over the other bitmap&rsquo;s chunks and adds each element into the result. Intersection only considers chunks present in both bitmaps. Difference keeps elements from the first bitmap not present in the second.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">RoaringBitmap</span> <span class="nf">union_with</span><span class="p">(</span><span class="k">const</span> <span class="n">RoaringBitmap</span><span class="o">&amp;</span> <span class="n">other</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RoaringBitmap</span> <span class="n">result</span> <span class="o">=</span> <span class="o">*</span><span class="k">this</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="p">[</span><span class="n">cid</span><span class="p">,</span> <span class="n">var</span><span class="p">]</span> <span class="o">:</span> <span class="n">other</span><span class="p">.</span><span class="n">chunks_</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">visit</span><span class="p">([</span><span class="o">&amp;</span><span class="p">](</span><span class="k">const</span> <span class="k">auto</span><span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">using</span> <span class="n">T</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">decay_t</span><span class="o">&lt;</span><span class="k">decltype</span><span class="p">(</span><span class="n">c</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">ArrayContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="k">for</span> <span class="p">(</span><span class="kt">uint16_t</span> <span class="nl">v</span> <span class="p">:</span> <span class="n">c</span><span class="p">.</span><span class="n">elements</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">result</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">(</span><span class="n">cid</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">16</span> <span class="o">|</span> <span class="n">v</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="k">constexpr</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">is_same_v</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">BitmapContainer</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// iterate set bits via __builtin_ctzll, add each
+</span></span></span><span class="line"><span class="cl">            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// iterate runs, add each value in range
+</span></span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">},</span> <span class="n">var</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>Each chunk&rsquo;s operation is <code>std::visit</code> dispatching to the algorithm that matches the container type. No single code path handles all cases; the type system ensures each case is explicit. This is compile-time polymorphism without virtual dispatch.</p>
+<h2 id="why-it-wins">Why It Wins</h2>
+<p>RoaringBitmap has been measured to compress 50 to 90 percent versus uncompressed bit arrays in typical workloads, and 2 to 5 times better than EWAH (Enhanced Word-Aligned Hybrid) and CONCISE, which are earlier competing bitmap compression formats.</p>
+<p>The reasons are structural, not incidental:</p>
+<ul>
+<li><strong>Adaptive</strong>: each chunk independently picks the right encoding. A bitmap with one dense chunk and many sparse chunks does not pay the 8 KB overhead for every chunk.</li>
+<li><strong>Fast operations</strong>: union and intersection iterate only over present chunks. A chunk absent in either operand contributes nothing to the result.</li>
+<li><strong>Composable</strong>: the outer API (add, contains, cardinality, union, intersection, difference) is independent of the per-chunk representation. Callers need not know which container type is active.</li>
+<li><strong>Predictable</strong>: the threshold (ARRAY_MAX = 4096) is fixed and documented. Performance is predictable from the input density.</li>
+</ul>
+<p>Real-world adoption: Apache Lucene uses RoaringBitmap for posting lists. Apache Druid and ClickHouse use it for filter bitmaps. The reference Java implementation (RoaringBitmap library by Lemire, Kaser, et al.) has tens of millions of downloads.</p>
+<h2 id="the-polyalgorithm-pattern">The Polyalgorithm Pattern</h2>
+<p>What RoaringBitmap does has a name: polyalgorithm. A single interface dispatches to the algorithm optimal for the current input characteristics. The decision is made at runtime based on measured data properties (chunk density), not by the caller.</p>
+<p>This is not unusual. <code>std::sort</code> dispatches to insertion sort for small ranges and introsort for larger ones. Hash table resize policies switch behavior based on load factor. Compiler optimization pipelines route functions through different pass sequences based on size and structure. The pattern is common because the underlying problem is common: no single algorithm is uniformly best, and the right answer depends on properties you only know at runtime.</p>
+<p>The connection to this series: each container type in RoaringBitmap is the right choice for a specific prior over chunk density. The array container assumes density is low; the bitmap assumes moderate to high; the run container assumes clustering. Post 3 of this series framed a coding choice as an implicit prior over the data distribution. RoaringBitmap makes that explicit, maintaining three priors simultaneously and selecting the matching one per chunk. It does not commit to a prior globally because no global prior fits all chunks.</p>
+<p>The synthesis of this idea comes in post 13, which closes the arc: codecs as structure, structure as the wire format itself.</p>
+<h2 id="cross-references">Cross-References</h2>
+<ul>
+<li><a href="/post/2025-06-succinct-wire-formats/">Post 11</a> covered succinct bit vectors with O(1) rank and O(log n) select. The <code>BitmapContainer</code> in this post is the dense bit vector from post 11, without the auxiliary index (since we do not need rank/select on individual containers here).</li>
+<li><a href="/post/2022-01-priors-wire-formats/">Post 3</a> framed each codec as an implicit prior over the data distribution. RoaringBitmap is the polyalgorithm result of refusing to pick one prior globally.</li>
+<li>Post 13 (Synthesis: Codecs as Structure) will close the arc.</li>
+</ul>
+<hr>
+<p><em>Footnote: PFC&rsquo;s <code>include/pfc/succinct.hpp</code> includes the full <code>RoaringBitmap</code> implementation with all three container types, conversion functions, and set operations. The pedagogical version in this post covers the same design but omits production details like SIMD-accelerated popcount and memory-pool allocation.</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>data-structures</category>
+      
+      <category>compressed-bitmaps</category>
+      
+      <category>roaring</category>
+      
+      <category>polyalgorithm</category>
+      
+      
+    </item>
+    
+    <item>
+      <title>Succinct Bit Vectors and Rank/Select</title>
+      <link>http://localhost:1313/post/2025-06-succinct-wire-formats/</link>
+      <pubDate>Sun, 22 Jun 2025 00:00:00 +0000</pubDate>
+      <dc:creator>Alex Towell</dc:creator>
+      <guid isPermaLink="true">http://localhost:1313/post/2025-06-succinct-wire-formats/</guid>
+      <description>A bit vector with O(1) rank and O(log n) select using only n &#43; o(n) bits of space. The auxiliary index is asymptotically negligible while enabling constant-time queries.</description>
+      <content:encoded><![CDATA[<p><em>The claim that drives this post: store $n$ bits and answer prefix-count queries in $O(1)$ time, using only $n + o(n)$ bits total. The auxiliary index is asymptotically negligible. That is not obvious, and it is worth understanding why it holds.</em></p>
+<h2 id="constant-time-queries-on-bit-vectors">Constant-Time Queries on Bit Vectors</h2>
+<p>Posts 1 through 10 of this series focused on encoding: universal codes, arithmetic coding, Huffman, LZ77. They all ask the same question in slightly different ways: how do we turn a sequence into a compact bit string? This post shifts direction. The question here is different: once we have a bit vector, how do we query it efficiently without expanding it?</p>
+<p>The two fundamental queries on a bit vector of $n$ bits are:</p>
+<ul>
+<li><strong>rank$_1(i)$</strong>: the number of 1-bits in positions $[0, i)$, i.e., strictly before position $i$.</li>
+<li><strong>select$_1(j)$</strong>: the position of the $j$-th 1-bit (0-indexed).</li>
+</ul>
+<p>These appear throughout data structures: inverted indexes, compressed graphs, FM-indexes, wavelet trees. Rank tells you how many elements precede a position. Select inverts it.</p>
+<p>Three design points exist along the space-time axis:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Approach</th>
+					<th>Space</th>
+					<th>rank time</th>
+					<th>select time</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Naive scan</td>
+					<td>$n$ bits</td>
+					<td>$O(n/64)$</td>
+					<td>$O(n/64)$</td>
+			</tr>
+			<tr>
+					<td>Full lookup table</td>
+					<td>$O(n \log n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(1)$</td>
+			</tr>
+			<tr>
+					<td>Succinct (this post)</td>
+					<td>$n + o(n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(\log n)$</td>
+			</tr>
+	</tbody>
+</table>
+<p>The succinct approach hits the right trade-off: an auxiliary index that is asymptotically negligible (sublinear, so $o(n)$) while buying constant-time rank. Select costs $O(\log n)$ with a binary search. Getting $O(1)$ select requires one more index structure; that is covered briefly at the end and implemented in PFC&rsquo;s production version.</p>
+<h2 id="the-structure">The Structure</h2>
+<p>The bit vector stores its $n$ bits packed into 64-bit words, LSB-first. Bit $i$ lives at position $i \bmod 64$ within word $\lfloor i / 64 \rfloor$. Unused bits in the final word are zeroed.</p>
+<p>The auxiliary index has two levels:</p>
+<ul>
+<li><strong>Superblock array</strong>: one <code>uint64_t</code> per 4096-bit chunk. Entry $s$ holds the absolute cumulative rank from bit 0 to the start of superblock $s$.</li>
+<li><strong>Block array</strong>: one <code>uint16_t</code> per 64-bit word. Entry $b$ holds the rank within the enclosing superblock, from the superblock&rsquo;s start to the start of block $b$.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">SuccinctBitVector</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="k">explicit</span> <span class="n">SuccinctBitVector</span><span class="p">(</span><span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;&amp;</span> <span class="n">bits</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">size</span><span class="p">()</span>  <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="kt">bool</span>        <span class="n">bit</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">)</span>  <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">rank1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span>   <span class="c1">// O(1)
+</span></span></span><span class="line"><span class="cl">    <span class="na">[[nodiscard]]</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">select1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">j</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span><span class="p">;</span> <span class="c1">// O(log n)
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">protected</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">n_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">bits_</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint64_t</span><span class="o">&gt;</span> <span class="n">superblock_ranks_</span><span class="p">;</span>  <span class="c1">// abs. rank at superblock boundaries
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint16_t</span><span class="o">&gt;</span> <span class="n">block_ranks_</span><span class="p">;</span>       <span class="c1">// superblock-relative rank per block
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">SUPERBLOCK_BITS</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">BLOCK_BITS</span>      <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">constexpr</span> <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">BLOCKS_PER_SB</span>   <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></div><p>The production version lives in <a href="https://github.com/queelius/wire-formats/tree/master/lib/pfc">PFC&rsquo;s <code>include/pfc/succinct.hpp</code></a>. The pedagogical version in this post strips the production features to the core structure.</p>
+<h2 id="why-constant-time">Why Constant Time</h2>
+<p>A rank query for position $i$ proceeds in three steps:</p>
+<ol>
+<li><strong>Superblock lookup</strong>: $s = \lfloor i / 4096 \rfloor$. Load <code>superblock_ranks_[s]</code>, giving the absolute count of 1-bits before superblock $s$.</li>
+<li><strong>Block lookup</strong>: $b = \lfloor i / 64 \rfloor$. Load <code>block_ranks_[b]</code>, giving the count within superblock $s$ before block $b$.</li>
+<li><strong>Word popcount</strong>: mask the word at position $b$ to keep only bits $0 \ldots (i \bmod 64) - 1$, then call <code>std::popcount</code>.</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">rank1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">i</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">sb</span>    <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="n">SUPERBLOCK_BITS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">blk</span>   <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="n">BLOCK_BITS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">w_off</span> <span class="o">=</span> <span class="n">i</span> <span class="o">%</span> <span class="n">BLOCK_BITS</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">size_t</span> <span class="n">res</span>   <span class="o">=</span> <span class="n">superblock_ranks_</span><span class="p">[</span><span class="n">sb</span><span class="p">]</span> <span class="o">+</span> <span class="n">block_ranks_</span><span class="p">[</span><span class="n">blk</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">w_off</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="kt">uint64_t</span><span class="p">{</span><span class="mi">1</span><span class="p">}</span> <span class="o">&lt;&lt;</span> <span class="n">w_off</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">res</span> <span class="o">+=</span> <span class="n">std</span><span class="o">::</span><span class="n">popcount</span><span class="p">(</span><span class="n">bits_</span><span class="p">[</span><span class="n">blk</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">mask</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">res</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>All three steps are $O(1)$: two array indexing operations and one hardware-accelerated popcount (POPCNT on x86-64, VCNT on ARM). The key insight is that partial sums are precomputed at two granularities. The superblock array handles the large-scale prefix sum; the block array handles the within-superblock refinement. The final popcount handles the within-word residual. Three lookups, total.</p>
+<h2 id="select-via-binary-search">Select via Binary Search</h2>
+<p>Select is harder than rank. Rank has a natural decomposition: superblock boundary, then block boundary, then word bits. Select does not. The $j$-th 1-bit could be anywhere, and without additional precomputed information, there is no shortcut.</p>
+<p>The approach here uses binary search over <code>superblock_ranks_</code> to find which superblock contains the $j$-th 1-bit (the largest $s$ such that <code>superblock_ranks_[s] &lt;= j</code>). Within that superblock, a linear scan over the block array pinpoints the right block. Within that block, iterating over set bits via repeated <code>__builtin_ctzll</code> (count trailing zeros) finds the exact position.</p>
+<p>Complexity: $O(\log(n / 4096))$ for the binary search over superblocks, then $O(1)$ per block within the superblock (at most 64 blocks), then $O(64)$ for the bit scan. Total: $O(\log n)$.</p>
+<p>The $O(1)$ select extension stores one additional array: a &ldquo;select samples&rdquo; array holding the position of every $(\log^2 n)$-th 1-bit. That compresses the binary-search range and allows $O(1)$ select at the cost of a few extra kilobytes for typical $n$. PFC&rsquo;s production version implements this. For the pedagogical version here, $O(\log n)$ select is sufficient.</p>
+<h2 id="where-succinct-bit-vectors-show-up">Where Succinct Bit Vectors Show Up</h2>
+<p>Inverted indexes in full-text search use bit vectors to represent posting lists (which documents contain a term). Rank and select over those bit vectors power gap compression: the posting list stores gaps between document IDs, and select recovers the original IDs.</p>
+<p>The FM-index, used in short-read DNA alignment tools like BWA, builds a rank-queryable bit vector over the Burrows-Wheeler Transform. Each rank query takes $O(1)$ and drives an $O(m)$ pattern-search algorithm for a pattern of length $m$.</p>
+<p>Compressed graphs (as in the WebGraph framework) store adjacency lists as bit vectors with succinct structures for traversal. Wavelet trees use a hierarchy of bit vectors to answer range-frequency queries in $O(\log \sigma)$ where $\sigma$ is the alphabet size.</p>
+<p>In all of these, the $n + o(n)$ space guarantee is not academic. The index must not dwarf the data it queries.</p>
+<h2 id="the-space-time-trade">The Space-Time Trade</h2>
+<p>The auxiliary index for a 10000-bit vector costs about 338 bytes: 24 bytes for the superblock array (3 entries at 8 bytes each) and 314 bytes for the block array (157 entries at 2 bytes each). The bit vector itself costs 1256 bytes (10000 / 8, rounded up to the nearest word). The index is roughly 27% of the bit vector, comfortably $o(n)$.</p>
+<p>Here is the comparison table across the four main approaches:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Representation</th>
+					<th>Space</th>
+					<th>rank</th>
+					<th>select</th>
+					<th>Best for</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Plain scan</td>
+					<td>$n$ bits</td>
+					<td>$O(n/64)$</td>
+					<td>$O(n/64)$</td>
+					<td>Very small $n$</td>
+			</tr>
+			<tr>
+					<td>Full table</td>
+					<td>$O(n \log n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(1)$</td>
+					<td>Tiny $n$, memory to burn</td>
+			</tr>
+			<tr>
+					<td>Succinct (this post)</td>
+					<td>$n + o(n)$ bits</td>
+					<td>$O(1)$</td>
+					<td>$O(\log n)$</td>
+					<td>Large dense bit vectors</td>
+			</tr>
+			<tr>
+					<td>Sparse / RLE</td>
+					<td>$O(k)$ bits for $k$ ones</td>
+					<td>$O(\log k)$</td>
+					<td>$O(\log k)$</td>
+					<td>Very sparse sets</td>
+			</tr>
+	</tbody>
+</table>
+<p>The sparse / RLE row bridges to the next post. When a bit vector is extremely sparse, storing only the positions of the 1-bits beats the $n + o(n)$ dense approach. RoaringBitmap, covered in <a href="/post/2025-12-roaring-bitmap-wire-formats/">post 12</a>, chooses dynamically between an array, a dense bit vector, and a run-length encoding based on the local density of each 64K-integer chunk.</p>
+<h2 id="cross-references">Cross-References</h2>
+<p>This post builds on two earlier posts:</p>
+<ul>
+<li><a href="/post/2021-06-kraft-wire-formats/">Post 1</a> established the Kraft lower bound: any lossless code must use at least $H$ bits per symbol. The succinct structure respects this by using $n + o(n)$ bits for an $n$-bit vector, asymptotically optimal.</li>
+<li><a href="/post/2022-01-priors-wire-formats/">Post 3</a> showed that a coding choice is implicitly a prior over the data. The choice of a dense bit vector (as opposed to an array or run-length encoding) reflects a prior that 1-bits are distributed roughly uniformly. When that prior is wrong, a different structure wins.</li>
+</ul>
+<p>The next post shows how RoaringBitmap resolves this by refusing to commit to a single prior.</p>
+<hr>
+<p><em>Footnote: PFC&rsquo;s <code>include/pfc/succinct.hpp</code> implements the full <code>SuccinctBitVector</code> with O(1) select via a select-samples index, and also includes <code>RoaringBitmap</code> with three container types. The pedagogical code in this post covers the core rank structure and O(log n) select.</em></p>
+]]></content:encoded>
+      
+      
+      <category>C&#43;&#43;</category>
+      
+      <category>information-theory</category>
+      
+      <category>data-structures</category>
+      
+      <category>succinct</category>
+      
+      <category>rank-select</category>
+      
+      
+    </item>
+    
+    <item>
       <title>Arithmetic Coding</title>
-      <link>https://metafunctor.com/post/2025-01-arithmetic-coding-wire-formats/</link>
+      <link>http://localhost:1313/post/2025-01-arithmetic-coding-wire-formats/</link>
       <pubDate>Sun, 12 Jan 2025 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2025-01-arithmetic-coding-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2025-01-arithmetic-coding-wire-formats/</guid>
       <description>Arithmetic coding closes the gap between Huffman&#39;s per-symbol integer lengths and true entropy. A single number in the unit interval encodes an entire sequence; 32-bit integer arithmetic makes it practical.</description>
       <content:encoded><![CDATA[<p><em>Huffman codes one symbol at a time. Arithmetic coding encodes the whole sequence as a single number. The difference is a factor of twelve, at least on the right source.</em></p>
 <h2 id="the-last-bit-of-redundancy">The Last Bit of Redundancy</h2>
@@ -341,10 +656,10 @@ develops the theory; PFC is the practice.</p>
     
     <item>
       <title>Huffman Coding</title>
-      <link>https://metafunctor.com/post/2024-08-huffman-wire-formats/</link>
+      <link>http://localhost:1313/post/2024-08-huffman-wire-formats/</link>
       <pubDate>Sun, 04 Aug 2024 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2024-08-huffman-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2024-08-huffman-wire-formats/</guid>
       <description>Given a finite distribution, Huffman&#39;s algorithm builds the prefix-free code with minimum expected length. It is the first entropy-optimal code in this series.</description>
       <content:encoded><![CDATA[<p><em>Huffman coding is two things: the optimal length vector for a known distribution, and McMillan&rsquo;s construction applied to that vector. This post develops both.</em></p>
 <h2 id="from-universal-to-optimal">From Universal to Optimal</h2>
@@ -503,10 +818,10 @@ $$H(p) \le L(\text{code}) \le H(p) + 1.$$<p>The upper bound comes from the integ
     
     <item>
       <title>VByte / Varint</title>
-      <link>https://metafunctor.com/post/2024-02-vbyte-wire-formats/</link>
+      <link>http://localhost:1313/post/2024-02-vbyte-wire-formats/</link>
       <pubDate>Sun, 25 Feb 2024 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2024-02-vbyte-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2024-02-vbyte-wire-formats/</guid>
       <description>VByte trades bit-level precision for byte-alignment, and that trade wins in practice. Most production columnar databases and network protocols use VByte for integer encoding.</description>
       <content:encoded><![CDATA[<p><em>Every code in this series so far operates at bit granularity. VByte does not. It gives up bit-level precision for byte-alignment, and in production systems, that trade wins most of the time.</em></p>
 <h2 id="the-practical-question">The Practical Question</h2>
@@ -666,10 +981,10 @@ $$L(n) = 8 \cdot \left\lceil \frac{\lfloor \log_2(n+1) \rfloor + 1}{7} \right\rc
     
     <item>
       <title>Rice / Golomb</title>
-      <link>https://metafunctor.com/post/2023-09-rice-golomb-wire-formats/</link>
+      <link>http://localhost:1313/post/2023-09-rice-golomb-wire-formats/</link>
       <pubDate>Sun, 17 Sep 2023 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2023-09-rice-golomb-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2023-09-rice-golomb-wire-formats/</guid>
       <description>Rice and Golomb codes are parametric: a single parameter k (or m) tunes the code to a specific geometric distribution. Choosing k is choosing your prior precisely.</description>
       <content:encoded><![CDATA[<p><em>Every code in this series so far has been fixed. Rice and Golomb are different: they take a parameter, and the parameter is your model of the data.</em></p>
 <h2 id="the-first-parametric-code">The First Parametric Code</h2>
@@ -918,10 +1233,10 @@ $$k^* = \text{round}(\log_2 \mu), \quad k \in [1, 62]$$<div class="highlight"><p
     
     <item>
       <title>Fibonacci Coding</title>
-      <link>https://metafunctor.com/post/2023-04-fibonacci-wire-formats/</link>
+      <link>http://localhost:1313/post/2023-04-fibonacci-wire-formats/</link>
       <pubDate>Sun, 23 Apr 2023 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2023-04-fibonacci-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2023-04-fibonacci-wire-formats/</guid>
       <description>Fibonacci coding uses Zeckendorf&#39;s representation to produce self-synchronizing codewords. Every codeword ends in two consecutive ones; a single bit flip corrupts at most two codewords.</description>
       <content:encoded><![CDATA[<p><em>Every code in this series so far has optimized expected length under some implied prior. Fibonacci coding does something different: it gives the decoder a way to recover from errors without help from a lower layer.</em></p>
 <h2 id="a-different-design-goal">A Different Design Goal</h2>
@@ -1124,10 +1439,10 @@ $$\ell(n) \approx \log_\phi n + 1 = \frac{\log_2 n}{\log_2 \phi} + 1 \approx 1.4
     
     <item>
       <title>Elias Delta and Omega</title>
-      <link>https://metafunctor.com/post/2022-11-elias-delta-omega-wire-formats/</link>
+      <link>http://localhost:1313/post/2022-11-elias-delta-omega-wire-formats/</link>
       <pubDate>Sun, 13 Nov 2022 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2022-11-elias-delta-omega-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2022-11-elias-delta-omega-wire-formats/</guid>
       <description>Elias delta and omega extend Elias gamma by recursively encoding the length prefix. Each step yields shorter codewords for large integers at a small constant cost for small ones.</description>
       <content:encoded><![CDATA[<p><em>Elias gamma spends too many bits saying how many bits it will use. Delta fixes that. Omega takes the fix one step further. This post is about what happens when you apply recursion to the length prefix.</em></p>
 <h2 id="where-gamma-stops-being-good">Where Gamma Stops Being Good</h2>
@@ -1373,10 +1688,10 @@ b. Replace $n$ with $\text{bit_width}(n) - 1$.</li>
     
     <item>
       <title>Unary and Elias Gamma</title>
-      <link>https://metafunctor.com/post/2022-06-elias-gamma-wire-formats/</link>
+      <link>http://localhost:1313/post/2022-06-elias-gamma-wire-formats/</link>
       <pubDate>Sun, 19 Jun 2022 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2022-06-elias-gamma-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2022-06-elias-gamma-wire-formats/</guid>
       <description>Unary and Elias gamma are the two simplest universal codes. Unary encodes n in n bits; gamma in 2 log2(n)&#43;1 bits. Each implies a different prior over the integers.</description>
       <content:encoded><![CDATA[<p><em>Unary is older than information theory. Elias gamma is its 1975 improvement. Together they span the gap between optimal-but-impractical and practical-but-nearly-optimal. This post derives what each code bets on, and shows numerically what that means.</em></p>
 <h2 id="unary-and-elias-gamma">Unary and Elias Gamma</h2>
@@ -1558,10 +1873,10 @@ b. Replace $n$ with $\text{bit_width}(n) - 1$.</li>
     
     <item>
       <title>Universal Codes as Priors</title>
-      <link>https://metafunctor.com/post/2022-01-priors-wire-formats/</link>
+      <link>http://localhost:1313/post/2022-01-priors-wire-formats/</link>
       <pubDate>Sat, 15 Jan 2022 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2022-01-priors-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2022-01-priors-wire-formats/</guid>
       <description>Every prefix-free code is a hypothesis about the source. The codeword lengths determine an implicit probability distribution; the code is optimal when that prior matches the true source.</description>
       <content:encoded><![CDATA[<p><em>When you pick a code for integers, you are making a bet about what integers the source will produce. The bet lives in the codeword lengths, not in a separate parameter. This post makes that precise.</em></p>
 <h2 id="universal-codes-as-priors">Universal Codes as Priors</h2>
@@ -1770,10 +2085,10 @@ $$\mathbb{E}[l] = \sum_i p_i l_i \geq H(p) = -\sum_i p_i \log_2 p_i.$$<p>Equalit
     
     <item>
       <title>McMillan&#39;s Converse</title>
-      <link>https://metafunctor.com/post/2020-09-mcmillan-wire-formats/</link>
+      <link>http://localhost:1313/post/2020-09-mcmillan-wire-formats/</link>
       <pubDate>Sun, 13 Sep 2020 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2020-09-mcmillan-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2020-09-mcmillan-wire-formats/</guid>
       <description>Any length vector satisfying Kraft has a prefix-free code. Here is the construction.</description>
       <content:encoded><![CDATA[<p><em>Kraft&rsquo;s inequality is necessary. McMillan&rsquo;s theorem says it is also sufficient, and the proof is a construction.</em></p>
 <h2 id="mcmillans-converse">McMillan&rsquo;s Converse</h2>
@@ -1912,10 +2227,10 @@ $$\sum_{i=1}^n 2^{-l_i} \leq 1.$$<p>Kraft&rsquo;s inequality, holding for all un
     
     <item>
       <title>Kraft&#39;s Inequality</title>
-      <link>https://metafunctor.com/post/2020-03-kraft-wire-formats/</link>
+      <link>http://localhost:1313/post/2020-03-kraft-wire-formats/</link>
       <pubDate>Sun, 22 Mar 2020 00:00:00 +0000</pubDate>
       <dc:creator>Alex Towell</dc:creator>
-      <guid isPermaLink="true">https://metafunctor.com/post/2020-03-kraft-wire-formats/</guid>
+      <guid isPermaLink="true">http://localhost:1313/post/2020-03-kraft-wire-formats/</guid>
       <description>Which codeword-length vectors are achievable by prefix-free codes? Kraft&#39;s inequality is the answer.</description>
       <content:encoded><![CDATA[<p><em>Every prefix-free code satisfies one inequality. That inequality is also sufficient. This post develops the necessary direction.</em></p>
 <h2 id="krafts-inequality">Kraft&rsquo;s Inequality</h2>
