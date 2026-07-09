@@ -168,17 +168,17 @@ function addCopyButtons() {
   codeBlocks.forEach(block => {
     const button = document.createElement('button');
     button.className = 'copy-code-btn';
-    button.innerHTML = '<i class="fas fa-copy"></i>';
+    button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>';
     button.title = 'Copy code';
 
     button.addEventListener('click', () => {
       const text = block.textContent;
       navigator.clipboard.writeText(text).then(() => {
-        button.innerHTML = '<i class="fas fa-check"></i>';
+        button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>';
         button.classList.add('copied');
 
         setTimeout(() => {
-          button.innerHTML = '<i class="fas fa-copy"></i>';
+          button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>';
           button.classList.remove('copied');
         }, 2000);
       });
@@ -252,6 +252,7 @@ function updateReadingProgress() {
   const progressBar = document.querySelector('.reading-progress');
   if (progressBar) {
     progressBar.style.width = `${progress * 100}%`;
+    progressBar.setAttribute('aria-valuenow', Math.round(progress * 100));
   }
 }
 

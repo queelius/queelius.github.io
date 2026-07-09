@@ -191,7 +191,7 @@
     if (results.length === 0) {
       searchResults.innerHTML = `
         <div class="search-no-results">
-          <i class="fas fa-search"></i>
+          <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
           <p>No results found for "${escapeHtml(query)}"</p>
           <p class="search-suggestions">Try different keywords or check spelling</p>
         </div>
@@ -211,7 +211,7 @@
           </div>
           <p class="search-result-excerpt">${highlighted.excerpt}</p>
           <div class="search-result-meta">
-            ${item.date ? `<span><i class="fas fa-calendar"></i> ${formatDate(item.date)}</span>` : ''}
+            ${item.date ? `<span><svg class="icon" aria-hidden="true"><use href="#i-fas-calendar"></use></svg> ${formatDate(item.date)}</span>` : ''}
             ${item.tags && item.tags.length > 0 ? `
               <span class="search-result-tags">
                 ${item.tags.slice(0, 3).map(tag => `<span class="mini-tag">${tag}</span>`).join('')}
@@ -339,7 +339,7 @@
       this.container.innerHTML = `
         <div class="instant-search-widget">
           <div class="instant-search-input-wrapper">
-            <i class="fas fa-search"></i>
+            <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
             <input type="text" class="instant-search-input" placeholder="Quick search...">
             <span class="instant-search-shortcut">⌘K</span>
           </div>
