@@ -10,7 +10,9 @@
 
 import { ReadAloud } from "/speak/lib.js";
 
-const SPEAKABLE_SELECTOR = "p, li, blockquote, dt, dd, h2, h3, h4, h5, h6";
+// h1 included: the server-side extractor narrates any #{1,6} heading, and an
+// in-body h1 must map to its DOM element or the highlight desyncs.
+const SPEAKABLE_SELECTOR = "p, li, blockquote, dt, dd, h1, h2, h3, h4, h5, h6";
 const SKIP_SELECTOR =
   "pre, code, .speak-widget, .speak-button, .speak-controls, figure, .footnote-backref, sup.footnote-ref";
 const RATES = [1, 1.25, 1.5, 0.75];
@@ -68,12 +70,15 @@ const _norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
  */
 function mapSpansToBlocks(spans, blocks) {
   const out = new Array(spans.length).fill(null);
+  // Normalize each block once up front; the inner loop otherwise re-runs the
+  // same regexes O(spans x blocks) times before playback can start.
+  const normBlocks = blocks.map((b) => _norm(b.text).replace(/[^a-z0-9 ]/g, ""));
   let cur = 0;
   for (let i = 0; i < spans.length; i++) {
     const needle = _norm(spans[i].text).replace(/[^a-z0-9 ]/g, "").slice(0, 30);
     let found = -1;
     for (let j = cur; j < blocks.length; j++) {
-      if (_norm(blocks[j].text).replace(/[^a-z0-9 ]/g, "").includes(needle)) {
+      if (normBlocks[j].includes(needle)) {
         found = j;
         break;
       }
@@ -99,7 +104,7 @@ function bindButton(btn) {
 
   let player = null;
   let spanBlocks = [];
-  let ready = false;
+  let playerPromise = null; // in-flight/settled init; caching it makes rapid clicks share one instance
 
   function clearHighlight() {
     document
@@ -129,8 +134,8 @@ function bindButton(btn) {
     }
   }
 
-  async function ensurePlayer() {
-    if (ready) return true;
+  async function buildPlayer() {
+    btn.classList.add("loading");
     if (status) status.textContent = "Loading...";
     try {
       const timings = await (await fetch(timingsUrl)).json();
@@ -142,14 +147,25 @@ function bindButton(btn) {
         onState,
         rate: parseFloat(btn.dataset.rate || "1"),
       });
-      ready = true;
+      delete btn.dataset.kind;
       if (status) status.textContent = "";
       return true;
     } catch (e) {
+      btn.dataset.kind = "error";
       if (status) status.textContent = "Audio unavailable";
       console.warn("read-aloud: failed to load", e);
+      playerPromise = null; // allow a retry on the next click
       return false;
+    } finally {
+      btn.classList.remove("loading");
     }
+  }
+
+  function ensurePlayer() {
+    // Cache the promise, not a flag: concurrent clicks during the fetch all
+    // await the same init instead of each building its own Audio instance.
+    if (!playerPromise) playerPromise = buildPlayer();
+    return playerPromise;
   }
 
   function makeSpeedControl() {
