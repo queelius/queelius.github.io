@@ -1,0 +1,217 @@
+TIME SERIES MODEL BUILDING
+
+summary of model selection in ARIMA family:
+
+	(a) plot data (ts plot), decompose.
+	see trend/seasonality/non-constant variance
+	(b) transformation of non-constant variance (1st thing)
+	(c) get ACF. if ACF decays slow (and/or clear trend in
+	    data), take difference until stationary
+		(DF test for ref).
+	(d) get ACF, PACF, EACF on the data after necessary
+	    differencing (stationary)
+		- get some choice of p,q
+	(e) fit ARIMA model with candidates (p,q) and use
+	    AIC/BIC to select final candidates.
+	
+	(f) look at residuals to see model assumptions are met
+
+
+A three-step iterative procedure is used to build an ARIMA model.
+
+(1) A tentative model of the ARIMA class is identified through analysis of historical data.
+
+(2) The unknown parameters of the model are estimated.
+
+	non-linear models. least squares. MLE
+
+(3) Through residual analysis, diagnostic checks are performed to determine the adequacy of the model, or to indicate potential improvements.
+
+Residuals:
+	e[t] = y[t] - (c + phi(B)y[t] - theta(B)e[t])
+
+If the specified model is adequate, the residuals should behave like white noise.
+	- the sample autocorrelation function r_e of
+ 	  residuals should have no structure to identify. that
+	  is, it should not different statistically significantly
+	  from zero for all lags greater than 1. i.e., standard
+	  errors are 1/sqrt(N).
+
+	- we could perform a chisquare test, test statistic is
+		Q = (N-d) sum(r_e^2(k),k=1 to K) ~ X^2 df=K-p-q
+	  on the first K residual autocorrelations.
+
+
+
+
+
+---
+exp mov avg or mov avg:
+
+	might be interesting, finite MA so that the jump points
+	are smoothed over, but not completely lost, which suggests
+	uncertainty over where jump points may come but still has
+	them around it. use a centered MA so that ... ? this
+	still doesn't help with forecasts... maybe model jump
+	points separately for forecasting? prolly not for this
+	class.
+
+	for forecasting, i think we just need to model the
+	trend. double exponential smoothing is an example.
+
+	don't think i want to use ARIMA, since assumes
+	stationarity which we don't have. you can still look at
+	it though...
+
+	if training on subset of data and then forecasting,
+	depending on when you stop training data forecast
+	will be greatly affected, e.g., a jump point may be
+	immediately after cut off so negative bias.
+
+	
+
+	don't model jump points. treat them as highly uncertain,
+	but the accuracy over long periods of time as more
+	significant and also more salient. so, we can average
+	out the jump points, giving us a more conservative
+	estimate of confidentiality.
+
+
+	to deal with the fact that trend estimates will be
+	influenced by training cut-off, maybe look at min and
+	max interval widths for jump points or something...?
+
+
+	---
+	normal regression
+
+	lets fit a model that makes sense
+
+		we can do it on change points
+		we can do it on original data set
+	
+	either way, let's fit the level-shifted non-constant
+	variance time series to Gompertz function
+
+	starts near 0 at 0, ends near 1 as t increases. maybe not
+	one but that's a nice pessimistic assumption.
+
+	estimate over entire data set. this is going to create
+	large residuals since it's jumpy and gompertz is
+	smooth and continuous. that's fine. this can represent
+	our uncertainty over where jumps take place.
+	this'll be good for creating confidence intervals and
+	when forecasting, prediction intervals.
+
+	gompertz justification: even without seeing the data,
+	we may think this is called for since adversary
+	is *learning* from observations. slow going at first,
+	then speeds up in the middle, then slows down
+	(diminishing returns). this is a common model for
+	learning. we also know that the performance is
+	between 0 and 1 and must start out near zero. it may
+	not reach anywhere close to one... maybe we estimate
+	the asymptotic limit, or maybe we hypothesize that
+	H0: limit = 1
+	and see how compatible the model is to that assumption.
+
+	predictive power:
+
+		data splitting
+
+		train on 70%
+		test on 30%
+
+		calculate MSE for test data.
+		actually: MSE on smoothed data?
+			use change points, interpolate,
+			let that be the data.?
+
+		maybe exponential smoothing does better?
+	
+	problems with regression model:
+
+		random terms (residuals in the model) may
+		be correlated. regression assumes non-correlated
+		and i.i.d.
+		
+		as such, model may be anticonservative. of course,
+		since the model already includes a large residual
+		error due to discontinuous jump points, this
+		may balance it out. forecast and find out. we
+		actually don't necessarily mind overly
+		pessimistic inferences, although i'd like the
+		model to be as accurate as possible and then
+		we can be pessimistic with our confidence
+		/ predictive intervals.
+
+
+Use regression with time and lagged values of responses as predictors. AR models boil down to this. You can lag values by a row, two rows, etc and run a multiple linear regression with those as predictors and you've built yourself one. I'll dig into my notes later and put up an example if it'd help
+		
+
+
+
+
+
+
+# theoretical model
+let's not worry about fitting to some nonlinear function.
+let's assume its true.
+
+Y[t] ~ f(x1[t],x2[t],...,xk[t]) + eta[t]
+where eta[t] are ARIMA time series errors
+
+If we observed adversary's history of accuracy over and over again
+on independent trials, we would get an expectation of
+f(x1[t],...,xk[t]) for each t.
+
+but since we have ARIMA errors, not white noise, we get
+different results each run but assume that over a
+sufficiently long time we'll get there.
+
+i think the variance should REDUCE over time too.
+as sample is larger and larger, variance should
+decrease, with an equilibrium at 0 < c <= 1.
+
+gompertz function is ideal theoretical model
+
+
+# forecast distribution
+
+We use subscript t to denote time.
+y_t denotes the observation at time t.
+{y_t} denotes the time series (y[1],...,y[T])
+
+When forecasting, we either want to predict
+the future of the given time series {y_t},
+or we want to SAMPLE from {Y_t}, the random
+time series we are attempting to model,
+from some arbitrary point that is independent.
+When forecasting given y[1],...,y[t-1], this
+is kind of a conditional distribution and
+we want to know Y[t] | y[t-1],...
+
+When forecasting, we usually mean the expectation
+or average value of the forecast distribution
+given what came before.
+we denote this by hat{y}_{t|t-1}.
+
+
+Let I be the information we have.
+Y[t] | I
+as the probability distribution.
+
+a prior, we assume E[Y[t]] = f(...)
+with ARIMA forecast errors. So, we subtract
+f(...) from data and model the errors
+using the arima process.
+
+we even want to be able to forecast
+from T,
+    hat{y}_{T+h|T} for h=1,...
+sometimes T=0 and we just want to
+generate a completely independent
+time series that plausibly comes
+from the adversary. this should have
+prediction intervals. wider than
+confidence intervals, to be sure.

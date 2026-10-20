@@ -1,0 +1,396 @@
+/**
+ * Local LLM demo: SmolLM2-135M-Instruct via Wllama, with optional
+ * mixing from a token-level infinigram trained on this blog.
+ *
+ * Two generation paths:
+ *   1. λ = 0 / toggle off  → fast createChatCompletion
+ *   2. λ > 0 / toggle on   → token-by-token loop with per-step
+ *      logit bias derived from the infinigram's empirical
+ *      distribution of next tokens given the longest matched
+ *      suffix of the current context.
+ *
+ * Bias formula:
+ *     bias[t] = λ · log(p_ngram[t] · V)
+ *
+ * where V is the SmolLM2 vocab size. Unseen tokens get bias 0;
+ * tokens the corpus prefers get a positive lift relative to uniform.
+ *
+ * Tokenizer parity: the GGUF includes SmolLM2's tokenizer; we use
+ * Wllama's tokenize() to encode user input. The infinigram corpus
+ * was tokenized offline with the same SmolLM2 tokenizer (HF Python),
+ * so token IDs align.
+ */
+
+import { Wllama } from "https://cdn.jsdelivr.net/npm/@wllama/wllama@2.3.7/esm/index.js";
+import * as ig from "/infinigram/lib.js";
+
+const WLLAMA_VERSION = "2.3.7";
+const WLLAMA_BASE = `https://cdn.jsdelivr.net/npm/@wllama/wllama@${WLLAMA_VERSION}`;
+const WasmFromCDN = {
+  "single-thread/wllama.wasm": `${WLLAMA_BASE}/src/single-thread/wllama.wasm`,
+  "multi-thread/wllama.wasm": `${WLLAMA_BASE}/src/multi-thread/wllama.wasm`,
+};
+
+// System prompt by model size. Tiny models can't tell directives from
+// style: "be brief" and "admit uncertainty" become verbal tics that
+// dominate the output. So at small scale we use no instructions, just
+// a minimal role declaration. At larger scale the model can actually
+// follow guidance.
+const SYSTEM_PROMPTS = {
+  tiny: "You are a helpful assistant.",
+  mid: "You are a helpful assistant on Alex Towell's blog. Keep replies short.",
+  big: "You are a helpful assistant running locally on Alex Towell's blog (metafunctor.com). At sample time your output is mixed with a token-level n-gram over Alex's published prose, which biases your phrasing toward his register without giving you actual knowledge of his posts. Treat any topic-specific phrase you produce as a stylistic echo. Be brief.",
+};
+
+const MODEL_OPTIONS = {
+  "135M": {
+    label: "SmolLM2-135M-Instruct (~90 MB, fastest, dumbest)",
+    url: "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_K_M.gguf",
+    sizeLabel: "~90 MB",
+    systemPrompt: SYSTEM_PROMPTS.tiny,
+  },
+  "360M": {
+    label: "SmolLM2-360M-Instruct (~250 MB, mid)",
+    url: "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
+    sizeLabel: "~250 MB",
+    systemPrompt: SYSTEM_PROMPTS.mid,
+  },
+  "1.7B": {
+    label: "SmolLM2-1.7B-Instruct (~1 GB, slowest, most coherent)",
+    url: "https://huggingface.co/bartowski/SmolLM2-1.7B-Instruct-GGUF/resolve/main/SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+    sizeLabel: "~1 GB",
+    systemPrompt: SYSTEM_PROMPTS.big,
+  },
+};
+const DEFAULT_MODEL = "135M";
+
+const N_PREDICT = 200;
+const TEMP = 0.7;
+const TOP_P = 0.9;
+
+const els = {
+  status: document.getElementById("llm-status"),
+  loadBtn: document.getElementById("llm-load"),
+  modelSelect: document.getElementById("llm-model-select"),
+  controls: document.getElementById("llm-controls"),
+  priorToggle: document.getElementById("llm-prior-toggle"),
+  lambdaRow: document.getElementById("llm-lambda-row"),
+  lambdaInput: document.getElementById("llm-lambda"),
+  lambdaValue: document.getElementById("llm-lambda-value"),
+  form: document.getElementById("llm-form"),
+  input: document.getElementById("llm-input"),
+  send: document.getElementById("llm-send"),
+  log: document.getElementById("llm-log"),
+  progress: document.getElementById("llm-progress"),
+  progressBar: document.getElementById("llm-progress-bar"),
+};
+
+// Populate the model select with curated options.
+if (els.modelSelect) {
+  for (const [id, opt] of Object.entries(MODEL_OPTIONS)) {
+    const o = document.createElement("option");
+    o.value = id;
+    o.textContent = opt.label;
+    if (id === DEFAULT_MODEL) o.selected = true;
+    els.modelSelect.appendChild(o);
+  }
+}
+
+let wllama = null;
+let igLoaded = false;
+let busy = false;
+let eosTokenId = null;
+let stopTokenIds = new Set();
+let vocabSize = 49152; // overridden after infinigram loads
+let history = [{ role: "system", content: MODEL_OPTIONS[DEFAULT_MODEL].systemPrompt }];
+
+function setStatus(text, kind = "info") {
+  els.status.textContent = text;
+  els.status.dataset.kind = kind;
+}
+
+function setProgress(loaded, total) {
+  if (!total) {
+    els.progress.hidden = true;
+    return;
+  }
+  els.progress.hidden = false;
+  const pct = Math.min(100, Math.round((loaded / total) * 100));
+  els.progressBar.style.width = pct + "%";
+  els.progressBar.textContent = pct + "%";
+}
+
+function appendMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = "llm-msg llm-" + role;
+  const label = document.createElement("div");
+  label.className = "llm-msg-role";
+  label.textContent = role === "user" ? "You" : "Tiny mind";
+  const body = document.createElement("div");
+  body.className = "llm-msg-body";
+  body.textContent = text;
+  div.appendChild(label);
+  div.appendChild(body);
+  els.log.appendChild(div);
+  els.log.scrollTop = els.log.scrollHeight;
+  return body;
+}
+
+async function loadModel() {
+  if (wllama) return;
+  const choice = els.modelSelect?.value || DEFAULT_MODEL;
+  const opt = MODEL_OPTIONS[choice] || MODEL_OPTIONS[DEFAULT_MODEL];
+  els.loadBtn.disabled = true;
+  if (els.modelSelect) els.modelSelect.disabled = true;
+  setStatus("Initializing runtime...", "loading");
+
+  // Reset history with the size-appropriate system prompt. Tiny
+  // models choke on abstract framing; big models benefit from it.
+  history = [{ role: "system", content: opt.systemPrompt }];
+
+  try {
+    wllama = new Wllama(WasmFromCDN);
+    setStatus(`Downloading ${choice} model (${opt.sizeLabel}, cached after first load)...`, "loading");
+
+    await wllama.loadModelFromUrl(opt.url, {
+      progressCallback: ({ loaded, total }) => setProgress(loaded, total),
+    });
+    setProgress(0, 0);
+
+    // Look up special-token ids directly from the model metadata.
+    // Tokenizing the literal strings doesn't work — without special
+    // handling, BPE just splits "<|im_end|>" into regular byte tokens.
+    eosTokenId = await wllama.getEOS();
+    const eotId = await wllama.getEOT?.();
+    const imEnd = await wllama.lookupToken?.("<|im_end|>");
+    const endOfText = await wllama.lookupToken?.("<|endoftext|>");
+    stopTokenIds = new Set(
+      [eosTokenId, eotId, imEnd, endOfText].filter(
+        (x) => typeof x === "number" && x >= 0,
+      ),
+    );
+    console.log("[ask] stop token ids:", Array.from(stopTokenIds), {
+      eosTokenId, eotId, imEnd, endOfText,
+    });
+
+    setStatus("Ready. Ask something simple.", "ready");
+    els.form.hidden = false;
+    els.controls.hidden = false;
+    els.loadBtn.hidden = true;
+    els.input.focus();
+  } catch (err) {
+    console.error(err);
+    setStatus("Failed to load: " + err.message, "error");
+    els.loadBtn.disabled = false;
+    if (els.modelSelect) els.modelSelect.disabled = false;
+  }
+}
+
+// The corpus base path for the infinigram. Lets the same app.js power
+// /ask/ (default: blog corpus) and /alex/ (chat-log corpus) without
+// duplication. Set by the page via `window.LLM_CORPUS_BASE = "/alex"`
+// before this module loads.
+const CORPUS_BASE = window.LLM_CORPUS_BASE || "/infinigram";
+
+async function ensureInfinigram() {
+  if (igLoaded) return;
+  setStatus("Loading voice prior...", "loading");
+  await ig.load({
+    base: CORPUS_BASE,
+    onProgress: (p) => setStatus("Voice prior: " + p.phase + "...", "loading"),
+  });
+  vocabSize = ig.vocabSize() || vocabSize;
+  igLoaded = true;
+}
+
+/**
+ * Format a chat history as a SmolLM2 ChatML-style prompt.
+ */
+function formatChat(messages) {
+  let s = "";
+  for (const m of messages) {
+    s += `<|im_start|>${m.role}\n${m.content}<|im_end|>\n`;
+  }
+  s += "<|im_start|>assistant\n";
+  return s;
+}
+
+/**
+ * Token-by-token generation with direct probability-space mixing.
+ *
+ * At each step we:
+ *   1. Run the LLM forward (via decode), get full softmax probabilities
+ *      for next token via Wllama's getLogits(-1).
+ *   2. Compute the infinigram's empirical next-token distribution from
+ *      the longest suffix of the current context that occurs in the
+ *      corpus. This is sparse (zero everywhere outside continuations).
+ *   3. Mix in probability space:
+ *           p_mix[t] = alpha * p_ngram[t] + (1 - alpha) * p_llm[t]
+ *      Unseen-by-ngram tokens have p_ngram[t] = 0, so they retain
+ *      (1 - alpha) * p_llm[t]. Not zeroed.
+ *   4. Apply temperature to the mixed distribution and sample.
+ *
+ * We bypass Wllama's sampler chain entirely — we control the
+ * distribution directly. We still call decode([next]) to advance the
+ * KV cache so the next step's logits condition on the chosen token.
+ */
+async function generateMixed(messages, opts) {
+  const { alpha, onToken, signal } = opts;
+
+  const promptText = formatChat(messages);
+  const promptTokens = await wllama.tokenize(promptText, true);
+  await wllama.decode(promptTokens, {});
+
+  const allTokens = Array.from(promptTokens);
+  let fullText = "";
+
+  console.log("[ask] prompt token count:", promptTokens.length, "alpha:", alpha);
+
+  for (let step = 0; step < N_PREDICT; step++) {
+    if (signal && signal.aborted) break;
+
+    // 1. LLM probabilities for next token (full vocab; slow but
+    // principled — about 49k entries each step).
+    const llmEntries = await wllama.getLogits(-1);
+
+    // 2. Build sparse p_ngram from longest matching suffix in corpus.
+    let ngramProbs = null; // Map<token, prob>
+    if (alpha > 0 && igLoaded) {
+      const ctx = new Uint32Array(allTokens);
+      const m = ig.longestSuffixMatch(ctx, 1);
+      if (m.suffixLen > 0) {
+        const conts = ig.continuations(m.matchedTokens, 5000);
+        ngramProbs = new Map();
+        for (const c of conts) ngramProbs.set(c.token, c.prob);
+      }
+    }
+
+    // 3. Mix. Walk LLM entries; every token already has both p_llm
+    // (from this entry) and p_ngram (from map, default 0).
+    const mixedProbs = new Map(); // token → mixed prob
+    for (const { token, p: pLlm } of llmEntries) {
+      const pNgram = ngramProbs?.get(token) ?? 0;
+      mixedProbs.set(token, alpha * pNgram + (1 - alpha) * pLlm);
+    }
+    // Tokens that exist in the n-gram but not in LLM's reported
+    // logits: include them with full weighted ngram contribution.
+    if (ngramProbs) {
+      for (const [token, pNgram] of ngramProbs) {
+        if (!mixedProbs.has(token)) {
+          mixedProbs.set(token, alpha * pNgram);
+        }
+      }
+    }
+
+    // 4. Apply temperature, then sample.
+    const next = sampleFromDistribution(mixedProbs, TEMP);
+
+    const eog = await wllama.isTokenEOG?.(next);
+    if (eog || stopTokenIds.has(next)) break;
+
+    allTokens.push(next);
+    await wllama.decode([next], {});
+
+    const piece = await wllama.detokenize([next], true);
+    if (step < 5) {
+      console.log("[ask] step", step, "token", next, "piece", JSON.stringify(piece));
+    }
+    fullText += piece;
+    onToken(piece, fullText);
+
+    if (fullText.includes("<|im_end|>")) {
+      fullText = fullText.replace(/<\|im_end\|>.*$/s, "");
+      break;
+    }
+  }
+
+  return fullText.trim();
+}
+
+/**
+ * Sample from a {token: prob} map, with optional temperature.
+ * temperature > 1 = flatter, < 1 = sharper, 0.001 = effectively argmax.
+ */
+function sampleFromDistribution(probMap, temperature = 1.0) {
+  const entries = [...probMap.entries()];
+  let total = 0;
+  if (Math.abs(temperature - 1.0) > 1e-6) {
+    for (let i = 0; i < entries.length; i++) {
+      const tempered = Math.pow(entries[i][1], 1 / Math.max(temperature, 1e-6));
+      entries[i][1] = tempered;
+      total += tempered;
+    }
+  } else {
+    for (const [, p] of entries) total += p;
+  }
+  if (total <= 0) return entries[0][0];
+  const r = Math.random() * total;
+  let cum = 0;
+  for (const [token, p] of entries) {
+    cum += p;
+    if (r < cum) return token;
+  }
+  return entries[entries.length - 1][0];
+}
+
+async function send(prompt) {
+  if (busy || !wllama) return;
+  busy = true;
+  els.send.disabled = true;
+  els.input.disabled = true;
+
+  appendMessage("user", prompt);
+  history.push({ role: "user", content: prompt });
+  const responseBody = appendMessage("assistant", "");
+
+  const usePrior = els.priorToggle.checked;
+  const alpha = parseFloat(els.lambdaInput.value);
+
+  try {
+    if (usePrior) {
+      await ensureInfinigram();
+      const result = await generateMixed(history, {
+        alpha,
+        onToken: (_piece, fullText) => {
+          responseBody.textContent = fullText;
+          els.log.scrollTop = els.log.scrollHeight;
+        },
+      });
+      history.push({ role: "assistant", content: result });
+    } else {
+      const result = await wllama.createChatCompletion(history, {
+        nPredict: N_PREDICT,
+        sampling: { temp: TEMP, top_p: TOP_P },
+        onNewToken: (_token, _piece, currentText) => {
+          responseBody.textContent = currentText;
+          els.log.scrollTop = els.log.scrollHeight;
+        },
+      });
+      history.push({ role: "assistant", content: result });
+    }
+  } catch (err) {
+    console.error(err);
+    responseBody.textContent = "[error: " + err.message + "]";
+  } finally {
+    busy = false;
+    els.send.disabled = false;
+    els.input.disabled = false;
+    els.input.value = "";
+    els.input.focus();
+  }
+}
+
+els.loadBtn.addEventListener("click", loadModel);
+els.form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const prompt = els.input.value.trim();
+  if (prompt) send(prompt);
+});
+els.priorToggle.addEventListener("change", () => {
+  els.lambdaRow.hidden = !els.priorToggle.checked;
+});
+els.lambdaInput.addEventListener("input", () => {
+  els.lambdaValue.textContent = parseFloat(els.lambdaInput.value).toFixed(2);
+});
+
+setStatus("Pick a model size and click Load. The download is cached after first use.", "idle");
