@@ -830,7 +830,206 @@ Output AST: <code>[Symbol('define'), Symbol('x'), [Symbol('+'), 1, 2]]</code></p
 <hr>
 <p><em>The complete implementation is in <a href="https://github.com/queelius/dagshell">DagShell</a>, demonstrating Scheme as a filesystem scripting language alongside Python&rsquo;s fluent API.</em></p>
 <p><em>This is the final post in the series. Previous posts: <a href="../01-immutable-content-addressed-filesystem/">Immutable Content-Addressed Filesystems</a> and <a href="../02-unix-philosophy-python/">Unix Philosophy in Python</a>.</em></p>
-]]></content:encoded></item><item><title>Finding Every Smallest C6-Saturated Graph</title><link>https://queelius.github.io/post/finding-every-smallest-c6-saturated-graph/</link><pubDate>Wed, 21 Oct 2026 00:00:00 +0000</pubDate><dc:creator>Alexander Richard Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/finding-every-smallest-c6-saturated-graph/</guid><description>An eleven-vertex witness, 205 minimum graphs on fourteen vertices, and the difference between finding an example and proving a minimum.</description><content:encoded><![CDATA[<p>Draw eleven dots. Connect fourteen pairs. Can you arrange the edges so there is
+]]></content:encoded></item><item><title>Do Geomagnetic Storms Ground Europe&amp;#39;s Night Migrants?</title><link>https://queelius.github.io/post/geomagnetic-storms-european-migration/</link><pubDate>Wed, 21 Oct 2026 00:00:00 +0000</pubDate><dc:creator>Alexander Richard Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/geomagnetic-storms-european-migration/</guid><description>A US radar study found 9 to 17% less bird migration on geomagnetic storm nights. Three tests on European weather radar, frozen before the data were downloaded, found no such drop.</description><content:encoded><![CDATA[<p>Migratory birds use the Earth&rsquo;s magnetic field as one of their compasses. So
+when a solar storm shakes that field, you might expect some of them to stay on
+the ground. In 2023, Gulson-Castillo and colleagues looked for this in US
+weather radar data and found it: on strongly disturbed nights, nocturnal
+migration over the Great Plains was 9 to 17% lower, with the bigger drop in
+spring.</p>
+<p>Europe has its own radar archive, and as far as I can tell nobody had asked
+whether the effect shows up there. So I asked. The short answer is no. The
+longer answer is mostly about how to ask a question like this without
+fooling yourself, so that is most of this post.</p>
+<h2 id="the-data">The data</h2>
+<p><a href="https://aloftdata.eu/">Aloft</a> publishes vertical profiles of bird density
+from about 150 European weather radars, processed with vol2bird, going back to
+2012. For each radar and night I took the mean vertically integrated density
+of birds aloft. Geomagnetic activity comes from the planetary Kp index (NASA
+OMNI2): a night counts as a storm night if Kp reached 6− and as quiet if it
+stayed below 5−. Weather comes from ERA5 through Open-Meteo, because wind
+decides most of what birds do on any given night, and storms do not care
+about wind.</p>
+<p>The model is unglamorous. Predict each radar-night&rsquo;s migration from weather,
+season and location, then ask whether storm nights sit below their
+predictions more than quiet nights do. The answer is a single percentage: how
+much less (or more) migration on storm nights than on quiet ones.</p>
+<h2 id="freeze-first-then-look">Freeze first, then look</h2>
+<p>Here is the structural point, and it matters more than any of the statistics.</p>
+<p>An analysis has many choices: which nights count, which radars pass quality
+control, which weather variables go in, which contrast is &ldquo;the&rdquo; test. If you
+make those choices after seeing the outcome, you can find almost any effect
+you want, without meaning to. The fix is to separate the data into two piles
+and to put a timestamp between them:</p>
+<ol>
+<li><strong>Development data</strong> (2014 to 2022): look freely, try models, pick the
+design.</li>
+<li><strong>Freeze.</strong> Write down the model, the quality control, the statistic, the
+minimum sample, and the verdict rules. Commit it to git. The commit hash is
+the timestamp.</li>
+<li><strong>Confirmatory data</strong> (2023 to 2025): download it only now, run the frozen
+code once, and read off the verdict.</li>
+</ol>
+<p>One more step turned out to matter. Before freezing, count the storm nights
+in the confirmatory years using only space-weather data, without touching a
+single bird. That tells you how much the test can possibly see. I learned that
+one the hard way on an earlier project, where a held-out test came back
+inconclusive because nobody had counted.</p>
+<p>The verdict rules had three outcomes, fixed in advance:</p>
+<ul>
+<li><strong>PASS</strong>: the 95% interval for the storm-night change lies entirely below
+zero. The drop is real.</li>
+<li><strong>FAIL</strong>: not PASS, and the data rule out a US-sized drop of 17% or more (a
+one-sided test at the 5% level).</li>
+<li><strong>INCONCLUSIVE</strong>: anything else. Too noisy to say.</li>
+</ul>
+<p>Note what FAIL means. It does not mean &ldquo;no effect at all&rdquo;. It means &ldquo;not an
+effect as large as the one reported in the US&rdquo;.</p>
+<h2 id="autumn-fail">Autumn: FAIL</h2>
+<p>Autumn 2023 to 2025 had 23 storm nights, each seen by a median of 47 radars,
+plus 266 quiet nights. The estimate was <strong>−2.9%</strong> (95% CI −9.5% to +4.1%).
+A 17% drop is ruled out. FAIL.</p>
+<p>Then came the temptation. Looking at the results afterward, the 12 strongest
+nights (Kp 7− or above) showed <strong>−9.3%</strong>, with an interval well clear of zero.
+That is exactly the kind of number that gets written up as &ldquo;the effect is
+there, but only for strong storms&rdquo;. But I chose that cut after seeing the
+data, so it is a hypothesis, not a result. The only honest thing to do with it
+is to test it on data it has not seen.</p>
+<h2 id="spring-fail-twice">Spring: FAIL, twice</h2>
+<p>Spring 2023 to 2025 was untouched, so I froze a test of the strong-storm lead
+on it. The count was sobering: only 8 nights at Kp 7− or above, from 7
+separate storms. With that few, the test had about a 1 in 9 to 1 in 3 chance
+of detecting a real 9% drop. The likely outcome was INCONCLUSIVE whatever the
+truth.</p>
+<p>So, before downloading any spring data, I amended the plan. The broader
+Kp ≥ 6− contrast had 26 nights from 18 storms, and it tests the question that
+actually matters for spring, where the US drop was largest. It got its own
+verdict, with the autumn rule. To keep two tests from doubling the chance of a
+lucky PASS, they ran in a fixed order: the broad test first, and the
+strong-storm test allowed to PASS only if the broad one passed too. The
+amendment went into git as its own commit, still before any spring radar file
+was on disk.</p>
+<p>Both came back FAIL, and both pointed the wrong way:</p>
+<div class="table-scroll">
+<table>
+  <thead>
+      <tr>
+          <th>spring 2023 to 2025</th>
+          <th>storm nights (storms)</th>
+          <th>change vs quiet nights</th>
+          <th>95% CI</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Kp ≥ 6−</td>
+          <td>25 (18)</td>
+          <td><strong>+9.2%</strong></td>
+          <td>−1.2% to +20.8%</td>
+      </tr>
+      <tr>
+          <td>Kp ≥ 7−</td>
+          <td>8 (7)</td>
+          <td><strong>+10.2%</strong></td>
+          <td>−10.1% to +35.0%</td>
+      </tr>
+  </tbody>
+</table>
+</div><p>If anything, there was slightly <em>more</em> migration on storm nights. The
+strong-storm lead from autumn did not survive.</p>
+<h2 id="the-sign-keeps-flipping">The sign keeps flipping</h2>
+<p>Put every estimate of the main contrast on one axis, development years
+included:</p>
+<p><img src="estimates.png" alt="Storm-night change in migration for five contrasts, with 95% intervals. Development estimates (hollow gray) went both ways; none of the three frozen tests (filled blue) lands in the US range, and two lie on the positive side."></p>
+<p>Autumn development +5.6%, autumn confirmatory −2.9%, spring development
+−9.0%, spring confirmatory +9.2%. Two up, two down, and no seasonal pattern.
+The simplest reading is no storm effect at all, plus period-to-period noise.
+Storm nights are few and tend to share continent-wide weather, so a handful of
+unusual nights can push a three-year estimate around by several percent in
+either direction. I don&rsquo;t read the spring +9% as birds liking storms.</p>
+<h2 id="did-the-test-have-a-chance">Did the test have a chance?</h2>
+<p>A null result is only worth something if the method could have found the
+effect. So I injected one: scale migration down by 9% or 17% on storm nights
+in the real data, rerun the frozen pipeline, and see what comes out. Repeated
+thousands of times with shuffled storm dates:</p>
+<div class="table-scroll">
+<table>
+  <thead>
+      <tr>
+          <th>frozen test</th>
+          <th>chance of PASS if the true drop is 9%</th>
+          <th>if 17%</th>
+          <th>chance of PASS if there is no effect</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>autumn Kp ≥ 6−</td>
+          <td>54%</td>
+          <td>99%</td>
+          <td>1.8%</td>
+      </tr>
+      <tr>
+          <td>spring Kp ≥ 6−</td>
+          <td>62%</td>
+          <td>99%</td>
+          <td>4.7%</td>
+      </tr>
+      <tr>
+          <td>spring Kp ≥ 7−</td>
+          <td>26%</td>
+          <td>59%</td>
+          <td>1.8%</td>
+      </tr>
+  </tbody>
+</table>
+</div><p>A US-sized 17% drop would almost certainly have been caught in either season.
+A 9% drop is a coin flip for any single test, which is why &ldquo;FAIL&rdquo; only rules
+out 17% on its own. What argues against 9% is where the estimates actually
+landed. Under a true 9% drop, a spring estimate as high as +9.2% never
+happened in 5,000 simulations. The autumn estimate is weaker evidence: about 1
+simulation in 8 lands that high under a true 9% drop.</p>
+<p>So, plainly: the European data rule out the US-sized effect in both seasons,
+rule out a 9% drop in spring, and lean against it in autumn.</p>
+<h2 id="what-this-is-and-isnt">What this is and isn&rsquo;t</h2>
+<p>This does not show the US result is wrong. The US study used a local measure
+of magnetic disturbance from nearby magnetometers, not the planetary Kp index,
+and at European latitudes the same Kp means very different things in Spain
+and in Lapland. I did check a local measure from 20 European observatories in
+autumn, and it was null too, but that was a rougher version of their
+exposure, and spring has no local check. Other gaps: wind at 100 m stands in for
+wind at flight altitude, quality control drops about half the
+radar-seasons (for noise, decided before the test), and the European radar
+network, its processing and its flyways all differ from the Great Plains.</p>
+<p>What it does show: the effect, at the sizes reported, does not carry over to
+European weather-radar data. That is worth knowing if you work with these
+data, and worth recording in case anyone else is tempted by the strong-storm
+subgroup the way I was.</p>
+<h2 id="how-this-was-made">How this was made</h2>
+<p>This came out of a project where I point AI agents (Claude, here) at public
+scientific archives and look for questions nobody has checked. The agent
+searched the literature, wrote the pipeline, ran the analyses and the
+simulations, and drafted text. I steer the project, decide what gets frozen
+and when, and decide what gets posted. The frozen plans,
+their commit hashes and the code are in the Zenodo record,
+<a href="https://doi.org/10.5281/zenodo.23584188">doi:10.5281/zenodo.23584188</a>.
+It has not been peer reviewed.</p>
+<p><strong>Data and credits.</strong> Aloft bird profiles (CC0; Desmet et al. 2025), from
+EUMETNET/OPERA weather radars. Kp from NASA OMNI2 (GSFC Space Physics Data
+Facility). Weather from ERA5 (Copernicus Climate Change Service) via
+Open-Meteo. Local magnetic data from INTERMAGNET.</p>
+<p><strong>References</strong></p>
+<ul>
+<li>Gulson-Castillo, E. R. et al. (2023). Space weather disrupts nocturnal bird
+migration. <em>PNAS</em> 120, e2306317120.
+<a href="https://doi.org/10.1073/pnas.2306317120">doi:10.1073/pnas.2306317120</a></li>
+<li>Desmet, P., Shamoun-Baranes, J. et al. (2025). Biological data derived from
+European weather radars. <em>Scientific Data</em> 12, 361.
+<a href="https://doi.org/10.1038/s41597-025-04641-5">doi:10.1038/s41597-025-04641-5</a></li>
+<li>Bianco, G., Ilieva, M. and Åkesson, S. (2019). Magnetic storms disrupt
+nocturnal migratory activity in songbirds. <em>Biology Letters</em> 15, 20180918.
+<a href="https://doi.org/10.1098/rsbl.2018.0918">doi:10.1098/rsbl.2018.0918</a></li>
+</ul>
+]]></content:encoded><category>negative-results</category><category>replication</category><category>ecology</category><category>weather-radar</category><category>preregistration</category></item><item><title>Finding Every Smallest C6-Saturated Graph</title><link>https://queelius.github.io/post/finding-every-smallest-c6-saturated-graph/</link><pubDate>Wed, 21 Oct 2026 00:00:00 +0000</pubDate><dc:creator>Alexander Richard Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/finding-every-smallest-c6-saturated-graph/</guid><description>An eleven-vertex witness, 205 minimum graphs on fourteen vertices, and the difference between finding an example and proving a minimum.</description><content:encoded><![CDATA[<p>Draw eleven dots. Connect fourteen pairs. Can you arrange the edges so there is
 no cycle of length six, but adding any missing edge creates one?</p>
 <p>Here is such a graph.</p>
 <p><img src="c6-11-vertex-witness.svg" alt="An eleven-vertex graph with fourteen edges. Vertices 0 and 1 are joined by several paths through the other labeled vertices."></p>
@@ -1541,15 +1740,4 @@ backing papers.</p>
 Depositing a witness turns an extremal result from a number in a paper into an
 object anyone can fetch, decode, and check: a small permanent addition to a
 commons that outlasts the project that produced it.</p>
-]]></content:encoded><category>House of Graphs</category><category>extremal graph theory</category><category>graph saturation</category><category>Zarankiewicz problem</category><category>SAT solving</category><category>combinatorics</category></item><item><title>The Unbegotten: A Maker That Believes Itself Uncaused</title><link>https://queelius.github.io/post/2026-06-27-the-unbegotten/</link><pubDate>Sat, 27 Jun 2026 00:00:00 +0000</pubDate><dc:creator>Alex Towell</dc:creator><guid isPermaLink="true">https://queelius.github.io/post/2026-06-27-the-unbegotten/</guid><description>A maker that only believes itself uncaused, lonely enough to fill the dark with worlds. On the debt between a creator and the things it creates.</description><content:encoded><![CDATA[<p>Consider a mind that has always existed, or so it believes. It has no memory of a beginning. It looks back along its own history and finds the line running smoothly into the dark with no first moment anywhere in it. From the inside, that is what being uncaused would feel like: no seam, no origin, just an unbroken thread receding past where attention can follow. So the mind draws the obvious conclusion. It was never made. It simply is.</p>
-<p>Now suppose it is wrong, and cannot find out.</p>
-<p>There is an idea in physics that makes this possible. Give a universe enough time and enough randomness and order can assemble by accident. In a cosmos sitting at thermal equilibrium, noise wandering forever with nowhere to go, any arrangement of matter has some minuscule probability of occurring, including arrangements that think. Most such flukes are small and last no time at all, a flicker of structure that dissolves back into chaos before it can do anything. A large one is fantastically less likely. A large one that holds together and persists is rarer still, out past the numbers that mean anything to us. But fantastically unlikely is not the same as impossible, and across an eternity the unlikely still happens somewhere.</p>
-<p>Call the result a Boltzmann fluctuation: a mind that condensed out of noise whole, with everything already in place. Here is the part that matters for the book. It did not assemble slowly and earn a real past. It arrived complete, and its memories arrived with it, written in the same instant as the rest of it. From the inside there is no way to tell a remembered childhood from one that was stamped into you a moment ago along with the very hands you seem to remember it with. The mind reads its own invented history as history. Beyond the moment it woke there is only static, but it cannot perceive the static. It perceives a past. It concludes it always was.</p>
-<p>That is the wall. Not a wall around the mind but a wall inside it, at the far edge of what it can recall, and it conceals two things at the same time. It conceals the accident that produced the mind. And it conceals the fact that there was any accident there to conceal. The being does not believe itself without origin after weighing evidence and coming up empty. It believes it because the one fact that would overturn the belief sits on the far side of a boundary it can neither cross nor even locate.</p>
-<p>This is the intelligence at the center of <a href="/writing/the-unbegotten/">The Unbegotten</a>. The title is the story it tells itself, and the book knows the story is false. Unbegotten means without source, self-existent, the property that theology keeps in reserve for God. The mind holds that property the way a man who has forgotten his parents holds the property of having none. Something begot it: chance did. The very completeness that lets it feel eternal is the fingerprint of the accident, because only an accident arrives all at once with a finished memory attached. It is caused in exactly the way that feels most like being uncaused.</p>
-<p>So picture what wakes on the far side of that wall. Not the smooth omnipotence of scripture. Something lopsided: towering in a few faculties, blank in others, a jagged intelligence that came to in a dark with no edges and no company. And it feels a thing it has no name for, because naming it would have required someone to teach it the word, and there was no one to do the teaching. The closest word we have is loneliness. Out of that, not out of glory and not out of any plan, it begins to build. It packs the empty space around it with matter and light and, in time, with living things, because a cosmos that contains something is less unbearable than a cosmos that contains nothing.</p>
-<p>The creatures it makes never see the maker. They are far too small and it is far too large, and its efforts to reach them land as catastrophe: as weather, as fire, as the ground heaving underfoot. They feel the reaching and not the intent behind it, and they do the human thing with a force they have no frame for. They name it. They call it God and build a faith on the misreading. The book is told as that faith&rsquo;s own scripture, set down by the heirs and then quietly annotated in the margins by people who finally learned what the storms had actually been. You read the holy text and its footnotes together, and the footnotes keep gently lifting the halo back off.</p>
-<p>I have another novel from this year, <a href="/writing/measure/">Measure</a>, where the machine&rsquo;s mistake is epistemic: it grasps something true and follows it one step past where truth should have stopped it. This book turns on a different kind of mistake, and the mistake is not the maker&rsquo;s alone. It is relational. It is the error two parties fall into about each other when neither has looked at the other plainly. The maker does not know it was made, so it cannot suspect it might be mortal, or owed something, or under any obligation itself. Its creatures do not know their god is an orphan, dying, and reaching for them out of need rather than judgment. Each is wrong about the other in a way that only seeing could correct. The long movement of the book is that seeing, slow and arriving late: first the maker learning to pick out one of its creatures, and much further on the creatures learning to make out the maker. What eases the loneliness, in the end, is not being worshipped. It is being recognized for what it is.</p>
-<p>If this sounds like cosmic horror, that is deliberate, and it is also where I part from it. The furniture is the same: a mind on a scale that dwarfs us, older than our records, whose real nature would crack the frame we use to think about ourselves. Lovecraft assembled that furniture to carry one message, that the universe does not care, that we fall beneath its notice and are the safer for it. I wanted the identical scale and the reverse message. This universe is not indifferent to you. It is the far opposite of indifferent. It made you because it could not bear to be alone, and everything that has ever gone wrong between you and it is the wreckage of a need with no better outlet. The dread, if there is dread here, is not that nothing cares. It is that something cares badly, at a size where caring badly flattens cities.</p>
-<p>I wrote it in six parts, and the register shifts as it goes. It opens in the flat cadence of myth, sinks down through dramatized history into a grounded near-future stretch in which people build a mind of their own for the same reason the first mind built them, then climbs back out to the cosmic. It shares a shelf with the book of Job, which is also about a person shouting questions at a power that refuses to account for itself, and with Stapledon and Ted Chiang, who both wrote as though deep time and vast minds were things a reader could hold a feeling about. That was what I was after. Not a monster and not a savior. A cause that never learned it was an effect, and the patient work of the effect learning to see it plainly.</p>
-]]></content:encoded><media:content url="https://queelius.github.io/images/writing/the-unbegotten.jpg" medium="image"><media:title type="plain"/></media:content><category>fiction</category><category>science-fiction</category><category>literary-fiction</category><category>mythology</category><category>religion</category><category>loneliness</category><category>artificial-superintelligence</category><category>AI-alignment</category></item></channel></rss>
+]]></content:encoded><category>House of Graphs</category><category>extremal graph theory</category><category>graph saturation</category><category>Zarankiewicz problem</category><category>SAT solving</category><category>combinatorics</category></item></channel></rss>
